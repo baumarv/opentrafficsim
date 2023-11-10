@@ -5,6 +5,7 @@ import java.util.function.Consumer;
 
 import org.djutils.event.Event;
 import org.djutils.event.EventListener;
+import org.djutils.event.reference.ReferenceType;
 import org.opentrafficsim.editor.OtsEditor;
 import org.opentrafficsim.editor.XsdPaths;
 import org.opentrafficsim.editor.XsdTreeNode;
@@ -44,7 +45,8 @@ public class DefinitionsSaver implements EventListener, Consumer<XsdTreeNode>
         if (event.getType().equals(OtsEditor.NEW_FILE))
         {
             XsdTreeNodeRoot root = (XsdTreeNodeRoot) event.getContent();
-            root.addListener(this, XsdTreeNodeRoot.NODE_CREATED);
+            root.addListener(this, XsdTreeNodeRoot.NODE_CREATED, ReferenceType.WEAK);
+            root.addListener(this, XsdTreeNodeRoot.NODE_REMOVED, ReferenceType.WEAK);
         }
         else if (event.getType().equals(XsdTreeNodeRoot.NODE_CREATED))
         {
@@ -54,6 +56,11 @@ public class DefinitionsSaver implements EventListener, Consumer<XsdTreeNode>
             {
                 node.addConsumer("Save as include file...", this);
             }
+        }
+        else if (event.getType().equals(XsdTreeNodeRoot.NODE_REMOVED))
+        {
+            XsdTreeNode node = (XsdTreeNode) ((Object[]) event.getContent())[0];
+            node.removeListener(this, XsdTreeNodeRoot.NODE_REMOVED);
         }
     }
 
