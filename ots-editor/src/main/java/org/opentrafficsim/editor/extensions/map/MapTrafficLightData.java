@@ -7,7 +7,7 @@ import org.opentrafficsim.editor.OtsEditor;
 import org.opentrafficsim.editor.XsdTreeNode;
 
 /**
- * TrafficLightData for the editor Map.
+ * Traffic light data for the editor Map.
  * <p>
  * Copyright (c) 2023-2024 Delft University of Technology, PO Box 5, 2600 AA, Delft, the Netherlands. All rights reserved. <br>
  * BSD-style license. See <a href="https://opentrafficsim.org/docs/license.html">OpenTrafficSim License</a>.
@@ -29,13 +29,7 @@ public class MapTrafficLightData extends MapLineData implements TrafficLightData
     public MapTrafficLightData(final EditorMap map, final XsdTreeNode node, final OtsEditor editor)
     {
         super(map, node, editor);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected XsdTreeNode getLinkNode()
-    {
-        return getNode().getParent();
+        setLinkNode(getNode().getParent());
     }
 
     /** {@inheritDoc} */
