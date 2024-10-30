@@ -8,5 +8,4 @@
  * @author <a href="https://github.com/peter-knoppers">Peter Knoppers</a>
  * @author <a href="https://github.com/wjschakel">Wouter Schakel</a>
  */
-
 package org.opentrafficsim.kpi.sampling.data;
