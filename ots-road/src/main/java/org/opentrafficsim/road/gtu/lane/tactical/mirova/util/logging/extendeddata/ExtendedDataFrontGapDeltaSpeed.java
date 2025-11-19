@@ -35,7 +35,7 @@ public class ExtendedDataFrontGapDeltaSpeed extends ExtendedDataSpeed<GtuData>
             if (lgtu.getTacticalPlanner() instanceof MirovaTacticalPlanner p)
             {
                 Speed deltaSpeed = p.getContextManager().getCategory("Neighbors", NeighborsContext.class).getCachedValue(
-                        NeighborsContext.FRONT_GAP_DELTA_SPEED, Speed.class);
+                        NeighborsContext.FRONT_GAP_DELTA_SPEED_CURRENT, Speed.class);
                 if (deltaSpeed == null)
                 {
                     return FloatSpeed.instantiateSI(Float.NaN, SpeedUnit.SI);
