@@ -15,12 +15,10 @@ import org.opentrafficsim.core.gtu.plan.operational.OperationalPlanException;
 import org.opentrafficsim.core.network.LateralDirectionality;
 import org.opentrafficsim.core.network.NetworkException;
 import org.opentrafficsim.road.gtu.lane.perception.RelativeLane;
-import org.opentrafficsim.road.gtu.lane.perception.categories.neighbors.NeighborsPerception;
 import org.opentrafficsim.road.gtu.lane.perception.headway.HeadwayGtu;
 import org.opentrafficsim.road.gtu.lane.plan.operational.SimpleOperationalPlan;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ActionState;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.Desire;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.context.EgoContext;
@@ -29,10 +27,8 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.context.MacroTraffi
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.context.NeighborsContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.context.InfrastructureContext.ScanDirection;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.following.MirovaCarFollowingUtil;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.exclusive.GapSearchPattern.BreakingEndOfRampState;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.exclusive.GapSearchPattern.CongestedGapSearchState;
+
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.helpers.GapCandidate;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.helpers.HeuristicGapSelector;
 import org.opentrafficsim.road.network.lane.Lane;
 
 /**
@@ -207,8 +203,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                         {
                             Acceleration aToTarget = MirovaCarFollowingUtil.approachTargetSpeed(this.vehicle,
                                     Length.instantiateSI(10.0), targetSpeed);
-                            Acceleration egoDecelThreshold =
-                                    this.vehicle.getParameters().getParameter(MirovaParameters.egoDecelerationThreshold);
+                            Acceleration egoDecelThreshold = ego.getEgoDecelerationThreshold(this.pattern.getTargetDirection());
                             aToTarget = Acceleration.max(aToTarget, egoDecelThreshold);
 
                             return new SimpleOperationalPlan(aToTarget, this.pattern.patternSpecificTimestep);
@@ -400,13 +395,13 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                     }
                 }
             }
-
+            EgoContext ego = this.vehicle.getContext(EgoContext.class);
             if (actualFollower != null)
             {
                 Acceleration followerInducedDecel = neigh.getGtuDeceleration(actualFollower);
 
                 Parameters params = this.vehicle.getParameters();
-                Acceleration followerDecelThreshold = params.getParameter(MirovaParameters.followerDecelerationThreshold);
+                Acceleration followerDecelThreshold = ego.getFollowerDecelerationThreshold(this.pattern.getTargetDirection());
 
                 if (followerInducedDecel.si > followerDecelThreshold.si)
                 {
@@ -491,9 +486,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
 
             // Apply hard braking, but if the car-following model demands even harder braking
             // (e.g., to avoid crashing into the ego-lane leader), we must respect that.
-            Acceleration egoDecelThreshold =
-                    this.vehicle.getParameters().getParameter(MirovaParameters.egoDecelerationThreshold);
-            Acceleration inducedDecel = ego.getEgoDecelerationThreshold(this.pattern.getTargetDirection());
+            Acceleration egoDecelThreshold = ego.getEgoDecelerationThreshold(this.pattern.getTargetDirection());
+            Acceleration inducedDecel = Acceleration.NEGATIVE_INFINITY;
             HeadwayGtu adjacentLeader = neigh.getLeader(this.pattern.getTargetDirection());
             if (adjacentLeader != null)
             {
@@ -679,8 +673,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                     if (distToLaneEnd.si < 100.0)
                     {
                         // If we are very close to the end, be more conservative with braking to avoid unnecessary hard stops
-                        aStop = Acceleration.min(aStop,
-                                this.vehicle.getParameters().getParameter(MirovaParameters.egoDecelerationThreshold));
+                        aStop = Acceleration.min(aStop, ego.getEgoDecelerationThreshold(this.pattern.getTargetDirection()));
                     }
                     else
                     {
@@ -902,7 +895,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                         MirovaCarFollowingUtil.stop(this.vehicle, distToLaneEnd.minus(RAMP_END_BUFFER));
                 if (requiredStopAccel.si < -5.0)
                 {
-                    return transitionTo(new BreakingEndOfRampState(this.maneuverPattern));
+                    return transitionTo(new DecelEndOfRampState(this.maneuverPattern));
                 }
             }
 
@@ -981,7 +974,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
 
             if (distToLaneEnd != null)
             {
-                a = MirovaCarFollowingUtil.stop(this.vehicle, distToLaneEnd.minus(RAMP_END_BUFFER));
+
+                a = MirovaCarFollowingUtil.stop(this.vehicle, Length.max(distToLaneEnd.minus(RAMP_END_BUFFER), Length.ZERO));
             }
             else
             {
