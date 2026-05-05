@@ -481,11 +481,11 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
             HeadwayGtu candidate = this.maneuverPattern.getActiveMergeCandidate();
             if (candidate != null)
             {
-                if (!candidate.isParallel() || ego.getEgoSpeed().gt(new Speed(5.0, SpeedUnit.KM_PER_HOUR)))
+                if (candidate.getDistance().si > 0) // || ego.getEgoSpeed().gt(new Speed(5.0, SpeedUnit.KM_PER_HOUR))
                 {
                     aCooperation = MirovaCarFollowingUtil.followSingleLeader(vehicle, candidate);
                     Acceleration decelThreshold =
-                            this.vehicle.getParameters().getParameter(MirovaParameters.preemptiveCooperativeDeceleration);
+                            this.vehicle.getParameters().getParameter(MirovaParameters.cooperativeDecelerationThreshold);
                     aCooperation = aCooperation.gt(decelThreshold) ? aCooperation : decelThreshold; // Cap cooperative braking
                                                                                                     // to avoid dangerous
                                                                                                     // emergency stops on the

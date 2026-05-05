@@ -162,7 +162,7 @@ public final class MirovaParameters implements ConstraintInterface
         /** Deceleration threshold for cooperative maneuvers. */
         public static final ParameterTypeAcceleration cooperativeDecelerationThreshold = new ParameterTypeAcceleration(
                         "COOPERATIVE_DECELERATION_THRESHOLD", "Deceleration threshold for cooperative maneuvers",
-                        Acceleration.instantiateSI(-4.0), NEGATIVE);
+                        Acceleration.instantiateSI(-3.0), NEGATIVE);
 
         /** Deceleration for preemptive cooperative maneuvers. */
         public static final ParameterTypeAcceleration preemptiveCooperativeDeceleration = new ParameterTypeAcceleration(

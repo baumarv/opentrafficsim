@@ -114,9 +114,6 @@ public class SimpleLaneChangePattern extends ManeuverPattern
         /** Flag to prevent starting the move if speed is too low or gaps closed in the last micro-tick. */
         private Boolean startCondition = true;
 
-        /** Indicates if a slower lane change duration is used (congested mode). */
-        private boolean slowLaneChange = false;
-
         /**
          * Constructor using the dominant desire direction.
          * @param p the parent maneuver pattern
@@ -137,21 +134,6 @@ public class SimpleLaneChangePattern extends ManeuverPattern
             this.direction = direction;
             this.originLane = this.vehicle.getGtu().getLane();
 
-            EgoContext ego = this.vehicle.getContext(EgoContext.class);
-            if (ego.getEgoSpeed().si < 7.0)
-            {
-                this.slowLaneChange = true;
-                try
-                {
-                    // Use longer duration for congested merging efficiency
-                    this.vehicle.getParameters().setParameterResettable(ParameterTypes.LCDUR,
-                            this.vehicle.getParameters().getParameter(MirovaParameters.congestedLaneChangeDuration));
-                }
-                catch (ParameterException exception)
-                {
-                    exception.printStackTrace();
-                }
-            }
         }
 
         @Override
@@ -160,7 +142,6 @@ public class SimpleLaneChangePattern extends ManeuverPattern
             this.vehicle.commitToAction(this);
             this.maneuverPattern.setRunning(true);
 
-            InfrastructureContext infraCtx = this.vehicle.getContext(InfrastructureContext.class);
             NeighborsContext neighborsCtx = this.vehicle.getContext(NeighborsContext.class);
             EgoContext egoCtx = this.vehicle.getContext(EgoContext.class);
 
@@ -229,10 +210,7 @@ public class SimpleLaneChangePattern extends ManeuverPattern
 
             if (finished)
             {
-                if (this.slowLaneChange)
-                {
-                    this.vehicle.getParameters().resetParameter(ParameterTypes.LCDUR);
-                }
+
                 return finishManeuver();
             }
             return null;
@@ -244,10 +222,7 @@ public class SimpleLaneChangePattern extends ManeuverPattern
             // If the start condition failed before the move began, terminate the pattern
             if (!this.startCondition)
             {
-                if (this.slowLaneChange)
-                {
-                    this.vehicle.getParameters().resetParameter(ParameterTypes.LCDUR);
-                }
+                //
                 return finishManeuver();
             }
             return null;
@@ -259,7 +234,7 @@ public class SimpleLaneChangePattern extends ManeuverPattern
             // Utility can be based on the lane change desire magnitude, with a small penalty for slow maneuvers
             Desire desire = this.maneuverPattern.getMirovaTacticalPlanner().getLaneChangeDesire();
             double baseUtility = desire.getDirectionalDesire(this.direction);
-            return this.slowLaneChange ? baseUtility * 0.8 : baseUtility;
+            return baseUtility;
         }
 
         @Override
