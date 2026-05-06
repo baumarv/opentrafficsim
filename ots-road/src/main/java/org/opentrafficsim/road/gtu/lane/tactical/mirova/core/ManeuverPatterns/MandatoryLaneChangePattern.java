@@ -1081,7 +1081,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             EgoContext egoCtx = this.vehicle.getContext(EgoContext.class);
 
             HeadwayGtu targetLeader = neighborsCtx.getLeader(this.direction);
-            if (targetLeader != null)
+            if (targetLeader != null && !this.vehicle.getLaneChange().isChangingLane())
             {
                 egoCtx.triggerRelaxation(targetLeader);
             }
