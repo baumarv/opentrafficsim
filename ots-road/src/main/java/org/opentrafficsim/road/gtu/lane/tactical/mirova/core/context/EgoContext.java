@@ -278,28 +278,35 @@ public class EgoContext extends ContextCategory implements UpdatableContext
             return;
         }
 
-        Parameters params = this.vehicle.getParameters();
-        CarFollowingModel cfModel = this.vehicle.getCarFollowingModel();
-        Speed egoSpeed = this.getEgoSpeed();
-
-        Length targetHeadway = cfModel.desiredHeadway(params, egoSpeed);
-
-        Length spaceDeficit = Length.ZERO;
-        if (targetLeader.getDistance().lt(targetHeadway))
+        if (targetLeader.getAcceleration().ge(Acceleration.instantiateSI(-1.0))
+                && targetLeader.getSpeed().ge(new Speed(10.0, SpeedUnit.KM_PER_HOUR)))
         {
-            spaceDeficit = targetHeadway.minus(targetLeader.getDistance());
-        }
+            // Only trigger proactive relaxation if the target leader is not braking hard and has a reasonable speed.
+            // This prevents dangerous relaxation
 
-        // For proactive lane changes, speed deficit is Ego Speed minus Target Leader Speed
-        Speed speedDeficit = egoSpeed.minus(targetLeader.getSpeed());
+            Parameters params = this.vehicle.getParameters();
+            CarFollowingModel cfModel = this.vehicle.getCarFollowingModel();
+            Speed egoSpeed = this.getEgoSpeed();
 
-        if (spaceDeficit.si > 0.0 || speedDeficit.si > 0.0)
-        {
-            Duration tauSpace = params.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
-            Duration tauSpeed = params.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
+            Length targetHeadway = cfModel.desiredHeadway(params, egoSpeed);
 
-            // Force overwrite = true! Buffer will not decay until the trigger stops (i.e. physical LC starts).
-            triggerRelaxation(targetLeader.getId(), spaceDeficit, speedDeficit, tauSpace, tauSpeed, false);
+            Length spaceDeficit = Length.ZERO;
+            if (targetLeader.getDistance().lt(targetHeadway))
+            {
+                spaceDeficit = targetHeadway.minus(targetLeader.getDistance());
+            }
+
+            // For proactive lane changes, speed deficit is Ego Speed minus Target Leader Speed
+            Speed speedDeficit = egoSpeed.minus(targetLeader.getSpeed());
+
+            if (spaceDeficit.si > 0.0 || speedDeficit.si > 0.0)
+            {
+                Duration tauSpace = params.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
+                Duration tauSpeed = params.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
+
+                // Force overwrite = true! Buffer will not decay until the trigger stops (i.e. physical LC starts).
+                triggerRelaxation(targetLeader.getId(), spaceDeficit, speedDeficit, tauSpace, tauSpeed, false);
+            }
         }
     }
 
@@ -312,6 +319,16 @@ public class EgoContext extends ContextCategory implements UpdatableContext
     {
         return this.activeRelaxations.get(leaderId);
     }
+
+    /**
+     * Clears the active relaxation state for a specific leader.
+     * @param leaderId String; the ID of the leader GTU
+     */
+    public void clearRelaxationForLeader(final String leaderId)
+    {
+        this.activeRelaxations.remove(leaderId);
+    }
+
     // ----------------------------------------------------------------------
     // Lazy Accessors
     // ----------------------------------------------------------------------

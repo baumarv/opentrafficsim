@@ -396,21 +396,22 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         // getGtu().getSimulator().getSimulatorTime().toDisplayString(),
         // (this.currentActionState != null) ? this.currentActionState.toString() : "none",
         // getLaneChangeDesire().toString(), planAcc.toDisplayString());
-        // }
+        // // }
         // if ((getGtu().getLane().getLink().getId().equals("BC") || getGtu().getLane().getLink().getId().equals("F2B"))
-        // && (getGtu().getId().equals("259") || getGtu().getId().equals("1365")))
-        // {
-        // EgoContext egoContext = getContextManager().getCategory("Ego", EgoContext.class);
-        // InfrastructureContext infra = getContextManager().getCategory("Infrastructure", InfrastructureContext.class);
-        // System.out.printf("GTU: %s @simsec: %s -> State: %s, Desire: %s, Plan Acc: %s%n", getGtu().getId(),
-        // getGtu().getSimulator().getSimulatorTime().toDisplayString(),
-        // (this.currentActionState != null) ? this.currentActionState.toString() : "none",
-        // getLaneChangeDesire().toString(), planAcc.toDisplayString());
-        // System.out.printf(" -> Current Speed: %s%n", egoContext.getEgoSpeed().toDisplayString());
-        // System.out.printf(" -> Active Relaxations: %s, Acc Cache: %s%n", egoContext.getActiveRelaxations().toString(),
-        // egoContext.getCurrentTickAccelerationCache().toString());
-        // System.out.printf(" -> Distance to End of Lane right: %s%n", infra.getDistanceToLaneEnd(RelativeLane.CURRENT));
-        // }
+        // // && (getGtu().getId().equals("259") || getGtu().getId().equals("1365")))
+        if (getGtu().getId().equals("236"))
+        {
+            EgoContext egoContext = getContextManager().getCategory("Ego", EgoContext.class);
+            InfrastructureContext infra = getContextManager().getCategory("Infrastructure", InfrastructureContext.class);
+            System.out.printf("GTU: %s @simsec: %s -> State: %s, Desire: %s, Plan Acc: %s%n", getGtu().getId(),
+                    getGtu().getSimulator().getSimulatorTime().toDisplayString(),
+                    (this.currentActionState != null) ? this.currentActionState.toString() : "none",
+                    getLaneChangeDesire().toString(), planAcc.toDisplayString());
+            System.out.printf(" -> Current Speed: %s%n", egoContext.getEgoSpeed().toDisplayString());
+            System.out.printf(" -> Active Relaxations: %s, Acc Cache: %s%n", egoContext.getActiveRelaxations().toString(),
+                    egoContext.getCurrentTickAccelerationCache().toString());
+            System.out.printf(" -> Distance to End of Lane right: %s%n", infra.getDistanceToLaneEnd(RelativeLane.CURRENT));
+        }
 
         return this.operationalPlan;
     }
