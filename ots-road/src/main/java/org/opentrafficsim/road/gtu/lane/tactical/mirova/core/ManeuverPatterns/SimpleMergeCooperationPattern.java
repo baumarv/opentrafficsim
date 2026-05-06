@@ -14,6 +14,7 @@ import org.opentrafficsim.base.parameters.ParameterException;
 import org.opentrafficsim.base.parameters.ParameterType;
 import org.opentrafficsim.base.parameters.ParameterTypes;
 import org.opentrafficsim.core.gtu.GtuException;
+import org.opentrafficsim.core.gtu.TurnIndicatorStatus;
 import org.opentrafficsim.core.gtu.plan.operational.OperationalPlanException;
 import org.opentrafficsim.core.network.LateralDirectionality;
 import org.opentrafficsim.core.network.NetworkException;
@@ -56,6 +57,8 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
     /** The ID of the vehicle we are actively cooperating with. */
     protected String activeMergeCandidateId = null;
 
+    protected HeadwayGtu activeMergeCandidate = null;
+
     /** The lateral direction from which the candidate is merging. */
     protected LateralDirectionality directionOfMergeCandidate = null;
 
@@ -63,7 +66,7 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
     private static final Length DISTANCE_THRESHOLD_MERGE_COOPERATION = Length.instantiateSI(250.0);
 
     /** Time-to-lane-end threshold to consider cooperation. */
-    private static final Duration TIME_THRESHOLD_MERGE_COOPERATION = Duration.instantiateSI(15.0);
+    private static final Duration TIME_THRESHOLD_MERGE_COOPERATION = Duration.instantiateSI(30.0);
 
     /** List of lateral directions that currently require cooperation monitoring. */
     protected ArrayList<LateralDirectionality> listLanesWithCooperationNeeds = new ArrayList<>();
@@ -131,18 +134,6 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
         Speed egoSpeed = ego.getEgoSpeed();
         Speed vCong = this.vehicle.getParameters().getParameter(ParameterTypes.VCONG);
 
-        // Fetch standard adjacent lane drop distance
-        Length distanceToEndLeft = infra.getDistanceToLaneEnd(RelativeLane.LEFT);
-        if (distanceToEndLeft.eq(Length.POSITIVE_INFINITY))
-        {
-            LaneDropInfo dropInfoLeft = infra.getAnticipatedLaneDropInfo(LateralDirectionality.LEFT);
-            if (dropInfoLeft != null)
-            {
-                distanceToEndLeft = dropInfoLeft.getDistance();
-                this.anticipatedLaneDropMap.put(LateralDirectionality.LEFT, dropInfoLeft);
-            }
-        }
-
         Length distanceToEndRight = infra.getDistanceToLaneEnd(RelativeLane.RIGHT);
         if (distanceToEndRight.eq(Length.POSITIVE_INFINITY))
         {
@@ -154,21 +145,26 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
             }
         }
 
+        // Fetch standard adjacent lane drop distance
+        Length distanceToEndLeft = infra.getDistanceToLaneEnd(RelativeLane.LEFT);
+        if (distanceToEndLeft.eq(Length.POSITIVE_INFINITY))
+        {
+            LaneDropInfo dropInfoLeft = infra.getAnticipatedLaneDropInfo(LateralDirectionality.LEFT);
+            if (dropInfoLeft != null)
+            {
+                distanceToEndLeft = dropInfoLeft.getDistance();
+                this.anticipatedLaneDropMap.put(LateralDirectionality.LEFT, dropInfoLeft);
+            }
+        }
+        // if (this.vehicle.getGtu().getId().equals("89"))
+        // {
+        // System.out.println("GTU " + this.vehicle.getGtu().getId() + ": Checking merge cooperation context - EgoSpeed: "
+        // + egoSpeed + ", LeftLaneSpeed: " + leftLaneSpeed + ", RightLaneSpeed: " + rightLaneSpeed
+        // + ", DistanceToEndLeft: " + distanceToEndLeft + ", DistanceToEndRight: " + distanceToEndRight
+        // + ", anticipatedLaneDropMap: " + this.anticipatedLaneDropMap.toString());
+        // }
         if (egoSpeed.si > 15)
         {
-            // Check Left
-            if (distanceToEndLeft != null)
-            {
-                Duration timeToEndLeft = Duration.instantiateSI(distanceToEndLeft.si / egoSpeed.si);
-                if (timeToEndLeft.lt(TIME_THRESHOLD_MERGE_COOPERATION))
-                {
-                    this.listLanesWithCooperationNeeds.add(LateralDirectionality.LEFT);
-                }
-                else if (leftLaneSpeed != null && leftLaneSpeed.lt(vCong) && leftLaneSpeed.si < egoSpeed.si + 3.0)
-                {
-                    this.listLanesWithCooperationNeeds.add(LateralDirectionality.LEFT);
-                }
-            }
             // Check Right
             if (distanceToEndRight != null)
             {
@@ -176,23 +172,59 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
                 if (timeToEndRight.lt(TIME_THRESHOLD_MERGE_COOPERATION))
                 {
                     this.listLanesWithCooperationNeeds.add(LateralDirectionality.RIGHT);
+                    return true; // Immediate cooperation need due to lane drop proximity
                 }
                 else if (rightLaneSpeed != null && rightLaneSpeed.lt(vCong) && rightLaneSpeed.si < egoSpeed.si + 3.0)
                 {
                     this.listLanesWithCooperationNeeds.add(LateralDirectionality.RIGHT);
+                    return true; // Cooperation need due to anticipated congestion, even if lane drop is not imminent
                 }
             }
+            else
+            {
+                if (rightLaneSpeed != null && rightLaneSpeed.lt(vCong) && rightLaneSpeed.si < egoSpeed.si + 3.0)
+                {
+                    this.listLanesWithCooperationNeeds.add(LateralDirectionality.RIGHT);
+                    return true; // Cooperation need due to anticipated congestion, even if lane drop is not imminent
+                }
+            }
+            // Check Left
+            if (distanceToEndLeft != null)
+            {
+                Duration timeToEndLeft = Duration.instantiateSI(distanceToEndLeft.si / egoSpeed.si);
+                if (timeToEndLeft.lt(TIME_THRESHOLD_MERGE_COOPERATION))
+                {
+                    this.listLanesWithCooperationNeeds.add(LateralDirectionality.LEFT);
+                    return true; // Immediate cooperation need due to lane drop proximity
+                }
+                else if (leftLaneSpeed != null && leftLaneSpeed.lt(vCong) && leftLaneSpeed.si < egoSpeed.si + 3.0)
+                {
+                    this.listLanesWithCooperationNeeds.add(LateralDirectionality.LEFT);
+                    return true; // Cooperation need due to anticipated congestion, even if lane drop is not imminent
+                }
+            }
+            else
+            {
+                if (leftLaneSpeed != null && leftLaneSpeed.lt(vCong) && leftLaneSpeed.si < egoSpeed.si + 3.0)
+                {
+                    this.listLanesWithCooperationNeeds.add(LateralDirectionality.LEFT);
+                    return true; // Cooperation need due to anticipated congestion, even if lane drop is not imminent
+                }
+            }
+
         }
         else
         {
+            if (distanceToEndRight != null && distanceToEndRight.lt(DISTANCE_THRESHOLD_MERGE_COOPERATION))
+            {
+                this.listLanesWithCooperationNeeds.add(LateralDirectionality.RIGHT);
+                return true; // Immediate cooperation need due to lane drop proximity
+            }
             // Congested / Slow moving traffic - evaluate purely by distance
             if (distanceToEndLeft != null && distanceToEndLeft.lt(DISTANCE_THRESHOLD_MERGE_COOPERATION))
             {
                 this.listLanesWithCooperationNeeds.add(LateralDirectionality.LEFT);
-            }
-            if (distanceToEndRight != null && distanceToEndRight.lt(DISTANCE_THRESHOLD_MERGE_COOPERATION))
-            {
-                this.listLanesWithCooperationNeeds.add(LateralDirectionality.RIGHT);
+                return true; // Immediate cooperation need due to lane drop proximity
             }
         }
 
@@ -307,10 +339,12 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
             // transition if found
             InfrastructureContext infra =
                     this.vehicle.getContextManager().getCategory("Infrastructure", InfrastructureContext.class);
-            RelativeLane endingLane =
+            RelativeLane coopLane =
                     this.maneuverPattern.listLanesWithCooperationNeeds.get(0).isLeft() ? RelativeLane.LEFT : RelativeLane.RIGHT;
             // Check if there is an actual neighbor requesting to merge
-            if (infra.getDistanceToLaneEnd(endingLane).lt(this.vehicle.getParameters().getParameter(ParameterTypes.LOOKAHEAD))
+            MacroTrafficContext macro = this.vehicle.getContextManager().getCategory("MacroTraffic", MacroTrafficContext.class);
+            if ((infra.getDistanceToLaneEnd(coopLane).lt(this.vehicle.getParameters().getParameter(ParameterTypes.LOOKAHEAD))
+                    || macro.getAverageSpeed(coopLane).lt(this.vehicle.getParameters().getParameter(ParameterTypes.VCONG)))
                     && this.maneuverPattern.findNewCandidate(neighbors))
             {
                 return transitionTo(new OpenGapState(this.maneuverPattern));
@@ -329,7 +363,7 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
             EgoContext ego = this.vehicle.getContextManager().getCategory("Ego", EgoContext.class);
             InfrastructureContext infra =
                     this.vehicle.getContextManager().getCategory("Infrastructure", InfrastructureContext.class);
-
+            MacroTrafficContext macro = this.vehicle.getContextManager().getCategory("MacroTraffic", MacroTrafficContext.class);
             Acceleration aDirectLeader = ego.getCurrentCarFollowingAcceleration();
             Acceleration aAnticipation = new Acceleration(Double.POSITIVE_INFINITY, AccelerationUnit.METER_PER_SECOND_2);
 
@@ -364,6 +398,12 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
                         }
                     }
                 }
+                if (macro.getAverageSpeed(relativeLane).lt(this.vehicle.getParameters().getParameter(ParameterTypes.VCONG))
+                        && ego.getEgoSpeed().gt(this.vehicle.getParameters().getParameter(ParameterTypes.VCONG)))
+                {
+                    aAnticipation = Acceleration.min(aAnticipation,
+                            this.vehicle.getParameters().getParameter(MirovaParameters.preemptiveCooperativeDeceleration));
+                }
                 // else if (infra.getDistanceToLaneEnd(relativeLane).si > 50.0)
                 // {
                 // // 2. Antizipation im Nahbereich (Die endende Spur liegt unmittelbar neben uns)
@@ -381,12 +421,71 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
             }
             Acceleration accCoop = this.vehicle.getParameters().getParameter(MirovaParameters.cooperativeDecelerationThreshold);
             Acceleration finalAcceleration = Acceleration.min(aDirectLeader, Acceleration.max(aAnticipation, accCoop));
-            return new SimpleOperationalPlan(finalAcceleration, this.vehicle.getParameters().getParameter(ParameterTypes.DT));
+            SimpleOperationalPlan plan =
+                    new SimpleOperationalPlan(finalAcceleration, this.vehicle.getParameters().getParameter(ParameterTypes.DT));
+            // Boolean cooperativeLaneChangesEnabled =
+            // this.vehicle.getParameters().getParameter(MirovaParameters.cooperativeLaneChangesEnabled);
+            // if (cooperativeLaneChangesEnabled
+            // && this.maneuverPattern.listLanesWithCooperationNeeds.get(0).equals(LateralDirectionality.RIGHT))
+            // {
+            // plan.setIndicatorIntentLeft();
+            // }
+            // else if (cooperativeLaneChangesEnabled
+            // && this.maneuverPattern.listLanesWithCooperationNeeds.get(0).equals(LateralDirectionality.LEFT))
+            // {
+            // plan.setIndicatorIntentRight();
+            // }
+            return plan;
         }
 
         @Override
-        public SimpleOperationalPlan abort()
+        public SimpleOperationalPlan abort() throws ParameterException, GtuException, NetworkException
         {
+            this.maneuverPattern.activeMergeCandidate = this.maneuverPattern.getActiveMergeCandidate();
+            if (!this.maneuverPattern.anticipatedLaneDropMap.isEmpty())
+            {
+                InfrastructureContext infra =
+                        this.vehicle.getContextManager().getCategory("Infrastructure", InfrastructureContext.class);
+                for (LateralDirectionality dir : this.maneuverPattern.anticipatedLaneDropMap.keySet())
+                {
+                    LaneDropInfo dropInfo = this.maneuverPattern.anticipatedLaneDropMap.get(dir);
+                    if (dropInfo != null)
+                    {
+                        dropInfo = infra.getAnticipatedLaneDropInfo(dir);
+                        if (dropInfo != null)
+                        {
+                            this.maneuverPattern.anticipatedLaneDropMap.put(dir, dropInfo);
+                            return null; // LaneDrop is still ahead, so we keep the maneuver running
+                        }
+                    }
+                }
+            }
+
+            if (!this.maneuverPattern.listLanesWithCooperationNeeds.isEmpty())
+            {
+                for (LateralDirectionality dir : this.maneuverPattern.listLanesWithCooperationNeeds)
+                {
+                    InfrastructureContext infra =
+                            this.vehicle.getContextManager().getCategory("Infrastructure", InfrastructureContext.class);
+                    RelativeLane relativeLane = dir.isLeft() ? RelativeLane.LEFT : RelativeLane.RIGHT;
+                    Length distanceToLaneEnd = infra.getDistanceToLaneEnd(relativeLane);
+                    Length lookahead = this.vehicle.getParameters().getParameter(ParameterTypes.LOOKAHEAD);
+                    MacroTrafficContext macro =
+                            this.vehicle.getContextManager().getCategory("MacroTraffic", MacroTrafficContext.class);
+                    Speed laneSpeed = macro.getAverageSpeed(relativeLane);
+                    if ((distanceToLaneEnd == null || distanceToLaneEnd.gt(lookahead))
+                            && laneSpeed.gt(this.vehicle.getParameters().getParameter(ParameterTypes.VCONG)))
+                    {
+                        // System.out.print("GTU " + this.vehicle.getGtu().getId()
+                        // + ": Aborting merge cooperation pattern as lane drop is no longer relevant and traffic is flowing.");
+                        return finishManeuver();
+                    }
+                }
+            }
+            else
+            {
+                return finishManeuver();
+            }
             this.maneuverPattern.setRunning(false);
             return null;
         }
@@ -436,13 +535,14 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
         @Override
         public SimpleOperationalPlan next() throws OperationalPlanException, ParameterException, GtuException, NetworkException
         {
-            HeadwayGtu candidate = this.maneuverPattern.getActiveMergeCandidate();
+            this.maneuverPattern.activeMergeCandidate = this.maneuverPattern.getActiveMergeCandidate();
+            HeadwayGtu candidate = this.maneuverPattern.activeMergeCandidate;
 
             // Abort if candidate is gone or cancelled the indicator
             if (candidate == null || (!candidate.isLeftTurnIndicatorOn() && !candidate.isRightTurnIndicatorOn()
                     && candidate.getDistance().gt(this.vehicle.getParameters().getParameter(ParameterTypes.S0))))
             {
-                return finishManeuver();
+                return transitionTo(new AnticipationState(this.maneuverPattern));
             }
 
             // Evasion check remains active in case a gap on the opposite lane suddenly opens
@@ -478,7 +578,8 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
             Acceleration aDirectLeader = ego.getCurrentCarFollowingAcceleration();
             Acceleration aCooperation = new Acceleration(Double.POSITIVE_INFINITY, AccelerationUnit.METER_PER_SECOND_2);
 
-            HeadwayGtu candidate = this.maneuverPattern.getActiveMergeCandidate();
+            // was already updated in next
+            HeadwayGtu candidate = this.maneuverPattern.activeMergeCandidate;
             if (candidate != null)
             {
                 if (candidate.getDistance().si > 0) // || ego.getEgoSpeed().gt(new Speed(5.0, SpeedUnit.KM_PER_HOUR))
@@ -494,12 +595,30 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
             }
 
             Acceleration finalAcceleration = Acceleration.min(aCooperation, aDirectLeader);
-            return new SimpleOperationalPlan(finalAcceleration, this.vehicle.getParameters().getParameter(ParameterTypes.DT));
+
+            SimpleOperationalPlan plan =
+                    new SimpleOperationalPlan(finalAcceleration, this.vehicle.getParameters().getParameter(ParameterTypes.DT));
+            // Boolean cooperativeLaneChangesEnabled =
+            // this.vehicle.getParameters().getParameter(MirovaParameters.cooperativeLaneChangesEnabled);
+            // if (cooperativeLaneChangesEnabled
+            // && this.maneuverPattern.listLanesWithCooperationNeeds.get(0).equals(LateralDirectionality.RIGHT))
+            // {
+            // plan.setIndicatorIntentLeft();
+            // }
+            // else if (cooperativeLaneChangesEnabled
+            // && this.maneuverPattern.listLanesWithCooperationNeeds.get(0).equals(LateralDirectionality.LEFT))
+            // {
+            // plan.setIndicatorIntentRight();
+            // }
+            return plan;
         }
 
         @Override
-        public SimpleOperationalPlan abort()
+        public SimpleOperationalPlan abort() throws ParameterException, GtuException, NetworkException
         {
+
+            // we do not abort here since this state can only back to anticipation and the abort conditions are already checked
+            // there.
             this.maneuverPattern.setRunning(false);
             return null;
         }
@@ -507,12 +626,7 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
         @Override
         public double getUtility()
         {
-            // High utility when actively cooperating with a candidate
-            if (this.maneuverPattern.getActiveMergeCandidate() != null)
-            {
-                return 0.5;
-            }
-            return 0.3; // Moderate utility if we are in this state but lost the candidate
+            return 0.5; // Moderate utility if we are in this state but lost the candidate
         }
 
         @Override
