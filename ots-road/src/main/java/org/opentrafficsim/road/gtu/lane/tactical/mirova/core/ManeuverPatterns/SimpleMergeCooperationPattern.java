@@ -394,7 +394,8 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
 
                         if (downstreamSpeed.lt(this.vehicle.getParameters().getParameter(ParameterTypes.VCONG)))
                         {
-                            aAnticipation = MirovaCarFollowingUtil.approachTargetSpeed(vehicle, Length.ZERO, downstreamSpeed);
+                            aAnticipation = MirovaCarFollowingUtil.approachTargetSpeed(vehicle, Length.ZERO,
+                                    Speed.max(downstreamSpeed, new Speed(30.0, SpeedUnit.KM_PER_HOUR)));
                         }
                     }
                 }
