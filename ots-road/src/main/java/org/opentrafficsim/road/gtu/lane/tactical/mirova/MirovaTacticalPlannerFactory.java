@@ -19,10 +19,13 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.KnowledgeChunks.Dis
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.KnowledgeChunks.MandatoryLaneChangeChunk;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.KnowledgeChunks.MergeCooperationChunk;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.MandatoryLaneChangePattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.SimpleMergeCooperationPattern;
+
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.exclusive.GapSearchPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.exclusive.SimpleLaneChangePattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.parallel.AnticipateAdjacentCongestionPattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.parallel.AnticipateDownstreamMergePattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.parallel.AnticipatingUpstreamMergingSpeedPattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.parallel.GapOpenerPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.parallel.MergeCooperationPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.parallel.PreventUndercuttingPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.util.ConflictUtil;
@@ -162,7 +165,10 @@ public class MirovaTacticalPlannerFactory extends AbstractLaneBasedTacticalPlann
         planner.addParallelManeuverPattern(new PreventUndercuttingPattern(planner));
         // planner.addParallelManeuverPattern(new AnticipatingUpstreamMergingSpeedPattern(planner));
         planner.addParallelManeuverPattern(new MandatoryLaneChangePattern(planner));
-        planner.addParallelManeuverPattern(new SimpleMergeCooperationPattern(planner));
+        // planner.addParallelManeuverPattern(new SimpleMergeCooperationPattern(planner));
+        planner.addParallelManeuverPattern(new GapOpenerPattern(planner));
+        planner.addParallelManeuverPattern(new AnticipateDownstreamMergePattern(planner));
+        planner.addParallelManeuverPattern(new AnticipateAdjacentCongestionPattern(planner));
     }
 
 }
