@@ -347,6 +347,9 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
                     || macro.getAverageSpeed(coopLane).lt(this.vehicle.getParameters().getParameter(ParameterTypes.VCONG)))
                     && this.maneuverPattern.findNewCandidate(neighbors))
             {
+                // TODO: we need to test the candidates ability to move vs. our ability to move -> no coop if we can move on but
+                // the candidate cannot --> maybe just compare accelerations and abort OpenGapState if PL does not move
+                // this.maneuverPattern.activeMergeCandidate = this.maneuverPattern.getActiveMergeCandidate().get;
                 return transitionTo(new OpenGapState(this.maneuverPattern));
             }
 
@@ -583,6 +586,10 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
             HeadwayGtu candidate = this.maneuverPattern.activeMergeCandidate;
             if (candidate != null)
             {
+                // TODO: this is not exactly mandatory to prevent deadlocks, as long as merging vehicle has still enough room on
+                // his own lane
+                // we could allow this as log as we are slow or at standstill. Maybe once we are at standstill, we have to
+                // transition to another which handles standstill merging
                 if (candidate.getDistance().si > 0) // || ego.getEgoSpeed().gt(new Speed(5.0, SpeedUnit.KM_PER_HOUR))
                 {
                     aCooperation = MirovaCarFollowingUtil.followSingleLeader(vehicle, candidate);
