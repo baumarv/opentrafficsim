@@ -1,4 +1,4 @@
-package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.DiscretionaryLaneChangePatternOld;
+package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.old.DiscretionaryLaneChangePatternOld;
 
 import org.opentrafficsim.base.parameters.ParameterException;
 import org.opentrafficsim.base.parameters.ParameterTypes;
