@@ -291,7 +291,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
         @Override
         public double getUtility()
         {
-            return 0.5;
+            return 0.25;
         }
 
         @Override

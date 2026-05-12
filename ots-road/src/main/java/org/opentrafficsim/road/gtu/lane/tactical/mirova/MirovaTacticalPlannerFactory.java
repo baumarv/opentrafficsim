@@ -18,16 +18,15 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.KnowledgeChunks.Con
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.KnowledgeChunks.DiscretionaryLaneChangeChunk;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.KnowledgeChunks.MandatoryLaneChangeChunk;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.KnowledgeChunks.MergeCooperationChunk;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.AnticipateAdjacentCongestionPattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.AnticipateDownstreamMergePattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.GapOpenerPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.MandatoryLaneChangePattern;
-
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.exclusive.GapSearchPattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.exclusive.SimpleLaneChangePattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.parallel.AnticipateAdjacentCongestionPattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.parallel.AnticipateDownstreamMergePattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.parallel.AnticipatingUpstreamMergingSpeedPattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.parallel.GapOpenerPattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.parallel.MergeCooperationPattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.parallel.PreventUndercuttingPattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.PreventUndercuttingPattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.SimpleLaneChangePattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.old.exclusive.GapSearchPattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.old.parallel.AnticipatingUpstreamMergingSpeedPattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.old.parallel.MergeCooperationPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.util.ConflictUtil;
 import org.opentrafficsim.road.gtu.lane.tactical.util.TrafficLightUtil;
 import org.opentrafficsim.road.gtu.lane.tactical.util.lmrs.LmrsParameters;
