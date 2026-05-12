@@ -332,7 +332,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
         @Override
         public double getUtility()
         {
-            return 0.2;
+            return 0.1;
         }
 
         @Override
@@ -498,7 +498,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
         @Override
         public double getUtility()
         {
-            return 0.2;
+            return 0.1;
         }
 
         @Override
