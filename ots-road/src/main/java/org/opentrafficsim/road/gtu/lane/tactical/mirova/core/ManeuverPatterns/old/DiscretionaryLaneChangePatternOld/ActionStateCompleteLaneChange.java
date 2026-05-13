@@ -6,7 +6,8 @@ import org.opentrafficsim.core.gtu.GtuException;
 import org.opentrafficsim.core.network.LateralDirectionality;
 import org.opentrafficsim.core.network.NetworkException;
 import org.opentrafficsim.road.gtu.lane.plan.operational.SimpleOperationalPlan;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.*;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ActionState;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.context.EgoContext;
 
 /**
@@ -35,6 +36,11 @@ public class ActionStateCompleteLaneChange extends ActionState
     // Construction
     // ----------------------------------------------------------------------
 
+    /**
+     * Constructs a new ActionStateCompleteLaneChange.
+     * @param pattern the maneuver pattern
+     * @param direction the lane change direction
+     */
     public ActionStateCompleteLaneChange(final ManeuverPattern pattern, final LateralDirectionality direction)
     {
         super(pattern);
@@ -48,9 +54,10 @@ public class ActionStateCompleteLaneChange extends ActionState
     /**
      * Performs no control action. Instead, this method ensures that the vehicle returns to its standard control loop in the
      * next tactical update step.
-     * @return a neutral operational plan with zero acceleration (optional placeholder)
-     * @throws NetworkException
-     * @throws GtuException
+     * @return a neutral operational plan with zero acceleration
+     * @throws ParameterException if parameters cannot be retrieved
+     * @throws GtuException if GTU state is invalid
+     * @throws NetworkException if network error occurs
      */
     @Override
     public SimpleOperationalPlan executeControl() throws ParameterException, GtuException, NetworkException
@@ -64,7 +71,7 @@ public class ActionStateCompleteLaneChange extends ActionState
 
     /**
      * No transition follows — this is the terminal state.
-     * @return
+     * @return null, as this is the terminal state
      */
     @Override
     public SimpleOperationalPlan next()
@@ -75,7 +82,7 @@ public class ActionStateCompleteLaneChange extends ActionState
 
     /**
      * No abort possible — lane change already completed successfully.
-     * @return
+     * @return null, as no abort is possible
      */
     @Override
     public SimpleOperationalPlan abort()
