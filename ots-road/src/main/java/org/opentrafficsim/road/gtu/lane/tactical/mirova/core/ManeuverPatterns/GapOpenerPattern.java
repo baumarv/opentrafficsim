@@ -242,7 +242,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
                         ? LateralDirectionality.RIGHT : LateralDirectionality.LEFT;
                 if (neighbors.checkIfLaneChangeIsPossible(oppositeDir))
                 {
-                    return transitionTo(new PerformLaneChangeState(this.maneuverPattern, oppositeDir));
+                    return transitionTo(new PerformLaneChangeState(this.maneuverPattern, oppositeDir, true));
                 }
             }
 
@@ -326,7 +326,8 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
         @Override
         public String toString()
         {
-            return "OpenGapState";
+            return "OpenGapState[candidate=" + this.maneuverPattern.activeMergeCandidateId + ", direction="
+                    + this.maneuverPattern.directionOfMergeCandidate + "]";
         }
     }
 }

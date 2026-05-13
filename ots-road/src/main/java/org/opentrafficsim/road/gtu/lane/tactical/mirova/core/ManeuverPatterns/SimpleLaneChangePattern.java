@@ -81,18 +81,37 @@ public class SimpleLaneChangePattern extends ManeuverPattern
     public boolean checkAbility() throws ParameterException
     {
         this.targetDirection = this.vehicle.getLaneChangeDesire().dominantDirection();
+        EgoContext ego = this.vehicle.getContext(EgoContext.class);
         NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
 
         try
         {
-            // Verify if the gap and legal conditions allow for a safe transition
-            return (this.targetDirection.isLeft() || this.targetDirection.isRight())
+            // Discretionary LCs require the vehicle to be physically mobile. When stuck in congestion
+            // (near-zero speed AND no positive acceleration out of the jam), suppress the pattern so
+            // cooperative parallel patterns (e.g. GapOpener) can operate without being locked out.
+            boolean canMove = ego.getEgoSpeed().gt(Speed.instantiateSI(1.0))
+                    || ego.getCurrentCarFollowingAcceleration().gt(Acceleration.instantiateSI(0.0));
+
+            return canMove
+                    && (this.targetDirection.isLeft() || this.targetDirection.isRight())
                     && neigh.getIfLaneChangePossible(this.targetDirection);
         }
         catch (GtuException | NetworkException exception)
         {
             return false;
         }
+    }
+
+    @Override
+    public boolean isLaneChangePattern()
+    {
+        return true;
+    }
+
+    @Override
+    public double getDesire() throws ParameterException
+    {
+        return this.vehicle.getLaneChangeDesire().magnitude();
     }
 
     /*
@@ -113,6 +132,9 @@ public class SimpleLaneChangePattern extends ManeuverPattern
 
         /** Flag to prevent starting the move if speed is too low or gaps closed in the last micro-tick. */
         private Boolean startCondition = true;
+
+        /** Flag to indicate if the lane change is cooperative. */
+        private boolean isCooperative = false;
 
         /**
          * Constructor using the dominant desire direction.
@@ -136,10 +158,25 @@ public class SimpleLaneChangePattern extends ManeuverPattern
 
         }
 
+        /**
+         * Constructor for a specific direction and cooperative flag.
+         * @param p the parent maneuver pattern
+         * @param direction the lateral direction
+         * @param isCooperative flag to indicate if the lane change is cooperative
+         */
+        public PerformLaneChangeState(final ManeuverPattern p, final LateralDirectionality direction,
+                final boolean isCooperative)
+        {
+            super(p);
+            this.direction = direction;
+            this.originLane = this.vehicle.getGtu().getLane();
+            this.isCooperative = isCooperative;
+
+        }
+
         @Override
         public SimpleOperationalPlan executeControl() throws ParameterException, GtuException, NetworkException
         {
-            this.vehicle.commitToAction(this);
             this.maneuverPattern.setRunning(true);
 
             NeighborsContext neighborsCtx = this.vehicle.getContext(NeighborsContext.class);
@@ -151,7 +188,6 @@ public class SimpleLaneChangePattern extends ManeuverPattern
             Acceleration minAcc = egoCtx.getCurrentCarFollowingAcceleration();
             if (!this.vehicle.getLaneChange().isChangingLane())
             {
-                // If not already changing lane, we can relax on current leaders to allow for smoother merging
                 egoCtx.triggerRelaxation(neighborsCtx.getLeader(LateralDirectionality.NONE));
             }
 
@@ -170,24 +206,37 @@ public class SimpleLaneChangePattern extends ManeuverPattern
                 }
             }
 
-            SimpleOperationalPlan plan =
-                    new SimpleOperationalPlan(minAcc, this.maneuverPattern.getPatternSpecificTimestep(), this.direction);
-
-            // Safety check before initiating lateral move
+            // Evaluate lateral feasibility before committing. Only update startCondition when not
+            // yet in a lateral move — once the physical change has begun we must complete it.
             if (!this.vehicle.getLaneChange().isChangingLane())
             {
                 Speed resultingSpeed = egoSpeed.plus(minAcc.times(this.maneuverPattern.getPatternSpecificTimestep()));
                 this.startCondition =
-                        (resultingSpeed.gt(Speed.instantiateSI(5.0)) && neighborsCtx.getIfLaneChangePossible(this.direction));
+                        resultingSpeed.gt(Speed.instantiateSI(5.0)) && neighborsCtx.getIfLaneChangePossible(this.direction);
             }
 
             if (!this.startCondition)
             {
-                plan = new SimpleOperationalPlan(minAcc, this.maneuverPattern.getPatternSpecificTimestep(),
-                        LateralDirectionality.NONE);
+                // Conditions not met — return a longitudinal-only plan WITHOUT setting the action lock.
+                // This is critical: committing here would block cooperative parallel patterns from
+                // running (e.g. GapOpener) every tick the vehicle is stuck waiting for a gap.
+                SimpleOperationalPlan waitPlan = new SimpleOperationalPlan(minAcc,
+                        this.maneuverPattern.getPatternSpecificTimestep(), LateralDirectionality.NONE);
+                if (this.direction.isLeft())
+                {
+                    waitPlan.setIndicatorIntentLeft();
+                }
+                else if (this.direction.isRight())
+                {
+                    waitPlan.setIndicatorIntentRight();
+                }
+                return waitPlan;
             }
 
-            // Set turn indicators
+            // Conditions confirmed — commit and initiate the lateral move.
+            this.vehicle.commitToAction(this);
+            SimpleOperationalPlan plan =
+                    new SimpleOperationalPlan(minAcc, this.maneuverPattern.getPatternSpecificTimestep(), this.direction);
             if (this.direction.isLeft())
             {
                 plan.setIndicatorIntentLeft();
@@ -196,7 +245,6 @@ public class SimpleLaneChangePattern extends ManeuverPattern
             {
                 plan.setIndicatorIntentRight();
             }
-
             return plan;
         }
 
@@ -231,16 +279,47 @@ public class SimpleLaneChangePattern extends ManeuverPattern
         @Override
         public double getUtility()
         {
-            // Utility can be based on the lane change desire magnitude, with a small penalty for slow maneuvers
+            try
+            {
+                EgoContext ego = this.vehicle.getContext(EgoContext.class);
+                // A vehicle that cannot physically move has no utility for a discretionary LC.
+                boolean canMove = ego.getEgoSpeed().gt(Speed.instantiateSI(1.0))
+                        || ego.getCurrentCarFollowingAcceleration().gt(Acceleration.instantiateSI(0.0));
+                if (!canMove)
+                {
+                    return 0.0;
+                }
+            }
+            catch (Exception e)
+            {
+                return 0.0;
+            }
+
             Desire desire = this.maneuverPattern.getMirovaTacticalPlanner().getLaneChangeDesire();
             double baseUtility = desire.getDirectionalDesire(this.direction);
+
+            if (this.isCooperative)
+            {
+                try
+                {
+                    double dFree = this.vehicle.getParameters().getParameter(MirovaParameters.DFREE);
+                    // Cooperative LCs get a floor at D_FREE so they are preferred over non-cooperative
+                    // ones when desire is similar.
+                    baseUtility = Math.max(baseUtility, dFree);
+                }
+                catch (ParameterException e)
+                {
+                    // proceed with base utility
+                }
+            }
+
             return baseUtility;
         }
 
         @Override
         public String toString()
         {
-            return "PerformLaneChangeState[" + this.direction + "]";
+            return "PerformLaneChangeState[" + this.direction + ", isCooperative=" + this.isCooperative + "]";
         }
     }
 }

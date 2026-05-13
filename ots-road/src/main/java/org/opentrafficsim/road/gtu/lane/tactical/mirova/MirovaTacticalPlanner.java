@@ -28,10 +28,8 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.*;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.KnowledgeChunks.KnowledgeChunk;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPattern.PatternType;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.context.*;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.util.MaxUtilityArbitrator;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.util.HybridPlanArbitrator;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.util.PatternSelector;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.util.PlanArbitrator;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.util.ScoredOperationalPlan;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.following.MirovaCarFollowingUtil;
 import org.opentrafficsim.road.gtu.lane.tactical.util.ConflictUtil;
 import org.opentrafficsim.road.gtu.lane.tactical.util.SpeedLimitUtil;
@@ -80,11 +78,8 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     /** The maneuver pattern that won the arbitration in the previous simulation step. */
     protected ManeuverPattern lastActivePattern = null;
 
-    /** Hysteresis multiplier to prevent rapid switching between maneuver patterns (default 1.10 = +10%). */
-    protected double hysteresisMultiplier = 1.10;
-
-    /** The arbitration strategy used to select the winning operational plan. */
-    protected PlanArbitrator planArbitrator = new MaxUtilityArbitrator();
+    /** Hybrid three-step arbitrator for selecting the operational plan each tick. */
+    protected HybridPlanArbitrator hybridArbitrator;
 
     // ----------------------------------------------------------------------
     // LMRS Desire Dynamics
@@ -191,6 +186,7 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         this.params = getGtu().getParameters();
         this.laneChange.setDesiredLaneChangeDuration(getGtu().getParameters().getParameter(ParameterTypes.LCDUR));
         this.createTime = gtu.getSimulator().getSimulatorTime();
+        this.hybridArbitrator = new HybridPlanArbitrator(this);
     }
 
     // ----------------------------------------------------------------------
@@ -279,74 +275,31 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         // 5. Reset operational plan for this time step
         this.operationalPlan = null;
 
-        // 6. Determine operational plan
-        // 6.1 Check if an action is strictly locked (Physical point of no return)
-        // 6.1 Check if an action is strictly locked (Physical point of no return)
-        if (this.lockedActionState != null)
+        // 6. Determine operational plan using the hybrid three-step arbitration scheme.
+        ArrayList<ManeuverPattern> allPatterns = new ArrayList<>();
+        allPatterns.addAll(this.exclusiveManeuverPatterns);
+        allPatterns.addAll(this.parallelManeuverPatterns);
+        ArrayList<ManeuverPattern> relevantPatterns = PatternSelector.getAllRelevantPatterns(allPatterns);
+
+        SimpleOperationalPlan arbitratedPlan = this.hybridArbitrator.arbitrate(relevantPatterns);
+
+        if (arbitratedPlan != null)
         {
-            this.operationalPlan = this.lockedActionState.update();
-            if (this.operationalPlan == null)
-            {
-                // Action finished its procedure this tick. Release lock and fall through to arbitration!
-                this.releaseActionLock();
-            }
+            this.operationalPlan = arbitratedPlan;
+            this.lastActivePattern = this.hybridArbitrator.getLastActivePattern();
+            this.currentActionState = this.hybridArbitrator.getLastActiveState();
         }
         else
         {
-            // 6.2 Arbitration: Evaluate all applicable patterns using the PlanArbitrator strategy
-            // NEU: Korrigierter Code (Refactoring)
-            List<ScoredOperationalPlan> proposedPlans = new ArrayList<>();
-            ArrayList<ManeuverPattern> allPatterns = new ArrayList<>(); // ArrayList explizit nutzen für Parameterübergabe
-            allPatterns.addAll(this.exclusiveManeuverPatterns);
-            allPatterns.addAll(this.parallelManeuverPatterns);
+            // Fallback: pure car-following when no pattern is active or yields a valid plan.
+            this.lastActivePattern = null;
+            this.currentActionState = null;
 
-            // 6.2a Vorfilterung: Nur anwendbare oder bereits laufende Manöver zulassen
-            ArrayList<ManeuverPattern> relevantPatterns = PatternSelector.getAllRelevantPatterns(allPatterns);
+            EgoContext egoContext = getContextManager().getCategory("Ego", EgoContext.class);
+            Acceleration cfAcceleration = egoContext.getCurrentCarFollowingAcceleration();
+            Duration dt = this.getGtu().getParameters().getParameter(ParameterTypes.DT);
 
-            // 6.2b Evaluation: Iteriere nur über die gefilterten, validen Patterns
-            for (ManeuverPattern pattern : relevantPatterns)
-            {
-                // Das Pattern ist kontextuell und physikalisch valide (oder läuft bereits).
-                // Jetzt generieren wir den vorgeschlagenen physischen Plan.
-                SimpleOperationalPlan proposedPlan = pattern.update();
-
-                if (proposedPlan != null)
-                {
-                    double utility = pattern.getCurrentActionState().getUtility();
-
-                    // Apply Hysteresis to prevent flickering during the initial selection phase
-                    if (pattern.equals(this.lastActivePattern))
-                    {
-                        utility *= this.hysteresisMultiplier;
-                    }
-
-                    // Wrap the proposal into the strategy-compatible object
-                    proposedPlans
-                            .add(new ScoredOperationalPlan(proposedPlan, utility, pattern, pattern.getCurrentActionState()));
-                }
-            }
-
-            // 6.3 Execute arbitration strategy if at least one plan was proposed
-            if (!proposedPlans.isEmpty())
-            {
-                ScoredOperationalPlan winningPlan = this.planArbitrator.arbitrate(proposedPlans);
-
-                this.operationalPlan = winningPlan.getOperationalPlan();
-                this.lastActivePattern = winningPlan.getSourcePattern();
-                this.currentActionState = winningPlan.getSourceState();
-            }
-            else
-            {
-                // 6.4 Fallback: Pure Car-Following (only invoked if no pattern is active or returns a valid plan)
-                this.lastActivePattern = null;
-                this.currentActionState = null; // Ensure no orphaned state remains active
-
-                EgoContext egoContext = getContextManager().getCategory("Ego", EgoContext.class);
-                Acceleration cfAcceleration = egoContext.getCurrentCarFollowingAcceleration();
-                Duration dt = this.getGtu().getParameters().getParameter(ParameterTypes.DT);
-
-                this.operationalPlan = new SimpleOperationalPlan(cfAcceleration, dt, LateralDirectionality.NONE);
-            }
+            this.operationalPlan = new SimpleOperationalPlan(cfAcceleration, dt, LateralDirectionality.NONE);
         }
 
         // 7. Update turn indicator intent based on plan and desires
@@ -377,18 +330,18 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
 
         // Debug output for critical accelerations
         Acceleration planAcc = this.operationalPlan.getAcceleration();
-        if (planAcc.si < -8.0 || planAcc.eq(Acceleration.NEGATIVE_INFINITY) || planAcc.le(Acceleration.NEG_MAXVALUE))
-        {
-            EgoContext egoContext = getContextManager().getCategory("Ego", EgoContext.class);
-            System.out.printf(
-                    "GTU: %s @simsec: %s -> Plan acceleration: %s, ActionState: %s, Desire: %s, LaneChangeFraction: %s%n",
-                    getGtu().getId(), getGtu().getSimulator().getSimulatorTime().toDisplayString(), planAcc.toDisplayString(),
-                    (this.currentActionState != null) ? this.currentActionState.toString() : "none",
-                    getLaneChangeDesire().toString(),
-                    this.laneChange.isChangingLane() ? this.laneChange.getFraction() : "not changing");
-            System.out.printf(" -> Active Relaxations: %s, Acc Cache: %s%n", egoContext.getActiveRelaxations().toString(),
-                    egoContext.getCurrentTickAccelerationCache().toString());
-        }
+        // if (planAcc.si < -8.0 || planAcc.eq(Acceleration.NEGATIVE_INFINITY) || planAcc.le(Acceleration.NEG_MAXVALUE))
+        // {
+        // EgoContext egoContext = getContextManager().getCategory("Ego", EgoContext.class);
+        // System.out.printf(
+        // "GTU: %s @simsec: %s -> Plan acceleration: %s, ActionState: %s, Desire: %s, LaneChangeFraction: %s%n",
+        // getGtu().getId(), getGtu().getSimulator().getSimulatorTime().toDisplayString(), planAcc.toDisplayString(),
+        // (this.currentActionState != null) ? this.currentActionState.toString() : "none",
+        // getLaneChangeDesire().toString(),
+        // this.laneChange.isChangingLane() ? this.laneChange.getFraction() : "not changing");
+        // System.out.printf(" -> Active Relaxations: %s, Acc Cache: %s%n", egoContext.getActiveRelaxations().toString(),
+        // egoContext.getCurrentTickAccelerationCache().toString());
+        // }
 
         // if (getGtu().getLane().getId().equals("FORWARD4"))
         // {
@@ -397,9 +350,9 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         // (this.currentActionState != null) ? this.currentActionState.toString() : "none",
         // getLaneChangeDesire().toString(), planAcc.toDisplayString());
         // // }
-        // if ((getGtu().getLane().getLink().getId().equals("BC") || getGtu().getLane().getLink().getId().equals("F2B"))
-        // // && (getGtu().getId().equals("259") || getGtu().getId().equals("1365")))
-        if (getGtu().getId().equals("236"))
+        if ((getGtu().getLane().getLink().getId().equals("BC") || getGtu().getLane().getLink().getId().equals("F2B"))
+                && (getGtu().getId().equals("343") || getGtu().getId().equals("646")))
+        // if (getGtu().getId().equals("4") || getGtu().getId().equals("14") || getGtu().getId().equals("37"))
         {
             EgoContext egoContext = getContextManager().getCategory("Ego", EgoContext.class);
             InfrastructureContext infra = getContextManager().getCategory("Infrastructure", InfrastructureContext.class);
@@ -411,8 +364,21 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
             System.out.printf(" -> Active Relaxations: %s, Acc Cache: %s%n", egoContext.getActiveRelaxations().toString(),
                     egoContext.getCurrentTickAccelerationCache().toString());
             System.out.printf(" -> Distance to End of Lane right: %s%n", infra.getDistanceToLaneEnd(RelativeLane.CURRENT));
+            System.out.printf(" -> Desired Headway: %s%n", getParameters().getParameter(ParameterTypes.T).toDisplayString());
         }
 
+        // if (getGtu().getLane().getLink().getId().equals("BC") && getGtu().getLane().getId().equals("FORWARD3")
+        // && this.currentActionState.toString().equals("DownstreamMergeAnticipationState"))
+        // {
+        // EgoContext egoContext = getContextManager().getCategory("Ego", EgoContext.class);
+        // InfrastructureContext infra = getContextManager().getCategory("Infrastructure", InfrastructureContext.class);
+        // System.out.printf(
+        // "GTU: %s @simsec: %s -> State: %s, Desire: %s, Plan Acc: %s, Speed: %s, Distance to End of Lane: %s%n",
+        // getGtu().getId(), getGtu().getSimulator().getSimulatorTime().toDisplayString(),
+        // (this.currentActionState != null) ? this.currentActionState.toString() : "none",
+        // getLaneChangeDesire().toString(), planAcc.toDisplayString(), egoContext.getEgoSpeed().toDisplayString(),
+        // infra.getDistanceToLaneEnd(RelativeLane.RIGHT).toDisplayString());
+        // }
         return this.operationalPlan;
     }
 
@@ -619,6 +585,15 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
             }
         }
         return freeDrivingTime;
+    }
+
+    /**
+     * Returns the currently locked action state, or {@code null} if no lock is active.
+     * @return the locked {@link ActionState}, or {@code null}
+     */
+    public ActionState getLockedActionState()
+    {
+        return this.lockedActionState;
     }
 
     /**

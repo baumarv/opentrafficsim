@@ -209,7 +209,9 @@ public class MergeCooperationPattern extends ManeuverPattern
     public HeadwayGtu getActiveMergeCandidate()
     {
         if (this.activeMergeCandidateId == null)
+        {
             return null;
+        }
 
         NeighborsContext neighbors = this.vehicle.getContextManager().getCategory("Neighbors", NeighborsContext.class);
 
@@ -296,6 +298,7 @@ public class MergeCooperationPattern extends ManeuverPattern
     public static class PreemptiveDecelerationState extends ActionState
     {
 
+        /** The parent MergeCooperationPattern. */
         private final MergeCooperationPattern maneuverPattern;
 
         /**
@@ -329,7 +332,9 @@ public class MergeCooperationPattern extends ManeuverPattern
             {
                 Iterable<HeadwayGtu> adjacentLeaders = neighbors.getLeaders(dir);
                 if (adjacentLeaders == null)
+                {
                     continue;
+                }
 
                 for (HeadwayGtu candidate : adjacentLeaders)
                 {
@@ -337,7 +342,9 @@ public class MergeCooperationPattern extends ManeuverPattern
                     boolean indicatesTowardsUs = (dir.isRight() && candidate.isLeftTurnIndicatorOn())
                             || (dir.isLeft() && candidate.isRightTurnIndicatorOn());
                     if (!indicatesTowardsUs)
+                    {
                         continue;
+                    }
 
                     // CHECK 2: Can Ego-Leader handle it?
                     boolean leaderSuitable = false;
@@ -345,7 +352,6 @@ public class MergeCooperationPattern extends ManeuverPattern
                     {
                         SortedSet<HeadwayGtu> tempSet = new TreeSet<>();
                         tempSet.add(candidate);
-                        PerceptionIterable<HeadwayGtu> iterable = new PerceptionIterableSet<>(tempSet);
                         Acceleration potentialLeaderDeceleration = null;
 
                         try
@@ -528,10 +534,13 @@ public class MergeCooperationPattern extends ManeuverPattern
     public static class OpenGapState extends ActionState
     {
 
+        /** The parent MergeCooperationPattern. */
         private final MergeCooperationPattern maneuverPattern;
 
+        /** Cooperation acceleration. */
         private Acceleration aCoop = Acceleration.NaN;
 
+        /** The merge candidate being cooperated with. */
         private HeadwayGtu mergeCandidate = null;
 
         /**
@@ -562,7 +571,7 @@ public class MergeCooperationPattern extends ManeuverPattern
         public SimpleOperationalPlan next() throws OperationalPlanException, ParameterException, NullPointerException,
                 IllegalArgumentException, GtuException, NetworkException
         {
-            if (this.mergeCandidate.isLeftTurnIndicatorOn() == false && this.mergeCandidate.isRightTurnIndicatorOn() == false)
+            if (!this.mergeCandidate.isLeftTurnIndicatorOn() && !this.mergeCandidate.isRightTurnIndicatorOn())
             {
                 return finishManeuver();
             }
@@ -641,10 +650,13 @@ public class MergeCooperationPattern extends ManeuverPattern
     public static class OpenGapCongestedState extends ActionState
     {
 
+        /** The parent MergeCooperationPattern. */
         private final MergeCooperationPattern maneuverPattern;
 
+        /** The merge candidate in congested state. */
         private HeadwayGtu mergeCandidate = null;
 
+        /** Cooperation acceleration for congestion. */
         private Acceleration aCoop = null;
 
         /**

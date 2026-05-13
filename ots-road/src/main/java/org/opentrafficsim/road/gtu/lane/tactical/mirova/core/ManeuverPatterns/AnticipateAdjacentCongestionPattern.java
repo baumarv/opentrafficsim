@@ -3,8 +3,6 @@ package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns;
 import java.io.Serializable;
 import java.util.ArrayList;
 
-import javax.crypto.Mac;
-
 import org.djunits.value.vdouble.scalar.Acceleration;
 import org.djunits.value.vdouble.scalar.Length;
 import org.djunits.value.vdouble.scalar.Speed;
@@ -44,7 +42,16 @@ public class AnticipateAdjacentCongestionPattern extends ManeuverPattern impleme
     private static final long serialVersionUID = 20260507L;
 
     /** Adjacent lanes currently identified as congested. */
-    protected ArrayList<LateralDirectionality> congestedLanes = new ArrayList<>();
+    private ArrayList<LateralDirectionality> congestedLanes = new ArrayList<>();
+
+    /**
+     * Returns the list of congested lanes.
+     * @return the list of congested lanes
+     */
+    public ArrayList<LateralDirectionality> getCongestedLanes()
+    {
+        return this.congestedLanes;
+    }
 
     /**
      * Constructs a new AnticipateAdjacentCongestionPattern.
