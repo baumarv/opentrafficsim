@@ -26,6 +26,7 @@ import org.djutils.io.URLResource;
 import org.opentrafficsim.animation.GraphLaneUtil;
 import org.opentrafficsim.base.parameters.ParameterException;
 import org.opentrafficsim.base.parameters.ParameterSet;
+import org.opentrafficsim.base.parameters.ParameterType;
 import org.opentrafficsim.base.parameters.ParameterTypes;
 import org.opentrafficsim.base.parameters.Parameters;
 import org.opentrafficsim.core.definitions.DefaultsNl;
@@ -230,8 +231,9 @@ public class MergeScenario extends ScenarioGenerator
                     {
                         Parameters parameters = getDefaultParameters();
 
-                        parameters.setParameter(ParameterTypes.TMAX, new Duration(0.7, DurationUnit.SI));
-                        parameters.setParameter(ParameterTypes.TMIN, new Duration(0.6, DurationUnit.SI));
+                        // parameters.setParameter(ParameterTypes.TMAX, new Duration(0.7, DurationUnit.SI));
+                        // parameters.setParameter(ParameterTypes.TMIN, new Duration(0.6, DurationUnit.SI));
+                        parameters.setParameter(ParameterTypes.T, new Duration(0.9, DurationUnit.SI)); // desired time headway
                         parameters.setParameter(MirovaParameters.socioSpeedSensitivity, 0.75);
                         DistContinuous vGain = new DistUniform(MergeScenario.this.stream, 20, 50);
                         parameters.setParameter(MirovaParameters.vGain, new Speed(vGain.draw(), SpeedUnit.KM_PER_HOUR));
@@ -282,8 +284,9 @@ public class MergeScenario extends ScenarioGenerator
                     public Parameters getParameters() throws ParameterException
                     {
                         Parameters parameters = getDefaultParameters();
-                        parameters.setParameter(ParameterTypes.TMAX, new Duration(0.9, DurationUnit.SI));
-                        parameters.setParameter(ParameterTypes.TMIN, new Duration(0.8, DurationUnit.SI));
+                        // parameters.setParameter(ParameterTypes.TMAX, new Duration(0.9, DurationUnit.SI));
+                        // parameters.setParameter(ParameterTypes.TMIN, new Duration(0.8, DurationUnit.SI));
+                        parameters.setParameter(ParameterTypes.T, new Duration(1.2, DurationUnit.SI)); // desired time headway
                         DistContinuous vGain = new DistUniform(MergeScenario.this.stream, 90, 110);
                         parameters.setParameter(MirovaParameters.vGain, new Speed(vGain.draw(), SpeedUnit.KM_PER_HOUR)); // higher
                                                                                                                          // vGain
