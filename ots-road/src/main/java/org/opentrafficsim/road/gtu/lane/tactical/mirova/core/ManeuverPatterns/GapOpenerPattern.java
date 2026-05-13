@@ -139,12 +139,18 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
      * Scans adjacent lanes for vehicles with active turn indicators pointing toward the ego lane within the
      * {@link MirovaParameters#considerGapOpeningLookaheadDistance}. Cooperation with valid candidates must also meet
      * {@link MirovaParameters#cooperativeDecelerationThreshold} requirements to ensure safety.
+     * <p>
+     * Additionally verifies that the candidate has not moved past ego's own front leader. If the candidate's longitudinal
+     * distance exceeds ego's front gap, it will target a merge gap further downstream — cooperation from the ego would be
+     * ineffective because the gap being created is beyond the candidate's intended merge point.
+     * </p>
      * @return {@code true} if a candidate was found and locked; {@code false} otherwise
      * @throws ParameterException if parameter retrieval fails
      */
     protected boolean findNewCandidate() throws ParameterException
     {
         NeighborsContext neighbors = this.vehicle.getContextManager().getCategory("Neighbors", NeighborsContext.class);
+        Length egoFrontGap = neighbors.getFrontGapDistance(LateralDirectionality.NONE);
         // list with LateralDirectionality.Left and LateralDirectionality.Right
         ArrayList<LateralDirectionality> lanesToCheck = new ArrayList<>();
         lanesToCheck.add(LateralDirectionality.RIGHT);
@@ -168,25 +174,42 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
                             || (dir.isLeft() && candidate.isRightTurnIndicatorOn());
                     if (indicatesTowardsUs)
                     {
+                        // Candidate must lie within ego's own front gap. If it has moved past ego's leader it
+                        // will merge into a gap further downstream where ego's deceleration cannot contribute.
+                        if (distanceCandidate.gt(egoFrontGap))
+                        {
+                            continue;
+                        }
                         EgoContext ego = this.vehicle.getContextManager().getCategory("Ego", EgoContext.class);
-                        // we are behin the candidate and check deceleration
+                        // we are behind the candidate and check deceleration
                         if (distanceCandidate.gt(this.vehicle.getParameters().getParameter(ParameterTypes.S0)))
                         {
                             Acceleration cooperationAcceleration = neighbors.getGtuDeceleration(candidate);
                             Acceleration decelThreshold = this.vehicle.getParameters()
                                     .getParameter(MirovaParameters.cooperativeDecelerationThreshold);
+
                             if (cooperationAcceleration.ge(decelThreshold))
                             {
-                                this.activeMergeCandidateId = candidate.getId();
-                                this.directionOfMergeCandidate = dir;
-                                return true;
+                                // If our front leader can also cooperate, we prefer a cooperative gap opening from the front
+                                // leader to create a larger gap for the candidate and avoid unnecessary braking on the
+                                // mainline. If the leader cannot cooperate, we take the opportunity to cooperate ourselves and
+                                // open a gap for the candidate.
+                                if (leaderCanCooperate(candidate))
+                                {
+                                    return false;
+                                }
+                                else
+                                {
+                                    this.activeMergeCandidateId = candidate.getId();
+                                    this.directionOfMergeCandidate = dir;
+                                    return true;
+                                }
                             }
 
                         }
                         // we are parallel to the candidate, but since we have not much space to drive forward, we can also
                         // consider cooperation
-                        else if (ego.getEgoSpeed().lt(new Speed(5.0, SpeedUnit.KM_PER_HOUR))
-                                && neighbors.getFrontGapDistance(LateralDirectionality.NONE).si < 15.0)
+                        else if (ego.getEgoSpeed().lt(new Speed(5.0, SpeedUnit.KM_PER_HOUR)) && egoFrontGap.si < 15.0)
                         {
                             this.activeMergeCandidateId = candidate.getId();
                             this.directionOfMergeCandidate = dir;
@@ -197,6 +220,74 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
             }
         }
         return false;
+    }
+
+    /**
+     * Evaluates whether the front leader of the ego can cooperate by braking to create a gap for the candidate. Cooperation is
+     * only deemed feasible if the induced deceleration on the leader does not exceed the
+     * {@link MirovaParameters#cooperativeDecelerationThreshold}. This check is used to prevent unsafe emergency braking on the
+     * mainline when the candidate is too close to the leader or has a much higher speed.
+     * @param candidate the candidate GTU for which we are evaluating cooperation feasibility
+     * @return true if cooperation is feasible, false otherwise
+     * @throws ParameterException if a parameter lookup fails
+     **/
+    protected boolean leaderCanCooperate(HeadwayGtu candidate) throws ParameterException
+    {
+        HeadwayGtu frontLeader =
+                this.vehicle.getContextManager().getCategory("Neighbors", NeighborsContext.class).getCurrentLeader();
+        if (frontLeader == null)
+        {
+            // System.out.println("GTU: " + this.vehicle.getGtu().getId()
+            // + " has no front leader, cannot cooperate to open gap for candidate " + candidate.getId());
+            return false;
+        }
+
+        Length distanceToFrontLeader = frontLeader.getDistance();
+        Length leaderLength = frontLeader.getLength();
+        Speed leaderSpeed = frontLeader.getSpeed();
+        Length candidateDistance = candidate.getDistance();
+
+        Length leaderToCandidateDistance = candidateDistance.minus(distanceToFrontLeader).minus(leaderLength);
+
+        double safetyDistanceReductionFactor =
+                this.vehicle.getParameters().getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange);
+        Length leaderDesiredHeadway = frontLeader.getCarFollowingModel()
+                .desiredHeadway(frontLeader.getParameters(), leaderSpeed).times(safetyDistanceReductionFactor);
+
+        if (leaderToCandidateDistance.si < leaderDesiredHeadway.si)
+        {
+            // System.out.println("GTU " + this.vehicle.getGtu().getId() + ": Leader " + frontLeader.getId()
+            // + " cannot cooperate to open gap for candidate " + candidate.getId()
+            // + " because leaderToCandidateDistance (" + leaderToCandidateDistance
+            // + ") is less than leaderDesiredHeadway (" + leaderDesiredHeadway + ")");
+            return false;
+        }
+
+        Speed leaderCandidateSpeedDelta = leaderSpeed.minus(candidate.getSpeed());
+
+        if (leaderCandidateSpeedDelta.si <= 0)
+        {
+            // System.out.println("GTU " + this.vehicle.getGtu().getId() + ": Leader " + frontLeader.getId()
+            // + " cannot cooperate to open gap for candidate " + candidate.getId()
+            // + " because leaderCandidateSpeedDelta (" + leaderCandidateSpeedDelta + ") is not positive)");
+            return true;
+        }
+
+        Length leaderCandidateDistanceHeadwway = leaderToCandidateDistance.minus(leaderDesiredHeadway);
+
+        Acceleration leaderInducedAcceleration = Acceleration
+                .instantiateSI(-Math.pow(leaderCandidateSpeedDelta.si, 2.0) / (2.0 * leaderCandidateDistanceHeadwway.si));
+
+        Acceleration decelThreshold =
+                this.vehicle.getParameters().getParameter(MirovaParameters.cooperativeDecelerationThreshold);
+
+        // System.out.println("GTU " + this.vehicle.getGtu().getId() + ": Evaluating leader cooperation: leader="
+        // + frontLeader.getId() + ", candidate=" + candidate.getId() + ", leaderSpeed=" + leaderSpeed
+        // + ", candidateSpeed=" + candidate.getSpeed() + ", distanceToFrontLeader=" + distanceToFrontLeader
+        // + ", leaderToCandidateDistance=" + leaderToCandidateDistance + ", leaderDesiredHeadway=" + leaderDesiredHeadway
+        // + ", leaderInducedAcceleration=" + leaderInducedAcceleration + ", decelThreshold=" + decelThreshold);
+
+        return leaderInducedAcceleration.ge(decelThreshold);
     }
 
     /*
@@ -288,22 +379,31 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
             this.maneuverPattern.activeMergeCandidate = this.maneuverPattern.getActiveMergeCandidate();
             HeadwayGtu candidate = this.maneuverPattern.activeMergeCandidate;
             EgoContext ego = this.vehicle.getContextManager().getCategory("Ego", EgoContext.class);
-            if (candidate == null || ((!candidate.isLeftTurnIndicatorOn() && !candidate.isRightTurnIndicatorOn())))
+            if (candidate == null || (!candidate.isLeftTurnIndicatorOn() && !candidate.isRightTurnIndicatorOn()))
+            {
+                return finishManeuver();
+            }
 
+            NeighborsContext neighbors = this.vehicle.getContextManager().getCategory("Neighbors", NeighborsContext.class);
+            Length egoFrontGap = neighbors.getFrontGapDistance(LateralDirectionality.NONE);
+
+            // Abort if the candidate has moved past ego's own front leader. It will target a gap further
+            // downstream where ego's deceleration cannot contribute to a successful merge.
+            // if (candidate.getDistance().gt(egoFrontGap))
+
+            // Leader of Ego vehicle can cooperate to open a gap for the candidate
+            if (this.maneuverPattern.leaderCanCooperate(candidate))
             {
                 return finishManeuver();
             }
 
             if (candidate.getDistance().lt(this.vehicle.getParameters().getParameter(ParameterTypes.S0)))
             {
-                NeighborsContext neighbors = this.vehicle.getContextManager().getCategory("Neighbors", NeighborsContext.class);
-                if (ego.getEgoSpeed().ge(new Speed(5.0, SpeedUnit.KM_PER_HOUR))
-                        || neighbors.getFrontGapDistance(LateralDirectionality.NONE).si >= 15.0)
+                if (ego.getEgoSpeed().ge(new Speed(5.0, SpeedUnit.KM_PER_HOUR)) || egoFrontGap.si >= 15.0)
                 {
                     // Parallel cooperation is aborted once we have enough space to drive forward
                     return finishManeuver();
                 }
-
             }
             this.maneuverPattern.setRunning(false);
             return null;
