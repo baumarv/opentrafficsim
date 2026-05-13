@@ -160,11 +160,8 @@ public class MirovaTacticalPlannerFactory extends AbstractLaneBasedTacticalPlann
         planner.addExclusiveManeuverPattern(new SimpleLaneChangePattern(planner));
 
         // Parallel maneuvers (can run simultaneously alongside standard car-following)
-        // planner.addParallelManeuverPattern(new MergeCooperationPattern(planner));
         planner.addParallelManeuverPattern(new PreventUndercuttingPattern(planner));
-        // planner.addParallelManeuverPattern(new AnticipatingUpstreamMergingSpeedPattern(planner));
         planner.addParallelManeuverPattern(new MandatoryLaneChangePattern(planner));
-        // planner.addParallelManeuverPattern(new SimpleMergeCooperationPattern(planner));
         planner.addParallelManeuverPattern(new GapOpenerPattern(planner));
         planner.addParallelManeuverPattern(new AnticipateDownstreamMergePattern(planner));
         planner.addParallelManeuverPattern(new AnticipateAdjacentCongestionPattern(planner));
