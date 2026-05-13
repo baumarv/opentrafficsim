@@ -228,8 +228,8 @@ public class PreventUndercuttingPattern extends ManeuverPattern
             if (neighbors.getIfLaneChangePossible(LateralDirectionality.LEFT))
             {
                 // Transition to performing the lane change
-                return transitionTo(
-                        new SimpleLaneChangePattern.PerformLaneChangeState(this.maneuverPattern, LateralDirectionality.LEFT));
+                return transitionTo(new SimpleLaneChangePattern.PerformLaneChangeState(this.maneuverPattern,
+                        LateralDirectionality.LEFT, true));
             }
 
             Duration leftTimeHeadway = neighbors.getFrontGapTimeHeadway(LateralDirectionality.LEFT);
@@ -431,8 +431,8 @@ public class PreventUndercuttingPattern extends ManeuverPattern
             if (neighbors.getIfLaneChangePossible(LateralDirectionality.LEFT))
             {
                 finishManeuver();
-                return transitionTo(
-                        new SimpleLaneChangePattern.PerformLaneChangeState(this.maneuverPattern, LateralDirectionality.LEFT));
+                return transitionTo(new SimpleLaneChangePattern.PerformLaneChangeState(this.maneuverPattern,
+                        LateralDirectionality.LEFT, true));
             }
             else if (ShadowingState.getGapBehindLeftLeader(this.vehicle).si < this.vehicle.getParameters()
                     .getParameter(ParameterTypes.T).si)

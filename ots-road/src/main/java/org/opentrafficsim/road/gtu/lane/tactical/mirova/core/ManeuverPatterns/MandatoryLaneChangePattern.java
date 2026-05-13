@@ -137,6 +137,18 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         return true; // Assume the vehicle is always able to perform the maneuver if the context is right
     }
 
+    @Override
+    public boolean isLaneChangePattern()
+    {
+        return true;
+    }
+
+    @Override
+    public double getDesire() throws ParameterException
+    {
+        return this.vehicle.getLaneChangeDesire().magnitude();
+    }
+
     /*
      * ========================================================================================= 1) STATE: ANTICIPATE_MERGE
      * =========================================================================================
