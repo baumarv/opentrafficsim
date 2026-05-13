@@ -1,21 +1,23 @@
 package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.old.DiscretionaryLaneChangePatternOld;
 
-import org.djunits.unit.AccelerationUnit;
-import org.djunits.value.vdouble.scalar.*;
+import org.djunits.value.vdouble.scalar.Acceleration;
+import org.djunits.value.vdouble.scalar.Duration;
+import org.djunits.value.vdouble.scalar.Length;
+import org.djunits.value.vdouble.scalar.Speed;
 import org.opentrafficsim.base.parameters.ParameterException;
 import org.opentrafficsim.base.parameters.ParameterTypes;
 import org.opentrafficsim.base.parameters.Parameters;
 import org.opentrafficsim.core.gtu.GtuException;
-import org.opentrafficsim.core.gtu.TurnIndicatorIntent;
 import org.opentrafficsim.core.gtu.plan.operational.OperationalPlanException;
 import org.opentrafficsim.core.network.LateralDirectionality;
 import org.opentrafficsim.core.network.NetworkException;
-import org.opentrafficsim.road.gtu.lane.perception.headway.Headway;
 import org.opentrafficsim.road.gtu.lane.perception.headway.HeadwayGtu;
-import org.opentrafficsim.road.gtu.lane.plan.operational.LaneBasedOperationalPlan;
 import org.opentrafficsim.road.gtu.lane.plan.operational.SimpleOperationalPlan;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.*;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.context.*;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ActionState;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.context.EgoContext;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.context.InfrastructureContext;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.context.NeighborsContext;
 import org.opentrafficsim.road.gtu.lane.tactical.util.CarFollowingUtil;
 import org.opentrafficsim.road.network.lane.Lane;
 
@@ -39,7 +41,7 @@ public class ActionStatePerformLaneChange extends ActionState
     /** Target direction of the lane change (LEFT or RIGHT). */
     private final LateralDirectionality direction;
 
-    /** Desire hysteresis for abort stability. */
+    /** Desire hysteresis for abort stability (currently unused). */
     private static final double DESIRE_HYSTERESIS = 0.1;
 
     /** Cached origin lane to detect completion. */
@@ -51,8 +53,8 @@ public class ActionStatePerformLaneChange extends ActionState
 
     /**
      * ActionStatePerformLaneChange constructor.
-     * @param pattern
-     * @param direction
+     * @param pattern the maneuver pattern
+     * @param direction the lane change direction
      */
     public ActionStatePerformLaneChange(final ManeuverPattern pattern, final LateralDirectionality direction)
     {
@@ -72,8 +74,10 @@ public class ActionStatePerformLaneChange extends ActionState
      * The ego vehicle simultaneously considers the leader on its current lane and the leader on the target lane. The resulting
      * acceleration is the most restrictive (minimum) across these influences.
      * </p>
-     * @throws NetworkException
-     * @throws GtuException
+     * @return the operational plan for control
+     * @throws ParameterException if parameters cannot be retrieved
+     * @throws GtuException if GTU state is invalid
+     * @throws NetworkException if network error occurs
      */
     @Override
     public SimpleOperationalPlan executeControl() throws ParameterException, GtuException, NetworkException
@@ -135,11 +139,12 @@ public class ActionStatePerformLaneChange extends ActionState
 
     /**
      * Proceeds to {@link ActionStateCompleteLaneChange} when the lane change is completed.
-     * @return
-     * @throws NetworkException
-     * @throws GtuException
-     * @throws IllegalArgumentException
-     * @throws NullPointerException
+     * @return the operational plan on transition, or null
+     * @throws ParameterException if parameters cannot be retrieved
+     * @throws NetworkException if network error occurs
+     * @throws GtuException if GTU state is invalid
+     * @throws IllegalArgumentException if arguments are invalid
+     * @throws NullPointerException if required object is null
      */
     @Override
     public SimpleOperationalPlan next()
@@ -158,7 +163,9 @@ public class ActionStatePerformLaneChange extends ActionState
 
     /**
      * Checks whether the lane-change should be aborted (safety or desire violation).
-     * @return
+     * @return the operational plan on abort, or null
+     * @throws ParameterException if parameters cannot be retrieved
+     * @throws OperationalPlanException if operational plan is invalid
      */
     @Override
     public SimpleOperationalPlan abort() throws ParameterException, OperationalPlanException
