@@ -550,7 +550,7 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         Length desiredFrontHeadway = Length.NaN;
         try
         {
-            desiredFrontHeadway = getEgoSpeed().times(this.vehicle.getCurrentRelaxedHeadway())
+            desiredFrontHeadway = getEgoSpeed().times(this.vehicle.getParameters().getParameter(ParameterTypes.T))
                     .plus(this.vehicle.getParameters().getParameter(ParameterTypes.S0));
         }
         catch (ParameterException exception)
@@ -587,7 +587,7 @@ public class EgoContext extends ContextCategory implements UpdatableContext
                 }
                 else
                 {
-                    desiredRearHeadway = followerSpeed.times(this.vehicle.getCurrentRelaxedHeadway())
+                    desiredRearHeadway = followerSpeed.times(this.vehicle.getParameters().getParameter(ParameterTypes.T))
                             .plus(this.vehicle.getParameters().getParameter(ParameterTypes.S0));
                 }
             }
