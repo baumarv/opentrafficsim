@@ -333,15 +333,15 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         Acceleration planAcc = this.operationalPlan.getAcceleration();
         if (planAcc.si < -8.0 || planAcc.eq(Acceleration.NEGATIVE_INFINITY) || planAcc.le(Acceleration.NEG_MAXVALUE))
         {
-            EgoContext egoContext = getContextManager().getCategory("Ego", EgoContext.class);
+            // EgoContext egoContext = getContextManager().getCategory("Ego", EgoContext.class);
             System.out.printf(
                     "GTU: %s @simsec: %s -> Plan acceleration: %s, ActionState: %s, Desire: %s, LaneChangeFraction: %s%n",
                     getGtu().getId(), getGtu().getSimulator().getSimulatorTime().toDisplayString(), planAcc.toDisplayString(),
                     (this.currentActionState != null) ? this.currentActionState.toString() : "none",
                     getLaneChangeDesire().toString(),
                     this.laneChange.isChangingLane() ? this.laneChange.getFraction() : "not changing");
-            System.out.printf(" -> Active Relaxations: %s, Acc Cache: %s%n", egoContext.getActiveRelaxations().toString(),
-                    egoContext.getCurrentTickAccelerationCache().toString());
+            // System.out.printf(" -> Active Relaxations: %s, Acc Cache: %s%n", egoContext.getActiveRelaxations().toString(),
+            // egoContext.getCurrentTickAccelerationCache().toString());
         }
 
         // if (getGtu().getLane().getId().equals("FORWARD4"))
