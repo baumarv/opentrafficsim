@@ -980,22 +980,26 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         {
             EgoContext ego = this.vehicle.getContext(EgoContext.class);
             InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
+            NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
 
+            // Stop before ramp end
             Length distToLaneEnd = infra.getDistanceToLaneEnd();
-            Acceleration a;
+            Acceleration aStop = distToLaneEnd != null
+                    ? MirovaCarFollowingUtil.stop(this.vehicle, Length.max(distToLaneEnd.minus(RAMP_END_BUFFER), Length.ZERO))
+                    : ego.getCurrentCarFollowingAcceleration();
 
-            if (distToLaneEnd != null)
-            {
+            // Safety: don't rear-end current-lane leader
+            Acceleration aCf = ego.getCurrentCarFollowingAcceleration();
 
-                a = MirovaCarFollowingUtil.stop(this.vehicle, Length.max(distToLaneEnd.minus(RAMP_END_BUFFER), Length.ZERO));
-            }
-            else
-            {
-                // Fallback, falls wir im State sind, aber kein Ende mehr detektiert wird
-                a = ego.getCurrentCarFollowingAcceleration();
-            }
+            // Adapt to target-lane leader; floor at comfort deceleration threshold
+            HeadwayGtu putativeLeader = neigh.getLeader(this.pattern.getTargetDirection());
+            Acceleration aLeader = putativeLeader != null
+                    ? Acceleration.max(MirovaCarFollowingUtil.followSingleLeader(this.vehicle, putativeLeader),
+                            this.vehicle.getParameters().getParameter(MirovaParameters.egoDecelerationThreshold))
+                    : Acceleration.POSITIVE_INFINITY;
 
-            SimpleOperationalPlan plan = new SimpleOperationalPlan(a, this.pattern.patternSpecificTimestep);
+            Acceleration finalAcc = Acceleration.min(aStop, Acceleration.min(aCf, aLeader));
+            SimpleOperationalPlan plan = new SimpleOperationalPlan(finalAcc, this.pattern.patternSpecificTimestep);
             if (this.pattern.getTargetDirection().isLeft())
                 plan.setIndicatorIntentLeft();
             else if (this.pattern.getTargetDirection().isRight())
