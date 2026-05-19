@@ -1098,23 +1098,23 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 egoCtx.triggerRelaxation(targetLeader);
             }
 
-            // Start with relaxed car-following acceleration (already computed via Macro/Utility)
             Acceleration minAcc = egoCtx.getCurrentCarFollowingAcceleration();
 
             // Synchronize with leader on the target lane
-            if (this.vehicle.getGtu().getLane().equals(this.originLane))
+            // if (this.vehicle.getGtu().getLane().equals(this.originLane))
+            // if (this.vehicle.getLaneChange().isChangingLane() && this.vehicle.getLaneChange().getFraction() <= 0.5)
+            // {
+            Iterable<HeadwayGtu> leaders = neighborsCtx.getLeaders(this.direction);
+            for (HeadwayGtu leader : leaders)
             {
-                Iterable<HeadwayGtu> leaders = neighborsCtx.getLeaders(this.direction);
-                for (HeadwayGtu leader : leaders)
+                if (!this.vehicle.getLaneChange().isChangingLane())
                 {
-                    if (!this.vehicle.getLaneChange().isChangingLane())
-                    {
-                        egoCtx.triggerRelaxation(leader);
-                    }
-                    Acceleration aTarget = MirovaCarFollowingUtil.followSingleLeader(this.vehicle, leader);
-                    minAcc = Acceleration.min(minAcc, aTarget);
+                    egoCtx.triggerRelaxation(leader);
                 }
+                Acceleration aTarget = MirovaCarFollowingUtil.followSingleLeader(this.vehicle, leader);
+                minAcc = Acceleration.min(minAcc, aTarget);
             }
+            // }
 
             SimpleOperationalPlan plan =
                     new SimpleOperationalPlan(minAcc, this.pattern.patternSpecificTimestep, this.direction);
