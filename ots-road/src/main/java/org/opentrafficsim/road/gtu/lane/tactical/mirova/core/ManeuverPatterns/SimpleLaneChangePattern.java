@@ -92,8 +92,7 @@ public class SimpleLaneChangePattern extends ManeuverPattern
             boolean canMove = ego.getEgoSpeed().gt(Speed.instantiateSI(1.0))
                     || ego.getCurrentCarFollowingAcceleration().gt(Acceleration.instantiateSI(0.0));
 
-            return canMove
-                    && (this.targetDirection.isLeft() || this.targetDirection.isRight())
+            return canMove && (this.targetDirection.isLeft() || this.targetDirection.isRight())
                     && neigh.getIfLaneChangePossible(this.targetDirection);
         }
         catch (GtuException | NetworkException exception)
@@ -184,26 +183,23 @@ public class SimpleLaneChangePattern extends ManeuverPattern
 
             Speed egoSpeed = egoCtx.getEgoSpeed();
 
-            // Base acceleration from current lane car-following
-            Acceleration minAcc = egoCtx.getCurrentCarFollowingAcceleration();
-            if (!this.vehicle.getLaneChange().isChangingLane())
+            HeadwayGtu targetLeader = neighborsCtx.getLeader(LateralDirectionality.NONE);
+            if (targetLeader != null && !this.vehicle.getLaneChange().isChangingLane())
             {
-                egoCtx.triggerRelaxation(neighborsCtx.getLeader(LateralDirectionality.NONE));
+                egoCtx.triggerRelaxationWithReducedSafetyDistance(targetLeader);
             }
 
-            // Synchronize with leader on the target lane
-            if (this.vehicle.getGtu().getLane().equals(this.originLane))
+            Acceleration minAcc = egoCtx.getCurrentCarFollowingAcceleration();
+
+            Iterable<HeadwayGtu> leaders = neighborsCtx.getLeaders(this.direction);
+            for (HeadwayGtu leader : leaders)
             {
-                Iterable<HeadwayGtu> leaders = neighborsCtx.getLeaders(this.direction);
-                for (HeadwayGtu leader : leaders)
+                if (!this.vehicle.getLaneChange().isChangingLane())
                 {
-                    if (!this.vehicle.getLaneChange().isChangingLane())
-                    {
-                        egoCtx.triggerRelaxation(leader);
-                    }
-                    Acceleration aTarget = MirovaCarFollowingUtil.followSingleLeader(this.vehicle, leader);
-                    minAcc = Acceleration.min(minAcc, aTarget);
+                    egoCtx.triggerRelaxationWithReducedSafetyDistance(leader);
                 }
+                Acceleration aTarget = MirovaCarFollowingUtil.followSingleLeader(this.vehicle, leader);
+                minAcc = Acceleration.min(minAcc, aTarget);
             }
 
             // Evaluate lateral feasibility before committing. Only update startCondition when not
