@@ -202,13 +202,28 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         Speed gammaV = oldLeaderSpeed != null ? oldLeaderSpeed.minus(newLeader.getSpeed()) : Speed.ZERO;
 
         // 5. Trigger relaxation if there is ANY deficit (space OR speed)
-        if (gammaS.si > 0.0 || gammaV.si > 0.0)
+        // Speed relaxation is dangerous: if there is a speed deficit, we target a lower headway instead of relaxing the speed
+        // buffer, which would cause unwanted crashes.
+        Duration tauSpace = params.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
+        Duration tauSpeed = params.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
+        Double safetyDistanceReductionFactor = (params.getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange));
+        if (gammaV.si > 0.0)
         {
-            Duration tauSpace = params.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
-            Duration tauSpeed = params.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
-
-            triggerRelaxation(newLeader.getId(), gammaS, gammaV, tauSpace, tauSpeed, false);
+            triggerRelaxation(newLeader.getId(), Length.max(targetHeadway.times(safetyDistanceReductionFactor), gammaS),
+                    Speed.ZERO, tauSpace, tauSpeed, false);
         }
+        else if (gammaS.si > 0.0)
+        {
+            triggerRelaxation(newLeader.getId(), gammaS, Speed.ZERO, tauSpace, tauSpeed, false);
+        }
+
+        // if (gammaS.si > 0.0 || gammaV.si > 0.0)
+        // {
+        // Duration tauSpace = params.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
+        // Duration tauSpeed = params.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
+
+        // triggerRelaxation(newLeader.getId(), gammaS, gammaV, tauSpace, tauSpeed, false);
+        // }
     }
 
     /**
