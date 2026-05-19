@@ -25,6 +25,12 @@ public class RelaxationState
     /** The absolute simulation time when the lane change or cut-in occurred. */
     private final Duration startTime;
 
+    /**
+     * Cache for the current simulation time to avoid repeated calls to getSimulator().getSimulatorAbsTime() during buffer
+     * calculations.
+     */
+    private Duration currentTimeCache = Duration.NaN;
+
     /** The initial space headway deficit [m] at the time of the event (gamma_s). */
     private final Length initialSpaceDeficit;
 
@@ -65,6 +71,7 @@ public class RelaxationState
      */
     public Length getVirtualSpaceBuffer(final Duration currentTime)
     {
+        this.currentTimeCache = currentTime; // Update cache for potential future use
         double elapsedSi = currentTime.si - this.startTime.si;
 
         if (elapsedSi < 0.0 || this.initialSpaceDeficit.si <= 0.0)
@@ -88,6 +95,7 @@ public class RelaxationState
      */
     public Speed getVirtualSpeedBuffer(final Duration currentTime)
     {
+        this.currentTimeCache = currentTime; // Update cache for potential future use
         double elapsedSi = currentTime.si - this.startTime.si;
 
         // BUGFIX: Prevent negative speed buffers and invalid Tau to avoid massive decelerations.
@@ -98,5 +106,17 @@ public class RelaxationState
 
         double bufferSi = this.initialSpeedDeficit.si * Math.exp(-elapsedSi / this.tauSpeed.si);
         return Speed.instantiateSI(bufferSi);
+    }
+
+    /**
+     * Returns a string representation of the relaxation state.
+     * @return string representation of the relaxation state
+     */
+    public String toString()
+    {
+        return String.format(
+                "RelaxationState[startTime=%.2fs, initialSpaceDeficit=%.2fm, initialSpeedDeficit=%.2fm/s, tauSpace=%.2fs, tauSpeed=%.2fs, virtualSpaceBuffer=%.2fm, virtualSpeedBuffer=%.2fm/s]",
+                this.startTime.si, this.initialSpaceDeficit.si, this.initialSpeedDeficit.si, this.tauSpace.si, this.tauSpeed.si,
+                this.getVirtualSpaceBuffer(this.currentTimeCache).si, this.getVirtualSpeedBuffer(this.currentTimeCache).si);
     }
 }
