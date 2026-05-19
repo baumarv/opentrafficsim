@@ -244,6 +244,40 @@ public class EgoContext extends ContextCategory implements UpdatableContext
     }
 
     /**
+     * We trigger a relaxation with a reduced safety distance (instead of a speed buffer) for proactive lane changes, where we
+     * want to safely accept closer gaps before the physical lane change starts. This method can be called by maneuver patterns
+     * when they iniate a proactive lane change and want to preemptively relax towards the target leader.
+     * @param leader the target leader GTU to relax towards
+     * @throws ParameterException if required relaxation parameters are missing
+     */
+    public void triggerRelaxationWithReducedSafetyDistance(HeadwayGtu leader) throws ParameterException
+    {
+        if (leader == null)
+        {
+            return;
+        }
+
+        Parameters params = this.vehicle.getParameters();
+        CarFollowingModel cfModel = this.vehicle.getCarFollowingModel();
+        Speed egoSpeed = this.getEgoSpeed();
+
+        Length targetHeadway = cfModel.desiredHeadway(params, egoSpeed);
+
+        Double safetyDistanceReductionFactor = (params.getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange));
+        Length gammaS = Length.ZERO;
+        if (leader.getDistance().lt(targetHeadway))
+        {
+            gammaS = targetHeadway.minus(leader.getDistance());
+        }
+        Length reducedHeadway = Length.max(targetHeadway.times(safetyDistanceReductionFactor), gammaS);
+
+        Duration tauSpace = params.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
+        Duration tauSpeed = params.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
+
+        triggerRelaxation(leader.getId(), reducedHeadway, Speed.ZERO, tauSpace, tauSpeed);
+    }
+
+    /**
      * Explicitly registers or updates a relaxation state for a specific target vehicle.
      * <p>
      * If {@code forceOverwrite} is true, an ongoing relaxation is reset. This freezes the buffer at 100% while the maneuver is
@@ -314,14 +348,28 @@ public class EgoContext extends ContextCategory implements UpdatableContext
             // For proactive lane changes, speed deficit is Ego Speed minus Target Leader Speed
             Speed speedDeficit = egoSpeed.minus(targetLeader.getSpeed());
 
-            if (spaceDeficit.si > 0.0 || speedDeficit.si > 0.0)
+            Duration tauSpace = params.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
+            Duration tauSpeed = params.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
+            Double safetyDistanceReductionFactor =
+                    (params.getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange));
+            if (speedDeficit.si > 0.0)
             {
-                Duration tauSpace = params.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
-                Duration tauSpeed = params.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
-
-                // Force overwrite = true! Buffer will not decay until the trigger stops (i.e. physical LC starts).
-                triggerRelaxation(targetLeader.getId(), spaceDeficit, speedDeficit, tauSpace, tauSpeed, false);
+                triggerRelaxation(targetLeader.getId(),
+                        Length.max(targetHeadway.times(safetyDistanceReductionFactor), spaceDeficit), Speed.ZERO, tauSpace,
+                        tauSpeed, false);
             }
+            else if (spaceDeficit.si > 0.0)
+            {
+                triggerRelaxation(targetLeader.getId(), spaceDeficit, Speed.ZERO, tauSpace, tauSpeed, false);
+            }
+            // if (spaceDeficit.si > 0.0 || speedDeficit.si > 0.0)
+            // {
+            // Duration tauSpace = params.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
+            // Duration tauSpeed = params.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
+
+            // // Force overwrite = true! Buffer will not decay until the trigger stops (i.e. physical LC starts).
+            // triggerRelaxation(targetLeader.getId(), spaceDeficit, speedDeficit, tauSpace, tauSpeed, false);
+            // }
         }
     }
 
