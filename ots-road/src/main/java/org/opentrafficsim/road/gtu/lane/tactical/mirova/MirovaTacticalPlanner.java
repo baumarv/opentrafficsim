@@ -271,6 +271,7 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         // 4. Apply temporal relaxation (gradual decay of short-term motivation and headway adaptation)
         // updateTargetDesiredHeadway();
         // updateCurrentRelaxedHeadway();
+        updateDecelerationThresholds();
 
         // 5. Reset operational plan for this time step
         this.operationalPlan = null;
@@ -330,18 +331,18 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
 
         // Debug output for critical accelerations
         Acceleration planAcc = this.operationalPlan.getAcceleration();
-        // if (planAcc.si < -8.0 || planAcc.eq(Acceleration.NEGATIVE_INFINITY) || planAcc.le(Acceleration.NEG_MAXVALUE))
-        // {
-        // EgoContext egoContext = getContextManager().getCategory("Ego", EgoContext.class);
-        // System.out.printf(
-        // "GTU: %s @simsec: %s -> Plan acceleration: %s, ActionState: %s, Desire: %s, LaneChangeFraction: %s%n",
-        // getGtu().getId(), getGtu().getSimulator().getSimulatorTime().toDisplayString(), planAcc.toDisplayString(),
-        // (this.currentActionState != null) ? this.currentActionState.toString() : "none",
-        // getLaneChangeDesire().toString(),
-        // this.laneChange.isChangingLane() ? this.laneChange.getFraction() : "not changing");
-        // System.out.printf(" -> Active Relaxations: %s, Acc Cache: %s%n", egoContext.getActiveRelaxations().toString(),
-        // egoContext.getCurrentTickAccelerationCache().toString());
-        // }
+        if (planAcc.si < -8.0 || planAcc.eq(Acceleration.NEGATIVE_INFINITY) || planAcc.le(Acceleration.NEG_MAXVALUE))
+        {
+            EgoContext egoContext = getContextManager().getCategory("Ego", EgoContext.class);
+            System.out.printf(
+                    "GTU: %s @simsec: %s -> Plan acceleration: %s, ActionState: %s, Desire: %s, LaneChangeFraction: %s%n",
+                    getGtu().getId(), getGtu().getSimulator().getSimulatorTime().toDisplayString(), planAcc.toDisplayString(),
+                    (this.currentActionState != null) ? this.currentActionState.toString() : "none",
+                    getLaneChangeDesire().toString(),
+                    this.laneChange.isChangingLane() ? this.laneChange.getFraction() : "not changing");
+            System.out.printf(" -> Active Relaxations: %s, Acc Cache: %s%n", egoContext.getActiveRelaxations().toString(),
+                    egoContext.getCurrentTickAccelerationCache().toString());
+        }
 
         // if (getGtu().getLane().getId().equals("FORWARD4"))
         // {
@@ -350,22 +351,23 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         // (this.currentActionState != null) ? this.currentActionState.toString() : "none",
         // getLaneChangeDesire().toString(), planAcc.toDisplayString());
         // // }
-        if ((getGtu().getLane().getLink().getId().equals("BC") || getGtu().getLane().getLink().getId().equals("F2B"))
-                && (getGtu().getId().equals("343") || getGtu().getId().equals("646")))
-        // if (getGtu().getId().equals("4") || getGtu().getId().equals("14") || getGtu().getId().equals("37"))
-        {
-            EgoContext egoContext = getContextManager().getCategory("Ego", EgoContext.class);
-            InfrastructureContext infra = getContextManager().getCategory("Infrastructure", InfrastructureContext.class);
-            System.out.printf("GTU: %s @simsec: %s -> State: %s, Desire: %s, Plan Acc: %s%n", getGtu().getId(),
-                    getGtu().getSimulator().getSimulatorTime().toDisplayString(),
-                    (this.currentActionState != null) ? this.currentActionState.toString() : "none",
-                    getLaneChangeDesire().toString(), planAcc.toDisplayString());
-            System.out.printf(" -> Current Speed: %s%n", egoContext.getEgoSpeed().toDisplayString());
-            System.out.printf(" -> Active Relaxations: %s, Acc Cache: %s%n", egoContext.getActiveRelaxations().toString(),
-                    egoContext.getCurrentTickAccelerationCache().toString());
-            System.out.printf(" -> Distance to End of Lane right: %s%n", infra.getDistanceToLaneEnd(RelativeLane.CURRENT));
-            System.out.printf(" -> Desired Headway: %s%n", getParameters().getParameter(ParameterTypes.T).toDisplayString());
-        }
+        // if ((getGtu().getLane().getLink().getId().equals("BC") || getGtu().getLane().getLink().getId().equals("F2B"))
+        // // && (getGtu().getId().equals("343") || getGtu().getId().equals("646")))
+        // // if (getGtu().getId().equals("4") || getGtu().getId().equals("14") || getGtu().getId().equals("37"))
+        // && (getGtu().getId().equals("85") || getGtu().getId().equals("2168")))
+        // {
+        // EgoContext egoContext = getContextManager().getCategory("Ego", EgoContext.class);
+        // InfrastructureContext infra = getContextManager().getCategory("Infrastructure", InfrastructureContext.class);
+        // System.out.printf("GTU: %s @simsec: %s -> State: %s, Desire: %s, Plan Acc: %s%n", getGtu().getId(),
+        // getGtu().getSimulator().getSimulatorTime().toDisplayString(),
+        // (this.currentActionState != null) ? this.currentActionState.toString() : "none",
+        // getLaneChangeDesire().toString(), planAcc.toDisplayString());
+        // System.out.printf(" -> Current Speed: %s%n", egoContext.getEgoSpeed().toDisplayString());
+        // System.out.printf(" -> Active Relaxations: %s, Acc Cache: %s%n", egoContext.getActiveRelaxations().toString(),
+        // egoContext.getCurrentTickAccelerationCache().toString());
+        // System.out.printf(" -> Distance to End of Lane right: %s%n", infra.getDistanceToLaneEnd(RelativeLane.CURRENT));
+        // System.out.printf(" -> Desired Headway: %s%n", getParameters().getParameter(ParameterTypes.T).toDisplayString());
+        // }
 
         // if (getGtu().getLane().getLink().getId().equals("BC") && getGtu().getLane().getId().equals("FORWARD3")
         // && this.currentActionState.toString().equals("DownstreamMergeAnticipationState"))
@@ -858,22 +860,27 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         // =========================================================================================
 
         // 2. Leader-following (incorporating automatic 2-parameter relaxation via our Utility)
-        Iterable<HeadwayGtu> currentLeaders = neighbors.getLeaders(LateralDirectionality.NONE);
-        double maxLeadersToConsider = getParameters().getParameter(MirovaParameters.CF_MAX_LEADERS);
-        List<HeadwayGtu> limitedLeaders = new ArrayList<>();
-        int leaderCount = 0;
-        for (HeadwayGtu leader : currentLeaders)
+        // We do not need that when the current LC has already entered the traget lane
+        if (!getLaneChange().isChangingLane() || getLaneChange().getFraction() <= 0.5)
         {
-            if (leaderCount >= maxLeadersToConsider)
+
+            Iterable<HeadwayGtu> currentLeaders = neighbors.getLeaders(LateralDirectionality.NONE);
+            double maxLeadersToConsider = getParameters().getParameter(MirovaParameters.CF_MAX_LEADERS);
+            List<HeadwayGtu> limitedLeaders = new ArrayList<>();
+            int leaderCount = 0;
+            for (HeadwayGtu leader : currentLeaders)
             {
-                break;
+                if (leaderCount >= maxLeadersToConsider)
+                {
+                    break;
+                }
+                limitedLeaders.add(leader);
+                leaderCount++;
             }
-            limitedLeaders.add(leader);
-            leaderCount++;
+            currentLeaders = limitedLeaders;
+            Acceleration aCf = MirovaCarFollowingUtil.followMultipleLeaders(this, currentLeaders);
+            candidates.add(aCf);
         }
-        currentLeaders = limitedLeaders;
-        Acceleration aCf = MirovaCarFollowingUtil.followMultipleLeaders(this, currentLeaders);
-        candidates.add(aCf);
 
         // 3. Transition deceleration (e.g., curvature or bumps)
         Acceleration aTrans = SpeedLimitUtil.considerSpeedLimitTransitions(parameters, ego.getEgoSpeed(), getPerception()
@@ -908,7 +915,8 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         }
 
         // 5. Compute most restrictive acceleration safely
-        return candidates.stream().filter(java.util.Objects::nonNull).min(Acceleration::compareTo).orElse(aCf);
+        return candidates.stream().filter(java.util.Objects::nonNull).min(Acceleration::compareTo)
+                .orElse(MirovaCarFollowingUtil.followSingleLeader(this, neighbors.getLeader(LateralDirectionality.NONE)));
     }
 
     /**
