@@ -162,7 +162,7 @@ public final class MirovaParameters implements ConstraintInterface
         /** Deceleration threshold for cooperative maneuvers. */
         public static final ParameterTypeAcceleration cooperativeDecelerationThreshold = new ParameterTypeAcceleration(
                         "COOPERATIVE_DECELERATION_THRESHOLD", "Deceleration threshold for cooperative maneuvers",
-                        Acceleration.instantiateSI(-4.0), NEGATIVE);
+                        Acceleration.instantiateSI(-3.0), NEGATIVE);
 
         /** Deceleration for preemptive cooperative maneuvers. */
         public static final ParameterTypeAcceleration preemptiveCooperativeDeceleration = new ParameterTypeAcceleration(
@@ -172,6 +172,11 @@ public final class MirovaParameters implements ConstraintInterface
         /** Enable cooperative lane changes. */
         public static final ParameterTypeBoolean cooperativeLaneChangesEnabled =
                         new ParameterTypeBoolean("COOPERATIVE_LANE_CHANGES_ENABLED", "Enable cooperative lane changes", true);
+
+        /** Look-ahead distance to consider gap opening for cooperation. */
+        public static final ParameterTypeLength considerGapOpeningLookaheadDistance = new ParameterTypeLength(
+                        "CONSIDER_GAP_OPENING_LOOKAHEAD_DISTANCE",
+                        "Look-ahead distance to consider gap opening for cooperation", Length.instantiateSI(100.0), POSITIVE);
 
         // ----------------------------------------------------------------------
         // Prevent undercutting parameters

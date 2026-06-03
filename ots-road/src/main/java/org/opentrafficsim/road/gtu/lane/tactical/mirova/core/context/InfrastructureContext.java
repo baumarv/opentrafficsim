@@ -616,7 +616,8 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         try
         {
             LaneBasedGtu egoGtu = this.vehicle.getGtu();
-            Length lookahead = this.vehicle.getParameters().getParameter(MirovaParameters.extendedLookAheadDistance);
+            Length lookahead = Length.instantiateSI(1000.0);
+            this.vehicle.getParameters().getParameter(MirovaParameters.extendedLookAheadDistance);
 
             // Project the path ahead
             LanePathInfo pathInfo = AbstractLaneBasedTacticalPlanner.buildLanePathInfo(egoGtu, lookahead);
@@ -628,11 +629,27 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
             Length currentPositionOnRef = egoGtu.position(currentReferenceLane, egoGtu.getReference());
             GtuType gtuType = egoGtu.getType();
 
+            if (pathInfo == null || pathInfo.laneList().isEmpty() || pathInfo.laneList().size() <= 1)
+            {
+                return null; // No path ahead, so no downstream lanes
+            }
+            List<Lane> lanes = pathInfo.laneList();
+            Lane lastLane = lanes.get(lanes.size() - 1).nextLanes(gtuType).iterator().next();
+            lanes.add(lastLane);
+            lanes.remove(0); // Remove the current lane to avoid false positives at the starting position
+
+            // if (this.vehicle.getGtu().getId().equals("89"))
+            // {
+            // System.out.println("Debug: lane drop anticipation vars -> direction=" + direction + ", egoGtu=" + egoGtu
+            // + ", lookahead=" + lookahead + ", pathInfoListLanes=" + lanes.toString() + ", accumulatedPathLength="
+            // + accumulatedPathLength + ", currentReferenceLane=" + currentReferenceLane + ", currentPositionOnRef="
+            // + currentPositionOnRef + ", gtuType=" + gtuType);
+            // }
             // Iterate over the projected future path
-            for (Lane lanesAhead : pathInfo.laneList())
+            for (Lane lanesAhead : lanes)
             {
                 Set<Lane> adjacentLanes = lanesAhead.accessibleAdjacentLanesLegal(direction, gtuType);
-
+                // accumulatedPathLength = accumulatedPathLength.plus(lanesAhead.getLength());
                 if (!adjacentLanes.isEmpty())
                 {
                     Lane adjacentLane = adjacentLanes.iterator().next(); // Grab the direct adjacent lane
@@ -645,6 +662,11 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
                         // Only return if the drop is actually ahead of us
                         if (dropDist.ge0())
                         {
+                            // if (this.vehicle.getGtu().getId().equals("89"))
+                            // {
+                            // System.out.println("Debug: Found anticipated lane drop -> direction=" + direction
+                            // + ", dropDist=" + dropDist + ", adjacentLane=" + adjacentLane);
+                            // }
                             return new LaneDropInfo(dropDist, adjacentLane);
                         }
                     }

@@ -1331,24 +1331,29 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
 
             if (currentLeader != null)
             {
+
                 String currentId = currentLeader.getId();
 
                 // BUGFIX: Check for ID change, EVEN IF lastLeaderId was null.
                 if (!currentId.equals(this.lastLeaderId))
                 {
-                    // A new vehicle has cut in, or we changed lanes.
                     EgoContext ego = vehicle.getContext(EgoContext.class);
+                    // Relaxation is only applied in situations that are perceived as save
+                    if (currentLeader.getAcceleration().ge(Acceleration.instantiateSI(-1.0))
+                            && currentLeader.getSpeed().gt(ego.getEgoSpeed().minus(new Speed(10.0, SpeedUnit.KM_PER_HOUR))))
+                    {
+                        // A new vehicle has cut in, or we changed lanes.
 
-                    // If there was no previous leader, we were in free flow.
-                    // The "old leader speed" constraint was effectively our own ego speed.
-                    Speed referenceOldSpeed = (this.lastLeaderSpeed != null) ? this.lastLeaderSpeed : ego.getEgoSpeed();
+                        // If there was no previous leader, we were in free flow.
+                        // The "old leader speed" constraint was effectively our own ego speed.
+                        Speed referenceOldSpeed = (this.lastLeaderSpeed != null) ? this.lastLeaderSpeed : ego.getEgoSpeed();
+                        ego.evaluateAndTriggerRelaxation(currentLeader, referenceOldSpeed);
+                    }
 
-                    ego.evaluateAndTriggerRelaxation(currentLeader, referenceOldSpeed);
+                    // Remember the state for the next tick
+                    this.lastLeaderId = currentId;
+                    this.lastLeaderSpeed = currentLeader.getSpeed();
                 }
-
-                // Remember the state for the next tick
-                this.lastLeaderId = currentId;
-                this.lastLeaderSpeed = currentLeader.getSpeed();
             }
             else
             {
@@ -1356,6 +1361,7 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
                 this.lastLeaderId = null;
                 this.lastLeaderSpeed = null;
             }
+
         }
         catch (ParameterException | GtuException e)
         {

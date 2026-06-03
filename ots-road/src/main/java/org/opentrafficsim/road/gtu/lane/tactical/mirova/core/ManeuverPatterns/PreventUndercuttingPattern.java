@@ -1,4 +1,4 @@
-package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.parallel;
+package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
@@ -18,7 +18,6 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ActionState;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.exclusive.SimpleLaneChangePattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.context.EgoContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.context.InfrastructureContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.context.MacroTrafficContext;
@@ -229,8 +228,8 @@ public class PreventUndercuttingPattern extends ManeuverPattern
             if (neighbors.getIfLaneChangePossible(LateralDirectionality.LEFT))
             {
                 // Transition to performing the lane change
-                return transitionTo(
-                        new SimpleLaneChangePattern.PerformLaneChangeState(this.maneuverPattern, LateralDirectionality.LEFT));
+                return transitionTo(new SimpleLaneChangePattern.PerformLaneChangeState(this.maneuverPattern,
+                        LateralDirectionality.LEFT, true));
             }
 
             Duration leftTimeHeadway = neighbors.getFrontGapTimeHeadway(LateralDirectionality.LEFT);
@@ -333,7 +332,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
         @Override
         public double getUtility()
         {
-            return 0.2;
+            return 0.1;
         }
 
         @Override
@@ -432,8 +431,8 @@ public class PreventUndercuttingPattern extends ManeuverPattern
             if (neighbors.getIfLaneChangePossible(LateralDirectionality.LEFT))
             {
                 finishManeuver();
-                return transitionTo(
-                        new SimpleLaneChangePattern.PerformLaneChangeState(this.maneuverPattern, LateralDirectionality.LEFT));
+                return transitionTo(new SimpleLaneChangePattern.PerformLaneChangeState(this.maneuverPattern,
+                        LateralDirectionality.LEFT, true));
             }
             else if (ShadowingState.getGapBehindLeftLeader(this.vehicle).si < this.vehicle.getParameters()
                     .getParameter(ParameterTypes.T).si)
@@ -499,7 +498,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
         @Override
         public double getUtility()
         {
-            return 0.2;
+            return 0.1;
         }
 
         @Override

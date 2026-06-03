@@ -1,5 +1,6 @@
 package org.opentrafficsim.road.gtu.lane.tactical.mirova.following;
 
+import org.djunits.unit.SpeedUnit;
 import org.djunits.value.vdouble.scalar.Acceleration;
 import org.djunits.value.vdouble.scalar.Duration;
 import org.djunits.value.vdouble.scalar.Length;
@@ -92,11 +93,19 @@ public final class MirovaCarFollowingUtil
         RelaxationState activeRelaxation = ego.getActiveRelaxationForLeader(leaderId);
         if (activeRelaxation != null)
         {
-            perceivedDistance = perceivedDistance.plus(activeRelaxation.getVirtualSpaceBuffer(now));
-            perceivedLeaderSpeed = perceivedLeaderSpeed.plus(activeRelaxation.getVirtualSpeedBuffer(now));
-
+            if (leader.getAcceleration().ge(Acceleration.instantiateSI(-1.0))
+                    && perceivedLeaderSpeed.ge(new Speed(10.0, SpeedUnit.KM_PER_HOUR)))
+            {
+                perceivedDistance = perceivedDistance.plus(activeRelaxation.getVirtualSpaceBuffer(now));
+                perceivedLeaderSpeed = perceivedLeaderSpeed.plus(activeRelaxation.getVirtualSpeedBuffer(now));
+            }
+            else
+            {
+                // If the leader is braking hard, we abort the relaxation immediately to prevent crashes, as the safety buffers
+                // are no longer valid.
+                ego.clearRelaxationForLeader(leaderId);
+            }
         }
-
         // 3. Perform the heavy physical calculation
         Acceleration result = CarFollowingUtil.followSingleLeader(vehicle.getCarFollowingModel(), vehicle.getParameters(),
                 ego.getEgoSpeed(), vehicle.getContext(InfrastructureContext.class).getCurrentSpeedLimit(), perceivedDistance,

@@ -229,4 +229,34 @@ public abstract class ManeuverPattern {
     public PatternType getType() {
         return this.type;
     }
+
+    /**
+     * Returns the desire value for this pattern, used by the arbitration layer to compare against the {@code D_FREE} threshold.
+     * <p>
+     * Non-lane-change patterns return {@code 0.0} by default. Lane-change patterns override this method to expose their
+     * relevant desire magnitude, enabling the hybrid arbitrator to switch between winner-takes-all and minimum-acceleration
+     * aggregation modes.
+     * </p>
+     *
+     * @return double; the desire value in range [0, 1]; 0.0 by default for non-LC patterns
+     * @throws ParameterException if parameter lookup fails
+     */
+    public double getDesire() throws ParameterException
+    {
+        return 0.0;
+    }
+
+    /**
+     * Returns whether this pattern represents a lateral lane-change maneuver.
+     * <p>
+     * The hybrid arbitrator uses this flag to decide whether a winning pattern should trigger commitment (locked action state)
+     * and whether Step 1 (commitment check) applies. Non-LC patterns never trigger commitment.
+     * </p>
+     *
+     * @return {@code true} if this pattern executes a lateral lane change; {@code false} by default
+     */
+    public boolean isLaneChangePattern()
+    {
+        return false;
+    }
 }

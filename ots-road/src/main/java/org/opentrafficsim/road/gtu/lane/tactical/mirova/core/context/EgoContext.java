@@ -202,13 +202,21 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         Speed gammaV = oldLeaderSpeed != null ? oldLeaderSpeed.minus(newLeader.getSpeed()) : Speed.ZERO;
 
         // 5. Trigger relaxation if there is ANY deficit (space OR speed)
-        if (gammaS.si > 0.0 || gammaV.si > 0.0)
+        // Speed relaxation is dangerous: if there is a speed deficit, we target a lower headway instead of relaxing the speed
+        // buffer, which would cause unwanted crashes.
+        Duration tauSpace = params.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
+        Duration tauSpeed = params.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
+        Double safetyDistanceReductionFactor = (params.getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange));
+        if (gammaV.si > 0.0)
         {
-            Duration tauSpace = params.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
-            Duration tauSpeed = params.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
-
-            triggerRelaxation(newLeader.getId(), gammaS, gammaV, tauSpace, tauSpeed, false);
+            triggerRelaxation(newLeader.getId(), Length.max(targetHeadway.times(safetyDistanceReductionFactor), gammaS),
+                    Speed.ZERO, tauSpace, tauSpeed, false);
         }
+        else if (gammaS.si > 0.0)
+        {
+            triggerRelaxation(newLeader.getId(), gammaS, Speed.ZERO, tauSpace, tauSpeed, false);
+        }
+
     }
 
     /**
@@ -226,6 +234,40 @@ public class EgoContext extends ContextCategory implements UpdatableContext
             final Duration tauSpace, final Duration tauSpeed)
     {
         triggerRelaxation(leaderId, initialSpaceDeficit, initialSpeedDeficit, tauSpace, tauSpeed, false);
+    }
+
+    /**
+     * We trigger a relaxation with a reduced safety distance (instead of a speed buffer) for proactive lane changes, where we
+     * want to safely accept closer gaps before the physical lane change starts. This method can be called by maneuver patterns
+     * when they iniate a proactive lane change and want to preemptively relax towards the target leader.
+     * @param leader the target leader GTU to relax towards
+     * @throws ParameterException if required relaxation parameters are missing
+     */
+    public void triggerRelaxationWithReducedSafetyDistance(HeadwayGtu leader) throws ParameterException
+    {
+        if (leader == null)
+        {
+            return;
+        }
+
+        Parameters params = this.vehicle.getParameters();
+        CarFollowingModel cfModel = this.vehicle.getCarFollowingModel();
+        Speed egoSpeed = this.getEgoSpeed();
+
+        Length targetHeadway = cfModel.desiredHeadway(params, egoSpeed);
+
+        Double safetyDistanceReductionFactor = (params.getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange));
+        Length gammaS = Length.ZERO;
+        if (leader.getDistance().lt(targetHeadway))
+        {
+            gammaS = targetHeadway.minus(leader.getDistance());
+        }
+        Length reducedHeadway = Length.max(targetHeadway.times(safetyDistanceReductionFactor), gammaS);
+
+        Duration tauSpace = params.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
+        Duration tauSpeed = params.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
+
+        triggerRelaxation(leader.getId(), reducedHeadway, Speed.ZERO, tauSpace, tauSpeed);
     }
 
     /**
@@ -278,28 +320,49 @@ public class EgoContext extends ContextCategory implements UpdatableContext
             return;
         }
 
-        Parameters params = this.vehicle.getParameters();
-        CarFollowingModel cfModel = this.vehicle.getCarFollowingModel();
-        Speed egoSpeed = this.getEgoSpeed();
-
-        Length targetHeadway = cfModel.desiredHeadway(params, egoSpeed);
-
-        Length spaceDeficit = Length.ZERO;
-        if (targetLeader.getDistance().lt(targetHeadway))
+        if (targetLeader.getAcceleration().ge(Acceleration.instantiateSI(-1.0))
+                && targetLeader.getSpeed().ge(new Speed(10.0, SpeedUnit.KM_PER_HOUR)))
         {
-            spaceDeficit = targetHeadway.minus(targetLeader.getDistance());
-        }
+            // Only trigger proactive relaxation if the target leader is not braking hard and has a reasonable speed.
+            // This prevents dangerous relaxation
 
-        // For proactive lane changes, speed deficit is Ego Speed minus Target Leader Speed
-        Speed speedDeficit = egoSpeed.minus(targetLeader.getSpeed());
+            Parameters params = this.vehicle.getParameters();
+            CarFollowingModel cfModel = this.vehicle.getCarFollowingModel();
+            Speed egoSpeed = this.getEgoSpeed();
 
-        if (spaceDeficit.si > 0.0 || speedDeficit.si > 0.0)
-        {
+            Length targetHeadway = cfModel.desiredHeadway(params, egoSpeed);
+
+            Length spaceDeficit = Length.ZERO;
+            if (targetLeader.getDistance().lt(targetHeadway))
+            {
+                spaceDeficit = targetHeadway.minus(targetLeader.getDistance());
+            }
+
+            // For proactive lane changes, speed deficit is Ego Speed minus Target Leader Speed
+            Speed speedDeficit = egoSpeed.minus(targetLeader.getSpeed());
+
             Duration tauSpace = params.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
             Duration tauSpeed = params.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
+            Double safetyDistanceReductionFactor =
+                    (params.getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange));
+            if (speedDeficit.si > 0.0)
+            {
+                triggerRelaxation(targetLeader.getId(),
+                        Length.max(targetHeadway.times(safetyDistanceReductionFactor), spaceDeficit), Speed.ZERO, tauSpace,
+                        tauSpeed, false);
+            }
+            else if (spaceDeficit.si > 0.0)
+            {
+                triggerRelaxation(targetLeader.getId(), spaceDeficit, Speed.ZERO, tauSpace, tauSpeed, false);
+            }
+            // if (spaceDeficit.si > 0.0 || speedDeficit.si > 0.0)
+            // {
+            // Duration tauSpace = params.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
+            // Duration tauSpeed = params.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
 
-            // Force overwrite = true! Buffer will not decay until the trigger stops (i.e. physical LC starts).
-            triggerRelaxation(targetLeader.getId(), spaceDeficit, speedDeficit, tauSpace, tauSpeed, false);
+            // // Force overwrite = true! Buffer will not decay until the trigger stops (i.e. physical LC starts).
+            // triggerRelaxation(targetLeader.getId(), spaceDeficit, speedDeficit, tauSpace, tauSpeed, false);
+            // }
         }
     }
 
@@ -312,6 +375,16 @@ public class EgoContext extends ContextCategory implements UpdatableContext
     {
         return this.activeRelaxations.get(leaderId);
     }
+
+    /**
+     * Clears the active relaxation state for a specific leader.
+     * @param leaderId String; the ID of the leader GTU
+     */
+    public void clearRelaxationForLeader(final String leaderId)
+    {
+        this.activeRelaxations.remove(leaderId);
+    }
+
     // ----------------------------------------------------------------------
     // Lazy Accessors
     // ----------------------------------------------------------------------
@@ -533,7 +606,7 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         Length desiredFrontHeadway = Length.NaN;
         try
         {
-            desiredFrontHeadway = getEgoSpeed().times(this.vehicle.getCurrentRelaxedHeadway())
+            desiredFrontHeadway = getEgoSpeed().times(this.vehicle.getParameters().getParameter(ParameterTypes.T))
                     .plus(this.vehicle.getParameters().getParameter(ParameterTypes.S0));
         }
         catch (ParameterException exception)
@@ -570,7 +643,7 @@ public class EgoContext extends ContextCategory implements UpdatableContext
                 }
                 else
                 {
-                    desiredRearHeadway = followerSpeed.times(this.vehicle.getCurrentRelaxedHeadway())
+                    desiredRearHeadway = followerSpeed.times(this.vehicle.getParameters().getParameter(ParameterTypes.T))
                             .plus(this.vehicle.getParameters().getParameter(ParameterTypes.S0));
                 }
             }

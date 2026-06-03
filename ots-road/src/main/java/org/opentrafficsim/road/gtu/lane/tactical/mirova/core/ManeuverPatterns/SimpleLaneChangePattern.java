@@ -1,4 +1,4 @@
-package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.exclusive;
+package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns;
 
 import org.djunits.value.vdouble.scalar.Acceleration;
 import org.djunits.value.vdouble.scalar.Speed;
@@ -81,18 +81,36 @@ public class SimpleLaneChangePattern extends ManeuverPattern
     public boolean checkAbility() throws ParameterException
     {
         this.targetDirection = this.vehicle.getLaneChangeDesire().dominantDirection();
+        EgoContext ego = this.vehicle.getContext(EgoContext.class);
         NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
 
         try
         {
-            // Verify if the gap and legal conditions allow for a safe transition
-            return (this.targetDirection.isLeft() || this.targetDirection.isRight())
+            // Discretionary LCs require the vehicle to be physically mobile. When stuck in congestion
+            // (near-zero speed AND no positive acceleration out of the jam), suppress the pattern so
+            // cooperative parallel patterns (e.g. GapOpener) can operate without being locked out.
+            boolean canMove = ego.getEgoSpeed().gt(Speed.instantiateSI(1.0))
+                    || ego.getCurrentCarFollowingAcceleration().gt(Acceleration.instantiateSI(0.0));
+
+            return canMove && (this.targetDirection.isLeft() || this.targetDirection.isRight())
                     && neigh.getIfLaneChangePossible(this.targetDirection);
         }
         catch (GtuException | NetworkException exception)
         {
             return false;
         }
+    }
+
+    @Override
+    public boolean isLaneChangePattern()
+    {
+        return true;
+    }
+
+    @Override
+    public double getDesire() throws ParameterException
+    {
+        return this.vehicle.getLaneChangeDesire().magnitude();
     }
 
     /*
@@ -114,8 +132,8 @@ public class SimpleLaneChangePattern extends ManeuverPattern
         /** Flag to prevent starting the move if speed is too low or gaps closed in the last micro-tick. */
         private Boolean startCondition = true;
 
-        /** Indicates if a slower lane change duration is used (congested mode). */
-        private boolean slowLaneChange = false;
+        /** Flag to indicate if the lane change is cooperative. */
+        private boolean isCooperative = false;
 
         /**
          * Constructor using the dominant desire direction.
@@ -137,76 +155,84 @@ public class SimpleLaneChangePattern extends ManeuverPattern
             this.direction = direction;
             this.originLane = this.vehicle.getGtu().getLane();
 
-            EgoContext ego = this.vehicle.getContext(EgoContext.class);
-            if (ego.getEgoSpeed().si < 7.0)
-            {
-                this.slowLaneChange = true;
-                try
-                {
-                    // Use longer duration for congested merging efficiency
-                    this.vehicle.getParameters().setParameterResettable(ParameterTypes.LCDUR,
-                            this.vehicle.getParameters().getParameter(MirovaParameters.congestedLaneChangeDuration));
-                }
-                catch (ParameterException exception)
-                {
-                    exception.printStackTrace();
-                }
-            }
+        }
+
+        /**
+         * Constructor for a specific direction and cooperative flag.
+         * @param p the parent maneuver pattern
+         * @param direction the lateral direction
+         * @param isCooperative flag to indicate if the lane change is cooperative
+         */
+        public PerformLaneChangeState(final ManeuverPattern p, final LateralDirectionality direction,
+                final boolean isCooperative)
+        {
+            super(p);
+            this.direction = direction;
+            this.originLane = this.vehicle.getGtu().getLane();
+            this.isCooperative = isCooperative;
+
         }
 
         @Override
         public SimpleOperationalPlan executeControl() throws ParameterException, GtuException, NetworkException
         {
-            this.vehicle.commitToAction(this);
             this.maneuverPattern.setRunning(true);
 
-            InfrastructureContext infraCtx = this.vehicle.getContext(InfrastructureContext.class);
             NeighborsContext neighborsCtx = this.vehicle.getContext(NeighborsContext.class);
             EgoContext egoCtx = this.vehicle.getContext(EgoContext.class);
 
             Speed egoSpeed = egoCtx.getEgoSpeed();
 
-            // Base acceleration from current lane car-following
+            HeadwayGtu targetLeader = neighborsCtx.getLeader(LateralDirectionality.NONE);
+            if (targetLeader != null && !this.vehicle.getLaneChange().isChangingLane())
+            {
+                egoCtx.triggerRelaxationWithReducedSafetyDistance(targetLeader);
+            }
+
             Acceleration minAcc = egoCtx.getCurrentCarFollowingAcceleration();
-            if (!this.vehicle.getLaneChange().isChangingLane())
-            {
-                // If not already changing lane, we can relax on current leaders to allow for smoother merging
-                egoCtx.triggerRelaxation(neighborsCtx.getLeader(LateralDirectionality.NONE));
-            }
 
-            // Synchronize with leader on the target lane
-            if (this.vehicle.getGtu().getLane().equals(this.originLane))
+            Iterable<HeadwayGtu> leaders = neighborsCtx.getLeaders(this.direction);
+            for (HeadwayGtu leader : leaders)
             {
-                Iterable<HeadwayGtu> leaders = neighborsCtx.getLeaders(this.direction);
-                for (HeadwayGtu leader : leaders)
+                if (!this.vehicle.getLaneChange().isChangingLane())
                 {
-                    if (!this.vehicle.getLaneChange().isChangingLane())
-                    {
-                        egoCtx.triggerRelaxation(leader);
-                    }
-                    Acceleration aTarget = MirovaCarFollowingUtil.followSingleLeader(this.vehicle, leader);
-                    minAcc = Acceleration.min(minAcc, aTarget);
+                    egoCtx.triggerRelaxationWithReducedSafetyDistance(leader);
                 }
+                Acceleration aTarget = MirovaCarFollowingUtil.followSingleLeader(this.vehicle, leader);
+                minAcc = Acceleration.min(minAcc, aTarget);
             }
 
-            SimpleOperationalPlan plan =
-                    new SimpleOperationalPlan(minAcc, this.maneuverPattern.getPatternSpecificTimestep(), this.direction);
-
-            // Safety check before initiating lateral move
+            // Evaluate lateral feasibility before committing. Only update startCondition when not
+            // yet in a lateral move — once the physical change has begun we must complete it.
             if (!this.vehicle.getLaneChange().isChangingLane())
             {
                 Speed resultingSpeed = egoSpeed.plus(minAcc.times(this.maneuverPattern.getPatternSpecificTimestep()));
                 this.startCondition =
-                        (resultingSpeed.gt(Speed.instantiateSI(5.0)) && neighborsCtx.getIfLaneChangePossible(this.direction));
+                        resultingSpeed.gt(Speed.instantiateSI(5.0)) && neighborsCtx.getIfLaneChangePossible(this.direction);
             }
 
             if (!this.startCondition)
             {
-                plan = new SimpleOperationalPlan(minAcc, this.maneuverPattern.getPatternSpecificTimestep(),
-                        LateralDirectionality.NONE);
+                // Conditions not met — return a longitudinal-only plan WITHOUT setting the action lock.
+                // This is critical: committing here would block cooperative parallel patterns from
+                // running (e.g. GapOpener) every tick the vehicle is stuck waiting for a gap.
+                SimpleOperationalPlan waitPlan = new SimpleOperationalPlan(minAcc,
+                        this.maneuverPattern.getPatternSpecificTimestep(), LateralDirectionality.NONE);
+                if (this.direction.isLeft())
+                {
+                    waitPlan.setIndicatorIntentLeft();
+                }
+                else if (this.direction.isRight())
+                {
+                    waitPlan.setIndicatorIntentRight();
+                }
+                return waitPlan;
             }
 
-            // Set turn indicators
+            // Conditions confirmed — commit and initiate the lateral move.
+            this.vehicle.commitToAction(this);
+            SimpleOperationalPlan plan =
+                    new SimpleOperationalPlan(minAcc, this.maneuverPattern.getPatternSpecificTimestep(), this.direction);
             if (this.direction.isLeft())
             {
                 plan.setIndicatorIntentLeft();
@@ -215,7 +241,6 @@ public class SimpleLaneChangePattern extends ManeuverPattern
             {
                 plan.setIndicatorIntentRight();
             }
-
             return plan;
         }
 
@@ -229,10 +254,7 @@ public class SimpleLaneChangePattern extends ManeuverPattern
 
             if (finished)
             {
-                if (this.slowLaneChange)
-                {
-                    this.vehicle.getParameters().resetParameter(ParameterTypes.LCDUR);
-                }
+
                 return finishManeuver();
             }
             return null;
@@ -244,10 +266,7 @@ public class SimpleLaneChangePattern extends ManeuverPattern
             // If the start condition failed before the move began, terminate the pattern
             if (!this.startCondition)
             {
-                if (this.slowLaneChange)
-                {
-                    this.vehicle.getParameters().resetParameter(ParameterTypes.LCDUR);
-                }
+                //
                 return finishManeuver();
             }
             return null;
@@ -256,16 +275,47 @@ public class SimpleLaneChangePattern extends ManeuverPattern
         @Override
         public double getUtility()
         {
-            // Utility can be based on the lane change desire magnitude, with a small penalty for slow maneuvers
+            try
+            {
+                EgoContext ego = this.vehicle.getContext(EgoContext.class);
+                // A vehicle that cannot physically move has no utility for a discretionary LC.
+                boolean canMove = ego.getEgoSpeed().gt(Speed.instantiateSI(1.0))
+                        || ego.getCurrentCarFollowingAcceleration().gt(Acceleration.instantiateSI(0.0));
+                if (!canMove)
+                {
+                    return 0.0;
+                }
+            }
+            catch (Exception e)
+            {
+                return 0.0;
+            }
+
             Desire desire = this.maneuverPattern.getMirovaTacticalPlanner().getLaneChangeDesire();
             double baseUtility = desire.getDirectionalDesire(this.direction);
-            return this.slowLaneChange ? baseUtility * 0.8 : baseUtility;
+
+            if (this.isCooperative)
+            {
+                try
+                {
+                    double dFree = this.vehicle.getParameters().getParameter(MirovaParameters.DFREE);
+                    // Cooperative LCs get a floor at D_FREE so they are preferred over non-cooperative
+                    // ones when desire is similar.
+                    baseUtility = Math.max(baseUtility, dFree);
+                }
+                catch (ParameterException e)
+                {
+                    // proceed with base utility
+                }
+            }
+
+            return baseUtility;
         }
 
         @Override
         public String toString()
         {
-            return "PerformLaneChangeState[" + this.direction + "]";
+            return "PerformLaneChangeState[" + this.direction + ", isCooperative=" + this.isCooperative + "]";
         }
     }
 }
