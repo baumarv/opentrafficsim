@@ -5,7 +5,7 @@ import org.opentrafficsim.kpi.interfaces.GtuData;
 import org.opentrafficsim.kpi.sampling.data.ExtendedDataString;
 import org.opentrafficsim.road.gtu.lane.LaneBasedGtu;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.following.W99ParameterTypes;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.W99ParameterTypes;
 import org.opentrafficsim.road.network.sampling.GtuDataRoad;
 
 /** current W99 Driving Mode. */

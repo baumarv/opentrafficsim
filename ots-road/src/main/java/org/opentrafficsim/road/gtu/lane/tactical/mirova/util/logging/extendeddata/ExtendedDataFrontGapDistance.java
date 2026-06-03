@@ -6,21 +6,19 @@ import org.opentrafficsim.kpi.interfaces.GtuData;
 import org.opentrafficsim.kpi.sampling.data.ExtendedDataLength;
 import org.opentrafficsim.road.gtu.lane.LaneBasedGtu;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.context.NeighborsContext;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.NeighborsContext;
 import org.opentrafficsim.road.network.sampling.GtuDataRoad;
 
 /**
  * Extended data type for logging the current front gap distance to the leading vehicle.
  * <p>
- * This utility class integrates with the OpenTrafficSim KPI sampling framework to record
- * the physical distance [m] between the ego vehicle and its immediate leader on the same lane.
- * This metric is retrieved from the {@link NeighborsContext}.
+ * This utility class integrates with the OpenTrafficSim KPI sampling framework to record the physical distance [m] between the
+ * ego vehicle and its immediate leader on the same lane. This metric is retrieved from the {@link NeighborsContext}.
  * </p>
  * <p>
  * Copyright (c) 2025 Marvin Baumann / KIT. All rights reserved. <br>
  * BSD-style license. See <a href="https://opentrafficsim.org/docs/license.html">OpenTrafficSim License</a>.
  * </p>
- *
  * @author <a href="https://github.com/baumarv">Marvin Baumann</a>
  */
 public class ExtendedDataFrontGapDistance extends ExtendedDataLength<GtuData>
@@ -39,7 +37,6 @@ public class ExtendedDataFrontGapDistance extends ExtendedDataLength<GtuData>
 
     /**
      * Retrieves the front gap distance for a specific GTU.
-     *
      * @param gtu the GTU data from the sampler
      * @return the front gap distance as a float, or NaN if unavailable
      */

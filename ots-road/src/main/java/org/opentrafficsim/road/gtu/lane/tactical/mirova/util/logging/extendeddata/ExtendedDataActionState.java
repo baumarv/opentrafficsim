@@ -9,15 +9,13 @@ import org.opentrafficsim.road.network.sampling.GtuDataRoad;
 /**
  * Extended data type for logging the current active ActionState of the MiRoVA tactical planner.
  * <p>
- * This utility class integrates with the OpenTrafficSim KPI sampling framework to record
- * the specific Finite State Machine (FSM) state of the currently executing maneuver in
- * <b>Layer 4 (Procedure & Action)</b>.
+ * This utility class integrates with the OpenTrafficSim KPI sampling framework to record the specific Finite State Machine
+ * (FSM) state of the currently executing maneuver in <b>Layer 4 (Procedure & Action)</b>.
  * </p>
  * <p>
  * Copyright (c) 2025 Marvin Baumann / KIT. All rights reserved. <br>
  * BSD-style license. See <a href="https://opentrafficsim.org/docs/license.html">OpenTrafficSim License</a>.
  * </p>
- *
  * @author <a href="https://github.com/baumarv">Marvin Baumann</a>
  */
 public class ExtendedDataActionState extends ExtendedDataString<GtuData>
@@ -35,7 +33,6 @@ public class ExtendedDataActionState extends ExtendedDataString<GtuData>
 
     /**
      * Retrieves the string representation of the current ActionState for a specific GTU.
-     *
      * @param gtu the GTU data from the sampler
      * @return the string representation of the current ActionState, or "none" if unavailable
      */

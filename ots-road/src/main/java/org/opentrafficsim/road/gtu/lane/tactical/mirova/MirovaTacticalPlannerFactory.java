@@ -14,19 +14,19 @@ import org.opentrafficsim.road.gtu.lane.tactical.AbstractLaneBasedTacticalPlanne
 import org.opentrafficsim.road.gtu.lane.tactical.following.CarFollowingModel;
 import org.opentrafficsim.road.gtu.lane.tactical.following.CarFollowingModelFactory;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.KnowledgeChunks.CongestionChunk;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.KnowledgeChunks.DiscretionaryLaneChangeChunk;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.KnowledgeChunks.MandatoryLaneChangeChunk;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.KnowledgeChunks.MergeCooperationChunk;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.AnticipateAdjacentCongestionPattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.AnticipateDownstreamMergePattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.GapOpenerPattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.MandatoryLaneChangePattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.PreventUndercuttingPattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.SimpleLaneChangePattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.old.exclusive.GapSearchPattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.old.parallel.AnticipatingUpstreamMergingSpeedPattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.old.parallel.MergeCooperationPattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.CongestionIncentive;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.CruisingSpeedIncentive;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.RouteIncentive;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.MergeCooperationIncentive;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.AnticipateAdjacentCongestionPattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.AnticipateDownstreamMergePattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.GapOpenerPattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.MandatoryLaneChangePattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.PreventUndercuttingPattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.SimpleLaneChangePattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.old.exclusive.GapSearchPattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.old.parallel.AnticipatingUpstreamMergingSpeedPattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.old.parallel.MergeCooperationPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.util.ConflictUtil;
 import org.opentrafficsim.road.gtu.lane.tactical.util.TrafficLightUtil;
 import org.opentrafficsim.road.gtu.lane.tactical.util.lmrs.LmrsParameters;
@@ -37,9 +37,9 @@ import org.opentrafficsim.road.gtu.lane.tactical.util.lmrs.LmrsUtil;
  * <p>
  * This factory initializes the cognitive architecture of the MiRoVA framework for a GTU. It sets up the foundational layers by
  * registering the declarative knowledge (Layer 2) via
- * {@link org.opentrafficsim.road.gtu.lane.tactical.mirova.core.KnowledgeChunks.KnowledgeChunk}s and the procedural knowledge
- * (Layer 4) via {@link org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPattern}s. It also provides the default
- * parameter sets required for the perception and tactical models.
+ * {@link org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.DesireIncentive}s and the procedural knowledge
+ * (Layer 4) via {@link org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern}s. It also provides
+ * the default parameter sets required for the perception and tactical models.
  * </p>
  * <p>
  * Copyright (c) 2025 Marvin Baumann / KIT. All rights reserved. <br>
@@ -75,8 +75,8 @@ public class MirovaTacticalPlannerFactory extends AbstractLaneBasedTacticalPlann
             gtu.setParameters(getParameters());
             MirovaTacticalPlanner planner =
                     new MirovaTacticalPlanner(nextCarFollowingModel(gtu), gtu, getPerceptionFactory().generatePerception(gtu));
-            addKnowledgeChunks(planner);
-            addManeuverPatterns(planner);
+            setDesireLayer(planner);
+            setIntentionLayer(planner);
             return planner;
         }
         catch (Exception e)
@@ -140,12 +140,12 @@ public class MirovaTacticalPlannerFactory extends AbstractLaneBasedTacticalPlann
      * @throws ParameterException if required parameters are missing
      * @throws OperationalPlanException if planning capabilities are compromised
      */
-    protected void addKnowledgeChunks(final MirovaTacticalPlanner planner) throws ParameterException, OperationalPlanException
+    protected void setDesireLayer(final MirovaTacticalPlanner planner) throws ParameterException, OperationalPlanException
     {
-        planner.addKnowledgeChunk(new DiscretionaryLaneChangeChunk(planner));
-        planner.addKnowledgeChunk(new MandatoryLaneChangeChunk(planner));
-        planner.addKnowledgeChunk(new MergeCooperationChunk(planner));
-        planner.addKnowledgeChunk(new CongestionChunk(planner));
+        planner.addKnowledgeChunk(new CruisingSpeedIncentive(planner));
+        planner.addKnowledgeChunk(new RouteIncentive(planner));
+        planner.addKnowledgeChunk(new MergeCooperationIncentive(planner));
+        planner.addKnowledgeChunk(new CongestionIncentive(planner));
     }
 
     /**
@@ -153,7 +153,7 @@ public class MirovaTacticalPlannerFactory extends AbstractLaneBasedTacticalPlann
      * @param planner the MiRoVA tactical planner instance
      * @throws ParameterException if required parameters are missing
      */
-    protected void addManeuverPatterns(final MirovaTacticalPlanner planner) throws ParameterException
+    protected void setIntentionLayer(final MirovaTacticalPlanner planner) throws ParameterException
     {
         // Exclusive maneuvers (one at a time)
         // planner.addExclusiveManeuverPattern(new GapSearchPattern(planner));

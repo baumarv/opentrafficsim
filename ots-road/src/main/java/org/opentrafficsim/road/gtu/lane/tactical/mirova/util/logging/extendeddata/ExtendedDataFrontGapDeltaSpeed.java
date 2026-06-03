@@ -6,22 +6,20 @@ import org.opentrafficsim.kpi.interfaces.GtuData;
 import org.opentrafficsim.kpi.sampling.data.ExtendedDataSpeed;
 import org.opentrafficsim.road.gtu.lane.LaneBasedGtu;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.context.NeighborsContext;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.NeighborsContext;
 import org.opentrafficsim.road.network.sampling.GtuDataRoad;
 
 /**
  * Extended data type for logging the current speed delta to the leading vehicle.
  * <p>
- * This utility class integrates with the OpenTrafficSim KPI sampling framework to record
- * the speed difference [m/s] between the ego vehicle and its immediate leader
- * (calculated as: ego speed - leader speed). This metric is retrieved from the
+ * This utility class integrates with the OpenTrafficSim KPI sampling framework to record the speed difference [m/s] between the
+ * ego vehicle and its immediate leader (calculated as: ego speed - leader speed). This metric is retrieved from the
  * {@link NeighborsContext}.
  * </p>
  * <p>
  * Copyright (c) 2025 Marvin Baumann / KIT. All rights reserved. <br>
  * BSD-style license. See <a href="https://opentrafficsim.org/docs/license.html">OpenTrafficSim License</a>.
  * </p>
- *
  * @author <a href="https://github.com/baumarv">Marvin Baumann</a>
  */
 public class ExtendedDataFrontGapDeltaSpeed extends ExtendedDataSpeed<GtuData>
@@ -40,7 +38,6 @@ public class ExtendedDataFrontGapDeltaSpeed extends ExtendedDataSpeed<GtuData>
 
     /**
      * Retrieves the front gap delta speed for a specific GTU.
-     *
      * @param gtu the GTU data from the sampler
      * @return the delta speed as a float, or NaN if unavailable
      */

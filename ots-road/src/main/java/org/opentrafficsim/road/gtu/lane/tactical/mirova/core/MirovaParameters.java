@@ -215,4 +215,10 @@ public final class MirovaParameters implements ConstraintInterface
          */
         public static final ParameterTypeDouble ACCELERATION_SCALING_FACTOR = new ParameterTypeDouble("aScale",
                         "Scaling factor for the maximum physical acceleration.", 1.0, ConstraintInterface.POSITIVE);
+
+        /**
+         * Maximum acceleration for the MiRoVA framework.
+         */
+        public static final ParameterTypeAcceleration A_MAX = new ParameterTypeAcceleration("aMaxMirova",
+                        "Maximum acceleration for MiRoVA", Acceleration.instantiateSI(3.5), POSITIVE);
 }
