@@ -85,6 +85,8 @@ public class DiscretionaryLaneChangeChunk extends KnowledgeChunk
         Speed vCur = macroContext.getAverageSpeed(RelativeLane.CURRENT);
 
         // Adjust speed gain threshold in congested situations
+        // TODO: wir müssen hier Target Lane auch betrachten, das erklärt aktuell, warum wir nicht genug FSW haben, wenn rechts
+        // an der Einfahrt der Verkehr zusammenbricht
         if (vCur.si < getParameters().getParameter(ParameterTypes.VCONG).si)
         {
             vGain = vGain.times(1.3);
