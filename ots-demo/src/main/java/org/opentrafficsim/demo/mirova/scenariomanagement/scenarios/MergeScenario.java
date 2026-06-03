@@ -129,7 +129,11 @@ public class MergeScenario extends ScenarioGenerator
     {
         URL xmlURL = URLResource.getResource("/resources/mirova/MergeBodegraven.xml");
         this.network = new RoadNetwork("MergeBodegraven", sim);
-        new XmlParser(this.network).setUrl(xmlURL).build();
+        // XmlParser/JAXB uses shared OTS default objects (NL stripe definitions) that are not thread-safe
+        synchronized (MergeScenario.class)
+        {
+            new XmlParser(this.network).setUrl(xmlURL).build();
+        }
 
         CrossSectionLink linkAB = (CrossSectionLink) this.network.getLink("A", "B");
         CrossSectionLink linkFF2 = (CrossSectionLink) this.network.getLink("F", "F2");
@@ -387,7 +391,7 @@ public class MergeScenario extends ScenarioGenerator
      */
     public void createVehiclesFromODMatrix(final ScenarioParameters params, final OtsSimulatorInterface sim) throws Exception
     {
-        double intervalVolume = 5000.0; // vehicles per hour
+        double intervalVolume = 4000.0; // vehicles per hour
         double endVolume = 6500.0; // params.getDemand(); // vehicles per hour
         double volumeStep = 100.0; // vehicles per hour
         double steps = Math.ceil((endVolume - intervalVolume) / volumeStep) + 1;
@@ -401,7 +405,7 @@ public class MergeScenario extends ScenarioGenerator
 
         for (i = 0; i < steps; i++)
         {
-            time[i] = relativeTimeStep * i * 2.0; // 4 hours total simulation time
+            time[i] = relativeTimeStep * i * params.getSimulationTime().getInUnit(DurationUnit.HOUR);
             carDemandMain[i] = intervalVolume * (1.0 - params.getTruckShare()) * (1.0 - this.defaultParameters.getMergeShare());
             truckDemandMain[i] = intervalVolume * params.getTruckShare() * (1.0 - this.defaultParameters.getMergeShare());
             carDemandOnRamp[i] = intervalVolume * (1.0 - params.getTruckShare()) * this.defaultParameters.getMergeShare();
@@ -516,9 +520,9 @@ public class MergeScenario extends ScenarioGenerator
                 // .registerExtendedDataType(new ExtendedDataRelaxedHeadway())
                 // .registerExtendedDataType(new ExtendedDataHeadwayRelaxationProgress())
                 // .registerExtendedDataType(new ExtendedDataRelaxationTargetHeadway())
-                // .registerExtendedDataType(new ExtendedDataActionState())
-                // .registerExtendedDataType(new ExtendedDataLaneChangeDesireLeft())
-                // .registerExtendedDataType(new ExtendedDataLaneChangeDesireRight())
+                .registerExtendedDataType(new ExtendedDataActionState())
+                .registerExtendedDataType(new ExtendedDataLaneChangeDesireLeft())
+                .registerExtendedDataType(new ExtendedDataLaneChangeDesireRight())
                 // .registerExtendedDataType(new ExtendedDataIsChangingLane())
                 // .registerExtendedDataType(new ExtendedDataLaneChangePlan())
                 // .registerExtendedDataType(new ExtendedDataLaneChangePlanDirection())
@@ -545,26 +549,28 @@ public class MergeScenario extends ScenarioGenerator
             for (Lane lane : link.getLanes())
             {
                 this.listAllLanes.add(lane);
-                if (lane.getId().equals("AB.FORWARD1") || lane.getId().equals("AB.FORWARD2"))
+                if (lane.getFullId().equals("AB.FORWARD1") || lane.getFullId().equals("AB.FORWARD2")
+                        || lane.getFullId().equals("AB.FORWARD3"))
                 {
-                    this.listLoopDetectors.add(new LoopDetector("det_" + lane.getId(),
-                            new LanePosition(lane, Length.instantiateSI(1300)), Length.ZERO, DefaultsNl.LOOP_DETECTOR,
-                            Time.instantiateSI(60.0), Duration.instantiateSI(60.0), LoopDetector.HARMONIC_MEAN_SPEED));
+                    this.listLoopDetectors.add(new LoopDetector("det_" + lane.getFullId(),
+                            new LanePosition(lane, Length.instantiateSI(2300)), Length.ZERO, DefaultsNl.LOOP_DETECTOR,
+                            Time.instantiateSI(0.0), Duration.instantiateSI(60.0), LoopDetector.HARMONIC_MEAN_SPEED));
                 }
-                if (lane.getId().equals("F2B.FORWARD1"))
+                if (lane.getFullId().equals("F2B.FORWARD1"))
                 {
-                    this.listLoopDetectors.add(new LoopDetector("det_" + lane.getId(),
+                    this.listLoopDetectors.add(new LoopDetector("det_" + lane.getFullId(),
                             new LanePosition(lane, lane.getLength().times(0.5)), Length.ZERO, DefaultsNl.LOOP_DETECTOR,
-                            Time.instantiateSI(60.0), Duration.instantiateSI(60.0), LoopDetector.HARMONIC_MEAN_SPEED));
+                            Time.instantiateSI(0.0), Duration.instantiateSI(60.0), LoopDetector.HARMONIC_MEAN_SPEED));
                 }
-                if (lane.getId().equals("DE.FORWARD1") || lane.getId().equals("DE.FORWARD2"))
+                if (lane.getFullId().equals("DE.FORWARD1") || lane.getFullId().equals("DE.FORWARD2")
+                        || lane.getFullId().equals("DE.FORWARD3"))
                 {
-                    this.listLoopDetectors.add(new LoopDetector("det_" + lane.getId(),
+                    this.listLoopDetectors.add(new LoopDetector("det_" + lane.getFullId(),
                             new LanePosition(lane, Length.instantiateSI(200)), Length.ZERO, DefaultsNl.LOOP_DETECTOR,
-                            Time.instantiateSI(60.0), Duration.instantiateSI(60.0), LoopDetector.HARMONIC_MEAN_SPEED));
+                            Time.instantiateSI(0.0), Duration.instantiateSI(60.0), LoopDetector.HARMONIC_MEAN_SPEED));
                 }
-                if (lane.getId().equals("BC.FORWARD1") || lane.getId().equals("BC.FORWARD2")
-                        || lane.getId().equals("BC.FORWARD3"))
+                if (lane.getFullId().equals("BC.FORWARD1") || lane.getFullId().equals("BC.FORWARD2")
+                        || lane.getFullId().equals("BC.FORWARD3") || lane.getFullId().equals("BC.FORWAR4"))
                 {
                     GraphPath<LaneDataRoad> path = GraphLaneUtil.createPath("path", lane);
                     sampler.scheduleStartRecording(Time.instantiateSI(0), path.get(0).getSource(0));
@@ -591,7 +597,8 @@ public class MergeScenario extends ScenarioGenerator
     @Override
     public ScenarioOutputConfiguration buildOutputConfiguration()
     {
-        this.outputConfiguration.addRoadSamplers(this.listRoadSamplers).addLoopDetectors(this.listLoopDetectors);
+        this.outputConfiguration.setRoadNetwork(network).addRoadSamplers(this.listRoadSamplers)
+                .addLoopDetectors(this.listLoopDetectors);
         return this.outputConfiguration;
     }
 }
