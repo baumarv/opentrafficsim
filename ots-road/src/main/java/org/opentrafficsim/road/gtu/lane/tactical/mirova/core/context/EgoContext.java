@@ -217,13 +217,6 @@ public class EgoContext extends ContextCategory implements UpdatableContext
             triggerRelaxation(newLeader.getId(), gammaS, Speed.ZERO, tauSpace, tauSpeed, false);
         }
 
-        // if (gammaS.si > 0.0 || gammaV.si > 0.0)
-        // {
-        // Duration tauSpace = params.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
-        // Duration tauSpeed = params.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
-
-        // triggerRelaxation(newLeader.getId(), gammaS, gammaV, tauSpace, tauSpeed, false);
-        // }
     }
 
     /**
