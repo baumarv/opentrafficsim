@@ -5,22 +5,20 @@ import org.djunits.value.vfloat.scalar.FloatAcceleration;
 import org.opentrafficsim.kpi.interfaces.GtuData;
 import org.opentrafficsim.road.gtu.lane.LaneBasedGtu;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.context.NeighborsContext;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.NeighborsContext;
 import org.opentrafficsim.road.network.sampling.GtuDataRoad;
 
 /**
  * Extended data type for logging the predicted deceleration of the right follower.
  * <p>
- * This utility class integrates with the OpenTrafficSim KPI sampling framework to record
- * the anticipated deceleration [m/s²] the follower on the right adjacent lane would
- * experience if the ego vehicle merged into that lane, as evaluated by the
+ * This utility class integrates with the OpenTrafficSim KPI sampling framework to record the anticipated deceleration [m/s²]
+ * the follower on the right adjacent lane would experience if the ego vehicle merged into that lane, as evaluated by the
  * {@link NeighborsContext}.
  * </p>
  * <p>
  * Copyright (c) 2025 Marvin Baumann / KIT. All rights reserved. <br>
  * BSD-style license. See <a href="https://opentrafficsim.org/docs/license.html">OpenTrafficSim License</a>.
  * </p>
- *
  * @author <a href="https://github.com/baumarv">Marvin Baumann</a>
  */
 public class ExtendedDataFollowerDecelRight extends ExtendedDataAcceleration<GtuData>
@@ -34,12 +32,12 @@ public class ExtendedDataFollowerDecelRight extends ExtendedDataAcceleration<Gtu
      */
     public ExtendedDataFollowerDecelRight()
     {
-        super("FollowerDecelRight", "Resulting deceleration for follower on adjacent lane in case of lane change to the right [m/s²]");
+        super("FollowerDecelRight",
+                "Resulting deceleration for follower on adjacent lane in case of lane change to the right [m/s²]");
     }
 
     /**
      * Retrieves the predicted deceleration of the right follower for a specific GTU.
-     *
      * @param gtu the GTU data from the sampler
      * @return the predicted deceleration as a float, or NaN if unavailable
      */
@@ -51,8 +49,8 @@ public class ExtendedDataFollowerDecelRight extends ExtendedDataAcceleration<Gtu
             LaneBasedGtu lgtu = road.getGtu();
             if (lgtu.getTacticalPlanner() instanceof MirovaTacticalPlanner p)
             {
-                Acceleration decel = p.getContext(NeighborsContext.class)
-                        .getCachedValue(NeighborsContext.FOLLOWER_DECEL_RIGHT, Acceleration.class);
+                Acceleration decel = p.getContext(NeighborsContext.class).getCachedValue(NeighborsContext.FOLLOWER_DECEL_RIGHT,
+                        Acceleration.class);
 
                 if (decel == null)
                 {

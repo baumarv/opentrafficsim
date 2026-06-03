@@ -9,22 +9,20 @@ import org.opentrafficsim.kpi.interfaces.GtuData;
 import org.opentrafficsim.kpi.sampling.data.ExtendedDataSpeed;
 import org.opentrafficsim.road.gtu.lane.LaneBasedGtu;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.context.EgoContext;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoContext;
 import org.opentrafficsim.road.network.sampling.GtuDataRoad;
 
 /**
  * Extended data type for logging the current desired speed.
  * <p>
- * This utility class integrates with the OpenTrafficSim KPI sampling framework to record
- * the desired speed calculated by the {@link EgoContext} in Layer 1. This represents
- * the target speed [m/s] the vehicle aims to achieve based on the speed limit and
- * its personal speed adherence factor.
+ * This utility class integrates with the OpenTrafficSim KPI sampling framework to record the desired speed calculated by the
+ * {@link EgoContext} in Layer 1. This represents the target speed [m/s] the vehicle aims to achieve based on the speed limit
+ * and its personal speed adherence factor.
  * </p>
  * <p>
  * Copyright (c) 2025 Marvin Baumann / KIT. All rights reserved. <br>
  * BSD-style license. See <a href="https://opentrafficsim.org/docs/license.html">OpenTrafficSim License</a>.
  * </p>
- *
  * @author <a href="https://github.com/baumarv">Marvin Baumann</a>
  */
 public class ExtendedDataCurrentDesiredSpeed extends ExtendedDataSpeed<GtuData>
@@ -43,7 +41,6 @@ public class ExtendedDataCurrentDesiredSpeed extends ExtendedDataSpeed<GtuData>
 
     /**
      * Retrieves the current desired speed for a specific GTU.
-     *
      * @param gtu the GTU data from the sampler
      * @return the desired speed as a float, or NaN if unavailable
      */

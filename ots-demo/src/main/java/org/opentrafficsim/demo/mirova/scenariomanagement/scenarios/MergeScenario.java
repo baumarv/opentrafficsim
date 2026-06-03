@@ -64,11 +64,11 @@ import org.opentrafficsim.road.gtu.lane.tactical.following.CarFollowingModelFact
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.DefaultMirovaPerceptionFactory;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlannerFactory;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.following.AbstractWiedemannModel;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.following.MirovaIdmPlusFactory;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.following.W99ParameterTypes;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.following.Wiedemann99;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.following.Wiedemann99Factory;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.AbstractWiedemannModel;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaIdmPlusFactory;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.W99ParameterTypes;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.Wiedemann99;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.Wiedemann99Factory;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataActionState;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataCurrentCFAcceleration;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataCurrentDesiredSpeed;

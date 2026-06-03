@@ -25,12 +25,15 @@ import org.opentrafficsim.road.gtu.lane.plan.operational.*;
 import org.opentrafficsim.road.gtu.lane.tactical.AbstractLaneBasedTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.following.CarFollowingModel;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.*;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.KnowledgeChunks.KnowledgeChunk;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPattern.PatternType;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.context.*;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.util.HybridPlanArbitrator;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.util.PatternSelector;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.following.MirovaCarFollowingUtil;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ArbitrationLayer.HybridPlanArbitrator;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ArbitrationLayer.PatternSelector;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.*;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.Desire;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.DesireIncentive;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ActionState;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern.PatternType;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaCarFollowingUtil;
 import org.opentrafficsim.road.gtu.lane.tactical.util.ConflictUtil;
 import org.opentrafficsim.road.gtu.lane.tactical.util.SpeedLimitUtil;
 import org.opentrafficsim.road.gtu.lane.tactical.util.TrafficLightUtil;
@@ -114,7 +117,7 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     // ----------------------------------------------------------------------
 
     /** Declarative knowledge base for this vehicle. */
-    protected final List<KnowledgeChunk> knowledgeChunks = new ArrayList<>();
+    protected final List<DesireIncentive> knowledgeChunks = new ArrayList<>();
 
     /** Procedural knowledge: available exclusive maneuver patterns. */
     protected final List<ManeuverPattern> exclusiveManeuverPatterns = new ArrayList<>();
@@ -237,7 +240,7 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
      * </p>
      * <ol>
      * <li><b>Perception & Context:</b> Updates world knowledge via {@link VehicleContextManager}.</li>
-     * <li><b>Cognition:</b> Computes aggregated motivation (desire) from all {@link KnowledgeChunk}s.</li>
+     * <li><b>Cognition:</b> Computes aggregated motivation (desire) from all {@link DesireIncentive}s.</li>
      * <li><b>Relaxation:</b> Applies temporal smoothing to desired headways to prevent abrupt maneuvers.</li>
      * <li><b>Decision & Action:</b> Evaluates running maneuvers, selects exclusive or parallel {@link ManeuverPattern}s, and
      * outputs a physical {@link SimpleOperationalPlan}. Defaults to standard car-following.</li>
@@ -396,21 +399,21 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     }
 
     /**
-     * Returns all {@link KnowledgeChunk}s currently assigned to this vehicle. These represent the declarative knowledge
+     * Returns all {@link DesireIncentive}s currently assigned to this vehicle. These represent the declarative knowledge
      * influencing tactical reasoning.
      * @return list of all knowledge chunks
      */
-    public List<KnowledgeChunk> getKnowledgeChunks()
+    public List<DesireIncentive> getKnowledgeChunks()
     {
         return this.knowledgeChunks;
     }
 
     /**
-     * Registers a new {@link KnowledgeChunk} to this vehicle. This method is typically called in the constructor of the
+     * Registers a new {@link DesireIncentive} to this vehicle. This method is typically called in the constructor of the
      * concrete vehicle class.
      * @param chunk the knowledge chunk to add
      */
-    public void addKnowledgeChunk(final KnowledgeChunk chunk)
+    public void addKnowledgeChunk(final DesireIncentive chunk)
     {
         if (chunk != null && !this.knowledgeChunks.contains(chunk))
         {
@@ -467,7 +470,7 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
 
     /**
      * Computes and updates the total (mandatory + discretionary) desire vector for this vehicle based on all active
-     * {@link KnowledgeChunk}s.
+     * {@link DesireIncentive}s.
      * <p>
      * The result represents the LMRS-style aggregated motivation for lane changing, which can later be used for tactical
      * decisions (e.g., thresholding, maneuver selection).
@@ -482,7 +485,7 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         this.discretionaryLaneChangeDesire = Desire.zero();
 
         // collect all desires from active chunks
-        for (KnowledgeChunk chunk : this.getKnowledgeChunks())
+        for (DesireIncentive chunk : this.getKnowledgeChunks())
         {
             if (chunk.isApplicable())
             {
