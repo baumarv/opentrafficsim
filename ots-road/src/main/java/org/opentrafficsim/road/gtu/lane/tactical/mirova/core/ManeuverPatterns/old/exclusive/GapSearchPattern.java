@@ -1,4 +1,4 @@
-package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.exclusive;
+package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.old.exclusive;
 
 import java.util.Iterator;
 

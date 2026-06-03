@@ -27,8 +27,8 @@
     "java.format.settings.profile": "DSOL",
     "java.saveActions.organizeImports": false,
     "editor.codeActionsOnSave": {
-        "source.organizeImports": false,
-        "source.fixAll": false
+        "source.organizeImports": "never",
+        "source.fixAll": "never"
     },
     // Reduce automatic workspace metadata rewrites by Java tooling.
     "java.configuration.updateBuildConfiguration": "interactive",

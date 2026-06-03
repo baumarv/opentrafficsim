@@ -19,15 +19,15 @@ public class RunParallelMergeScenarios
 {
 
     /**
-     * Main execution method.
-     * * @param args String[]; command line arguments
+     * Main execution method. * @param args String[]; command line arguments
      */
     public static void main(final String[] args)
     {
         try
         {
             // 1. Define the root output directory for the simulation results
-            File outputDirectory = new File("D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\output\\ots\\bodegraven\\parallel_lmrs");
+            File outputDirectory = new File(
+                    "D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\output\\ots\\with relaxation and hybrid arbitration");
 
             // 2. Initialize the ScenarioManager
             ScenarioManager scenarioManager = new ScenarioManager(outputDirectory);
@@ -39,18 +39,17 @@ public class RunParallelMergeScenarios
             // 4. Define the base parameters
             // The ScenarioManager will automatically add the run index to the base seed
             ScenarioParameters baseParameters = new ScenarioParameters();
-            baseParameters.setSeed(100L);       // Initial base seed
-            //baseParameters.setDemand(4500.0);   // Base demand in veh/h
-            baseParameters.setTruckShare(0.1);  // 10% trucks
-            baseParameters.setMergeShare(0.2);  // 20% on-ramp demand
-            baseParameters.setSimulationTime(new Duration(2.0, DurationUnit.HOUR));
+            baseParameters.setSeed(100L); // Initial base seed
+            // baseParameters.setDemand(4500.0); // Base demand in veh/h
+            baseParameters.setTruckShare(0.1); // 10% trucks
+            baseParameters.setMergeShare(0.1); // 10% on-ramp demand
+            baseParameters.setSimulationTime(new Duration(4.0, DurationUnit.HOUR));
             // Add this parameter configuration to the scenario
             scenarioManager.addParameterVariation(scenarioName, baseParameters);
 
             // 5. Set the number of replications (this ensures 10 runs with different seeds)
             int numberOfReplications = 10;
             scenarioManager.setReplications(numberOfReplications);
-
 
             // 6. Run all registered scenarios in parallel
             // Parameter 1: Number of parallel threads (10 threads for 10 runs)

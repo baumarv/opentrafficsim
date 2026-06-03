@@ -63,6 +63,20 @@
             "request": "launch",
             "mainClass": "org.opentrafficsim.demo.mirova.SimpleSimulation",
             "projectName": "ots-demo"
+        },
+        {
+            "type": "java",
+            "name": "RunMerge (Mirova)",
+            "request": "launch",
+            "mainClass": "org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunMerge",
+            "projectName": "ots-demo"
+        },
+        {
+            "type": "java",
+            "name": "RunMergeParallel (Mirova)",
+            "request": "launch",
+            "mainClass": "org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunParallelMergeScenarios",
+            "projectName": "ots-demo"
         }
     ]
 }

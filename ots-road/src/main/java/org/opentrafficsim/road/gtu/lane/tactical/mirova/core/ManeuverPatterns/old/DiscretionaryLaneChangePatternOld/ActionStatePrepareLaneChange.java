@@ -1,4 +1,4 @@
-package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.DiscretionaryLaneChangePatternOld;
+package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ManeuverPatterns.old.DiscretionaryLaneChangePatternOld;
 
 import org.djunits.value.vdouble.scalar.Acceleration;
 import org.djunits.value.vdouble.scalar.Length;
