@@ -16,8 +16,9 @@ import org.opentrafficsim.road.gtu.lane.tactical.following.CarFollowingModelFact
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.CongestionIncentive;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.CruisingSpeedIncentive;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.KeepRightIncentive;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.RouteIncentive;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.MergeCooperationIncentive;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.ProhibitDeadEndIncentive;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.AnticipateAdjacentCongestionPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.AnticipateDownstreamMergePattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.GapOpenerPattern;
@@ -143,9 +144,10 @@ public class MirovaTacticalPlannerFactory extends AbstractLaneBasedTacticalPlann
     protected void setDesireLayer(final MirovaTacticalPlanner planner) throws ParameterException, OperationalPlanException
     {
         planner.addKnowledgeChunk(new CruisingSpeedIncentive(planner));
+        planner.addKnowledgeChunk(new KeepRightIncentive(planner));
         planner.addKnowledgeChunk(new RouteIncentive(planner));
-        planner.addKnowledgeChunk(new MergeCooperationIncentive(planner));
-        planner.addKnowledgeChunk(new CongestionIncentive(planner));
+        planner.addKnowledgeChunk(new ProhibitDeadEndIncentive(planner));
+        // planner.addKnowledgeChunk(new CongestionIncentive(planner));
     }
 
     /**

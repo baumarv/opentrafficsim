@@ -13,16 +13,14 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.Infrast
 import org.opentrafficsim.road.network.lane.Lane;
 
 /**
- * KnowledgeChunk designed to handle cooperative merging scenarios.
+ * DesireIncentive that suppresses lane changes onto a merging lane.
  * <p>
  * This component forms part of <b>Layer 2 (Cognition / Motivation)</b> in the MiRoVA architecture. It is responsible for
- * identifying situations where cooperation with merging vehicles is beneficial or necessary.
+ * detecting adjacent merging lanes and discouraging the ego vehicle from changing into them.
  * </p>
  * <p>
- * Currently, this chunk does not contribute to the global desire vector (returns neutral desire), as the cooperative behavior
- * (e.g., opening a gap) is primarily triggered reactively via a procedural parallel maneuver pattern in Layer 4, rather than
- * through a proactive lane change desire. Future implementations could increase lane change desire to the left to proactively
- * vacate the lane for merging traffic (Courtesy Lane Change).
+ * When a parallel merge is detected on a given side, this incentive applies a negative desire for changing in that direction,
+ * thereby preventing the ego vehicle from moving onto a lane that is about to end or is occupied by merging traffic.
  * </p>
  * <p>
  * Copyright (c) 2025 Marvin Baumann / KIT. All rights reserved. <br>
@@ -30,7 +28,7 @@ import org.opentrafficsim.road.network.lane.Lane;
  * </p>
  * @author <a href="https://github.com/baumarv">Marvin Baumann</a>
  */
-public class MergeCooperationIncentive extends DesireIncentive
+public class ProhibitDeadEndIncentive extends DesireIncentive
 {
 
     private LateralDirectionality mergeDirection = null; // Direction of the potential merge (LEFT or RIGHT)
@@ -40,7 +38,7 @@ public class MergeCooperationIncentive extends DesireIncentive
      * @param vehicle the tactical planner governing the ego agent
      * @throws OperationalPlanException if chunk instantiation fails
      */
-    public MergeCooperationIncentive(final MirovaTacticalPlanner vehicle) throws OperationalPlanException
+    public ProhibitDeadEndIncentive(final MirovaTacticalPlanner vehicle) throws OperationalPlanException
     {
         super(vehicle);
     }
@@ -71,20 +69,18 @@ public class MergeCooperationIncentive extends DesireIncentive
     }
 
     /**
-     * Computes the desire to change lanes based on cooperation needs.
+     * Computes the desire to suppress a lane change towards a merging lane or on-ramp.
      * <p>
-     * Currently implemented to return a neutral desire (0.0 for both directions). Future implementations will handle the
-     * Courtesy Lane Change here.
+     * If a parallel merge is detected on either side, a negative desire is applied in that direction to discourage the ego
+     * vehicle from changing onto the merging lane or ramp. If no merge is detected, a neutral desire (0.0) is returned for both
+     * directions.
      * </p>
-     * @return a neutral {@link Desire} object (0.0 for both directions)
+     * @return a {@link Desire} object with a negative value in the merge direction, or 0.0 if no merge is present
      * @throws ParameterException if required parameters are missing
      */
     @Override
     public Desire computeDesire() throws ParameterException
     {
-        // Currently, we do not influence the desire vector.
-        // The cooperation is handled procedurally by the PatternSelector invoking
-        // the MergeCooperationPattern in Layer 4 based on specific context checks.
 
         if (this.mergeDirection == LateralDirectionality.LEFT)
         {

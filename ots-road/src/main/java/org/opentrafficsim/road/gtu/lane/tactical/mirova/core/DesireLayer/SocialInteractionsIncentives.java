@@ -25,15 +25,15 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoCont
  * </p>
  * @author <a href="https://github.com/baumarv">Marvin Baumann</a>
  */
-public class SocialInteractionsChunk extends DesireIncentive
+public class SocialInteractionsIncentives extends DesireIncentive
 {
 
     /**
-     * Constructs a new SocialInteractionsChunk.
+     * Constructs a new SocialInteractionsIncentives.
      * @param vehicle the tactical planner governing the ego agent
      * @throws OperationalPlanException if chunk instantiation fails
      */
-    public SocialInteractionsChunk(final MirovaTacticalPlanner vehicle) throws OperationalPlanException
+    public SocialInteractionsIncentives(final MirovaTacticalPlanner vehicle) throws OperationalPlanException
     {
         super(vehicle);
     }

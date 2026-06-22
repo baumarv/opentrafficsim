@@ -315,18 +315,18 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         {
             getGtu().setTurnIndicatorStatus(TurnIndicatorStatus.RIGHT);
         }
-        else if (getLaneChangeDesire().magnitude() > getDMand())
-        {
-            // if strong desire but no explicit indicator intent, use desire direction for indicators
-            if (getLaneChangeDesire().dominantDirection() == LateralDirectionality.LEFT)
-            {
-                getGtu().setTurnIndicatorStatus(TurnIndicatorStatus.LEFT);
-            }
-            else if (getLaneChangeDesire().dominantDirection() == LateralDirectionality.RIGHT)
-            {
-                getGtu().setTurnIndicatorStatus(TurnIndicatorStatus.RIGHT);
-            }
-        }
+        // else if (getLaneChangeDesire().magnitude() > getDMand())
+        // {
+        // // if strong desire but no explicit indicator intent, use desire direction for indicators
+        // if (getLaneChangeDesire().dominantDirection() == LateralDirectionality.LEFT)
+        // {
+        // getGtu().setTurnIndicatorStatus(TurnIndicatorStatus.LEFT);
+        // }
+        // else if (getLaneChangeDesire().dominantDirection() == LateralDirectionality.RIGHT)
+        // {
+        // getGtu().setTurnIndicatorStatus(TurnIndicatorStatus.RIGHT);
+        // }
+        // }
         else
         {
             getGtu().setTurnIndicatorStatus(TurnIndicatorStatus.NONE);
