@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ots:Ots xmlns:ots="http://www.opentrafficsim.org/ots" xmlns:xi="http://www.w3.org/2001/XInclude"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.opentrafficsim.org/ots ../../../../../ots-xml/src/main/resources/xsd/ots.xsd">
+  <ots:Definitions>
+    <xi:include href="../xsd/defaults/default_gtutypes.xml">
+      <xi:fallback>
+        <xi:include href="../../../../../ots-xml/src/main/resources/xsd/defaults/default_gtutypes.xml" />
+      </xi:fallback>
+    </xi:include>
+    <xi:include href="../xsd/defaults/default_linktypes.xml">
+      <xi:fallback>
+        <xi:include href="../../../../../ots-xml/src/main/resources/xsd/defaults/default_linktypes.xml" />
+      </xi:fallback>
+    </xi:include>
+    <xi:include href="../xsd/defaults/default_stripetypes.xml">
+      <xi:fallback>
+        <xi:include href="../../../../../ots-xml/src/main/resources/xsd/defaults/default_stripetypes.xml" />
+      </xi:fallback>
+    </xi:include>
+    <xi:include href="../xsd/defaults/default_lanetypes.xml">
+      <xi:fallback>
+        <xi:include href="../../../../../ots-xml/src/main/resources/xsd/defaults/default_lanetypes.xml" />
+      </xi:fallback>
+    </xi:include>
+    <xi:include href="../xsd/defaults/default_detectortypes.xml">
+      <xi:fallback>
+        <xi:include href="../../../../../ots-xml/src/main/resources/xsd/defaults/default_detectortypes.xml" />
+      </xi:fallback>
+    </xi:include>
+
+    <ots:LinkTypes>
+      <ots:LinkType Id="HIGHWAY">
+        <ots:Compatibility GtuType="NL.VEHICLE" />
+        <ots:SpeedLimit GtuType="NL.CAR" LegalSpeedLimit="120km/h" />
+        <ots:SpeedLimit GtuType="NL.TRUCK" LegalSpeedLimit="90km/h" />
+      </ots:LinkType>
+      <ots:LinkType Id="LOCAL">
+        <ots:Compatibility GtuType="NL.VEHICLE" />
+        <ots:SpeedLimit GtuType="NL.CAR" LegalSpeedLimit="65km/h" />
+        <ots:SpeedLimit GtuType="NL.TRUCK" LegalSpeedLimit="65km/h" />
+      </ots:LinkType>
+    </ots:LinkTypes>
+
+    <ots:RoadLayouts>
+      <!-- 3-lane: FORWARD1=leftmost (fast lane), FORWARD3=rightmost (ramp zone).
+           Used with OffsetStart/End=-3.6m so that:
+             FORWARD1 (9.0-3.6=5.4m) and FORWARD2 (5.4-3.6=1.8m) align with adjacent 2-lane links,
+             FORWARD3 (1.8-3.6=-1.8m) is the new rightmost lane with no upstream/downstream counterpart. -->
+      <ots:RoadLayout Id="3LaneHighway" LinkType="HIGHWAY">
+        <ots:Shoulder Id="LeftShoulder">
+          <ots:CenterOffset>12.1m</ots:CenterOffset>
+          <ots:Width>3m</ots:Width>
+        </ots:Shoulder>
+        <ots:Stripe Id="1">
+          <ots:CenterOffset>10.8m</ots:CenterOffset>
+          <ots:DefinedStripe>NL.SOLID</ots:DefinedStripe>
+        </ots:Stripe>
+        <ots:Lane Id="FORWARD1" LaneType="NL.HIGHWAY">
+          <ots:CenterOffset>9.0m</ots:CenterOffset>
+          <ots:Width>3.6m</ots:Width>
+        </ots:Lane>
+        <ots:Stripe Id="2">
+          <ots:CenterOffset>7.2m</ots:CenterOffset>
+          <ots:DefinedStripe>NL.DASHED</ots:DefinedStripe>
+        </ots:Stripe>
+        <ots:Lane Id="FORWARD2" LaneType="NL.HIGHWAY">
+          <ots:CenterOffset>5.4m</ots:CenterOffset>
+          <ots:Width>3.6m</ots:Width>
+        </ots:Lane>
+        <ots:Stripe Id="3">
+          <ots:CenterOffset>3.6m</ots:CenterOffset>
+          <ots:DefinedStripe>NL.DASHED</ots:DefinedStripe>
+        </ots:Stripe>
+        <ots:Lane Id="FORWARD3" LaneType="NL.HIGHWAY">
+          <ots:CenterOffset>1.8m</ots:CenterOffset>
+          <ots:Width>3.6m</ots:Width>
+        </ots:Lane>
+        <ots:Stripe Id="4">
+          <ots:CenterOffset>0m</ots:CenterOffset>
+          <ots:DefinedStripe>NL.SOLID</ots:DefinedStripe>
+        </ots:Stripe>
+        <ots:Shoulder Id="RightShoulder">
+          <ots:CenterOffset>-1.5m</ots:CenterOffset>
+          <ots:Width>3m</ots:Width>
+        </ots:Shoulder>
+      </ots:RoadLayout>
+
+      <!-- 2-lane: FORWARD1=leftmost (fast lane), FORWARD2=rightmost -->
+      <ots:RoadLayout Id="2LaneHighway" LinkType="HIGHWAY">
+        <ots:Shoulder Id="LeftShoulder">
+          <ots:CenterOffset>8.5m</ots:CenterOffset>
+          <ots:Width>3m</ots:Width>
+        </ots:Shoulder>
+        <ots:Stripe Id="1">
+          <ots:CenterOffset>7.2m</ots:CenterOffset>
+          <ots:DefinedStripe>NL.SOLID</ots:DefinedStripe>
+        </ots:Stripe>
+        <ots:Lane Id="FORWARD1" LaneType="NL.HIGHWAY">
+          <ots:CenterOffset>5.4m</ots:CenterOffset>
+          <ots:Width>3.6m</ots:Width>
+        </ots:Lane>
+        <ots:Stripe Id="2">
+          <ots:CenterOffset>3.6m</ots:CenterOffset>
+          <ots:DefinedStripe>NL.DASHED</ots:DefinedStripe>
+        </ots:Stripe>
+        <ots:Lane Id="FORWARD2" LaneType="NL.HIGHWAY">
+          <ots:CenterOffset>1.8m</ots:CenterOffset>
+          <ots:Width>3.6m</ots:Width>
+        </ots:Lane>
+        <ots:Stripe Id="3">
+          <ots:CenterOffset>0m</ots:CenterOffset>
+          <ots:DefinedStripe>NL.SOLID</ots:DefinedStripe>
+        </ots:Stripe>
+        <ots:Shoulder Id="RightShoulder">
+          <ots:CenterOffset>-1.5m</ots:CenterOffset>
+          <ots:Width>3m</ots:Width>
+        </ots:Shoulder>
+      </ots:RoadLayout>
+
+      <!-- 1-lane: used for exit/entry ramps -->
+      <ots:RoadLayout Id="1LaneHighway" LinkType="LOCAL">
+        <ots:Shoulder Id="LeftShoulder">
+          <ots:CenterOffset>4.9m</ots:CenterOffset>
+          <ots:Width>3m</ots:Width>
+        </ots:Shoulder>
+        <ots:Stripe Id="1">
+          <ots:CenterOffset>3.6m</ots:CenterOffset>
+          <ots:DefinedStripe>NL.SOLID</ots:DefinedStripe>
+        </ots:Stripe>
+        <ots:Lane Id="FORWARD1" LaneType="NL.HIGHWAY">
+          <ots:CenterOffset>1.8m</ots:CenterOffset>
+          <ots:Width>3.6m</ots:Width>
+        </ots:Lane>
+        <ots:Stripe Id="2">
+          <ots:CenterOffset>0m</ots:CenterOffset>
+          <ots:DefinedStripe>NL.SOLID</ots:DefinedStripe>
+        </ots:Stripe>
+        <ots:Shoulder Id="RightShoulder">
+          <ots:CenterOffset>-1.5m</ots:CenterOffset>
+          <ots:Width>3m</ots:Width>
+        </ots:Shoulder>
+      </ots:RoadLayout>
+    </ots:RoadLayouts>
+  </ots:Definitions>
+
+<ots:Network>
+
+<!-- <ots:Node Id="N1_1" Coordinate="(-2.320, -0.117)"  />
+    <ots:Node Id="N1_4" Coordinate="(10.759, 522.867)"   Direction="92.73 deg(E)" />
+    <ots:Node Id="N2_3" Coordinate="(-0.003, 748.552)"   /> 
+    <ots:Node Id="N3_4" Coordinate="(-26.438, 974.797)"  Direction="99.08 deg(E)" />
+    <ots:Node Id="N4_3" Coordinate="(-57.909, 1171.765)"  />
+    <ots:Node Id="N5_3" Coordinate="(-93.001, 1354.359)"  />
+
+    <ots:Node Id="R6_1" Coordinate="(2.967, 754.174)"    />
+    <ots:Node Id="R6_8" Coordinate="(126.526, 659.974)"  />
+
+    <ots:Node Id="R7_1" Coordinate="(143.142, 657.093)" />
+    <ots:Node Id="R7_8" Coordinate="(-20.765, 974.035)"   /> -->
+
+     <!--
+      Freiburg Nord interchange transcribed from ViSSim links 1-7.
+      Coordinates in metres: X=East, Y=North.
+
+      Mainline (south to north):
+        L1a  N1_1 -> N1_4   2 lanes
+        L2a  N1_4 -> N2_3   3 lanes, Offset=-3.6m  (FORWARD3 at -1.8m = exit-ramp zone)
+        L3a  N2_3 -> N3_4   2 lanes
+        L4a  N3_4 -> N4_3   3 lanes, Offset=-3.6m  (FORWARD3 at -1.8m = entry-ramp zone)
+        L5a  N4_3 -> N5_3   2 lanes
+
+      Lane alignment at junctions (OffsetStart/End arithmetic):
+        2-lane FORWARD1=5.4m, FORWARD2=1.8m
+        3-lane with Offset=-3.6m:
+          FORWARD1=9.0-3.6=5.4m  -> connects to 2-lane FORWARD1
+          FORWARD2=5.4-3.6=1.8m  -> connects to 2-lane FORWARD2
+          FORWARD3=1.8-3.6=-1.8m -> new rightmost lane (ramp zone, no match)
+
+      Exit ramp (ViSSim link 6): L_exit Bezier with OffsetStart=-3.6m connects
+        FORWARD1 at -1.8m to L2a.FORWARD3. Then Polyline L6_ramp through the loop.
+      Entry ramp (ViSSim link 7): Polyline L7a, then Bezier L7m with OffsetEnd=-3.6m
+        connects FORWARD1 at -1.8m to L4a.FORWARD3.
+
+      Note: ramp segments use Polyline (not Arc) because ViSSim spline polypoints
+      do not form exact circular arcs between the chosen node pairs.
+    -->
+
+    <!-- Mainline nodes -->
+    <ots:Node Id="N1_1" Coordinate="(-2.320, -0.117)"    Direction="85.2 deg(E)" />
+    <ots:Node Id="N1_4" Coordinate="(10.759, 522.867)"   Direction="92.73 deg(E)" />
+    <ots:Node Id="N2_3" Coordinate="(-0.003, 748.552)"   /> 
+    <!-- Direction="96.67 deg(E)"  -->
+    <ots:Node Id="N3_4" Coordinate="(-26.438, 974.797)"  Direction="99.08 deg(E)" />
+    <ots:Node Id="N4_3" Coordinate="(-57.909, 1171.765)" Direction="100.87 deg(E)" />
+    <ots:Node Id="N5_3" Coordinate="(-247.133, 1888.565)" Direction="101.2 deg(E)" />
+
+    <!-- Exit ramp terminal nodes (ViSSim link 6 first and last polypoints) -->
+    <ots:Node Id="R6_1" Coordinate="(2.967, 754.174)"    Direction="91.4 deg(E)" />
+    <ots:Node Id="R6_8" Coordinate="(126.526, 659.974)"  Direction="-94.0 deg(E)" />
+
+    <!-- Entry ramp nodes (ViSSim link 7: R7_1=generator origin, R7_8=merge connector start) -->
+    <ots:Node Id="R7_1" Coordinate="(160.0, 725.0)"  Direction="96.6 deg(E)" />
+    <ots:Node Id="R7_8" Coordinate="(-20.765, 974.035)"  Direction="103.7 deg(E)" />
+
+    <!-- ================================================================
+         MAINLINE
+         ================================================================ -->
+
+    <!-- L1a: 2-lane (ViSSim link 1) -->
+    <ots:Link Id="L1a" NodeStart="N1_1" NodeEnd="N1_4" Type="HIGHWAY">
+      <ots:Polyline>
+      <ots:Coordinate>(-0.295, 22.747)</ots:Coordinate>
+        <ots:Coordinate>(1.801, 45.606)</ots:Coordinate>
+        <ots:Coordinate>(3.754, 68.475)</ots:Coordinate>
+        <ots:Coordinate>(5.346, 91.370)</ots:Coordinate>
+        <ots:Coordinate>(9.286, 164.839)</ots:Coordinate>
+        <ots:Coordinate>(12.370, 238.357)</ots:Coordinate>
+        <ots:Coordinate>(14.393, 311.906)</ots:Coordinate>
+        <ots:Coordinate>(15.147, 385.469)</ots:Coordinate>
+        <ots:Coordinate>(14.681, 419.829)</ots:Coordinate>
+        <ots:Coordinate>(13.514, 454.177)</ots:Coordinate>
+        <ots:Coordinate>(12.066, 488.521)</ots:Coordinate>
+      </ots:Polyline>
+      <ots:DefinedLayout>2LaneHighway</ots:DefinedLayout>
+    </ots:Link>
+
+    <!-- L2a: 3-lane (ViSSim link 2).
+         OffsetStart/End=-3.6m: FORWARD1/2 align with L1a/L3a; FORWARD3 is the exit-ramp zone.  -->
+    <ots:Link Id="L2a" NodeStart="N1_4" NodeEnd="N2_3" Type="HIGHWAY" OffsetStart="-3.6m" OffsetEnd="-3.6m">
+        <ots:Straight />
+      <!-- <ots:Polyline>
+        <ots:Coordinate>(8.155, 659.241)</ots:Coordinate>
+      </ots:Polyline> -->
+      <ots:DefinedLayout>3LaneHighway</ots:DefinedLayout>
+    </ots:Link>
+
+    <!-- L3a: 2-lane (ViSSim link 3) -->
+    <ots:Link Id="L3a" NodeStart="N2_3" NodeEnd="N3_4" Type="HIGHWAY">
+    <!-- <ots:Straight /> -->
+      <ots:Polyline>
+        <ots:Coordinate>(-8.511, 822.470)</ots:Coordinate>
+        <ots:Coordinate>(-25.995, 971.629)</ots:Coordinate>
+      </ots:Polyline>
+      <ots:DefinedLayout>2LaneHighway</ots:DefinedLayout>
+    </ots:Link>
+
+    <!-- L4a: 3-lane (ViSSim link 4).
+         OffsetStart/End=-3.6m: FORWARD1/2 align with L3a/L5a; FORWARD3 is the entry-ramp zone. -->
+    <ots:Link Id="L4a" NodeStart="N3_4" NodeEnd="N4_3" Type="HIGHWAY"
+              OffsetStart="-3.6m" OffsetEnd="-3.6m">
+              <ots:Straight />
+      <!-- <ots:Polyline>
+        <ots:Coordinate>(-36.703, 1060.734)</ots:Coordinate>
+      </ots:Polyline> -->
+      <ots:DefinedLayout>3LaneHighway</ots:DefinedLayout>
+    </ots:Link>
+
+    <!-- L5a: 2-lane (ViSSim link 5) -->
+    <ots:Link Id="L5a" NodeStart="N4_3" NodeEnd="N5_3" Type="HIGHWAY">
+    <ots:Polyline>
+        <ots:Coordinate>(-59.782, 1182.629)</ots:Coordinate>
+        <ots:Coordinate>(-61.637, 1193.496)</ots:Coordinate>
+        <ots:Coordinate>(-63.528, 1204.357)</ots:Coordinate>
+        <ots:Coordinate>(-65.509, 1215.201)</ots:Coordinate>
+        <ots:Coordinate>(-76.362, 1273.316)</ots:Coordinate>
+        <ots:Coordinate>(-87.401, 1331.403)</ots:Coordinate>
+        <ots:Coordinate>(-99.217, 1389.321)</ots:Coordinate>
+        <ots:Coordinate>(-112.401, 1446.930)</ots:Coordinate>
+        <ots:Coordinate>(-129.275, 1511.757)</ots:Coordinate>
+        <ots:Coordinate>(-147.646, 1576.189)</ots:Coordinate>
+        <ots:Coordinate>(-166.966, 1640.360)</ots:Coordinate>
+        <ots:Coordinate>(-186.684, 1704.400)</ots:Coordinate>
+        <ots:Coordinate>(-201.325, 1750.591)</ots:Coordinate>
+        <ots:Coordinate>(-216.490, 1796.616)</ots:Coordinate>
+        <ots:Coordinate>(-231.864, 1842.574)</ots:Coordinate>
+      </ots:Polyline>
+      <ots:DefinedLayout>2LaneHighway</ots:DefinedLayout>
+    </ots:Link>
+
+    <!-- ================================================================
+         EXIT RAMP (ViSSim link 6)
+         L_exit: Bezier with OffsetStart=-3.6m places FORWARD1 at 1.8-3.6=-1.8m
+           at N2_3, matching L2a.FORWARD3 there.
+         L6_ramp: Polyline through all ViSSim link-6 intermediate polypoints.
+         ================================================================ -->
+
+    <ots:Link Id="L_exit" NodeStart="N2_3" NodeEnd="R6_1" Type="LOCAL" OffsetStart="-3.6m">
+      <ots:Bezier />
+      <ots:DefinedLayout>1LaneHighway</ots:DefinedLayout>
+    </ots:Link>
+
+    <ots:Link Id="L6_ramp" NodeStart="R6_1" NodeEnd="R6_8" Type="LOCAL">
+      <ots:Polyline>
+       <ots:Coordinate>(2.525, 760.677)</ots:Coordinate>
+        <ots:Coordinate>(1.892, 767.199)</ots:Coordinate>
+        <ots:Coordinate>(1.643, 773.685)</ots:Coordinate>
+        <ots:Coordinate>(2.352, 780.078)</ots:Coordinate>
+        <ots:Coordinate>(4.387, 787.600)</ots:Coordinate>
+        <ots:Coordinate>(7.259, 794.917)</ots:Coordinate>
+        <ots:Coordinate>(11.054, 801.744)</ots:Coordinate>
+        <ots:Coordinate>(15.852, 807.795)</ots:Coordinate>
+        <ots:Coordinate>(23.456, 814.753)</ots:Coordinate>
+        <ots:Coordinate>(32.097, 820.647)</ots:Coordinate>
+        <ots:Coordinate>(41.509, 824.943)</ots:Coordinate>
+        <ots:Coordinate>(51.424, 827.109)</ots:Coordinate>
+        <ots:Coordinate>(61.935, 826.783)</ots:Coordinate>
+        <ots:Coordinate>(72.341, 824.201)</ots:Coordinate>
+        <ots:Coordinate>(82.250, 819.831)</ots:Coordinate>
+        <ots:Coordinate>(91.271, 814.139)</ots:Coordinate>
+        <ots:Coordinate>(97.216, 808.646)</ots:Coordinate>
+        <ots:Coordinate>(102.137, 802.095)</ots:Coordinate>
+        <ots:Coordinate>(106.350, 794.940)</ots:Coordinate>
+        <ots:Coordinate>(110.173, 787.633)</ots:Coordinate>
+        <ots:Coordinate>(117.206, 773.110)</ots:Coordinate>
+        <ots:Coordinate>(123.315, 758.115)</ots:Coordinate>
+        <ots:Coordinate>(128.110, 742.707)</ots:Coordinate>
+        <ots:Coordinate>(131.203, 726.947)</ots:Coordinate>
+        <ots:Coordinate>(131.934, 710.262)</ots:Coordinate>
+        <ots:Coordinate>(130.553, 693.513)</ots:Coordinate>
+        <ots:Coordinate>(128.329, 676.737)</ots:Coordinate>
+      </ots:Polyline>
+      <ots:DefinedLayout>1LaneHighway</ots:DefinedLayout>
+    </ots:Link>
+
+    <!-- ================================================================
+         ENTRY RAMP (ViSSim link 7)
+         L7a: Polyline through all ViSSim link-7 polypoints (R7_1 is the OD origin).
+         L7m: Bezier with OffsetEnd=-3.6m places FORWARD1 at 1.8-3.6=-1.8m
+           at N3_4, matching L4a.FORWARD3 there.
+         ================================================================ -->
+<!-- 
+    <ots:Link Id="L7a" NodeStart="R7_1" NodeEnd="R7_8" Type="LOCAL">
+     <ots:Polyline>
+        <ots:Coordinate>(141.061, 680.081)</ots:Coordinate>
+        <ots:Coordinate>(139.365, 703.142)</ots:Coordinate>
+        <ots:Coordinate>(136.900, 726.059)</ots:Coordinate>
+        <ots:Coordinate>(132.509, 748.618)</ots:Coordinate>
+        <ots:Coordinate>(129.755, 757.892)</ots:Coordinate>
+        <ots:Coordinate>(126.354, 766.971)</ots:Coordinate>
+        <ots:Coordinate>(122.376, 775.820)</ots:Coordinate>
+        <ots:Coordinate>(117.890, 784.400)</ots:Coordinate>
+        <ots:Coordinate>(112.803, 792.907)</ots:Coordinate>
+        <ots:Coordinate>(107.206, 801.112)</ots:Coordinate>
+        <ots:Coordinate>(101.105, 808.944)</ots:Coordinate>
+        <ots:Coordinate>(94.508, 816.334)</ots:Coordinate>
+        <ots:Coordinate>(83.032, 826.869)</ots:Coordinate>
+        <ots:Coordinate>(70.643, 836.402)</ots:Coordinate>
+        <ots:Coordinate>(58.000, 845.666)</ots:Coordinate>
+        <ots:Coordinate>(45.758, 855.395)</ots:Coordinate>
+        <ots:Coordinate>(35.943, 863.709)</ots:Coordinate>
+        <ots:Coordinate>(26.166, 872.094)</ots:Coordinate>
+        <ots:Coordinate>(16.786, 880.865)</ots:Coordinate>
+        <ots:Coordinate>(8.164, 890.340)</ots:Coordinate>
+        <ots:Coordinate>(4.026, 895.734)</ots:Coordinate>
+        <ots:Coordinate>(0.242, 901.402)</ots:Coordinate>
+        <ots:Coordinate>(-3.121, 907.324)</ots:Coordinate>
+        <ots:Coordinate>(-5.993, 913.477)</ots:Coordinate>
+        <ots:Coordinate>(-10.975, 928.194)</ots:Coordinate>
+        <ots:Coordinate>(-14.525, 943.380)</ots:Coordinate>
+        <ots:Coordinate>(-17.502, 958.754)</ots:Coordinate>
+      </ots:Polyline>
+      <ots:DefinedLayout>1LaneHighway</ots:DefinedLayout>
+    </ots:Link> -->
+
+    <!-- Entry ramp merge: Bezier with OffsetEnd=-3.6m aligns FORWARD1 with L4a.FORWARD3. -->
+    <ots:Link Id="L7a" NodeStart="R7_1" NodeEnd="N3_4" Type="LOCAL" OffsetEnd="-3.6m">
+      <ots:Bezier />
+      <ots:DefinedLayout>1LaneHighway</ots:DefinedLayout>
+    </ots:Link>
+
+  </ots:Network>
+
+  <ots:Demand>
+    <!-- Mainline sink (vehicles leave at N5_3) -->
+    <ots:Sink Lane="FORWARD1" Link="L5a" Position="END-50m" Type="NL.ROAD_USERS" />
+    <ots:Sink Lane="FORWARD2" Link="L5a" Position="END-50m" Type="NL.ROAD_USERS" />
+    <!-- Exit ramp sink (vehicles that took the off-ramp leave at R6_8) -->
+    <ots:Sink Lane="FORWARD1" Link="L6_ramp" Position="END-10m" Type="NL.ROAD_USERS" />
+  </ots:Demand>
+
+  <ots:Run>
+    <ots:RunLength>1h</ots:RunLength>
+  </ots:Run>
+</ots:Ots>

@@ -77,6 +77,13 @@
             "request": "launch",
             "mainClass": "org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunParallelMergeScenarios",
             "projectName": "ots-demo"
+        },
+        {
+            "type": "java",
+            "name": "RunFreiburgNord",
+            "request": "launch",
+            "mainClass": "org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunFreiburgNord",
+            "projectName": "ots-demo"
         }
     ]
 }
