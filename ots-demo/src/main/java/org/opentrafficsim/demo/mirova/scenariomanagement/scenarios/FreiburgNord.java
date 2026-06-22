@@ -5,6 +5,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.util.HashMap;
+import java.util.Set;
+import java.util.TreeSet;
 
 import org.djunits.unit.DurationUnit;
 import org.djunits.unit.FrequencyUnit;
@@ -383,73 +389,165 @@ public class FreiburgNord extends ScenarioGenerator
      */
     public void createVehiclesFromODMatrix(final ScenarioParameters params, final OtsSimulatorInterface sim) throws Exception
     {
-        double startVolume = 1000.0; // vehicles per hour
-        double endVolume = 6500.0; // params.getDemand(); // vehicles per hour
-        double volumeStep = 100.0; // vehicles per hour
-        double steps = Math.ceil((endVolume - startVolume) / volumeStep) + 1;
-        double relativeTimeStep = 1.0 / steps;
-        int i = 0;
-        double[] time = new double[(int) steps];
-        double[] carDemandMain = new double[(int) steps];
-        double[] carDemandOnRamp = new double[(int) steps];
-        double[] truckDemandMain = new double[(int) steps];
-        double[] truckDemandOnRamp = new double[(int) steps];
-
-        for (i = 0; i < steps; i++)
-        {
-            time[i] = relativeTimeStep * i * params.getSimulationTime().getInUnit(DurationUnit.HOUR);
-            carDemandMain[i] = startVolume * (1.0 - params.getTruckShare()) * (1.0 - this.defaultParameters.getMergeShare());
-            truckDemandMain[i] = startVolume * params.getTruckShare() * (1.0 - this.defaultParameters.getMergeShare());
-            carDemandOnRamp[i] = startVolume * (1.0 - params.getTruckShare()) * this.defaultParameters.getMergeShare();
-            truckDemandOnRamp[i] = startVolume * params.getTruckShare() * this.defaultParameters.getMergeShare();
-
-            startVolume += volumeStep;
-        }
-
-        TimeVector timeVector = new TimeVector(
-                DoubleVectorData.instantiate(time, TimeUnit.BASE_HOUR.getScale(), StorageType.DENSE), TimeUnit.BASE_HOUR);
-
-        System.out.println("Time vector: " + timeVector.toString());
-        System.out.println("Car main: " + java.util.Arrays.toString(carDemandMain));
-        System.out.println("Truck main: " + java.util.Arrays.toString(truckDemandMain));
-        System.out.println("Car on-ramp: " + java.util.Arrays.toString(carDemandOnRamp));
-        System.out.println("Truck on-ramp: " + java.util.Arrays.toString(truckDemandOnRamp));
-
+        String demandCsv = params.getOrDefault("demandCsv", "D:\\Mitarbeitende\\gw2128\\repositories\\diss_mvb\\data\\simulation_demand.csv", String.class);
+        File csvFile = new File(demandCsv);
+        
         Categorization categorization = new Categorization("MyCategorization", GtuType.class);
-
         List<Node> origins = getOrigins(this.network);
-
         List<Node> destinations = getDestinations(this.network);
+        
+        Category carCat = new Category(categorization, DefaultsNl.CAR);
+        Category truckCat = new Category(categorization, DefaultsNl.TRUCK);
+        
+        OdMatrix odMatrix;
+        
+        if (csvFile.exists())
+        {
+            System.out.println("Loading simulation demand from CSV: " + csvFile.getAbsolutePath());
+            TreeSet<Double> uniqueTimes = new TreeSet<>();
+            Map<String, Map<Double, Double>> demandMap = new HashMap<>();
+            
+            try (BufferedReader br = new BufferedReader(new FileReader(csvFile)))
+            {
+                String line;
+                boolean isHeader = true;
+                while ((line = br.readLine()) != null)
+                {
+                    if (isHeader)
+                    {
+                        isHeader = false;
+                        continue;
+                    }
+                    String[] parts = line.split(",");
+                    if (parts.length < 6)
+                    {
+                        continue;
+                    }
+                    double timeSec = Double.parseDouble(parts[0].trim());
+                    String origin = parts[2].trim();
+                    String destination = parts[3].trim();
+                    String gtuType = parts[4].trim();
+                    double demand = Double.parseDouble(parts[5].trim());
+                    
+                    uniqueTimes.add(timeSec);
+                    String key = origin + ";" + destination + ";" + gtuType;
+                    demandMap.computeIfAbsent(key, k -> new HashMap<>()).put(timeSec, demand);
+                }
+            }
+            
+            int n = uniqueTimes.size();
+            double[] timeArray = new double[n];
+            int idx = 0;
+            for (Double t : uniqueTimes)
+            {
+                timeArray[idx++] = t;
+            }
+            
+            TimeVector timeVector = new TimeVector(
+                    DoubleVectorData.instantiate(timeArray, TimeUnit.BASE_SECOND.getScale(), StorageType.DENSE),
+                    TimeUnit.BASE_SECOND);
+            
+            odMatrix = new OdMatrix("OD_Merge", origins, destinations, categorization, timeVector, Interpolation.STEPWISE);
+            
+            for (Map.Entry<String, Map<Double, Double>> entry : demandMap.entrySet())
+            {
+                String[] keyParts = entry.getKey().split(";");
+                String originName = keyParts[0];
+                String destName = keyParts[1];
+                String gtuTypeStr = keyParts[2];
+                
+                Node originNode = this.network.getNode(originName);
+                Node destNode = this.network.getNode(destName);
+                
+                if (originNode == null || destNode == null)
+                {
+                    System.err.println("WARNING: Node not found in network: " + originName + " or " + destName);
+                    continue;
+                }
+                
+                Category cat;
+                if ("CAR".equalsIgnoreCase(gtuTypeStr))
+                {
+                    cat = carCat;
+                }
+                else if ("TRUCK".equalsIgnoreCase(gtuTypeStr))
+                {
+                    cat = truckCat;
+                }
+                else
+                {
+                    System.err.println("WARNING: Unknown GTU type in CSV: " + gtuTypeStr);
+                    continue;
+                }
+                
+                double[] demandArray = new double[n];
+                Map<Double, Double> timeToDemand = entry.getValue();
+                for (int i = 0; i < n; i++)
+                {
+                    Double t = timeArray[i];
+                    demandArray[i] = timeToDemand.getOrDefault(t, 0.0);
+                }
+                
+                FrequencyVector demandFreq = new FrequencyVector(
+                        DoubleVectorData.instantiate(demandArray, FrequencyUnit.PER_HOUR.getScale(), StorageType.DENSE),
+                        FrequencyUnit.PER_HOUR);
+                
+                odMatrix.putDemandVector(originNode, destNode, cat, demandFreq);
+            }
+        }
+        else
+        {
+            System.err.println("WARNING: CSV demand file not found at " + csvFile.getAbsolutePath() + ". Falling back to default programmatic demand.");
+            
+            double startVolume = 1000.0; // vehicles per hour
+            double endVolume = 6500.0; // params.getDemand(); // vehicles per hour
+            double volumeStep = 100.0; // vehicles per hour
+            double steps = Math.ceil((endVolume - startVolume) / volumeStep) + 1;
+            double relativeTimeStep = 1.0 / steps;
+            int i = 0;
+            double[] time = new double[(int) steps];
+            double[] carDemandMain = new double[(int) steps];
+            double[] carDemandOnRamp = new double[(int) steps];
+            double[] truckDemandMain = new double[(int) steps];
+            double[] truckDemandOnRamp = new double[(int) steps];
 
-        OdMatrix odMatrix = new OdMatrix("OD_Merge", origins, destinations, categorization, timeVector, Interpolation.STEPWISE);
+            for (i = 0; i < steps; i++)
+            {
+                time[i] = relativeTimeStep * i * params.getSimulationTime().getInUnit(DurationUnit.HOUR);
+                carDemandMain[i] = startVolume * (1.0 - params.getTruckShare()) * (1.0 - this.defaultParameters.getMergeShare());
+                truckDemandMain[i] = startVolume * params.getTruckShare() * (1.0 - this.defaultParameters.getMergeShare());
+                carDemandOnRamp[i] = startVolume * (1.0 - params.getTruckShare()) * this.defaultParameters.getMergeShare();
+                truckDemandOnRamp[i] = startVolume * params.getTruckShare() * this.defaultParameters.getMergeShare();
+
+                startVolume += volumeStep;
+            }
+
+            TimeVector timeVector = new TimeVector(
+                    DoubleVectorData.instantiate(time, TimeUnit.BASE_HOUR.getScale(), StorageType.DENSE), TimeUnit.BASE_HOUR);
+
+            odMatrix = new OdMatrix("OD_Merge", origins, destinations, categorization, timeVector, Interpolation.STEPWISE);
+
+            FrequencyVector carFreqMain = new FrequencyVector(
+                    DoubleVectorData.instantiate(carDemandMain, FrequencyUnit.PER_HOUR.getScale(), StorageType.DENSE),
+                    FrequencyUnit.PER_HOUR);
+            FrequencyVector truckFreqMain = new FrequencyVector(
+                    DoubleVectorData.instantiate(truckDemandMain, FrequencyUnit.PER_HOUR.getScale(), StorageType.DENSE),
+                    FrequencyUnit.PER_HOUR);
+            FrequencyVector carFreqOnRamp = new FrequencyVector(
+                    DoubleVectorData.instantiate(carDemandOnRamp, FrequencyUnit.PER_HOUR.getScale(), StorageType.DENSE),
+                    FrequencyUnit.PER_HOUR);
+            FrequencyVector truckFreqOnRamp = new FrequencyVector(
+                    DoubleVectorData.instantiate(truckDemandOnRamp, FrequencyUnit.PER_HOUR.getScale(), StorageType.DENSE),
+                    FrequencyUnit.PER_HOUR);
+
+            odMatrix.putDemandVector(this.network.getNode("N1_1"), this.network.getNode("N5_3"), carCat, carFreqMain);
+            odMatrix.putDemandVector(this.network.getNode("R7_1"), this.network.getNode("N5_3"), carCat, carFreqOnRamp);
+            odMatrix.putDemandVector(this.network.getNode("N1_1"), this.network.getNode("N5_3"), truckCat, truckFreqMain);
+            odMatrix.putDemandVector(this.network.getNode("R7_1"), this.network.getNode("N5_3"), truckCat, truckFreqOnRamp);
+        }
 
         // Define GTU characteristics generator for OD
         LaneBasedGtuCharacteristicsGeneratorOd characteristicsGenerator = buildOdsCharacteristicsGenerator(sim);
-
-        FrequencyVector carFreqMain = new FrequencyVector(
-                DoubleVectorData.instantiate(carDemandMain, FrequencyUnit.PER_HOUR.getScale(), StorageType.DENSE),
-                FrequencyUnit.PER_HOUR);
-        System.out.println("Car freq main: " + carFreqMain.toString());
-        FrequencyVector truckFreqMain = new FrequencyVector(
-                DoubleVectorData.instantiate(truckDemandMain, FrequencyUnit.PER_HOUR.getScale(), StorageType.DENSE),
-                FrequencyUnit.PER_HOUR);
-        System.out.println("Truck freq main: " + truckFreqMain.toString());
-        FrequencyVector carFreqOnRamp = new FrequencyVector(
-                DoubleVectorData.instantiate(carDemandOnRamp, FrequencyUnit.PER_HOUR.getScale(), StorageType.DENSE),
-                FrequencyUnit.PER_HOUR);
-        System.out.println("Car freq on-ramp: " + carFreqOnRamp.toString());
-        FrequencyVector truckFreqOnRamp = new FrequencyVector(
-                DoubleVectorData.instantiate(truckDemandOnRamp, FrequencyUnit.PER_HOUR.getScale(), StorageType.DENSE),
-                FrequencyUnit.PER_HOUR);
-        System.out.println("Truck freq on-ramp: " + truckFreqOnRamp.toString());
-
-        Category carCat = new Category(odMatrix.getCategorization(), DefaultsNl.CAR);
-        Category truckCat = new Category(odMatrix.getCategorization(), DefaultsNl.TRUCK);
-
-        odMatrix.putDemandVector(this.network.getNode("N1_1"), this.network.getNode("N5_3"), carCat, carFreqMain);
-        odMatrix.putDemandVector(this.network.getNode("R7_1"), this.network.getNode("N5_3"), carCat, carFreqOnRamp);
-        odMatrix.putDemandVector(this.network.getNode("N1_1"), this.network.getNode("N5_3"), truckCat, truckFreqMain);
-        odMatrix.putDemandVector(this.network.getNode("R7_1"), this.network.getNode("N5_3"), truckCat, truckFreqOnRamp);
 
         OdOptions odOptions = new OdOptions();
         odOptions.set(OdOptions.GTU_TYPE, characteristicsGenerator);
@@ -475,6 +573,7 @@ public class FreiburgNord extends ScenarioGenerator
     {
         List<Node> destinations = new ArrayList<>();
         destinations.add(network.getNode("N5_3"));
+        destinations.add(network.getNode("R6_8"));
         return destinations;
     }
 
