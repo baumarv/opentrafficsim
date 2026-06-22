@@ -43,7 +43,7 @@ public class RunParallelMergeScenarios
             // baseParameters.setDemand(4500.0); // Base demand in veh/h
             baseParameters.setTruckShare(0.1); // 10% trucks
             baseParameters.setMergeShare(0.1); // 10% on-ramp demand
-            baseParameters.setSimulationTime(new Duration(4.0, DurationUnit.HOUR));
+            baseParameters.setSimulationTime(new Duration(10.0, DurationUnit.HOUR));
             // Add this parameter configuration to the scenario
             scenarioManager.addParameterVariation(scenarioName, baseParameters);
 

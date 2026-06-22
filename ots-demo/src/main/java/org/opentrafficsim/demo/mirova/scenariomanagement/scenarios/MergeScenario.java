@@ -391,10 +391,10 @@ public class MergeScenario extends ScenarioGenerator
      */
     public void createVehiclesFromODMatrix(final ScenarioParameters params, final OtsSimulatorInterface sim) throws Exception
     {
-        double intervalVolume = 4000.0; // vehicles per hour
+        double startVolume = 1000.0; // vehicles per hour
         double endVolume = 6500.0; // params.getDemand(); // vehicles per hour
         double volumeStep = 100.0; // vehicles per hour
-        double steps = Math.ceil((endVolume - intervalVolume) / volumeStep) + 1;
+        double steps = Math.ceil((endVolume - startVolume) / volumeStep) + 1;
         double relativeTimeStep = 1.0 / steps;
         int i = 0;
         double[] time = new double[(int) steps];
@@ -406,12 +406,12 @@ public class MergeScenario extends ScenarioGenerator
         for (i = 0; i < steps; i++)
         {
             time[i] = relativeTimeStep * i * params.getSimulationTime().getInUnit(DurationUnit.HOUR);
-            carDemandMain[i] = intervalVolume * (1.0 - params.getTruckShare()) * (1.0 - this.defaultParameters.getMergeShare());
-            truckDemandMain[i] = intervalVolume * params.getTruckShare() * (1.0 - this.defaultParameters.getMergeShare());
-            carDemandOnRamp[i] = intervalVolume * (1.0 - params.getTruckShare()) * this.defaultParameters.getMergeShare();
-            truckDemandOnRamp[i] = intervalVolume * params.getTruckShare() * this.defaultParameters.getMergeShare();
+            carDemandMain[i] = startVolume * (1.0 - params.getTruckShare()) * (1.0 - this.defaultParameters.getMergeShare());
+            truckDemandMain[i] = startVolume * params.getTruckShare() * (1.0 - this.defaultParameters.getMergeShare());
+            carDemandOnRamp[i] = startVolume * (1.0 - params.getTruckShare()) * this.defaultParameters.getMergeShare();
+            truckDemandOnRamp[i] = startVolume * params.getTruckShare() * this.defaultParameters.getMergeShare();
 
-            intervalVolume += volumeStep;
+            startVolume += volumeStep;
         }
 
         TimeVector timeVector = new TimeVector(
