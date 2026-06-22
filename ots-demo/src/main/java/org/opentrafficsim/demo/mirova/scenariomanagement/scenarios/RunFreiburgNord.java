@@ -36,6 +36,7 @@ public class RunFreiburgNord
             params.setMergeShare(0.2);
 
             ScenarioSimulationScript script = scenario.buildSimulationScript(params);
+            // boolean gui = !Boolean.getBoolean("java.awt.headless");
             script.setGuiEnabled(true);
             script.start();
         }
