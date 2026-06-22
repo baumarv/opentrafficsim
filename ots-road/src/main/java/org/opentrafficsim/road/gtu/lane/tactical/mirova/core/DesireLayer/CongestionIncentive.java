@@ -5,8 +5,11 @@ import org.opentrafficsim.base.parameters.ParameterException;
 import org.opentrafficsim.base.parameters.ParameterTypeSpeed;
 import org.opentrafficsim.base.parameters.ParameterTypes;
 import org.opentrafficsim.core.gtu.plan.operational.OperationalPlanException;
+import org.opentrafficsim.road.gtu.lane.perception.RelativeLane;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoContext;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext;
 
 /**
  * KnowledgeChunk designed to detect congestion and suppress discretionary lane changes.
@@ -30,35 +33,39 @@ public class CongestionIncentive extends DesireIncentive
      * * Parameter for the speed threshold below which traffic is considered 'congested'. Uses the standard OTS parameter
      * {@code ParameterTypes.VCONG}.
      */
-    public static final ParameterTypeSpeed V_CONGESTION_THRESHOLD = ParameterTypes.VCONG;
+
+    private final Speed standstillThreshold;
 
     /**
      * Constructs a new CongestionChunk. * @param vehicle the tactical planner governing the ego agent
      * @throws OperationalPlanException if the planner cannot be initialized
+     * @throws ParameterException
      */
-    public CongestionIncentive(final MirovaTacticalPlanner vehicle) throws OperationalPlanException
+    public CongestionIncentive(final MirovaTacticalPlanner vehicle) throws OperationalPlanException, ParameterException
     {
         super(vehicle);
+        this.standstillThreshold = vehicle.getParameters().getParameter(MirovaParameters.standstill_speed_threshold);
     }
 
     /**
      * Determines if the congestion logic is applicable in the current context.
      * <p>
      * Applicability is defined by the ego vehicle's speed. If the speed falls below the configured
-     * {@code V_CONGESTION_THRESHOLD}, the traffic is deemed congested, and this chunk becomes active.
+     * {@code STANDSTILL_SPEED_THRESHOLD}, the traffic is deemed congested, and this chunk becomes active.
      * </p>
      * * @return {@code true} if the ego speed is below the congestion threshold, {@code false} otherwise
-     * @throws ParameterException if the VCONG parameter is not defined or accessible
+     * @throws ParameterException if the STANDSTILL_SPEED_THRESHOLD parameter is not defined or accessible
      */
     @Override
     public boolean isApplicable() throws ParameterException
     {
-        EgoContext ego = getMirovaTacticalPlanner().getContextManager().getCategory("Ego", EgoContext.class);
-        Speed congestionThreshold = getMirovaTacticalPlanner().getParameters().getParameter(V_CONGESTION_THRESHOLD);
-        Speed egoSpeed = ego.getEgoSpeed();
+
+        InfrastructureContext infrastructure =
+                getMirovaTacticalPlanner().getContextManager().getCategory("Infrastructure", InfrastructureContext.class);
+        Speed anticipatedSpeed = infrastructure.getAnticipatedSpeed(RelativeLane.CURRENT);
 
         // Activation condition: Ego speed is slower than the definition of congestion.
-        return egoSpeed.lt(congestionThreshold);
+        return anticipatedSpeed.lt(this.standstillThreshold);
     }
 
     /**
@@ -76,9 +83,28 @@ public class CongestionIncentive extends DesireIncentive
     {
         // Retrieve the generic "free" threshold (the cost of changing lanes) and negate it.
         // This acts as a penalty/suppression for discretionary changes.
-        double dLeft = -getMirovaTacticalPlanner().getDFree();
-        double dRight = -getMirovaTacticalPlanner().getDFree();
+        InfrastructureContext infrastructureContext = getMirovaTacticalPlanner().getContext(InfrastructureContext.class);
+        Speed anticipatedSpeedLeft = infrastructureContext.getAnticipatedSpeed(RelativeLane.LEFT);
+        Speed anticipatedSpeedRight = infrastructureContext.getAnticipatedSpeed(RelativeLane.RIGHT);
 
+        double dLeft;
+        if (anticipatedSpeedLeft.si < this.standstillThreshold.si)
+        {
+            dLeft = -getMirovaTacticalPlanner().getDFree();
+        }
+        else
+        {
+            dLeft = 0; // No additional penalty if the left lane is not congested
+        }
+        double dRight;
+        if (anticipatedSpeedRight.si < this.standstillThreshold.si)
+        {
+            dRight = -getMirovaTacticalPlanner().getDFree();
+        }
+        else
+        {
+            dRight = 0; // No additional penalty if the right lane is not congested
+        }
         // Create a new Desire object.
         // The boolean flag 'false' indicates this is NOT a mandatory desire (it's discretionary).
         this.desire = new Desire(dLeft, dRight, false);

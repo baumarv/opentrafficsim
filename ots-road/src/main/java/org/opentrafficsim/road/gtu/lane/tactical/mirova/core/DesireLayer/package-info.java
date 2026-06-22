@@ -18,11 +18,11 @@
  * following and lane drops.</li>
  * <li>{@link org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.CruisingSpeedIncentive}: Desires for speed gain
  * and keep-right rules.</li>
- * <li>{@link org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.SocialInteractionsChunk}: Desires shaped by
+ * <li>{@link org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.SocialInteractionsIncentives}: Desires shaped by
  * social pressure from other drivers.</li>
  * <li>{@link org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.CongestionIncentive}: Inhibitory desires to
  * prevent ping-pong lane changes in traffic jams.</li>
- * <li>{@link org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.MergeCooperationIncentive}: Recognition of
+ * <li>{@link org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.ProhibitDeadEndIncentive}: Recognition of
  * cooperative merging scenarios.</li>
  * </ul>
  * <p>

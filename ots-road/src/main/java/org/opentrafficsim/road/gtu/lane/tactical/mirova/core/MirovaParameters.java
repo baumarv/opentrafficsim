@@ -221,4 +221,8 @@ public final class MirovaParameters implements ConstraintInterface
          */
         public static final ParameterTypeAcceleration A_MAX = new ParameterTypeAcceleration("aMaxMirova",
                         "Maximum acceleration for MiRoVA", Acceleration.instantiateSI(3.5), POSITIVE);
+
+        public static final ParameterTypeSpeed standstill_speed_threshold = new ParameterTypeSpeed("STANDSTILL_SPEED_THRESHOLD",
+                        "Speed threshold below which the vehicle is considered at standstill",
+                        new Speed(20.0, SpeedUnit.KM_PER_HOUR), POSITIVE);
 }

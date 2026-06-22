@@ -3,24 +3,21 @@ package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer;
 import org.djunits.unit.DimensionlessUnit;
 import org.djunits.value.vdouble.scalar.Acceleration;
 import org.djunits.value.vdouble.scalar.Dimensionless;
-import org.djunits.value.vdouble.scalar.Length;
 import org.djunits.value.vdouble.scalar.Speed;
 import org.opentrafficsim.base.parameters.ParameterException;
 import org.opentrafficsim.base.parameters.ParameterTypes;
-import org.opentrafficsim.base.parameters.Parameters;
 import org.opentrafficsim.core.gtu.GtuException;
 import org.opentrafficsim.core.gtu.plan.operational.OperationalPlanException;
 import org.opentrafficsim.core.network.LateralDirectionality;
 import org.opentrafficsim.core.network.NetworkException;
 import org.opentrafficsim.road.gtu.lane.perception.RelativeLane;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.MacroTrafficContext;
 
 /**
- * KnowledgeChunk representing discretionary lane change incentives (speed gain, keep-right).
+ * DesireIncentive representing discretionary lane change incentives (speed gain, keep-right).
  * <p>
  * This component forms part of <b>Layer 2 (Cognition / Motivation)</b> in the MiRoVA architecture. It produces desires toward
  * faster or more comfortable lanes based on macroscopic traffic states and ego vehicle dynamics. The logic is largely based on
@@ -72,8 +69,6 @@ public class CruisingSpeedIncentive extends DesireIncentive
     public Desire computeDesire() throws ParameterException, GtuException, NetworkException
     {
         Speed vGain = getMirovaTacticalPlanner().getVGain();
-        Speed vCong = getParameters().getParameter(ParameterTypes.VCONG);
-        // MacroTrafficContext macroContext = getMirovaTacticalPlanner().getContext(MacroTrafficContext.class);
         InfrastructureContext infrastructureContext = getMirovaTacticalPlanner().getContext(InfrastructureContext.class);
         EgoContext egoContext = getMirovaTacticalPlanner().getContext(EgoContext.class);
 
@@ -84,15 +79,6 @@ public class CruisingSpeedIncentive extends DesireIncentive
 
         Dimensionless aGain;
         Speed vCur = infrastructureContext.getAnticipatedSpeed(RelativeLane.CURRENT);
-
-        // Adjust speed gain threshold in congested situations
-        // TODO: wir müssen hier Target Lane auch betrachten, das erklärt aktuell, warum wir nicht genug FSW haben, wenn rechts
-        // // an der Einfahrt der Verkehr zusammenbricht
-
-        // if (vCur.si < getParameters().getParameter(ParameterTypes.VCONG).si)
-        // {
-        // vGain = vGain.times(1.3);
-        // }
 
         Acceleration aCur = egoContext.getCurrentCarFollowingAcceleration();
 
@@ -107,7 +93,6 @@ public class CruisingSpeedIncentive extends DesireIncentive
         {
             aGain = new Dimensionless(1, DimensionlessUnit.SI);
         }
-
         // ---------------------------------------------------------
         // Left Desire Computation (Speed Gain)
         // ---------------------------------------------------------
@@ -116,12 +101,6 @@ public class CruisingSpeedIncentive extends DesireIncentive
         {
             Speed vLeft = infrastructureContext.getAnticipatedSpeed(RelativeLane.LEFT);
             dLeft = aGain.si * (vLeft.si - vCur.si) / vGain.si;
-
-            // if (vLeft.si >= vCong.si)
-            // {
-            // // lower speed gain incentive if target lane is congested
-            // dLeft = dLeft * 0.7;
-            // }
         }
         else
         {
@@ -148,20 +127,6 @@ public class CruisingSpeedIncentive extends DesireIncentive
         else
         {
             dRight = 0.0;
-        }
-
-        Parameters params = getParameters();
-
-        // Keep-right incentive (Autobahn logic)
-        if (rightDist > 0.0)
-        {
-            Speed rightSpeed = infrastructureContext.getAnticipatedSpeed(RelativeLane.RIGHT);
-            if (rightSpeed.ge(getMirovaTacticalPlanner().getGtu().getDesiredSpeed())
-                    && Length.instantiateSI(rightDist).ge(params.getParameter(ParameterTypes.LOOKAHEAD))
-                    && rightSpeed.gt(vCong))
-            {
-                dRight = dRight + getMirovaTacticalPlanner().getParameters().getParameter(MirovaParameters.DFREE);
-            }
         }
 
         // Create and return the computed non-mandatory desire
