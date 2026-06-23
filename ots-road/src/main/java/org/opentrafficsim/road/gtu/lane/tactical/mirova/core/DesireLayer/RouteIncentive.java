@@ -121,19 +121,6 @@ public class RouteIncentive extends DesireIncentive
                         d_r = Math.max(d_r, Math.max(0.0, d)); // clamp to [0,1]
                     }
                 }
-                else
-                {
-                    // Fallback: If no explicit LaneChangeInfo is present, but the lane physically ends
-                    // shortly, we must generate a high desire to leave it.
-                    Length directDistToEnd = infraCtx.getDistanceToLaneEnd(lane);
-
-                    if (directDistToEnd.si < lookAheadParam)
-                    {
-                        // Treat as urgent single lane change required
-                        double d = 1.0 - directDistToEnd.si / lookAheadParam;
-                        d_r = Math.max(d_r, Math.max(0.0, d));
-                    }
-                }
             }
             dLeave.put(lane, d_r);
         }
@@ -152,22 +139,13 @@ public class RouteIncentive extends DesireIncentive
         // Check Left Validity
         if (perception.getLaneStructure().exists(RelativeLane.LEFT) && infraCtx.getIfLaneAvailable(LateralDirectionality.LEFT))
         {
-            // Check if we are allowed to change (not past the "must change" point of the target?)
-            if (infraCtx.getDistanceToLaneEnd(RelativeLane.LEFT).si > lookAheadParam)
+            if (infraPerc.getLegalLaneChangePossibility(RelativeLane.CURRENT, LateralDirectionality.LEFT).neg()
+                    .lt(currentReqDist))
             {
-                if (infraPerc.getLegalLaneChangePossibility(RelativeLane.CURRENT, LateralDirectionality.LEFT).neg()
-                        .lt(currentReqDist))
-                {
-                    double dLeaveLeft = dLeave.getOrDefault(RelativeLane.LEFT, 0.0);
-                    // Schakel formula: desire to change = (DesireLeaveTarget < DesireLeaveCurrent) ? DesireLeaveCurrent :
-                    // -DesireLeaveTarget
-                    dLeft = dLeaveLeft < dCurr ? dCurr : -dLeaveLeft;
-                }
-            }
-            else
-            {
-                // Cannot leave current lane anymore, so no desire to go left
-                dLeft = -1.0;
+                double dLeaveLeft = dLeave.getOrDefault(RelativeLane.LEFT, 0.0);
+                // Schakel formula: desire to change = (DesireLeaveTarget < DesireLeaveCurrent) ? DesireLeaveCurrent :
+                // -DesireLeaveTarget
+                dLeft = dLeaveLeft < dCurr ? dCurr : -dLeaveLeft;
             }
         }
 
@@ -175,19 +153,11 @@ public class RouteIncentive extends DesireIncentive
         if (perception.getLaneStructure().exists(RelativeLane.RIGHT)
                 && infraCtx.getIfLaneAvailable(LateralDirectionality.RIGHT))
         {
-            if (infraCtx.getDistanceToLaneEnd(RelativeLane.RIGHT).si > lookAheadParam)
+            if (infraPerc.getLegalLaneChangePossibility(RelativeLane.CURRENT, LateralDirectionality.RIGHT).neg()
+                    .lt(currentReqDist))
             {
-                if (infraPerc.getLegalLaneChangePossibility(RelativeLane.CURRENT, LateralDirectionality.RIGHT).neg()
-                        .lt(currentReqDist))
-                {
-                    double dLeaveRight = dLeave.getOrDefault(RelativeLane.RIGHT, 0.0);
-                    dRight = dLeaveRight < dCurr ? dCurr : -dLeaveRight;
-                }
-            }
-            else
-            {
-                // Cannot leave current lane anymore, so no desire to go right
-                dRight = -1.0;
+                double dLeaveRight = dLeave.getOrDefault(RelativeLane.RIGHT, 0.0);
+                dRight = dLeaveRight < dCurr ? dCurr : -dLeaveRight;
             }
         }
 

@@ -149,6 +149,12 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
      */
     protected boolean findNewCandidate() throws ParameterException
     {
+        double dMand = this.vehicle.getParameters().getParameter(MirovaParameters.DMAND);
+        if (this.vehicle.getMandatoryLaneChangeDesire().magnitude() >= dMand)
+        {
+            return false;
+        }
+
         NeighborsContext neighbors = this.vehicle.getContextManager().getCategory("Neighbors", NeighborsContext.class);
         Length egoFrontGap = neighbors.getFrontGapDistance(LateralDirectionality.NONE);
         // list with LateralDirectionality.Left and LateralDirectionality.Right

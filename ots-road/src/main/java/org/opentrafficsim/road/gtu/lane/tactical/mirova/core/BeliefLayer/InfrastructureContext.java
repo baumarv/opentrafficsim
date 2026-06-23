@@ -810,38 +810,53 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
             {
                 return null; // No path ahead, so no downstream lanes
             }
-            Lane lastLane = lanes.get(lanes.size() - 1);
-            if (lastLane == null || lastLane.nextLanes(gtuType).isEmpty())
-            {
-                return null; // Last lane has no downstream lanes, so no adjacent lanes either
-            }
-            Lane lcLane = lastLane.nextLanes(gtuType).iterator().next();
-            if (lcLane == null)
-            {
-                return null; // No lane ahead, so no downstream lanes
-            }
 
-            // Prüfe linke Seite, falls relevant
-            if (searchLeft)
+            // Iterate over all downstream lanes in the projected path
+            for (int i = 1; i < lanes.size(); i++)
             {
-                Set<Lane> adjacentLeft = lcLane.accessibleAdjacentLanesLegal(LateralDirectionality.LEFT, gtuType);
+                Lane lcLane = lanes.get(i);
 
-                if (adjacentLeft != null && !adjacentLeft.isEmpty())
+                // Prüfe linke Seite, falls relevant
+                if (searchLeft)
                 {
-                    // System.out.println("Found downstream adjacent lane in direction: LEFT");
-                    return adjacentLeft.iterator().next();
+                    Set<Lane> adjacentLeft = lcLane.accessibleAdjacentLanesLegal(LateralDirectionality.LEFT, gtuType);
+                    if (adjacentLeft != null && !adjacentLeft.isEmpty())
+                    {
+                        return adjacentLeft.iterator().next();
+                    }
+                }
+
+                // Prüfe rechte Seite, falls relevant
+                if (searchRight)
+                {
+                    Set<Lane> adjacentRight = lcLane.accessibleAdjacentLanesLegal(LateralDirectionality.RIGHT, gtuType);
+                    if (adjacentRight != null && !adjacentRight.isEmpty())
+                    {
+                        return adjacentRight.iterator().next();
+                    }
                 }
             }
 
-            // Prüfe rechte Seite, falls relevant
-            if (searchRight)
+            // Fallback: check the lane right after the lookahead
+            Lane lastLane = lanes.get(lanes.size() - 1);
+            if (lastLane != null && !lastLane.nextLanes(gtuType).isEmpty())
             {
-                Set<Lane> adjacentRight = lcLane.accessibleAdjacentLanesLegal(LateralDirectionality.RIGHT, gtuType);
-
-                if (adjacentRight != null && !adjacentRight.isEmpty())
+                Lane nextAfterLookahead = lastLane.nextLanes(gtuType).iterator().next();
+                if (searchLeft)
                 {
-                    // System.out.println("Found downstream adjacent lane in direction: RIGHT");
-                    return adjacentRight.iterator().next();
+                    Set<Lane> adjacentLeft = nextAfterLookahead.accessibleAdjacentLanesLegal(LateralDirectionality.LEFT, gtuType);
+                    if (adjacentLeft != null && !adjacentLeft.isEmpty())
+                    {
+                        return adjacentLeft.iterator().next();
+                    }
+                }
+                if (searchRight)
+                {
+                    Set<Lane> adjacentRight = nextAfterLookahead.accessibleAdjacentLanesLegal(LateralDirectionality.RIGHT, gtuType);
+                    if (adjacentRight != null && !adjacentRight.isEmpty())
+                    {
+                        return adjacentRight.iterator().next();
+                    }
                 }
             }
 
