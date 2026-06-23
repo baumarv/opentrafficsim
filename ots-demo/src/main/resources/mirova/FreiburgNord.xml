@@ -187,7 +187,7 @@
     -->
 
     <!-- Mainline nodes -->
-    <ots:Node Id="N1_1" Coordinate="(-0.117, 2.320)"    Direction="-4.8 deg(E)" />
+    <ots:Node Id="N1_1" Coordinate="(-498.363, 44.159)"    Direction="-4.8 deg(E)" />
     <ots:Node Id="N1_4" Coordinate="(522.867, -10.759)"   Direction="2.73 deg(E)" />
     <ots:Node Id="N2_3" Coordinate="(748.552, 0.003)"   /> 
     <!-- Direction="6.67 deg(E)"  -->
@@ -210,7 +210,8 @@
     <!-- L1a: 2-lane (ViSSim link 1) -->
     <ots:Link Id="L1a" NodeStart="N1_1" NodeEnd="N1_4" Type="HIGHWAY">
       <ots:Polyline>
-      <ots:Coordinate>(22.747, 0.295)</ots:Coordinate>
+        <ots:Coordinate>(-0.117, 2.320)</ots:Coordinate>
+        <ots:Coordinate>(22.747, 0.295)</ots:Coordinate>
         <ots:Coordinate>(45.606, -1.801)</ots:Coordinate>
         <ots:Coordinate>(68.475, -3.754)</ots:Coordinate>
         <ots:Coordinate>(91.370, -5.346)</ots:Coordinate>
