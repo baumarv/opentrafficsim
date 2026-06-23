@@ -389,24 +389,25 @@ public class FreiburgNord extends ScenarioGenerator
      */
     public void createVehiclesFromODMatrix(final ScenarioParameters params, final OtsSimulatorInterface sim) throws Exception
     {
-        String demandCsv = params.getOrDefault("demandCsv", "D:\\Mitarbeitende\\gw2128\\repositories\\diss_mvb\\data\\simulation_demand.csv", String.class);
+        String demandCsv = params.getOrDefault("demandCsv",
+                "D:\\Mitarbeitende\\gw2128\\repositories\\diss_mvb\\data\\simulation_demand_test.csv", String.class);
         File csvFile = new File(demandCsv);
-        
+
         Categorization categorization = new Categorization("MyCategorization", GtuType.class);
         List<Node> origins = getOrigins(this.network);
         List<Node> destinations = getDestinations(this.network);
-        
+
         Category carCat = new Category(categorization, DefaultsNl.CAR);
         Category truckCat = new Category(categorization, DefaultsNl.TRUCK);
-        
+
         OdMatrix odMatrix;
-        
+
         if (csvFile.exists())
         {
             System.out.println("Loading simulation demand from CSV: " + csvFile.getAbsolutePath());
             TreeSet<Double> uniqueTimes = new TreeSet<>();
             Map<String, Map<Double, Double>> demandMap = new HashMap<>();
-            
+
             try (BufferedReader br = new BufferedReader(new FileReader(csvFile)))
             {
                 String line;
@@ -428,13 +429,13 @@ public class FreiburgNord extends ScenarioGenerator
                     String destination = parts[3].trim();
                     String gtuType = parts[4].trim();
                     double demand = Double.parseDouble(parts[5].trim());
-                    
+
                     uniqueTimes.add(timeSec);
                     String key = origin + ";" + destination + ";" + gtuType;
                     demandMap.computeIfAbsent(key, k -> new HashMap<>()).put(timeSec, demand);
                 }
             }
-            
+
             int n = uniqueTimes.size();
             double[] timeArray = new double[n];
             int idx = 0;
@@ -442,29 +443,29 @@ public class FreiburgNord extends ScenarioGenerator
             {
                 timeArray[idx++] = t;
             }
-            
-            TimeVector timeVector = new TimeVector(
-                    DoubleVectorData.instantiate(timeArray, TimeUnit.BASE_SECOND.getScale(), StorageType.DENSE),
-                    TimeUnit.BASE_SECOND);
-            
+
+            TimeVector timeVector =
+                    new TimeVector(DoubleVectorData.instantiate(timeArray, TimeUnit.BASE_SECOND.getScale(), StorageType.DENSE),
+                            TimeUnit.BASE_SECOND);
+
             odMatrix = new OdMatrix("OD_Merge", origins, destinations, categorization, timeVector, Interpolation.STEPWISE);
-            
+
             for (Map.Entry<String, Map<Double, Double>> entry : demandMap.entrySet())
             {
                 String[] keyParts = entry.getKey().split(";");
                 String originName = keyParts[0];
                 String destName = keyParts[1];
                 String gtuTypeStr = keyParts[2];
-                
+
                 Node originNode = this.network.getNode(originName);
                 Node destNode = this.network.getNode(destName);
-                
+
                 if (originNode == null || destNode == null)
                 {
                     System.err.println("WARNING: Node not found in network: " + originName + " or " + destName);
                     continue;
                 }
-                
+
                 Category cat;
                 if ("CAR".equalsIgnoreCase(gtuTypeStr))
                 {
@@ -479,7 +480,7 @@ public class FreiburgNord extends ScenarioGenerator
                     System.err.println("WARNING: Unknown GTU type in CSV: " + gtuTypeStr);
                     continue;
                 }
-                
+
                 double[] demandArray = new double[n];
                 Map<Double, Double> timeToDemand = entry.getValue();
                 for (int i = 0; i < n; i++)
@@ -487,18 +488,19 @@ public class FreiburgNord extends ScenarioGenerator
                     Double t = timeArray[i];
                     demandArray[i] = timeToDemand.getOrDefault(t, 0.0);
                 }
-                
+
                 FrequencyVector demandFreq = new FrequencyVector(
                         DoubleVectorData.instantiate(demandArray, FrequencyUnit.PER_HOUR.getScale(), StorageType.DENSE),
                         FrequencyUnit.PER_HOUR);
-                
+
                 odMatrix.putDemandVector(originNode, destNode, cat, demandFreq);
             }
         }
         else
         {
-            System.err.println("WARNING: CSV demand file not found at " + csvFile.getAbsolutePath() + ". Falling back to default programmatic demand.");
-            
+            System.err.println("WARNING: CSV demand file not found at " + csvFile.getAbsolutePath()
+                    + ". Falling back to default programmatic demand.");
+
             double startVolume = 1000.0; // vehicles per hour
             double endVolume = 6500.0; // params.getDemand(); // vehicles per hour
             double volumeStep = 100.0; // vehicles per hour
@@ -514,7 +516,8 @@ public class FreiburgNord extends ScenarioGenerator
             for (i = 0; i < steps; i++)
             {
                 time[i] = relativeTimeStep * i * params.getSimulationTime().getInUnit(DurationUnit.HOUR);
-                carDemandMain[i] = startVolume * (1.0 - params.getTruckShare()) * (1.0 - this.defaultParameters.getMergeShare());
+                carDemandMain[i] =
+                        startVolume * (1.0 - params.getTruckShare()) * (1.0 - this.defaultParameters.getMergeShare());
                 truckDemandMain[i] = startVolume * params.getTruckShare() * (1.0 - this.defaultParameters.getMergeShare());
                 carDemandOnRamp[i] = startVolume * (1.0 - params.getTruckShare()) * this.defaultParameters.getMergeShare();
                 truckDemandOnRamp[i] = startVolume * params.getTruckShare() * this.defaultParameters.getMergeShare();
