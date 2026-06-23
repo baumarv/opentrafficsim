@@ -31,9 +31,9 @@ public class RunFreiburgNord
 
             ScenarioParameters params = new ScenarioParameters();
             params.setSeed(42 + run);
-            params.setSimulationTime(new Duration(2.0, DurationUnit.HOUR));
-            params.setTruckShare(0.1);
-            params.setMergeShare(0.2);
+            params.setSimulationTime(new Duration(4.0, DurationUnit.HOUR));
+            // params.setTruckShare(0.1);
+            // params.setMergeShare(0.2);
 
             ScenarioSimulationScript script = scenario.buildSimulationScript(params);
             // boolean gui = !Boolean.getBoolean("java.awt.headless");
