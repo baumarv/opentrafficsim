@@ -407,7 +407,12 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 }
             }
             EgoContext ego = this.vehicle.getContext(EgoContext.class);
-            if (actualFollower != null)
+            if (actualFollower == null)
+            {
+                // No follower exists, so follower decel is implicitly safe. Focus on the leader.
+                return transitionTo(new DownstreamMergeState(this.maneuverPattern));
+            }
+            else
             {
                 Acceleration followerInducedDecel = neigh.getGtuDeceleration(actualFollower);
 

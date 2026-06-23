@@ -104,7 +104,7 @@ public class DeterministicSpecificityStrategy implements PatternSelectionStrateg
             int idx = priority.indexOf(k);
             if (idx >= 0)
             {
-                score += (priority.size() - idx);
+                score += (idx + 1);
             }
         }
         return score;
