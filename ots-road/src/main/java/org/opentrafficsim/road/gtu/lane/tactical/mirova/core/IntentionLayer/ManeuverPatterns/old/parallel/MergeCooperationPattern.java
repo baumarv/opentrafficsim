@@ -145,8 +145,8 @@ public class MergeCooperationPattern extends ManeuverPattern
         Speed egoSpeed = ego.getEgoSpeed();
         Speed vCong = this.vehicle.getParameters().getParameter(ParameterTypes.VCONG);
 
-        Length distanceToEndLeft = infra.getDistanceToLaneEnd(RelativeLane.LEFT);
-        Length distanceToEndRight = infra.getDistanceToLaneEnd(RelativeLane.RIGHT);
+        Length distanceToEndLeft = infra.getRouteDistanceToLaneEnd(RelativeLane.LEFT);
+        Length distanceToEndRight = infra.getRouteDistanceToLaneEnd(RelativeLane.RIGHT);
 
         if (egoSpeed.si > 15)
         {
@@ -752,7 +752,7 @@ public class MergeCooperationPattern extends ManeuverPattern
                     this.vehicle.getContextManager().getCategory("Infrastructure", InfrastructureContext.class);
 
             if (this.maneuverPattern.lastCandidatePosition == RelativeCandidatePosition.BEHIND
-                    && (neighbors.getRearGapDistance(dir).si > 0.0 || infrastructure.getDistanceToLaneEnd(
+                    && (neighbors.getRearGapDistance(dir).si > 0.0 || infrastructure.getRouteDistanceToLaneEnd(
                             dir.isLeft() ? RelativeLane.LEFT : RelativeLane.RIGHT).si > Length.instantiateSI(300.0).si))
             {
                 return finishManeuver();
@@ -767,7 +767,7 @@ public class MergeCooperationPattern extends ManeuverPattern
                     Length candidateLength = this.mergeCandidate.getLength();
                     Length standstillBuffer = this.vehicle.getParameters().getParameter(ParameterTypes.S0);
                     Length distanceToEnd =
-                            infrastructure.getDistanceToLaneEnd(dir.isLeft() ? RelativeLane.LEFT : RelativeLane.RIGHT);
+                            infrastructure.getRouteDistanceToLaneEnd(dir.isLeft() ? RelativeLane.LEFT : RelativeLane.RIGHT);
                     if (distanceToEnd.si < candidateLength.si + standstillBuffer.si + emergencyStopBuffer.si + 4.0)
                     {
                         return finishManeuver();
@@ -777,7 +777,7 @@ public class MergeCooperationPattern extends ManeuverPattern
 
             Length standstillBuffer = this.vehicle.getParameters().getParameter(ParameterTypes.S0);
             if (infrastructure
-                    .getDistanceToLaneEnd(dir.isLeft() ? RelativeLane.LEFT : RelativeLane.RIGHT).si < standstillBuffer.si
+                    .getRouteDistanceToLaneEnd(dir.isLeft() ? RelativeLane.LEFT : RelativeLane.RIGHT).si < standstillBuffer.si
                             + emergencyStopBuffer.si + 0.5)
             {
                 return finishManeuver();

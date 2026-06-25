@@ -218,7 +218,7 @@ public class GapSearchPattern extends ManeuverPattern
             InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
             EgoContext ego = this.vehicle.getContext(EgoContext.class);
             Acceleration stopAccel = CarFollowingUtil.stop(this.vehicle.getCarFollowingModel(), this.vehicle.getParameters(),
-                    ego.getEgoSpeed(), infra.getCurrentSpeedLimit(), infra.getDistanceToLaneEnd().minus(RAMP_END_BUFFER));
+                    ego.getEgoSpeed(), infra.getCurrentSpeedLimit(), infra.getRouteDistanceToLaneEnd().minus(RAMP_END_BUFFER));
 
             if (stopAccel.si < -5.0)
                 return transitionTo(new BreakingEndOfRampState(this.maneuverPattern));
@@ -319,7 +319,7 @@ public class GapSearchPattern extends ManeuverPattern
             RelativeLane targetLane = this.pattern.getTargetDirection().isLeft() ? RelativeLane.LEFT : RelativeLane.RIGHT;
             Speed vCong = this.vehicle.getParameters().getParameter(ParameterTypes.VCONG);
 
-            if (macro.getAverageSpeed(targetLane).si <= vCong.si || infra.getDistanceToLaneEnd().si <= 200.0)
+            if (macro.getAverageSpeed(targetLane).si <= vCong.si || infra.getRouteDistanceToLaneEnd().si <= 200.0)
             {
                 return transitionTo(new CongestedGapSearchState(this.maneuverPattern));
             }
@@ -334,7 +334,7 @@ public class GapSearchPattern extends ManeuverPattern
             EgoContext ego = this.vehicle.getContext(EgoContext.class);
             Acceleration requiredStopAccel =
                     CarFollowingUtil.stop(this.vehicle.getCarFollowingModel(), this.vehicle.getParameters(), ego.getEgoSpeed(),
-                            infra.getCurrentSpeedLimit(), infra.getDistanceToLaneEnd().minus(RAMP_END_BUFFER));
+                            infra.getCurrentSpeedLimit(), infra.getRouteDistanceToLaneEnd().minus(RAMP_END_BUFFER));
 
             if (requiredStopAccel.si < -5.0)
             {
@@ -546,7 +546,7 @@ public class GapSearchPattern extends ManeuverPattern
             InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
 
             Acceleration a = CarFollowingUtil.stop(this.vehicle.getCarFollowingModel(), this.vehicle.getParameters(),
-                    ego.getEgoSpeed(), infra.getCurrentSpeedLimit(), infra.getDistanceToLaneEnd().minus(RAMP_END_BUFFER));
+                    ego.getEgoSpeed(), infra.getCurrentSpeedLimit(), infra.getRouteDistanceToLaneEnd().minus(RAMP_END_BUFFER));
 
             SimpleOperationalPlan plan = new SimpleOperationalPlan(a, this.pattern.patternSpecificTimestep);
             if (this.pattern.getTargetDirection().isLeft())
@@ -813,7 +813,7 @@ public class GapSearchPattern extends ManeuverPattern
 
             InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
             Acceleration stopAccel = CarFollowingUtil.stop(this.vehicle.getCarFollowingModel(), this.vehicle.getParameters(),
-                    ego.getEgoSpeed(), infra.getCurrentSpeedLimit(), infra.getDistanceToLaneEnd().minus(RAMP_END_BUFFER));
+                    ego.getEgoSpeed(), infra.getCurrentSpeedLimit(), infra.getRouteDistanceToLaneEnd().minus(RAMP_END_BUFFER));
 
             if (stopAccel.si < -5.0)
                 return transitionTo(new BreakingEndOfRampState(this.maneuverPattern));

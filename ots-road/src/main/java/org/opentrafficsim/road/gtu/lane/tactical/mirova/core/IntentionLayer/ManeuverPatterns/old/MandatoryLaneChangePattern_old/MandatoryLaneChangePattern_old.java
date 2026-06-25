@@ -329,7 +329,7 @@ package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Man
 // EgoContext ego = this.vehicle.getContext(EgoContext.class);
 // double dMand = mandatoryDesire.magnitude();
 //
-// Length distanceToEndOfLane = infra.getDistanceToLaneEnd();
+// Length distanceToEndOfLane = infra.getRouteDistanceToLaneEnd();
 // Acceleration currentAcceleration = ego.getCurrentCarFollowingAcceleration();
 // Speed currentSpeed = ego.getEgoSpeed();
 //
@@ -443,7 +443,7 @@ package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Man
 // Parameters params = this.vehicle.getGtu().getParameters();
 // NeighborsPerception neighPerception = this.vehicle.getPerception().getPerceptionCategory(NeighborsPerception.class);
 //
-// Length distanceToEndOfLane = infra.getDistanceToLaneEnd();
+// Length distanceToEndOfLane = infra.getRouteDistanceToLaneEnd();
 // Acceleration currentAcceleration = ego.getCurrentCarFollowingAcceleration();
 // Speed currentSpeed = ego.getEgoSpeed();
 // Speed targetLaneSpeed = macro.getAverageSpeedLeft();
@@ -524,7 +524,7 @@ package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Man
 // Parameters params = this.vehicle.getGtu().getParameters();
 // NeighborsPerception neighPerception = this.vehicle.getPerception().getPerceptionCategory(NeighborsPerception.class);
 //
-// Length distanceToEndOfLane = infra.getDistanceToLaneEnd();
+// Length distanceToEndOfLane = infra.getRouteDistanceToLaneEnd();
 // Acceleration currentAcceleration = ego.getCurrentCarFollowingAcceleration();
 // Speed currentSpeed = ego.getEgoSpeed();
 //

@@ -368,7 +368,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 return transitionTo(new ExecuteLaneChangeState(this.maneuverPattern, dir));
             }
 
-            Length distToLaneEnd = this.vehicle.getContext(InfrastructureContext.class).getDistanceToLaneEnd();
+            Length distToLaneEnd = this.vehicle.getContext(InfrastructureContext.class).getRouteDistanceToLaneEnd();
             // Notbremse, falls das Ende der Rampe unweigerlich näher rückt
             if (distToLaneEnd != null)
             {
@@ -539,7 +539,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 return transitionTo(new ExecuteLaneChangeState(this.maneuverPattern, dir));
             }
 
-            Length distToLaneEnd = this.vehicle.getContext(InfrastructureContext.class).getDistanceToLaneEnd();
+            Length distToLaneEnd = this.vehicle.getContext(InfrastructureContext.class).getRouteDistanceToLaneEnd();
             // Notbremse, falls das Ende der Rampe unweigerlich näher rückt
             if (distToLaneEnd != null)
             {
@@ -667,7 +667,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
 
             Acceleration aCf = ego.getCurrentCarFollowingAcceleration();
-            Length distToLaneEnd = infra.getDistanceToLaneEnd();
+            Length distToLaneEnd = infra.getRouteDistanceToLaneEnd();
 
             Acceleration targetAcc = aCf; // Default to car-following acceleration if no parallel vehicle or no room to maneuver
 
@@ -727,7 +727,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             }
 
             // 2. Emergency brake check: If the end of the ramp gets critically close
-            Length distToLaneEnd = this.vehicle.getContext(InfrastructureContext.class).getDistanceToLaneEnd();
+            Length distToLaneEnd = this.vehicle.getContext(InfrastructureContext.class).getRouteDistanceToLaneEnd();
             if (distToLaneEnd != null)
             {
                 Acceleration requiredStopAccel =
@@ -904,7 +904,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             }
 
             // 2. Notbremse am Ende der Rampe
-            Length distToLaneEnd = this.vehicle.getContext(InfrastructureContext.class).getDistanceToLaneEnd();
+            Length distToLaneEnd = this.vehicle.getContext(InfrastructureContext.class).getRouteDistanceToLaneEnd();
             if (distToLaneEnd != null)
             {
                 Acceleration requiredStopAccel =
@@ -987,7 +987,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
 
             // Stop before ramp end
-            Length distToLaneEnd = infra.getDistanceToLaneEnd();
+            Length distToLaneEnd = infra.getRouteDistanceToLaneEnd();
             Acceleration aStop = distToLaneEnd != null
                     ? MirovaCarFollowingUtil.stop(this.vehicle, Length.max(distToLaneEnd.minus(RAMP_END_BUFFER), Length.ZERO))
                     : ego.getCurrentCarFollowingAcceleration();

@@ -17,6 +17,7 @@ import org.opentrafficsim.core.gtu.plan.operational.OperationalPlanException;
 import org.opentrafficsim.core.network.LateralDirectionality;
 import org.opentrafficsim.core.network.NetworkException;
 import org.opentrafficsim.road.gtu.lane.perception.RelativeLane;
+import org.opentrafficsim.road.gtu.lane.perception.headway.HeadwayGtu;
 import org.opentrafficsim.road.gtu.lane.plan.operational.SimpleOperationalPlan;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
@@ -82,7 +83,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                 RelativeLane rel = dir.isLeft() ? RelativeLane.LEFT : RelativeLane.RIGHT;
                 InfrastructureContext infra =
                         this.vehicle.getContextManager().getCategory("Infrastructure", InfrastructureContext.class);
-                if (!infra.getDistanceToLaneEnd(rel).eq(Length.POSITIVE_INFINITY))
+                if (!infra.getPhysicalDistanceToLaneEnd(rel).eq(Length.POSITIVE_INFINITY))
                 {
                     return new NearAnticipationState(this);
                 }
@@ -126,7 +127,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
         EgoContext ego = this.vehicle.getContextManager().getCategory("Ego", EgoContext.class);
         Speed egoSpeed = ego.getEgoSpeed();
 
-        Length distanceToEndRight = infra.getDistanceToLaneEnd(RelativeLane.RIGHT);
+        Length distanceToEndRight = infra.getPhysicalDistanceToLaneEnd(RelativeLane.RIGHT);
         if (distanceToEndRight.eq(Length.POSITIVE_INFINITY))
         {
             LaneDropInfo dropInfoRight = infra.getAnticipatedLaneDropInfo(LateralDirectionality.RIGHT);
@@ -137,7 +138,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
             }
         }
 
-        Length distanceToEndLeft = infra.getDistanceToLaneEnd(RelativeLane.LEFT);
+        Length distanceToEndLeft = infra.getPhysicalDistanceToLaneEnd(RelativeLane.LEFT);
         if (distanceToEndLeft.eq(Length.POSITIVE_INFINITY))
         {
             LaneDropInfo dropInfoLeft = infra.getAnticipatedLaneDropInfo(LateralDirectionality.LEFT);
@@ -188,7 +189,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
 
     /*
      * ========================================================================================= STATE: FarAnticipationState
-     * Active while the ramp is not yet a directly adjacent lane (getDistanceToLaneEnd == INFINITY). Samples downstream
+     * Active while the ramp is not yet a directly adjacent lane (getPhysicalDistanceToLaneEnd == INFINITY). Samples downstream
      * merge-point speed via LaneDropInfo and applies a smooth approach acceleration. Transitions to NearAnticipationState once
      * the ramp becomes adjacent. =========================================================================================
      */
@@ -254,7 +255,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                     this.vehicle.getContextManager().getCategory("Infrastructure", InfrastructureContext.class);
 
             // Ramp is now directly adjacent — hand off to the near-range state.
-            if (infra != null && !infra.getDistanceToLaneEnd(relativeLane).eq(Length.POSITIVE_INFINITY))
+            if (infra != null && !infra.getPhysicalDistanceToLaneEnd(relativeLane).eq(Length.POSITIVE_INFINITY))
             {
                 return transitionTo(new NearAnticipationState(this.mergePattern));
             }
@@ -289,7 +290,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                     Lane mainroadLane = laneDropLane != null
                             ? laneDropLane.getAdjacentLane(oppositeDir, this.vehicle.getGtu().getType()) : null;
 
-                    if (infra.getDistanceToLaneEnd(relativeLane).si > 50.0 && mainroadLane != null)
+                    if (infra.getPhysicalDistanceToLaneEnd(relativeLane).si > 50.0 && mainroadLane != null)
                     {
                         Length mainroadLaneLength = mainroadLane.getLength();
                         Length startPos =
@@ -340,13 +341,14 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
         @Override
         public String toString()
         {
-            return "FarAnticipationState";
+            return "FarAnticipationState[" + (this.mergePattern.listLanesWithCooperationNeeds.isEmpty() ? "none"
+                    : this.mergePattern.listLanesWithCooperationNeeds.get(0)) + "]";
         }
     }
 
     /*
      * ========================================================================================= STATE: NearAnticipationState
-     * Active once the ramp is a directly adjacent lane (getDistanceToLaneEnd < INFINITY). Applies preemptive deceleration
+     * Active once the ramp is a directly adjacent lane (getPhysicalDistanceToLaneEnd < INFINITY). Applies preemptive deceleration
      * whenever ramp vehicles are detected and ego is above vCong.
      * =========================================================================================
      */
@@ -383,6 +385,42 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
             try
             {
                 if (!this.mergePattern.checkContext())
+                {
+                    return finishManeuver();
+                }
+
+                // Abort if there are no leading vehicles on the lane with cooperation needs that have their indicator on
+                // towards ego
+                NeighborsContext neighbors = this.vehicle.getContextManager().getCategory("Neighbors", NeighborsContext.class);
+                if (neighbors == null)
+                {
+                    return finishManeuver();
+                }
+
+                boolean anyIndicatorTowardsUs = false;
+                for (LateralDirectionality dir : this.mergePattern.listLanesWithCooperationNeeds)
+                {
+                    Iterable<HeadwayGtu> leaders = neighbors.getLeaders(dir);
+                    if (leaders != null)
+                    {
+                        for (HeadwayGtu leader : leaders)
+                        {
+                            boolean indicatesTowardsUs = (dir.isRight() && leader.isLeftTurnIndicatorOn())
+                                    || (dir.isLeft() && leader.isRightTurnIndicatorOn());
+                            if (indicatesTowardsUs)
+                            {
+                                anyIndicatorTowardsUs = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (anyIndicatorTowardsUs)
+                    {
+                        break;
+                    }
+                }
+
+                if (!anyIndicatorTowardsUs)
                 {
                     return finishManeuver();
                 }
@@ -456,7 +494,8 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
         @Override
         public String toString()
         {
-            return "NearAnticipationState";
+            return "NearAnticipationState[" + (this.mergePattern.listLanesWithCooperationNeeds.isEmpty() ? "none"
+                    : this.mergePattern.listLanesWithCooperationNeeds.get(0)) + "]";
         }
     }
 }
