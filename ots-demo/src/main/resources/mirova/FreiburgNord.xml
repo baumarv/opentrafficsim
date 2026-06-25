@@ -32,8 +32,8 @@
     <ots:LinkTypes>
       <ots:LinkType Id="HIGHWAY">
         <ots:Compatibility GtuType="NL.VEHICLE" />
-        <ots:SpeedLimit GtuType="NL.CAR" LegalSpeedLimit="120km/h" />
-        <ots:SpeedLimit GtuType="NL.TRUCK" LegalSpeedLimit="90km/h" />
+        <ots:SpeedLimit GtuType="NL.CAR" LegalSpeedLimit="200km/h" />
+        <ots:SpeedLimit GtuType="NL.TRUCK" LegalSpeedLimit="120km/h" />
       </ots:LinkType>
       <ots:LinkType Id="LOCAL">
         <ots:Compatibility GtuType="NL.VEHICLE" />
@@ -47,7 +47,7 @@
            Used with OffsetStart/End=-3.6m so that:
              FORWARD1 (9.0-3.6=5.4m) and FORWARD2 (5.4-3.6=1.8m) align with adjacent 2-lane links,
              FORWARD3 (1.8-3.6=-1.8m) is the new rightmost lane with no upstream/downstream counterpart. -->
-      <ots:RoadLayout Id="3LaneHighway" LinkType="HIGHWAY">
+      <ots:RoadLayout Id="WeavingSegment" LinkType="HIGHWAY">
         <ots:Shoulder Id="LeftShoulder">
           <ots:CenterOffset>12.1m</ots:CenterOffset>
           <ots:Width>3m</ots:Width>
@@ -56,7 +56,7 @@
           <ots:CenterOffset>10.8m</ots:CenterOffset>
           <ots:DefinedStripe>NL.SOLID</ots:DefinedStripe>
         </ots:Stripe>
-        <ots:Lane Id="FORWARD1" LaneType="NL.HIGHWAY">
+        <ots:Lane Id="Lane2" LaneType="NL.HIGHWAY">
           <ots:CenterOffset>9.0m</ots:CenterOffset>
           <ots:Width>3.6m</ots:Width>
         </ots:Lane>
@@ -64,7 +64,7 @@
           <ots:CenterOffset>7.2m</ots:CenterOffset>
           <ots:DefinedStripe>NL.DASHED</ots:DefinedStripe>
         </ots:Stripe>
-        <ots:Lane Id="FORWARD2" LaneType="NL.HIGHWAY">
+        <ots:Lane Id="Lane1" LaneType="NL.HIGHWAY">
           <ots:CenterOffset>5.4m</ots:CenterOffset>
           <ots:Width>3.6m</ots:Width>
         </ots:Lane>
@@ -72,7 +72,7 @@
           <ots:CenterOffset>3.6m</ots:CenterOffset>
           <ots:DefinedStripe>NL.DASHED</ots:DefinedStripe>
         </ots:Stripe>
-        <ots:Lane Id="FORWARD3" LaneType="NL.HIGHWAY">
+        <ots:Lane Id="Ramp" LaneType="NL.HIGHWAY">
           <ots:CenterOffset>1.8m</ots:CenterOffset>
           <ots:Width>3.6m</ots:Width>
         </ots:Lane>
@@ -96,7 +96,7 @@
           <ots:CenterOffset>7.2m</ots:CenterOffset>
           <ots:DefinedStripe>NL.SOLID</ots:DefinedStripe>
         </ots:Stripe>
-        <ots:Lane Id="FORWARD1" LaneType="NL.HIGHWAY">
+        <ots:Lane Id="Lane2" LaneType="NL.HIGHWAY">
           <ots:CenterOffset>5.4m</ots:CenterOffset>
           <ots:Width>3.6m</ots:Width>
         </ots:Lane>
@@ -104,7 +104,7 @@
           <ots:CenterOffset>3.6m</ots:CenterOffset>
           <ots:DefinedStripe>NL.DASHED</ots:DefinedStripe>
         </ots:Stripe>
-        <ots:Lane Id="FORWARD2" LaneType="NL.HIGHWAY">
+        <ots:Lane Id="Lane1" LaneType="NL.HIGHWAY">
           <ots:CenterOffset>1.8m</ots:CenterOffset>
           <ots:Width>3.6m</ots:Width>
         </ots:Lane>
@@ -128,7 +128,7 @@
           <ots:CenterOffset>3.6m</ots:CenterOffset>
           <ots:DefinedStripe>NL.SOLID</ots:DefinedStripe>
         </ots:Stripe>
-        <ots:Lane Id="FORWARD1" LaneType="NL.HIGHWAY">
+        <ots:Lane Id="Lane1" LaneType="NL.HIGHWAY">
           <ots:CenterOffset>1.8m</ots:CenterOffset>
           <ots:Width>3.6m</ots:Width>
         </ots:Lane>
@@ -233,7 +233,7 @@
       <!-- <ots:Polyline>
         <ots:Coordinate>(659.241, -8.155)</ots:Coordinate>
       </ots:Polyline> -->
-      <ots:DefinedLayout>3LaneHighway</ots:DefinedLayout>
+      <ots:DefinedLayout>WeavingSegment</ots:DefinedLayout>
     </ots:Link>
 
     <!-- L3a: 2-lane (ViSSim link 3) -->
@@ -254,7 +254,7 @@
       <!-- <ots:Polyline>
         <ots:Coordinate>(1060.734, 36.703)</ots:Coordinate>
       </ots:Polyline> -->
-      <ots:DefinedLayout>3LaneHighway</ots:DefinedLayout>
+      <ots:DefinedLayout>WeavingSegment</ots:DefinedLayout>
     </ots:Link>
 
     <!-- L5a: 2-lane (ViSSim link 5) -->
@@ -374,10 +374,10 @@
 
   <ots:Demand>
     <!-- Mainline sink (vehicles leave at N5_3) -->
-    <ots:Sink Lane="FORWARD1" Link="L5a" Position="END-50m" Type="NL.ROAD_USERS" />
-    <ots:Sink Lane="FORWARD2" Link="L5a" Position="END-50m" Type="NL.ROAD_USERS" />
+    <ots:Sink Lane="Lane2" Link="L5a" Position="END-50m" Type="NL.ROAD_USERS" />
+    <ots:Sink Lane="Lane1" Link="L5a" Position="END-50m" Type="NL.ROAD_USERS" />
     <!-- Exit ramp sink (vehicles that took the off-ramp leave at R6_8) -->
-    <ots:Sink Lane="FORWARD1" Link="L6_ramp" Position="END-10m" Type="NL.ROAD_USERS" />
+    <ots:Sink Lane="Lane1" Link="L6_ramp" Position="END-10m" Type="NL.ROAD_USERS" />
   </ots:Demand>
 
   <ots:Run>
