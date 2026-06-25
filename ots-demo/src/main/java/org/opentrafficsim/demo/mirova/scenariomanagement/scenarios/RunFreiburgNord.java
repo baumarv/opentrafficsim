@@ -4,12 +4,14 @@ import java.io.File;
 
 import org.djunits.unit.DurationUnit;
 import org.djunits.value.vdouble.scalar.Duration;
+import org.opentrafficsim.base.parameters.ParameterTypes;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioGenerator;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioParameters;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioSimulationScript;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 
 /**
- * Simple runner for FreiburgNord scenario.
+ * Simple runner for FreiburgNord scenario with custom parameter configurations.
  */
 public class RunFreiburgNord
 {
@@ -29,16 +31,28 @@ public class RunFreiburgNord
             outputDir.mkdirs();
             scenario.setOutputDirectory(outputDir);
 
-            ScenarioParameters params = new ScenarioParameters();
-            params.setSeed(42 + run);
-            params.setSimulationTime(new Duration(4.0, DurationUnit.HOUR));
-            // params.setTruckShare(0.1);
-            // params.setMergeShare(0.2);
+            ScenarioParameters params = scenario.getDefaultParameters().copy();
+            params.setSeed(42L + run);
+
+            // Define the demand CSV file directly
+            params.set("demandCsv",
+                    "D:\\Mitarbeitende\\gw2128\\repositories\\diss_mvb\\scripts\\evaluation\\fielddata\\detectors\\io\\data\\demand_freiburg_20250925_09-12_low_demand.csv");
+
+            // Define parameters directly analogously to RunFreiburgParallel
+            params.set("car." + ParameterTypes.T.getId(), 0.8);
+            params.set("car." + MirovaParameters.vGain.getId(), 70.0);
+            params.set("truck." + ParameterTypes.T.getId(), 1.2);
+            params.set("truck." + MirovaParameters.vGain.getId(), 130.0);
+
+            // Optional: override simulation duration if needed (otherwise it reads from demandCsv)
+            // params.setSimulationTime(new Duration(6.0, DurationUnit.HOUR));
 
             ScenarioSimulationScript script = scenario.buildSimulationScript(params);
-            // boolean gui = !Boolean.getBoolean("java.awt.headless");
-            script.setGuiEnabled(true);
+            script.setGuiEnabled(!Boolean.getBoolean("java.awt.headless"));
+            script.setGuiEnabled(false);
             script.start();
+            System.out.println("FreiburgNord run " + (run + 1) + " of 1 finished.");
+            System.exit(0);
         }
     }
 }
