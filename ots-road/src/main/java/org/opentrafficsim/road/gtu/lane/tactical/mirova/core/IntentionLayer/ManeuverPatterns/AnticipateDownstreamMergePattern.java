@@ -289,6 +289,26 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                 if (laneDropInfo != null)
                 {
                     Lane laneDropLane = laneDropInfo.getLane();
+                    if (laneDropLane != null)
+                    {
+                        Speed mergeLinkSpeed = infra.getLaneAverageSpeed(laneDropLane);
+                        if (mergeLinkSpeed.eq(Speed.POSITIVE_INFINITY))
+                        {
+                            try
+                            {
+                                mergeLinkSpeed = macro.getAverageSpeed(relativeLane);
+                            }
+                            catch (Exception e)
+                            {
+                                // Ignore
+                            }
+                        }
+                        Speed vCong = this.vehicle.getParameters().getParameter(ParameterTypes.VCONG);
+                        if (mergeLinkSpeed.ge(vCong))
+                        {
+                            return null;
+                        }
+                    }
                     Lane mainroadLane = laneDropLane != null
                             ? laneDropLane.getAdjacentLane(oppositeDir, this.vehicle.getGtu().getType()) : null;
 
