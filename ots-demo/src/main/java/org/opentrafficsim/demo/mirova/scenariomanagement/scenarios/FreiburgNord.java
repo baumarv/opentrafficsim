@@ -702,6 +702,8 @@ public class FreiburgNord extends ScenarioGenerator
     {
         GeneratorPositions.LaneBiases laneBiases = new GeneratorPositions.LaneBiases();
         laneBiases.addBias(DefaultsNl.VEHICLE, GeneratorPositions.LaneBias.bySpeed(150, 80));
+        laneBiases.addBias(DefaultsNl.TRUCK, new GeneratorPositions.LaneBias(
+                new GeneratorPositions.RoadPosition.ByValue(0.0), 1.0, 1.0));
         return laneBiases;
     }
 
