@@ -151,7 +151,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
 
         if (egoSpeed.si > 15)
         {
-            if (infra.getIfLaneAvailable(LateralDirectionality.RIGHT) && !distanceToEndRight.eq(Length.POSITIVE_INFINITY))
+            if (!distanceToEndRight.eq(Length.POSITIVE_INFINITY))
             {
                 Duration timeToEndRight = Duration.instantiateSI(distanceToEndRight.si / egoSpeed.si);
                 if (timeToEndRight.lt(TIME_THRESHOLD_MERGE_COOPERATION))
@@ -160,7 +160,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                     return true;
                 }
             }
-            if (infra.getIfLaneAvailable(LateralDirectionality.LEFT) && !distanceToEndLeft.eq(Length.POSITIVE_INFINITY))
+            if (!distanceToEndLeft.eq(Length.POSITIVE_INFINITY))
             {
                 Duration timeToEndLeft = Duration.instantiateSI(distanceToEndLeft.si / egoSpeed.si);
                 if (timeToEndLeft.lt(TIME_THRESHOLD_MERGE_COOPERATION))
@@ -172,13 +172,13 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
         }
         else
         {
-            if (infra.getIfLaneAvailable(LateralDirectionality.RIGHT) && !distanceToEndRight.eq(Length.POSITIVE_INFINITY)
+            if (!distanceToEndRight.eq(Length.POSITIVE_INFINITY)
                     && distanceToEndRight.lt(DISTANCE_THRESHOLD_MERGE_COOPERATION))
             {
                 this.listLanesWithCooperationNeeds.add(LateralDirectionality.RIGHT);
                 return true;
             }
-            if (infra.getIfLaneAvailable(LateralDirectionality.LEFT) && !distanceToEndLeft.eq(Length.POSITIVE_INFINITY)
+            if (!distanceToEndLeft.eq(Length.POSITIVE_INFINITY)
                     && distanceToEndLeft.lt(DISTANCE_THRESHOLD_MERGE_COOPERATION))
             {
                 this.listLanesWithCooperationNeeds.add(LateralDirectionality.LEFT);
@@ -390,42 +390,6 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                 {
                     return finishManeuver();
                 }
-
-                // Abort if there are no leading vehicles on the lane with cooperation needs that have their indicator on
-                // towards ego
-                NeighborsContext neighbors = this.vehicle.getContextManager().getCategory("Neighbors", NeighborsContext.class);
-                if (neighbors == null)
-                {
-                    return finishManeuver();
-                }
-
-                boolean anyIndicatorTowardsUs = false;
-                for (LateralDirectionality dir : this.mergePattern.listLanesWithCooperationNeeds)
-                {
-                    Iterable<HeadwayGtu> leaders = neighbors.getLeaders(dir);
-                    if (leaders != null)
-                    {
-                        for (HeadwayGtu leader : leaders)
-                        {
-                            boolean indicatesTowardsUs = (dir.isRight() && leader.isLeftTurnIndicatorOn())
-                                    || (dir.isLeft() && leader.isRightTurnIndicatorOn());
-                            if (indicatesTowardsUs)
-                            {
-                                anyIndicatorTowardsUs = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (anyIndicatorTowardsUs)
-                    {
-                        break;
-                    }
-                }
-
-                if (!anyIndicatorTowardsUs)
-                {
-                    return finishManeuver();
-                }
             }
             catch (Exception e)
             {
@@ -461,7 +425,20 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                     // If macro data is available the ramp carries vehicles; apply preemptive deceleration
                     // whenever ego is faster than the congestion threshold regardless of ramp speed.
                     macro.getAverageSpeed(relativeLane); // throws OperationalPlanException if no data
-                    if (ego.getEgoSpeed().gt(this.vehicle.getParameters().getParameter(ParameterTypes.VCONG)))
+                    
+                    NeighborsContext neighbors = this.vehicle.getContextManager().getCategory("Neighbors", NeighborsContext.class);
+                    boolean rampHasVehicles = false;
+                    if (neighbors != null)
+                    {
+                        if (neighbors.getLeaders(dir).iterator().hasNext()
+                                || neighbors.getFollowers(dir).iterator().hasNext()
+                                || neighbors.isGtuAlongside(dir))
+                        {
+                            rampHasVehicles = true;
+                        }
+                    }
+
+                    if (rampHasVehicles && ego.getEgoSpeed().gt(this.vehicle.getParameters().getParameter(ParameterTypes.VCONG)))
                     {
                         aAnticipation =
                                 this.vehicle.getParameters().getParameter(MirovaParameters.preemptiveCooperativeDeceleration);
