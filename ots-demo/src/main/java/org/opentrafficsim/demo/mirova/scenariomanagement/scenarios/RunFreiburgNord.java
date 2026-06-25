@@ -36,11 +36,11 @@ public class RunFreiburgNord
 
             // Define the demand CSV file directly
             params.set("demandCsv",
-                    "D:\\Mitarbeitende\\gw2128\\repositories\\diss_mvb\\scripts\\evaluation\\fielddata\\detectors\\io\\data\\demand_freiburg_20250925_09-12_low_demand.csv");
+                    "D:\\Mitarbeitende\\gw2128\\repositories\\diss_mvb\\data\\demand_freiburg_20250925_09-10_low_demand.csv");
 
             // Define parameters directly analogously to RunFreiburgParallel
             params.set("car." + ParameterTypes.T.getId(), 0.8);
-            params.set("car." + MirovaParameters.vGain.getId(), 70.0);
+            params.set("car." + MirovaParameters.vGain.getId(), 30.0);
             params.set("truck." + ParameterTypes.T.getId(), 1.2);
             params.set("truck." + MirovaParameters.vGain.getId(), 130.0);
 
@@ -49,10 +49,10 @@ public class RunFreiburgNord
 
             ScenarioSimulationScript script = scenario.buildSimulationScript(params);
             script.setGuiEnabled(!Boolean.getBoolean("java.awt.headless"));
-            script.setGuiEnabled(false);
+            script.setGuiEnabled(true);
             script.start();
-            System.out.println("FreiburgNord run " + (run + 1) + " of 1 finished.");
-            System.exit(0);
+            // System.out.println("FreiburgNord run " + (run + 1) + " of 1 finished.");
+            // System.exit(0);
         }
     }
 }
