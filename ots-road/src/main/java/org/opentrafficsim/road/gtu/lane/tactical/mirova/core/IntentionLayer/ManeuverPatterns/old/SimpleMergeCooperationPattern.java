@@ -134,7 +134,7 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
         Speed egoSpeed = ego.getEgoSpeed();
         Speed vCong = this.vehicle.getParameters().getParameter(ParameterTypes.VCONG);
 
-        Length distanceToEndRight = infra.getDistanceToLaneEnd(RelativeLane.RIGHT);
+        Length distanceToEndRight = infra.getRouteDistanceToLaneEnd(RelativeLane.RIGHT);
         if (distanceToEndRight.eq(Length.POSITIVE_INFINITY))
         {
             LaneDropInfo dropInfoRight = infra.getAnticipatedLaneDropInfo(LateralDirectionality.RIGHT);
@@ -146,7 +146,7 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
         }
 
         // Fetch standard adjacent lane drop distance
-        Length distanceToEndLeft = infra.getDistanceToLaneEnd(RelativeLane.LEFT);
+        Length distanceToEndLeft = infra.getRouteDistanceToLaneEnd(RelativeLane.LEFT);
         if (distanceToEndLeft.eq(Length.POSITIVE_INFINITY))
         {
             LaneDropInfo dropInfoLeft = infra.getAnticipatedLaneDropInfo(LateralDirectionality.LEFT);
@@ -343,7 +343,7 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
                     this.maneuverPattern.listLanesWithCooperationNeeds.get(0).isLeft() ? RelativeLane.LEFT : RelativeLane.RIGHT;
             // Check if there is an actual neighbor requesting to merge
             MacroTrafficContext macro = this.vehicle.getContextManager().getCategory("MacroTraffic", MacroTrafficContext.class);
-            if ((infra.getDistanceToLaneEnd(coopLane).lt(this.vehicle.getParameters().getParameter(ParameterTypes.LOOKAHEAD))
+            if ((infra.getRouteDistanceToLaneEnd(coopLane).lt(this.vehicle.getParameters().getParameter(ParameterTypes.LOOKAHEAD))
                     || macro.getAverageSpeed(coopLane).lt(this.vehicle.getParameters().getParameter(ParameterTypes.VCONG)))
                     && this.maneuverPattern.findNewCandidate(neighbors))
             {
@@ -384,7 +384,7 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
                     Lane laneDropLane = laneDropInfo.getLane();
                     Lane mainroadLane = laneDropLane.getAdjacentLane(oppositeDir, null);
 
-                    if (infra.getDistanceToLaneEnd(relativeLane).si > 50.0 && mainroadLane != null)
+                    if (infra.getRouteDistanceToLaneEnd(relativeLane).si > 50.0 && mainroadLane != null)
                     {
                         Length mainroadLaneLength = mainroadLane.getLength();
 
@@ -408,7 +408,7 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
                     aAnticipation = Acceleration.min(aAnticipation,
                             this.vehicle.getParameters().getParameter(MirovaParameters.preemptiveCooperativeDeceleration));
                 }
-                // else if (infra.getDistanceToLaneEnd(relativeLane).si > 50.0)
+                // else if (infra.getRouteDistanceToLaneEnd(relativeLane).si > 50.0)
                 // {
                 // // 2. Antizipation im Nahbereich (Die endende Spur liegt unmittelbar neben uns)
                 // // Da wir das kooperierende Fahrzeug auf der Hauptspur sind, müssen wir die
@@ -472,7 +472,7 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
                     InfrastructureContext infra =
                             this.vehicle.getContextManager().getCategory("Infrastructure", InfrastructureContext.class);
                     RelativeLane relativeLane = dir.isLeft() ? RelativeLane.LEFT : RelativeLane.RIGHT;
-                    Length distanceToLaneEnd = infra.getDistanceToLaneEnd(relativeLane);
+                    Length distanceToLaneEnd = infra.getRouteDistanceToLaneEnd(relativeLane);
                     Length lookahead = this.vehicle.getParameters().getParameter(ParameterTypes.LOOKAHEAD);
                     MacroTrafficContext macro =
                             this.vehicle.getContextManager().getCategory("MacroTraffic", MacroTrafficContext.class);

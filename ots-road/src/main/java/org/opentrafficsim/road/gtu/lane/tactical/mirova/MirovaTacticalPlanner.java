@@ -368,7 +368,7 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         // System.out.printf(" -> Current Speed: %s%n", egoContext.getEgoSpeed().toDisplayString());
         // System.out.printf(" -> Active Relaxations: %s, Acc Cache: %s%n", egoContext.getActiveRelaxations().toString(),
         // egoContext.getCurrentTickAccelerationCache().toString());
-        // System.out.printf(" -> Distance to End of Lane right: %s%n", infra.getDistanceToLaneEnd(RelativeLane.CURRENT));
+        // System.out.printf(" -> Distance to End of Lane right: %s%n", infra.getRouteDistanceToLaneEnd(RelativeLane.CURRENT));
         // System.out.printf(" -> Desired Headway: %s%n", getParameters().getParameter(ParameterTypes.T).toDisplayString());
         // }
 
@@ -382,7 +382,7 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         // getGtu().getId(), getGtu().getSimulator().getSimulatorTime().toDisplayString(),
         // (this.currentActionState != null) ? this.currentActionState.toString() : "none",
         // getLaneChangeDesire().toString(), planAcc.toDisplayString(), egoContext.getEgoSpeed().toDisplayString(),
-        // infra.getDistanceToLaneEnd(RelativeLane.RIGHT).toDisplayString());
+        // infra.getRouteDistanceToLaneEnd(RelativeLane.RIGHT).toDisplayString());
         // }
         return this.operationalPlan;
     }

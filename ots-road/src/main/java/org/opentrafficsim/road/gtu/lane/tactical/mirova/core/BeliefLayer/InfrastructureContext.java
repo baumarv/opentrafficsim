@@ -19,8 +19,11 @@ import org.opentrafficsim.core.gtu.plan.operational.OperationalPlanException;
 import org.opentrafficsim.core.network.LateralDirectionality;
 import org.opentrafficsim.core.network.NetworkException;
 import org.opentrafficsim.road.gtu.lane.LaneBasedGtu;
+import org.opentrafficsim.road.gtu.lane.perception.LanePerception;
 import org.opentrafficsim.road.gtu.lane.perception.RelativeLane;
 import org.opentrafficsim.road.gtu.lane.perception.categories.InfrastructurePerception;
+import org.opentrafficsim.road.gtu.lane.perception.structure.LaneRecord;
+import org.opentrafficsim.road.gtu.lane.perception.structure.LaneStructure;
 import org.opentrafficsim.road.gtu.lane.tactical.AbstractLaneBasedTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.LanePathInfo;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
@@ -53,8 +56,11 @@ import org.opentrafficsim.road.network.speed.SpeedLimitInfo;
 public class InfrastructureContext extends ContextCategory implements UpdatableContext
 {
 
-    /** Cache key prefix for distance to lane end. */
-    private static final String DIST_TO_LANE_END_PREFIX = "distToLaneEnd_";
+    /** Cache key prefix for route-based distance to lane end. */
+    private static final String ROUTE_DIST_TO_LANE_END_PREFIX = "routeDistToLaneEnd_";
+
+    /** Cache key prefix for physical distance to lane end. */
+    private static final String PHYS_DIST_TO_LANE_END_PREFIX = "physDistToLaneEnd_";
 
     /** Cache key for lane-end urgency flag. */
     private static final String LANE_END_URGENT = "laneEndUrgent";
@@ -113,31 +119,63 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
     // ----------------------------------------------------------------------
 
     /**
-     * Returns the remaining distance to the end of the current lane.
-     * @return remaining distance until the current lane ends [m]
+     * Returns the remaining distance until the current lane ends along the ego vehicle's planned route (taking into account
+     * route choices).
+     * @return remaining distance until the current lane ends on the route [m]
      */
-    public Length getDistanceToLaneEnd()
+    public Length getRouteDistanceToLaneEnd()
     {
-        return getDistanceToLaneEnd(RelativeLane.CURRENT);
+        return getRouteDistanceToLaneEnd(RelativeLane.CURRENT);
     }
 
     /**
-     * Returns the remaining distance to the end of the specified lane.
+     * Returns the remaining distance until the specified lane ends along the ego vehicle's planned route (taking into account
+     * route choices).
      * <p>
      * The value is lazily computed from {@link InfrastructurePerception} and cached per simulation tick.
      * </p>
      * @param lane the relative lane to check (e.g., CURRENT, LEFT, RIGHT)
-     * @return remaining distance until the lane ends [m]
+     * @return remaining distance until the lane ends on the route [m]
      */
-    public Length getDistanceToLaneEnd(final RelativeLane lane)
+    public Length getRouteDistanceToLaneEnd(final RelativeLane lane)
     {
-        String key = DIST_TO_LANE_END_PREFIX + lane.toString();
+        String key = ROUTE_DIST_TO_LANE_END_PREFIX + lane.toString();
         Length cached = getCachedValue(key, Length.class);
         if (cached != null)
         {
             return cached;
         }
-        Length result = computeSafeLaneEndDistance(lane);
+        Length result = computeSafeRouteLaneEndDistance(lane);
+        cacheValue(key, result, true);
+        return result;
+    }
+
+    /**
+     * Returns the remaining physical distance to the end of the current lane (dead-end only).
+     * @return remaining physical distance until the current lane ends [m]
+     */
+    public Length getPhysicalDistanceToLaneEnd()
+    {
+        return getPhysicalDistanceToLaneEnd(RelativeLane.CURRENT);
+    }
+
+    /**
+     * Returns the remaining physical distance to the end of the specified lane (dead-end only).
+     * <p>
+     * The value is lazily computed and cached per simulation tick.
+     * </p>
+     * @param lane the relative lane to check
+     * @return remaining physical distance until the lane ends [m]
+     */
+    public Length getPhysicalDistanceToLaneEnd(final RelativeLane lane)
+    {
+        String key = PHYS_DIST_TO_LANE_END_PREFIX + lane.toString();
+        Length cached = getCachedValue(key, Length.class);
+        if (cached != null)
+        {
+            return cached;
+        }
+        Length result = computeSafePhysicalLaneEndDistance(lane);
         cacheValue(key, result, true);
         return result;
     }
@@ -157,7 +195,7 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         {
             return cached;
         }
-        boolean urgent = getDistanceToLaneEnd(RelativeLane.CURRENT).si < LANE_END_THRESHOLD;
+        boolean urgent = getRouteDistanceToLaneEnd(RelativeLane.CURRENT).si < LANE_END_THRESHOLD;
         cacheValue(LANE_END_URGENT, urgent, true);
         return urgent;
     }
@@ -459,15 +497,33 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
     // ----------------------------------------------------------------------
 
     /**
-     * Wrapper for lane-end distance computation with exception safety.
+     * Wrapper for route-based lane-end distance computation with exception safety. Calculates the remaining distance to the end
+     * of the lane for the ego vehicle's planned route.
      * @param lane the relative lane
-     * @return computed distance to lane end or {@link Length#POSITIVE_INFINITY} on error
+     * @return computed distance to lane end on route or {@link Length#POSITIVE_INFINITY} on error
      */
-    private Length computeSafeLaneEndDistance(final RelativeLane lane)
+    private Length computeSafeRouteLaneEndDistance(final RelativeLane lane)
     {
         try
         {
-            return computeDistanceToLaneEnd(lane);
+            return computeRouteDistanceToLaneEnd(lane);
+        }
+        catch (Exception e)
+        {
+            return Length.POSITIVE_INFINITY;
+        }
+    }
+
+    /**
+     * Wrapper for physical lane-end distance computation with exception safety.
+     * @param lane the relative lane
+     * @return computed physical distance to lane end or {@link Length#POSITIVE_INFINITY} on error
+     */
+    private Length computeSafePhysicalLaneEndDistance(final RelativeLane lane)
+    {
+        try
+        {
+            return computePhysicalDistanceToLaneEnd(lane);
         }
         catch (Exception e)
         {
@@ -512,19 +568,84 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
     // ----------------------------------------------------------------------
 
     /**
-     * Computes the remaining distance to the end of the specified lane.
+     * Computes the remaining distance to the end of the specified lane for the ego vehicle's planned route.
      * <p>
      * Uses {@link InfrastructurePerception#getLegalLaneChangeInfo(RelativeLane)} to find the first relevant
-     * {@link LaneChangeInfo} instance and its remaining distance.
+     * {@link LaneChangeInfo} instance and its remaining distance required to stay on the vehicle's route.
      * </p>
      * @param lane the relative lane
-     * @return distance to lane end [m]
+     * @return remaining distance until the lane ends on the route [m]
      * @throws ParameterException if perception parameters are missing
      * @throws OperationalPlanException if lane information retrieval fails
      */
-    private Length computeDistanceToLaneEnd(final RelativeLane lane) throws ParameterException, OperationalPlanException
+    private Length computeRouteDistanceToLaneEnd(final RelativeLane lane) throws ParameterException, OperationalPlanException
     {
         InfrastructurePerception infra = this.vehicle.getPerception().getPerceptionCategory(InfrastructurePerception.class);
+
+        SortedSet<LaneChangeInfo> laneInfo = infra.getLegalLaneChangeInfo(lane);
+        if (laneInfo != null && !laneInfo.isEmpty())
+        {
+            LaneChangeInfo first = laneInfo.first();
+            return first.remainingDistance();
+        }
+        return Length.POSITIVE_INFINITY;
+    }
+
+    /**
+     * Computes the remaining physical distance to the end of the specified lane (dead-end only).
+     * @param lane the relative lane
+     * @return physical distance to lane end [m]
+     * @throws ParameterException if perception parameters are missing
+     * @throws OperationalPlanException if lane information retrieval fails
+     */
+    private Length computePhysicalDistanceToLaneEnd(final RelativeLane lane) throws ParameterException, OperationalPlanException
+    {
+        InfrastructurePerception infra = this.vehicle.getPerception().getPerceptionCategory(InfrastructurePerception.class);
+
+        LanePerception perception = this.vehicle.getPerception();
+        if (perception != null)
+        {
+            LaneStructure laneStructure = perception.getLaneStructure();
+            if (laneStructure != null && laneStructure.exists(lane))
+            {
+                LaneRecord rootRecord = laneStructure.getRootRecord(lane);
+                if (rootRecord != null)
+                {
+                    Lane laneObject = rootRecord.getLane();
+                    if (laneObject != null)
+                    {
+                        GtuType gtuType = this.vehicle.getGtu().getType();
+                        Set<Lane> nextLanes = laneObject.nextLanes(gtuType);
+                        if (nextLanes != null && !nextLanes.isEmpty())
+                        {
+                            return Length.POSITIVE_INFINITY;
+                        }
+                        else
+                        {
+                            try
+                            {
+                                Length position =
+                                        this.vehicle.getGtu().position(laneObject, this.vehicle.getGtu().getReference());
+                                Length lookaheadDistance = this.vehicle.getParameters().getParameter(ParameterTypes.LOOKAHEAD);
+                                Length remainingDistance = laneObject.getLength().minus(position);
+                                if (remainingDistance.le(lookaheadDistance))
+                                {
+                                    return remainingDistance;
+                                }
+                                else
+                                {
+                                    return Length.POSITIVE_INFINITY;
+                                }
+                            }
+                            catch (GtuException e)
+                            {
+                                return rootRecord.getEndDistance();
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         SortedSet<LaneChangeInfo> laneInfo = infra.getLegalLaneChangeInfo(lane);
         if (laneInfo != null && !laneInfo.isEmpty())
@@ -743,8 +864,54 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
                 {
                     Lane adjacentLane = adjacentLanes.iterator().next(); // Grab the direct adjacent lane
 
-                    // If the adjacent lane has no subsequent lanes, it's a physical lane drop
-                    if (adjacentLane.nextLanes(gtuType).isEmpty())
+                    // Check if adjacent lane is a lane drop (excluding exits/off-ramps)
+                    boolean isLaneDrop = false;
+                    Set<Lane> nextAdjLanes = adjacentLane.nextLanes(gtuType);
+                    if (nextAdjLanes.isEmpty())
+                    {
+                        // If it has no next lanes for our GTU type, check physical layout to see if it's an exit
+                        Set<Lane> physicalNextLanes = adjacentLane.nextLanes(null);
+                        if (physicalNextLanes.isEmpty())
+                        {
+                            isLaneDrop = true; // Ends physically, definitely a lane drop
+                        }
+                        else
+                        {
+                            // It has physical next lanes. Let's see if they all lead to different links (diverge/exit)
+                            Set<org.opentrafficsim.core.network.Link> mainlineNextLinks = new java.util.LinkedHashSet<>();
+                            for (Lane nextMainlineLane : lanesAhead.nextLanes(gtuType))
+                            {
+                                mainlineNextLinks.add(nextMainlineLane.getLink());
+                            }
+                            for (Lane nextMainlineLane : lanesAhead.nextLanes(null))
+                            {
+                                mainlineNextLinks.add(nextMainlineLane.getLink());
+                            }
+
+                            if (!mainlineNextLinks.isEmpty())
+                            {
+                                boolean leadsToMainline = false;
+                                for (Lane nextAdjLane : physicalNextLanes)
+                                {
+                                    if (mainlineNextLinks.contains(nextAdjLane.getLink()))
+                                    {
+                                        leadsToMainline = true;
+                                        break;
+                                    }
+                                }
+                                if (leadsToMainline)
+                                {
+                                    isLaneDrop = true; // At least one physical next lane connects to the mainline path
+                                }
+                            }
+                            else
+                            {
+                                isLaneDrop = true; // Default to drop if mainline continuation is unknown
+                            }
+                        }
+                    }
+
+                    if (isLaneDrop)
                     {
                         Length dropDist = accumulatedPathLength.plus(adjacentLane.getLength()).minus(currentPositionOnRef);
 
@@ -844,7 +1011,8 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
                 Lane nextAfterLookahead = lastLane.nextLanes(gtuType).iterator().next();
                 if (searchLeft)
                 {
-                    Set<Lane> adjacentLeft = nextAfterLookahead.accessibleAdjacentLanesLegal(LateralDirectionality.LEFT, gtuType);
+                    Set<Lane> adjacentLeft =
+                            nextAfterLookahead.accessibleAdjacentLanesLegal(LateralDirectionality.LEFT, gtuType);
                     if (adjacentLeft != null && !adjacentLeft.isEmpty())
                     {
                         return adjacentLeft.iterator().next();
@@ -852,7 +1020,8 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
                 }
                 if (searchRight)
                 {
-                    Set<Lane> adjacentRight = nextAfterLookahead.accessibleAdjacentLanesLegal(LateralDirectionality.RIGHT, gtuType);
+                    Set<Lane> adjacentRight =
+                            nextAfterLookahead.accessibleAdjacentLanesLegal(LateralDirectionality.RIGHT, gtuType);
                     if (adjacentRight != null && !adjacentRight.isEmpty())
                     {
                         return adjacentRight.iterator().next();
@@ -1038,8 +1207,8 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
     @Override
     public String toString()
     {
-        return "InfrastructureContext[" + "distToLaneEnd="
-                + getCachedValue(DIST_TO_LANE_END_PREFIX + RelativeLane.CURRENT, Length.class) + ", legalSpeedLimit="
+        return "InfrastructureContext[" + "routeDistToLaneEnd="
+                + getCachedValue(ROUTE_DIST_TO_LANE_END_PREFIX + RelativeLane.CURRENT, Length.class) + ", legalSpeedLimit="
                 + getCachedValue(LEGAL_SPEED_LIMIT, Speed.class) + "]";
     }
 }

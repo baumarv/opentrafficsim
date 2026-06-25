@@ -404,7 +404,7 @@ public class GapCandidate
         Length xM = Length.ZERO;
 
         // Lane end distance in OTS is relative to Ego Front. We shift it to Ego Center.
-        Length xE = infra.getDistanceToLaneEnd().minus(emergencyBuffer).plus(lM.divide(2.0));
+        Length xE = infra.getRouteDistanceToLaneEnd().minus(emergencyBuffer).plus(lM.divide(2.0));
 
         Length xL = getCenterPosition(this.leader, lM);
         Length xF = getCenterPosition(this.follower, lM);
