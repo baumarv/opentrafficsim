@@ -32,6 +32,7 @@ import org.opentrafficsim.road.gtu.lane.perception.headway.HeadwayGtu;
 import org.opentrafficsim.road.gtu.lane.tactical.util.SpeedLimitUtil;
 import org.opentrafficsim.road.network.LaneChangeInfo;
 import org.opentrafficsim.road.network.lane.Lane;
+import org.opentrafficsim.road.network.lane.Shoulder;
 import org.opentrafficsim.road.network.speed.SpeedLimitInfo;
 
 /**
@@ -600,8 +601,14 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
      */
     private Length computePhysicalDistanceToLaneEnd(final RelativeLane lane) throws ParameterException, OperationalPlanException
     {
-        InfrastructurePerception infra = this.vehicle.getPerception().getPerceptionCategory(InfrastructurePerception.class);
-
+        if (lane.isLeft() && !getIfLaneAvailable(LateralDirectionality.LEFT))
+        {
+            return Length.POSITIVE_INFINITY;
+        }
+        if (lane.isRight() && !getIfLaneAvailable(LateralDirectionality.RIGHT))
+        {
+            return Length.POSITIVE_INFINITY;
+        }
         LanePerception perception = this.vehicle.getPerception();
         if (perception != null)
         {
@@ -647,12 +654,6 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
             }
         }
 
-        SortedSet<LaneChangeInfo> laneInfo = infra.getLegalLaneChangeInfo(lane);
-        if (laneInfo != null && !laneInfo.isEmpty())
-        {
-            LaneChangeInfo first = laneInfo.first();
-            return first.remainingDistance();
-        }
         return Length.POSITIVE_INFINITY;
     }
 
@@ -687,7 +688,38 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         }
         // Check if the possibility distance is non-negative (meaning we are not past the allowed point)
         // and if the lane actually exists in the cross section.
-        return infra.getLegalLaneChangePossibility(RelativeLane.CURRENT, laneChangeDirection).si > 0.0;
+        if (infra.getLegalLaneChangePossibility(RelativeLane.CURRENT, laneChangeDirection).si <= 0.0)
+        {
+            return false;
+        }
+
+        // Additional check: Ensure the target lane actually exists and is a real drivable lane (not a Shoulder)
+        try
+        {
+            RelativeLane targetLane = laneChangeDirection.isLeft() ? RelativeLane.LEFT : RelativeLane.RIGHT;
+            LaneStructure structure = this.vehicle.getPerception().getLaneStructure();
+            if (structure != null && structure.exists(targetLane))
+            {
+                LaneRecord record = structure.getRootRecord(targetLane);
+                if (record != null)
+                {
+                    Lane lane = record.getLane();
+                    if (lane == null || lane instanceof Shoulder)
+                    {
+                        return false;
+                    }
+                    if (!lane.getType().isCompatible(this.vehicle.getGtu().getType()))
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            // Failsafe
+        }
+        return true;
     }
 
     /**
@@ -863,6 +895,10 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
                 if (!adjacentLanes.isEmpty())
                 {
                     Lane adjacentLane = adjacentLanes.iterator().next(); // Grab the direct adjacent lane
+                    if (adjacentLane instanceof Shoulder)
+                    {
+                        continue;
+                    }
 
                     // Check if adjacent lane is a lane drop (excluding exits/off-ramps)
                     boolean isLaneDrop = false;
@@ -989,7 +1025,11 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
                     Set<Lane> adjacentLeft = lcLane.accessibleAdjacentLanesLegal(LateralDirectionality.LEFT, gtuType);
                     if (adjacentLeft != null && !adjacentLeft.isEmpty())
                     {
-                        return adjacentLeft.iterator().next();
+                        Lane adj = adjacentLeft.iterator().next();
+                        if (!(adj instanceof Shoulder))
+                        {
+                            return adj;
+                        }
                     }
                 }
 
@@ -999,7 +1039,11 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
                     Set<Lane> adjacentRight = lcLane.accessibleAdjacentLanesLegal(LateralDirectionality.RIGHT, gtuType);
                     if (adjacentRight != null && !adjacentRight.isEmpty())
                     {
-                        return adjacentRight.iterator().next();
+                        Lane adj = adjacentRight.iterator().next();
+                        if (!(adj instanceof Shoulder))
+                        {
+                            return adj;
+                        }
                     }
                 }
             }
@@ -1015,7 +1059,11 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
                             nextAfterLookahead.accessibleAdjacentLanesLegal(LateralDirectionality.LEFT, gtuType);
                     if (adjacentLeft != null && !adjacentLeft.isEmpty())
                     {
-                        return adjacentLeft.iterator().next();
+                        Lane adj = adjacentLeft.iterator().next();
+                        if (!(adj instanceof Shoulder))
+                        {
+                            return adj;
+                        }
                     }
                 }
                 if (searchRight)
@@ -1024,7 +1072,11 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
                             nextAfterLookahead.accessibleAdjacentLanesLegal(LateralDirectionality.RIGHT, gtuType);
                     if (adjacentRight != null && !adjacentRight.isEmpty())
                     {
-                        return adjacentRight.iterator().next();
+                        Lane adj = adjacentRight.iterator().next();
+                        if (!(adj instanceof Shoulder))
+                        {
+                            return adj;
+                        }
                     }
                 }
             }
