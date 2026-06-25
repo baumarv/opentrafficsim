@@ -151,7 +151,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
 
         if (egoSpeed.si > 15)
         {
-            if (!distanceToEndRight.eq(Length.POSITIVE_INFINITY))
+            if (infra.getIfLaneAvailable(LateralDirectionality.RIGHT) && !distanceToEndRight.eq(Length.POSITIVE_INFINITY))
             {
                 Duration timeToEndRight = Duration.instantiateSI(distanceToEndRight.si / egoSpeed.si);
                 if (timeToEndRight.lt(TIME_THRESHOLD_MERGE_COOPERATION))
@@ -160,7 +160,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                     return true;
                 }
             }
-            if (!distanceToEndLeft.eq(Length.POSITIVE_INFINITY))
+            if (infra.getIfLaneAvailable(LateralDirectionality.LEFT) && !distanceToEndLeft.eq(Length.POSITIVE_INFINITY))
             {
                 Duration timeToEndLeft = Duration.instantiateSI(distanceToEndLeft.si / egoSpeed.si);
                 if (timeToEndLeft.lt(TIME_THRESHOLD_MERGE_COOPERATION))
@@ -172,12 +172,14 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
         }
         else
         {
-            if (!distanceToEndRight.eq(Length.POSITIVE_INFINITY) && distanceToEndRight.lt(DISTANCE_THRESHOLD_MERGE_COOPERATION))
+            if (infra.getIfLaneAvailable(LateralDirectionality.RIGHT) && !distanceToEndRight.eq(Length.POSITIVE_INFINITY)
+                    && distanceToEndRight.lt(DISTANCE_THRESHOLD_MERGE_COOPERATION))
             {
                 this.listLanesWithCooperationNeeds.add(LateralDirectionality.RIGHT);
                 return true;
             }
-            if (!distanceToEndLeft.eq(Length.POSITIVE_INFINITY) && distanceToEndLeft.lt(DISTANCE_THRESHOLD_MERGE_COOPERATION))
+            if (infra.getIfLaneAvailable(LateralDirectionality.LEFT) && !distanceToEndLeft.eq(Length.POSITIVE_INFINITY)
+                    && distanceToEndLeft.lt(DISTANCE_THRESHOLD_MERGE_COOPERATION))
             {
                 this.listLanesWithCooperationNeeds.add(LateralDirectionality.LEFT);
                 return true;
@@ -348,8 +350,8 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
 
     /*
      * ========================================================================================= STATE: NearAnticipationState
-     * Active once the ramp is a directly adjacent lane (getPhysicalDistanceToLaneEnd < INFINITY). Applies preemptive deceleration
-     * whenever ramp vehicles are detected and ego is above vCong.
+     * Active once the ramp is a directly adjacent lane (getPhysicalDistanceToLaneEnd < INFINITY). Applies preemptive
+     * deceleration whenever ramp vehicles are detected and ego is above vCong.
      * =========================================================================================
      */
 
