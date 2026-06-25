@@ -2,3 +2,11 @@
 /.flattened-pom.xml
 .claude
 /.claude
+
+# Eclipse project files
+.classpath
+.project
+.settings/
+
+# VS Code project files
+.vscode/
