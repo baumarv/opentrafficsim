@@ -330,7 +330,8 @@ public class FreiburgNord extends ScenarioGenerator
         // Define Truck Template: 12m length, speed limit 80km/h
         LaneBasedGtuTemplate truck = new LaneBasedGtuTemplate(DefaultsNl.TRUCK,
                 new ConstantSupplier<>(Length.instantiateSI(12.0)), new ConstantSupplier<>(Length.instantiateSI(2.5)),
-                DesiredSpeedLibrary.trucksLimit80_DensityClass1(this.stream), strategicalPlannerFactoryTrucks, routeGenerator);
+                DesiredSpeedLibrary.trucksLimit100_DensityClass1_Modified(this.stream), strategicalPlannerFactoryTrucks,
+                routeGenerator);
         this.gtuTemplates.put(DefaultsNl.TRUCK, truck);
     }
 
@@ -691,6 +692,9 @@ public class FreiburgNord extends ScenarioGenerator
         this.defaultParameters.setTruckShare(0.1); // 10% trucks
         this.defaultParameters.setSeed(42L); // default random seed
         this.defaultParameters.setMergeShare(0.2); // 20% of overall demand merges from the on-ramp
+        this.defaultParameters.set("demandStartDate", "2025-09-25 09:00:00");
+        this.defaultParameters.set("demandEndDate", "2025-09-25 10:00:00");
+        this.defaultParameters.set("demandAggregation", 1);
     }
 
     /**
@@ -702,8 +706,8 @@ public class FreiburgNord extends ScenarioGenerator
     {
         GeneratorPositions.LaneBiases laneBiases = new GeneratorPositions.LaneBiases();
         laneBiases.addBias(DefaultsNl.VEHICLE, GeneratorPositions.LaneBias.bySpeed(150, 80));
-        laneBiases.addBias(DefaultsNl.TRUCK, new GeneratorPositions.LaneBias(
-                new GeneratorPositions.RoadPosition.ByValue(0.0), 1.0, 1.0));
+        laneBiases.addBias(DefaultsNl.TRUCK,
+                new GeneratorPositions.LaneBias(new GeneratorPositions.RoadPosition.ByValue(0.0), 1.0, 1.0));
         return laneBiases;
     }
 
@@ -744,9 +748,11 @@ public class FreiburgNord extends ScenarioGenerator
                         || (linkId.equals("L7a") && lane.getId().startsWith("Lane"))
                         || (linkId.equals("L5a") && lane.getId().startsWith("Lane")))
                 {
-                    this.listLoopDetectors.add(new LoopDetector("det_" + lane.getFullId(),
+                    LoopDetector detector = new LoopDetector("det_" + lane.getFullId(),
                             new LanePosition(lane, lane.getLength().times(0.5)), Length.ZERO, DefaultsNl.LOOP_DETECTOR,
-                            Time.instantiateSI(0.0), Duration.instantiateSI(60.0), LoopDetector.HARMONIC_MEAN_SPEED));
+                            Time.instantiateSI(0.0), Duration.instantiateSI(60.0), LoopDetector.HARMONIC_MEAN_SPEED);
+                    detector.specificDataFor(DefaultsNl.CAR, DefaultsNl.TRUCK);
+                    this.listLoopDetectors.add(detector);
                 }
 
                 // Record trajectory paths starting at link L2a
@@ -782,6 +788,72 @@ public class FreiburgNord extends ScenarioGenerator
     @Override
     public ScenarioSimulationScript buildSimulationScript(final ScenarioParameters params)
     {
+        String startDate = params.get("demandStartDate", String.class);
+        String endDate = params.get("demandEndDate", String.class);
+        Integer aggregation = params.get("demandAggregation", Integer.class);
+
+        if (startDate != null && endDate != null)
+        {
+            File outputDir = getOutputDirectory();
+            if (outputDir != null)
+            {
+                if (aggregation == null)
+                {
+                    aggregation = 1;
+                }
+
+                File outputDemandFile = new File(outputDir, "simulation_demand.csv");
+                System.out.println("Running prepare_simulation_demand.py to load demand from database...");
+                try
+                {
+                    String pythonExe = "D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\venv\\Scripts\\python.exe";
+                    String scriptPath = "D:\\Mitarbeitende\\gw2128\\repositories\\diss_mvb\\scripts\\evaluation\\fielddata\\detectors\\io\\prepare_simulation_demand.py";
+
+                    List<String> command = new ArrayList<>();
+                    command.add(pythonExe);
+                    command.add(scriptPath);
+                    command.add("--start-date");
+                    command.add(startDate);
+                    command.add("--end-date");
+                    command.add(endDate);
+                    command.add("--aggregation");
+                    command.add(String.valueOf(aggregation));
+                    command.add("--output-file");
+                    command.add(outputDemandFile.getAbsolutePath());
+
+                    ProcessBuilder pb = new ProcessBuilder(command);
+                    pb.redirectErrorStream(true);
+                    Process process = pb.start();
+
+                    // Read process output
+                    try (BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(process.getInputStream())))
+                    {
+                        String line;
+                        while ((line = reader.readLine()) != null)
+                        {
+                            System.out.println("[Python Demand Prep] " + line);
+                        }
+                    }
+
+                    int exitCode = process.waitFor();
+                    if (exitCode == 0)
+                    {
+                        System.out.println("[Python Demand Prep] Successfully generated demand at: " + outputDemandFile.getAbsolutePath());
+                        params.set("demandCsv", outputDemandFile.getAbsolutePath());
+                    }
+                    else
+                    {
+                        System.err.println("[ERROR] prepare_simulation_demand.py failed with exit code: " + exitCode);
+                    }
+                }
+                catch (Exception e)
+                {
+                    System.err.println("[ERROR] Failed to run prepare_simulation_demand.py: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+        }
+
         String demandCsv = params.get("demandCsv", String.class);
         if (demandCsv != null)
         {
