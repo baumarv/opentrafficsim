@@ -115,9 +115,11 @@ public class SimpleHighwayScenario extends ScenarioGenerator
         {
             new SinkDetector(lane, lane.getLength(), DefaultsNl.ROAD_USERS);
             this.initialLongitudinalPositions.add(new LanePosition(lane, new Length(5.0, LengthUnit.SI)));
-            addLoopDetector(new LoopDetector("det_" + lane.getId(), new LanePosition(lane, lane.getLength().times(0.5)),
+            LoopDetector detector = new LoopDetector("det_" + lane.getId(), new LanePosition(lane, lane.getLength().times(0.5)),
                     Length.ZERO, DefaultsNl.LOOP_DETECTOR, Time.instantiateSI(60.0), Duration.instantiateSI(60.0),
-                    LoopDetector.HARMONIC_MEAN_SPEED));
+                    LoopDetector.HARMONIC_MEAN_SPEED);
+            detector.specificDataFor(DefaultsNl.CAR, DefaultsNl.TRUCK);
+            addLoopDetector(detector);
         }
 
         // get all lanes for later use

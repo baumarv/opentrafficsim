@@ -552,22 +552,28 @@ public class MergeScenario extends ScenarioGenerator
                 if (lane.getFullId().equals("AB.FORWARD1") || lane.getFullId().equals("AB.FORWARD2")
                         || lane.getFullId().equals("AB.FORWARD3"))
                 {
-                    this.listLoopDetectors.add(new LoopDetector("det_" + lane.getFullId(),
+                    LoopDetector detector = new LoopDetector("det_" + lane.getFullId(),
                             new LanePosition(lane, Length.instantiateSI(2300)), Length.ZERO, DefaultsNl.LOOP_DETECTOR,
-                            Time.instantiateSI(0.0), Duration.instantiateSI(60.0), LoopDetector.HARMONIC_MEAN_SPEED));
+                            Time.instantiateSI(0.0), Duration.instantiateSI(60.0), LoopDetector.HARMONIC_MEAN_SPEED);
+                    detector.specificDataFor(DefaultsNl.CAR, DefaultsNl.TRUCK);
+                    this.listLoopDetectors.add(detector);
                 }
                 if (lane.getFullId().equals("F2B.FORWARD1"))
                 {
-                    this.listLoopDetectors.add(new LoopDetector("det_" + lane.getFullId(),
+                    LoopDetector detector = new LoopDetector("det_" + lane.getFullId(),
                             new LanePosition(lane, lane.getLength().times(0.5)), Length.ZERO, DefaultsNl.LOOP_DETECTOR,
-                            Time.instantiateSI(0.0), Duration.instantiateSI(60.0), LoopDetector.HARMONIC_MEAN_SPEED));
+                            Time.instantiateSI(0.0), Duration.instantiateSI(60.0), LoopDetector.HARMONIC_MEAN_SPEED);
+                    detector.specificDataFor(DefaultsNl.CAR, DefaultsNl.TRUCK);
+                    this.listLoopDetectors.add(detector);
                 }
                 if (lane.getFullId().equals("DE.FORWARD1") || lane.getFullId().equals("DE.FORWARD2")
                         || lane.getFullId().equals("DE.FORWARD3"))
                 {
-                    this.listLoopDetectors.add(new LoopDetector("det_" + lane.getFullId(),
+                    LoopDetector detector = new LoopDetector("det_" + lane.getFullId(),
                             new LanePosition(lane, Length.instantiateSI(200)), Length.ZERO, DefaultsNl.LOOP_DETECTOR,
-                            Time.instantiateSI(0.0), Duration.instantiateSI(60.0), LoopDetector.HARMONIC_MEAN_SPEED));
+                            Time.instantiateSI(0.0), Duration.instantiateSI(60.0), LoopDetector.HARMONIC_MEAN_SPEED);
+                    detector.specificDataFor(DefaultsNl.CAR, DefaultsNl.TRUCK);
+                    this.listLoopDetectors.add(detector);
                 }
                 if (lane.getFullId().equals("BC.FORWARD1") || lane.getFullId().equals("BC.FORWARD2")
                         || lane.getFullId().equals("BC.FORWARD3") || lane.getFullId().equals("BC.FORWAR4"))

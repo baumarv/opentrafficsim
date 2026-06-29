@@ -12,6 +12,8 @@ import org.djutils.data.Table;
 import org.djutils.data.csv.CsvData;
 import org.djutils.data.serialization.TextSerializationException;
 import org.djutils.io.CompressedFileWriter;
+import org.opentrafficsim.core.definitions.DefaultsNl;
+import org.opentrafficsim.core.gtu.GtuType;
 import org.opentrafficsim.kpi.sampling.SamplerData;
 import org.opentrafficsim.road.network.RoadNetwork;
 import org.opentrafficsim.road.network.sampling.RoadSampler;
@@ -376,7 +378,7 @@ public class ScenarioOutputConfiguration
             try
             {
                 // Query all detectors registered in the network directly — avoids relying on the detectors list copy
-                Table periodicData = LoopDetector.asTablePeriodicData(this.roadNetwork);
+                Table periodicData = LoopDetector.asTablePeriodicData(this.roadNetwork, DefaultsNl.CAR, DefaultsNl.TRUCK, null);
                 Table positionData = LoopDetector.asTablePositions(this.roadNetwork);
 
                 if (!periodicData.iterator().hasNext())
