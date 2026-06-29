@@ -40,6 +40,11 @@
         <ots:SpeedLimit GtuType="NL.CAR" LegalSpeedLimit="65km/h" />
         <ots:SpeedLimit GtuType="NL.TRUCK" LegalSpeedLimit="65km/h" />
       </ots:LinkType>
+      <ots:LinkType Id="RAMP80">
+        <ots:Compatibility GtuType="NL.VEHICLE" />
+        <ots:SpeedLimit GtuType="NL.CAR" LegalSpeedLimit="80km/h" />
+        <ots:SpeedLimit GtuType="NL.TRUCK" LegalSpeedLimit="80km/h" />
+      </ots:LinkType>
     </ots:LinkTypes>
 
     <ots:RoadLayouts>
@@ -141,6 +146,30 @@
           <ots:Width>3m</ots:Width>
         </ots:Shoulder>
       </ots:RoadLayout>
+
+      <!-- 1-lane 80km/h: used for entry ramp second part -->
+      <ots:RoadLayout Id="1LaneHighway80" LinkType="RAMP80">
+        <ots:Shoulder Id="LeftShoulder">
+          <ots:CenterOffset>4.9m</ots:CenterOffset>
+          <ots:Width>3m</ots:Width>
+        </ots:Shoulder>
+        <ots:Stripe Id="1">
+          <ots:CenterOffset>3.6m</ots:CenterOffset>
+          <ots:DefinedStripe>NL.SOLID</ots:DefinedStripe>
+        </ots:Stripe>
+        <ots:Lane Id="Lane1" LaneType="NL.HIGHWAY">
+          <ots:CenterOffset>1.8m</ots:CenterOffset>
+          <ots:Width>3.6m</ots:Width>
+        </ots:Lane>
+        <ots:Stripe Id="2">
+          <ots:CenterOffset>0m</ots:CenterOffset>
+          <ots:DefinedStripe>NL.SOLID</ots:DefinedStripe>
+        </ots:Stripe>
+        <ots:Shoulder Id="RightShoulder">
+          <ots:CenterOffset>-1.5m</ots:CenterOffset>
+          <ots:Width>3m</ots:Width>
+        </ots:Shoulder>
+      </ots:RoadLayout>
     </ots:RoadLayouts>
   </ots:Definitions>
 
@@ -202,6 +231,7 @@
     <!-- Entry ramp nodes (ViSSim link 7: R7_1=generator origin, R7_8=merge connector start) -->
     <ots:Node Id="R7_1" Coordinate="(725.000, -160.000)"  Direction="6.6 deg(E)" />
     <ots:Node Id="R7_8" Coordinate="(974.035, 20.765)"  Direction="13.7 deg(E)" />
+    <ots:Node Id="R7_curve_end" Coordinate="(836.402, -70.643)" Direction="52.4 deg(E)" />
 
     <!-- ================================================================
          MAINLINE
@@ -364,10 +394,16 @@
       <ots:DefinedLayout>1LaneHighway</ots:DefinedLayout>
     </ots:Link> -->
 
-    <!-- Entry ramp merge: Bezier with OffsetEnd=-3.6m aligns FORWARD1 with L4a.FORWARD3. -->
-    <ots:Link Id="L7a" NodeStart="R7_1" NodeEnd="N3_4" Type="LOCAL" OffsetEnd="-3.6m">
+    <!-- First part of entry ramp (LOCAL, 65 km/h) -->
+    <ots:Link Id="L7a" NodeStart="R7_1" NodeEnd="R7_curve_end" Type="LOCAL">
       <ots:Bezier />
       <ots:DefinedLayout>1LaneHighway</ots:DefinedLayout>
+    </ots:Link>
+
+    <!-- Second part of entry ramp (RAMP80, 80 km/h) -->
+    <ots:Link Id="L7b" NodeStart="R7_curve_end" NodeEnd="N3_4" Type="RAMP80" OffsetEnd="-3.6m">
+      <ots:Bezier />
+      <ots:DefinedLayout>1LaneHighway80</ots:DefinedLayout>
     </ots:Link>
 
   </ots:Network>
