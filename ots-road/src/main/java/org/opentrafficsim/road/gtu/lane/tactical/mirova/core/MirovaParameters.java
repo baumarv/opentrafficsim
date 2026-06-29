@@ -66,7 +66,7 @@ public final class MirovaParameters implements ConstraintInterface
         /** Extended look-ahead distance for lane change decisions. */
         public static final ParameterTypeLength extendedLookAheadDistance = new ParameterTypeLength(
                         "EXTENDED_LOOK_AHEAD_DISTANCE", "Extended look-ahead distance for lane change decisions",
-                        Length.instantiateSI(400.0), POSITIVE);
+                        Length.instantiateSI(1000.0), POSITIVE);
 
         /** Lane change duration in low speed, congested situations. */
         public static final ParameterTypeDuration congestedLaneChangeDuration = new ParameterTypeDuration(
