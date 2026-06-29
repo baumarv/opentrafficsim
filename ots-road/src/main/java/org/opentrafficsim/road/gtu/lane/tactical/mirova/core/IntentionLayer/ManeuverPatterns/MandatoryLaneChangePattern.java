@@ -511,6 +511,38 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 inducedDecel = Acceleration.max(inducedDecel, putativeLeaderAccel);
             }
             inducedDecel = Acceleration.max(inducedDecel, egoDecelThreshold);
+
+            // (B) Distance-dependent speed cap in congested conditions: when the target lane is
+            // congested (macro speed < vCong) and the ramp end is within 200 m, limit the allowed
+            // acceleration so the vehicle approaches a linearly-decreasing target speed (15 → 5 km/h).
+            // This prevents aggressive acceleration into an opening gap near the end of the ramp.
+            try
+            {
+                MacroTrafficContext macro = this.vehicle.getContext(MacroTrafficContext.class);
+                RelativeLane targetRelativeLane =
+                        this.pattern.getTargetDirection().isLeft() ? RelativeLane.LEFT : RelativeLane.RIGHT;
+                Speed macroSpeed = macro.getAverageSpeed(targetRelativeLane);
+                Speed vCong = this.vehicle.getParameters().getParameter(ParameterTypes.VCONG);
+                if (macroSpeed.lt(vCong) && inducedDecel.si > 0)
+                {
+                    InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
+                    Length distToLaneEnd = infra.getRouteDistanceToLaneEnd();
+                    if (distToLaneEnd != null && distToLaneEnd.si < 200.0)
+                    {
+                        double distFraction = Math.min(1.0, distToLaneEnd.si / 200.0);
+                        Speed dynamicTargetSpeed = Speed.max(new Speed(5.0, SpeedUnit.KM_PER_HOUR),
+                                Speed.instantiateSI(vCong.si * distFraction));
+                        Acceleration aApproach = MirovaCarFollowingUtil.approachTargetSpeed(this.vehicle,
+                                Length.instantiateSI(10.0), dynamicTargetSpeed);
+                        inducedDecel = Acceleration.min(inducedDecel, aApproach);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                // Macro speed unavailable – keep existing inducedDecel
+            }
+
             Acceleration finalAcc = Acceleration.min(aCf, inducedDecel);
 
             SimpleOperationalPlan plan = new SimpleOperationalPlan(finalAcc, this.pattern.patternSpecificTimestep);
@@ -526,6 +558,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
 
             return plan;
         }
+
 
         @Override
         public SimpleOperationalPlan next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
