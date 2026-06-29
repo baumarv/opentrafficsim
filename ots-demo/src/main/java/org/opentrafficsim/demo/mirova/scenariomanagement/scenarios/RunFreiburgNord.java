@@ -34,21 +34,31 @@ public class RunFreiburgNord
             ScenarioParameters params = scenario.getDefaultParameters().copy();
             params.setSeed(42L + run);
 
-            // Define the demand CSV file directly
-            params.set("demandCsv",
-                    "D:\\Mitarbeitende\\gw2128\\repositories\\diss_mvb\\data\\demand_freiburg_20250925_09-10_low_demand.csv");
+            // Set demand date range and aggregation interval for database loading
+            params.set("demandStartDate", "2025-09-25 14:30:00");
+            params.set("demandEndDate", "2025-09-25 16:00:00");
+            params.set("demandAggregation", 1); // 1-minute aggregation for minute-by-minute demand
 
             // Define parameters directly analogously to RunFreiburgParallel
-            params.set("car." + ParameterTypes.T.getId(), 0.8);
-            params.set("car." + MirovaParameters.vGain.getId(), 30.0);
-            params.set("truck." + ParameterTypes.T.getId(), 1.2);
-            params.set("truck." + MirovaParameters.vGain.getId(), 130.0);
+            params.set("car." + ParameterTypes.T.getId(), 1.0);
+            params.set("car." + MirovaParameters.vGain.getId(), 20.0);
+            params.set("car." + MirovaParameters.A_MAX.getId(), 3.5);
+            params.set("truck." + ParameterTypes.T.getId(), 1.6);
+            params.set("truck." + MirovaParameters.vGain.getId(), 70.0);
+            params.set("truck." + MirovaParameters.A_MAX.getId(), 2.5);
 
             // Optional: override simulation duration if needed (otherwise it reads from demandCsv)
             // params.setSimulationTime(new Duration(6.0, DurationUnit.HOUR));
 
             ScenarioSimulationScript script = scenario.buildSimulationScript(params);
-            script.setGuiEnabled(!Boolean.getBoolean("java.awt.headless"));
+            if (Boolean.getBoolean("java.awt.headless"))
+            {
+                script.setGuiEnabled(false);
+            }
+            else
+            {
+                script.setGuiEnabled(true);
+            }
             script.setGuiEnabled(true);
             script.start();
             // System.out.println("FreiburgNord run " + (run + 1) + " of 1 finished.");
