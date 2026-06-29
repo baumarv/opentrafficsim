@@ -836,7 +836,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         private static final Speed CONGESTION_SPEED_THRESHOLD = new Speed(15.0, org.djunits.unit.SpeedUnit.KM_PER_HOUR);
 
         /** The speed threshold [km/h] above which the vehicle returns to normal gap evaluation. */
-        private static final Speed RECOVERY_SPEED_THRESHOLD = new Speed(20.0, org.djunits.unit.SpeedUnit.KM_PER_HOUR);
+        private static final Speed RECOVERY_SPEED_THRESHOLD = new Speed(30.0, org.djunits.unit.SpeedUnit.KM_PER_HOUR);
 
         /**
          * Constructor for the congested merge state.
@@ -854,18 +854,26 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         {
             EgoContext ego = this.vehicle.getContext(EgoContext.class);
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
+            InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
 
             // 1. Eigene Car-Following Beschleunigung (Sicherheit nach vorne auf der eigenen Spur)
             Acceleration aCf = ego.getCurrentCarFollowingAcceleration();
 
-            // 2. Approach Target Speed (15 km/h)
-            Acceleration aApproach = MirovaCarFollowingUtil.approachTargetSpeed(this.vehicle, Length.instantiateSI(10.0),
-                    CONGESTION_SPEED_THRESHOLD);
+            // 2. (B) Distance-dependent target speed: scale from CONGESTION_SPEED_THRESHOLD (15 km/h)
+            //    down to 5 km/h as the ramp end approaches within a 200 m reference window.
+            Length distToLaneEnd = infra.getRouteDistanceToLaneEnd();
+            double distSI = distToLaneEnd != null ? Math.max(0.0, distToLaneEnd.si) : 200.0;
+            double distFraction = Math.min(1.0, distSI / 200.0);
+            Speed dynamicTargetSpeed = Speed.max(new Speed(5.0, SpeedUnit.KM_PER_HOUR),
+                    Speed.instantiateSI(CONGESTION_SPEED_THRESHOLD.si * distFraction));
 
-            // 3. Folgen des Putative Leaders auf der Target Lane
+            // 3. Approach dynamic target speed
+            Acceleration aApproach =
+                    MirovaCarFollowingUtil.approachTargetSpeed(this.vehicle, Length.instantiateSI(10.0), dynamicTargetSpeed);
+
+            // 4. Folgen des Putative Leaders auf der Target Lane
             Acceleration aMax = ego.getMaxPhysicalAcceleration(); // Fallback, falls kein Leader da ist
-            aApproach = Acceleration.min(aApproach, aMax); // Wir wollen nicht schneller beschleunigen als das aktuelle
-                                                           // Car-Following erlaubt
+            aApproach = Acceleration.min(aApproach, aMax);
             HeadwayGtu putativeLeader = neigh.getLeader(this.pattern.getTargetDirection());
             if (putativeLeader != null)
             {
@@ -873,7 +881,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                         Acceleration.max(aApproach, MirovaCarFollowingUtil.followSingleLeader(this.vehicle, putativeLeader));
             }
 
-            // 4. Logik anwenden: max(approach, followTarget), dann min(aCf, max)
+            // 5. Hard floor: never worse than own-lane car-following.
             Acceleration finalAcc = Acceleration.min(aCf, aApproach);
 
             SimpleOperationalPlan plan = new SimpleOperationalPlan(finalAcc, this.pattern.patternSpecificTimestep);
