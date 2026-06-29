@@ -918,8 +918,11 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         }
 
         // 5. Compute most restrictive acceleration safely
+        Acceleration fallbackAcc = (getLaneChange().isChangingLane() && getLaneChange().getFraction() > 0.5)
+                ? MirovaCarFollowingUtil.freeAcceleration(this)
+                : MirovaCarFollowingUtil.followSingleLeader(this, neighbors.getLeader(LateralDirectionality.NONE));
         return candidates.stream().filter(java.util.Objects::nonNull).min(Acceleration::compareTo)
-                .orElse(MirovaCarFollowingUtil.followSingleLeader(this, neighbors.getLeader(LateralDirectionality.NONE)));
+                .orElse(fallbackAcc);
     }
 
     /**
