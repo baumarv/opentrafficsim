@@ -172,14 +172,12 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
         }
         else
         {
-            if (!distanceToEndRight.eq(Length.POSITIVE_INFINITY)
-                    && distanceToEndRight.lt(DISTANCE_THRESHOLD_MERGE_COOPERATION))
+            if (!distanceToEndRight.eq(Length.POSITIVE_INFINITY) && distanceToEndRight.lt(DISTANCE_THRESHOLD_MERGE_COOPERATION))
             {
                 this.listLanesWithCooperationNeeds.add(LateralDirectionality.RIGHT);
                 return true;
             }
-            if (!distanceToEndLeft.eq(Length.POSITIVE_INFINITY)
-                    && distanceToEndLeft.lt(DISTANCE_THRESHOLD_MERGE_COOPERATION))
+            if (!distanceToEndLeft.eq(Length.POSITIVE_INFINITY) && distanceToEndLeft.lt(DISTANCE_THRESHOLD_MERGE_COOPERATION))
             {
                 this.listLanesWithCooperationNeeds.add(LateralDirectionality.LEFT);
                 return true;
@@ -445,20 +443,23 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                     // If macro data is available the ramp carries vehicles; apply preemptive deceleration
                     // whenever ego is faster than the congestion threshold regardless of ramp speed.
                     macro.getAverageSpeed(relativeLane); // throws OperationalPlanException if no data
-                    
-                    NeighborsContext neighbors = this.vehicle.getContextManager().getCategory("Neighbors", NeighborsContext.class);
+
+                    NeighborsContext neighbors =
+                            this.vehicle.getContextManager().getCategory("Neighbors", NeighborsContext.class);
                     boolean rampHasVehicles = false;
                     if (neighbors != null)
                     {
                         if (neighbors.getLeaders(dir).iterator().hasNext()
-                                || neighbors.getFollowers(dir).iterator().hasNext()
-                                || neighbors.isGtuAlongside(dir))
+                        // || neighbors.getFollowers(dir).iterator().hasNext()
+                        // || neighbors.isGtuAlongside(dir)
+                        )
                         {
                             rampHasVehicles = true;
                         }
                     }
 
-                    if (rampHasVehicles && ego.getEgoSpeed().gt(this.vehicle.getParameters().getParameter(ParameterTypes.VCONG)))
+                    if (rampHasVehicles
+                            && ego.getEgoSpeed().gt(this.vehicle.getParameters().getParameter(ParameterTypes.VCONG)))
                     {
                         aAnticipation =
                                 this.vehicle.getParameters().getParameter(MirovaParameters.preemptiveCooperativeDeceleration);
