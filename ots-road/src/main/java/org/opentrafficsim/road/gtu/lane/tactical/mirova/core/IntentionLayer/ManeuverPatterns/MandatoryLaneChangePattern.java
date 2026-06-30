@@ -1455,6 +1455,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             EgoContext ego = this.vehicle.getContext(EgoContext.class);
             InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
+            LateralDirectionality dir = this.pattern.getTargetDirection();
 
             // Stop before ramp end
             Length distToLaneEnd = infra.getRouteDistanceToLaneEnd();
@@ -1466,18 +1467,107 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             Acceleration aCf = ego.getCurrentCarFollowingAcceleration();
 
             // Adapt to target-lane leader; floor at comfort deceleration threshold
-            HeadwayGtu putativeLeader = neigh.getLeader(this.pattern.getTargetDirection());
+            HeadwayGtu putativeLeader = neigh.getLeader(dir);
             Acceleration aLeader = putativeLeader != null
                     ? Acceleration.max(MirovaCarFollowingUtil.followSingleLeader(this.vehicle, putativeLeader),
                             this.vehicle.getParameters().getParameter(MirovaParameters.egoDecelerationThreshold))
                     : Acceleration.POSITIVE_INFINITY;
 
-            Acceleration finalAcc = Acceleration.min(aStop, Acceleration.min(aCf, aLeader));
+            // Detect if we are blocked by a parallel vehicle
+            HeadwayGtu parallelGtu = null;
+            if (putativeLeader != null && (putativeLeader.isParallel() || putativeLeader.getDistance().si < 0.0))
+            {
+                parallelGtu = putativeLeader;
+            }
+            else
+            {
+                HeadwayGtu putativeFollower = neigh.getFollower(dir);
+                if (putativeFollower != null && (putativeFollower.isParallel() || putativeFollower.getDistance().si < 0.0))
+                {
+                    parallelGtu = putativeFollower;
+                }
+            }
+
+            boolean attemptOvertake = false;
+            if (parallelGtu != null && distToLaneEnd != null)
+            {
+                double vEgo = ego.getEgoSpeed().si;
+                double vPart = parallelGtu.getSpeed().si;
+                double aMax = Math.max(ego.getMaxPhysicalAcceleration().si, 0.1);
+                double lcdur = this.vehicle.getParameters().getParameter(ParameterTypes.LCDUR).si;
+
+                // 1. Calculate relative distance we need to make up to get fully ahead
+                boolean isFollower = (parallelGtu == neigh.getFollower(dir));
+                double overlap = (parallelGtu.getDistance().si < 0.0) ? -parallelGtu.getDistance().si : 0.0;
+                double safetyBuffer = 5.0; // 5 meters buffer
+
+                double dRel0;
+                if (isFollower)
+                {
+                    // Parallel vehicle is behind/overlapping from behind. We only need to clear the overlap.
+                    dRel0 = overlap + safetyBuffer;
+                }
+                else
+                {
+                    // Parallel vehicle is ahead. We need to clear the overlap + its length + our length.
+                    dRel0 = parallelGtu.getLength().si + this.vehicle.getGtu().getLength().si + overlap + safetyBuffer;
+                }
+
+                // 2. Solve quadratic equation for t_overtake:
+                // dRel0 = dV * t + 0.5 * a * t^2  ==>  0.5 * a * t^2 + dV * t - dRel0 = 0
+                // where dV = vEgo - vPart
+                double dV = vEgo - vPart;
+                double discriminant = dV * dV + 2.0 * aMax * dRel0;
+                if (discriminant >= 0.0)
+                {
+                    double tOvertake = (-dV + Math.sqrt(discriminant)) / aMax;
+                    if (tOvertake > 0.0)
+                    {
+                        // 3. Compute physical distance traveled during overtake and lane change
+                        double vFinal = vEgo + aMax * tOvertake;
+                        double dOvertake = vPart * tOvertake + dRel0;
+                        double dLaneChange = vFinal * lcdur;
+                        double dRequired = dOvertake + dLaneChange;
+
+                        double dAvailable = Math.max(0.0, distToLaneEnd.si - RAMP_END_BUFFER.si);
+
+                        if (dRequired < dAvailable)
+                        {
+                            // Check if our own lane is clear enough to allow accelerating
+                            if (aCf.si > 0.5)
+                            {
+                                attemptOvertake = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            Acceleration finalAcc;
+            if (attemptOvertake)
+            {
+                // We are accelerating to merge ahead of the parallel vehicle, ignoring the ramp-end stop
+                // constraint because we expect to change lanes before the end of the ramp.
+                // We still respect own-lane leader safety (aCf).
+                finalAcc = Acceleration.min(aCf, ego.getMaxPhysicalAcceleration());
+            }
+            else
+            {
+                // Standard braking strategy, but if there is a parallel vehicle and we cannot overtake,
+                // we actively brake harder to drop behind it and let it pass.
+                Acceleration aResolve = aStop;
+                if (parallelGtu != null)
+                {
+                    // Brake at least at -2.5 m/s^2 to drop behind
+                    aResolve = Acceleration.min(aStop, Acceleration.instantiateSI(-2.5));
+                }
+                finalAcc = Acceleration.min(aResolve, Acceleration.min(aCf, aLeader));
+            }
 
             SimpleOperationalPlan plan = new SimpleOperationalPlan(finalAcc, this.pattern.patternSpecificTimestep);
-            if (this.pattern.getTargetDirection().isLeft())
+            if (dir.isLeft())
                 plan.setIndicatorIntentLeft();
-            else if (this.pattern.getTargetDirection().isRight())
+            else if (dir.isRight())
                 plan.setIndicatorIntentRight();
 
             return plan;
