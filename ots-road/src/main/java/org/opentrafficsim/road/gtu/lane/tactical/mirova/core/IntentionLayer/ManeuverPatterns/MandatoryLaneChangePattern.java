@@ -387,25 +387,42 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 return transitionTo(new CongestedMergeState(this.maneuverPattern));
             }
 
+            // Check for parallel vehicle (physically overlapping)
             HeadwayGtu parallel = null;
-            HeadwayGtu actualFollower = null;
+            HeadwayGtu leader = neigh.getLeader(dir);
+            if (leader != null && (leader.isParallel() || leader.getDistance().si < 0.0))
+            {
+                parallel = leader;
+            }
+            else
+            {
+                HeadwayGtu follower = neigh.getFollower(dir);
+                if (follower != null && (follower.isParallel() || follower.getDistance().si < 0.0))
+                {
+                    parallel = follower;
+                }
+            }
 
+            if (parallel != null)
+            {
+                return transitionTo(new SolveParallelVehicleState(this.maneuverPattern));
+            }
+
+            // Get the actual follower behind the gap (must not be parallel/overlapping)
+            HeadwayGtu actualFollower = null;
             Iterable<HeadwayGtu> followers = neigh.getFollowers(dir);
             if (followers != null)
             {
                 for (HeadwayGtu gtu : followers)
                 {
-                    if (gtu.getDistance().si < 0.0)
-                    {
-                        parallel = gtu;
-                    }
-                    else if (actualFollower == null)
+                    if (gtu.getDistance().si >= 0.0)
                     {
                         actualFollower = gtu;
-                        break; // Same logic as for leaders: Only the closest follower matters for kinematic safety
+                        break; // Only the closest follower behind the gap matters for safety
                     }
                 }
             }
+
             EgoContext ego = this.vehicle.getContext(EgoContext.class);
             if (actualFollower == null)
             {
@@ -530,8 +547,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                     if (distToLaneEnd != null && distToLaneEnd.si < 200.0)
                     {
                         double distFraction = Math.min(1.0, distToLaneEnd.si / 200.0);
-                        Speed dynamicTargetSpeed = Speed.max(new Speed(5.0, SpeedUnit.KM_PER_HOUR),
-                                Speed.instantiateSI(vCong.si * distFraction));
+                        Speed dynamicTargetSpeed =
+                                Speed.max(new Speed(5.0, SpeedUnit.KM_PER_HOUR), Speed.instantiateSI(vCong.si * distFraction));
                         Acceleration aApproach = MirovaCarFollowingUtil.approachTargetSpeed(this.vehicle,
                                 Length.instantiateSI(10.0), dynamicTargetSpeed);
                         inducedDecel = Acceleration.min(inducedDecel, aApproach);
@@ -558,7 +575,6 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
 
             return plan;
         }
-
 
         @Override
         public SimpleOperationalPlan next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
@@ -597,8 +613,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             Length safeDistance = ego.getDesiredFrontHeadway(dir);
             Double safetyReductionFactor =
                     this.vehicle.getParameters().getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange);
-            if (leader != null && ((leader.isParallel() || leader.getDistance().si < safeDistance.si * safetyReductionFactor)
-                    && Math.abs(leader.getSpeed().si - ego.getEgoSpeed().si) < 1))
+            if (leader != null && (leader.isParallel() || (leader.getDistance().si < safeDistance.si * safetyReductionFactor
+                    && Math.abs(leader.getSpeed().si - ego.getEgoSpeed().si) < 1.0)))
             {
                 parallel = leader;
             }
@@ -606,8 +622,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             {
                 HeadwayGtu follower = neigh.getFollower(dir);
                 if (follower != null
-                        && ((follower.isParallel() || follower.getDistance().si < safeDistance.si * safetyReductionFactor)
-                                && Math.abs(follower.getSpeed().si - ego.getEgoSpeed().si) < 1))
+                        && (follower.isParallel() || (follower.getDistance().si < safeDistance.si * safetyReductionFactor
+                                && Math.abs(follower.getSpeed().si - ego.getEgoSpeed().si) < 1.0)))
                 {
                     parallel = follower;
                 }
@@ -801,9 +817,15 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 }
             }
 
-            // 4. If the parallel vehicle is gone (passed us or we passed it), go back to evaluating the target gap
+            // 4. If the parallel vehicle is gone (passed us or we passed it), transition appropriately
             if (!hasParallel)
             {
+                HeadwayGtu targetLeader = neigh.getLeader(dir);
+                if (targetLeader != null && targetLeader.getDistance().si > 0.0)
+                {
+                    // The vehicle is now ahead of us. Transition to DownstreamMergeState to follow it.
+                    return transitionTo(new DownstreamMergeState(this.maneuverPattern));
+                }
                 return transitionTo(new EvaluateTargetGapState(this.maneuverPattern));
             }
 
@@ -893,22 +915,57 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             Acceleration aCf = ego.getCurrentCarFollowingAcceleration();
 
             // 2. (B) Distance-dependent target speed: scale from CONGESTION_SPEED_THRESHOLD (15 km/h)
-            //    down to 5 km/h as the ramp end approaches within a 200 m reference window.
+            // down to 5 km/h as the ramp end approaches within a 200 m reference window.
             Length distToLaneEnd = infra.getRouteDistanceToLaneEnd();
             double distSI = distToLaneEnd != null ? Math.max(0.0, distToLaneEnd.si) : 200.0;
             double distFraction = Math.min(1.0, distSI / 200.0);
             Speed dynamicTargetSpeed = Speed.max(new Speed(5.0, SpeedUnit.KM_PER_HOUR),
                     Speed.instantiateSI(CONGESTION_SPEED_THRESHOLD.si * distFraction));
 
-            // 3. Approach dynamic target speed
+            // 3. Detect parallel vehicle on target lane (leader OR follower alongside).
+            // A parallel vehicle means the gap is not yet open – creep gently instead of accelerating.
+            LateralDirectionality dir = this.pattern.getTargetDirection();
+            HeadwayGtu putativeLeader = neigh.getLeader(dir);
+            HeadwayGtu putativeFollower = neigh.getFollower(dir);
+            Length safeDistance = ego.getDesiredFrontHeadway(dir);
+            Double safetyReductionFactor =
+                    this.vehicle.getParameters().getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange);
+
+            boolean hasParallelBlock = false;
+            if (putativeLeader != null && (putativeLeader.isParallel()
+                    || (putativeLeader.getDistance().si < safeDistance.si * safetyReductionFactor
+                            && Math.abs(putativeLeader.getSpeed().si - ego.getEgoSpeed().si) < 1.0)))
+            {
+                hasParallelBlock = true;
+            }
+            else if (putativeFollower != null && (putativeFollower.isParallel()
+                    || (putativeFollower.getDistance().si < safeDistance.si * safetyReductionFactor
+                            && Math.abs(putativeFollower.getSpeed().si - ego.getEgoSpeed().si) < 1.0)))
+            {
+                hasParallelBlock = true;
+            }
+
+            // 4. Approach dynamic target speed
             Acceleration aApproach =
                     MirovaCarFollowingUtil.approachTargetSpeed(this.vehicle, Length.instantiateSI(10.0), dynamicTargetSpeed);
 
-            // 4. Folgen des Putative Leaders auf der Target Lane
+            // 5. Folgen des Putative Leaders / Parallel-Logik
             Acceleration aMax = ego.getMaxPhysicalAcceleration(); // Fallback, falls kein Leader da ist
             aApproach = Acceleration.min(aApproach, aMax);
-            HeadwayGtu putativeLeader = neigh.getLeader(this.pattern.getTargetDirection());
-            if (putativeLeader != null)
+
+            if (hasParallelBlock)
+            {
+                // Parallel vehicle present: creep gently toward 3 km/h – do NOT match the
+                // parallel vehicle's full acceleration. This keeps the ego positioned for the
+                // gap without driving alongside the blocking vehicle.
+                Acceleration aCreep = MirovaCarFollowingUtil.approachTargetSpeed(this.vehicle, Length.instantiateSI(5.0),
+                        new Speed(3.0, SpeedUnit.KM_PER_HOUR));
+                aApproach = Acceleration.min(aApproach, aCreep);
+                aApproach = Acceleration.min(aApproach, Acceleration.instantiateSI(0.3));
+                // System.out.println("GTU " + this.vehicle.getGtu().getId() + " in CongestedMergeState with parallel vehicle: "
+                // + aApproach.si + "m/s2");
+            }
+            else if (putativeLeader != null)
             {
                 aApproach =
                         Acceleration.max(aApproach, MirovaCarFollowingUtil.followSingleLeader(this.vehicle, putativeLeader));
@@ -1044,6 +1101,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                     : Acceleration.POSITIVE_INFINITY;
 
             Acceleration finalAcc = Acceleration.min(aStop, Acceleration.min(aCf, aLeader));
+
             SimpleOperationalPlan plan = new SimpleOperationalPlan(finalAcc, this.pattern.patternSpecificTimestep);
             if (this.pattern.getTargetDirection().isLeft())
                 plan.setIndicatorIntentLeft();
