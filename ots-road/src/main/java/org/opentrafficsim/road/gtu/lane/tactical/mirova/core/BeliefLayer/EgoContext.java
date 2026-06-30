@@ -576,6 +576,30 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         cacheValue(MAX_PHYSICAL_ACCELERATION, result, true);
         return result;
     }
+
+    /**
+     * Calculates the maximum physical acceleration at an <em>arbitrary</em> speed (not necessarily the current ego speed).
+     * <p>
+     * This method is <b>not cached</b> and should be used only for look-ahead calculations such as kinematic reachability
+     * checks in lane-change state machines. For the current ego speed use {@link #getMaxPhysicalAcceleration()} instead.
+     * </p>
+     * @param speed Speed; the speed at which to evaluate the acceleration capability
+     * @return Acceleration; the estimated maximum physical acceleration at the given speed
+     */
+    public Acceleration getMaxPhysicalAccelerationAt(final org.djunits.value.vdouble.scalar.Speed speed)
+    {
+        double speedKmh = speed.getInUnit(SpeedUnit.KM_PER_HOUR);
+        double aMaxScaleSI;
+        try
+        {
+            aMaxScaleSI = this.vehicle.getParameters().getParameter(MirovaParameters.A_MAX).si;
+        }
+        catch (ParameterException e)
+        {
+            aMaxScaleSI = 3.5; // default reference value
+        }
+        return Acceleration.instantiateSI(computeMaxPhysicalAccelerationAt(speedKmh, aMaxScaleSI));
+    }
     // ----------------------------------------------------------------------
     // Safe computation wrappers
     // ----------------------------------------------------------------------
@@ -779,8 +803,32 @@ public class EgoContext extends ContextCategory implements UpdatableContext
     private Acceleration computeMaxPhysicalAcceleration()
     {
         double speedKmh = getEgoSpeed().getInUnit(SpeedUnit.KM_PER_HOUR);
-        double maxAccSi;
+        double aMaxScaleSI;
+        try
+        {
+            aMaxScaleSI = this.vehicle.getParameters().getParameter(MirovaParameters.A_MAX).si;
+        }
+        catch (ParameterException e)
+        {
+            aMaxScaleSI = 3.5;
+        }
+        return Acceleration.instantiateSI(computeMaxPhysicalAccelerationAt(speedKmh, aMaxScaleSI));
+    }
 
+    /**
+     * Core piece-wise linear acceleration model at a given speed and scale.
+     * <p>
+     * This static helper is shared by {@link #computeMaxPhysicalAcceleration()} and
+     * {@link #getMaxPhysicalAccelerationAt(org.djunits.value.vdouble.scalar.Speed)} to avoid duplication.
+     * </p>
+     * @param speedKmh speed in km/h at which to evaluate
+     * @param aMaxScaleSI the vehicle-specific maximum acceleration reference value [m/s&sup2;]; used as a scaling
+     *            numerator against the 3.5 m/s&sup2; reference
+     * @return the estimated maximum physical acceleration [m/s&sup2;]
+     */
+    private static double computeMaxPhysicalAccelerationAt(final double speedKmh, final double aMaxScaleSI)
+    {
+        double maxAccSi;
         if (speedKmh < 100.0)
         {
             maxAccSi = 3.5 - (2.5 / 100.0) * speedKmh;
@@ -793,20 +841,9 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         {
             maxAccSi = 0.0;
         }
-
-        // Apply stochastic scaling factor
-        try
-        {
-            double scalingFactor = this.vehicle.getParameters().getParameter(MirovaParameters.A_MAX).si / 3.5;
-            maxAccSi *= scalingFactor;
-        }
-        catch (ParameterException e)
-        {
-            // Fallback: If parameter is somehow missing, we silently default to a scale of 1.0
-            // No action required, maxAccSi remains unchanged
-        }
-
-        return Acceleration.instantiateSI(maxAccSi);
+        // Apply vehicle-specific scaling factor
+        maxAccSi *= (aMaxScaleSI / 3.5);
+        return maxAccSi;
     }
 
     /**
