@@ -152,8 +152,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
      * Shared helper: returns {@code true} if there is a parallel-blocking vehicle on the target lane.
      * <p>
      * A vehicle is considered a parallel block when it is physically overlapping the ego vehicle (isParallel) OR when it is
-     * within the reduced safety distance AND driving at nearly the same speed (delta &lt; 1.0 m/s). This matches the
-     * conditions used in {@code DownstreamMergeState} (line ~616).
+     * within the reduced safety distance AND driving at nearly the same speed (delta &lt; 1.0 m/s). This matches the conditions
+     * used in {@code DownstreamMergeState} (line ~616).
      * </p>
      * @param neigh the neighbors context
      * @param dir target lateral direction
@@ -170,16 +170,13 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         Length safe = ego.getDesiredFrontHeadway(dir);
         double factor = params.getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange);
         if (leader != null && (leader.isParallel()
-                || (leader.getDistance().si < safe.si * factor
-                        && Math.abs(leader.getSpeed().si - ego.getEgoSpeed().si) < 1.0)))
+                || (leader.getDistance().si < safe.si * factor && Math.abs(leader.getSpeed().si - ego.getEgoSpeed().si) < 1.0)))
         {
             return true;
         }
-        return follower != null && (follower.isParallel()
-                || (follower.getDistance().si < safe.si * factor
-                        && Math.abs(follower.getSpeed().si - ego.getEgoSpeed().si) < 1.0));
+        return follower != null && (follower.isParallel() || (follower.getDistance().si < safe.si * factor
+                && Math.abs(follower.getSpeed().si - ego.getEgoSpeed().si) < 1.0));
     }
-
 
     /*
      * ========================================================================================= 1) STATE: ANTICIPATE_MERGE
@@ -457,21 +454,94 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             }
 
             EgoContext ego = this.vehicle.getContext(EgoContext.class);
+
+            // === Kinematic reachability check for the downstream gap ===
+            // The downstream gap is only reachable if the ego can accelerate to the effective
+            // target speed (bounded by its desired speed v_wunsch) within the distance that
+            // remains until the lane change must be completed.
+            //
+            // Variables used:
+            // v_ego – current ego speed
+            // v_wunsch – ego free-flow desired speed (ParameterTypes.V0)
+            // v_leader – current speed of the target lane leader
+            // a_max_current – speed-dependent max physical acceleration (decreases with speed)
+            // d_available – remaining ramp distance minus one lane-change safety buffer
+            //
+            // Kinematic check: d_required = (v_target² - v_ego²) / (2 · a_max) ≤ d_available
+            boolean downstreamGapReachable = true;
+            HeadwayGtu targetLeader = neigh.getLeader(dir);
+            if (targetLeader != null && !targetLeader.isParallel() && targetLeader.getDistance().si >= 0.0
+                    && distToLaneEnd != null)
+            {
+                double vEgo = egoSpeed.si;
+                double vLeader = targetLeader.getSpeed().si;
+
+                // Ego desired speed (v_wunsch) from the car-following model
+                // (accounts for speed-limit scaling, vehicle type, etc.)
+                Speed desiredSpeedResult = ego.getCurrentDesiredSpeed();
+                double vWunsch = desiredSpeedResult.si;
+
+                // Maximum physical acceleration evaluated at the TARGET speed (v_overtake) – not at
+                // the current ego speed. The ego must sustain this acceleration until it reaches
+                // v_overtake, so the relevant operating point is the higher (more limiting) speed.
+                // getMaxPhysicalAccelerationAt() uses the same piece-wise linear model as
+                // getMaxPhysicalAcceleration() but for an arbitrary speed, avoiding caching.
+                //
+                // To merge AHEAD of the leader, the ego must be going faster than the leader.
+                // Add an overtake margin so the reachability check accounts for this requirement.
+                final double OVERTAKE_MARGIN_MS = 3.0; // ~11 km/h above leader speed
+                double vTarget = vLeader + OVERTAKE_MARGIN_MS;
+
+                double aMaxCurrent = Math.max(ego.getMaxPhysicalAccelerationAt(Speed.instantiateSI(vWunsch)).si, 0.01);
+
+                if (vTarget > vWunsch)
+                {
+                    // Even with the overtake margin, the ego would need to exceed its desired speed
+                    // → downstream gap is structurally unreachable.
+                    downstreamGapReachable = false;
+                }
+                else
+                {
+                    if (vTarget > vEgo)
+                    {
+                        // Ego needs to accelerate to the overtake speed. Subtract a lane-change
+                        // safety buffer so there is still room to execute the lane change afterwards.
+                        // Buffer ≈ v_ego * LCDUR_default (4 s conservative estimate)
+                        final double LANE_CHANGE_DURATION_BUFFER_S = 4.0;
+                        double dBuffer = Math.min(vEgo * LANE_CHANGE_DURATION_BUFFER_S, distToLaneEnd.si * 0.25);
+                        double dAvailable = Math.max(0.0, distToLaneEnd.si - dBuffer);
+
+                        // SUVAT: d_required = (v_target² − v_ego²) / (2 · a_max)
+                        double dRequired = (vTarget * vTarget - vEgo * vEgo) / (2.0 * aMaxCurrent);
+
+                        if (dRequired > dAvailable)
+                        {
+                            downstreamGapReachable = false;
+                        }
+                    }
+                    // else: ego is already faster than the overtake target → gap is reachable
+                }
+            }
+
             if (actualFollower == null)
             {
-                // No follower exists, so follower decel is implicitly safe. Focus on the leader.
-                return transitionTo(new DownstreamMergeState(this.maneuverPattern));
+                // No follower: follower decel is implicitly safe.
+                // Still require kinematic reachability of the downstream gap.
+                if (downstreamGapReachable)
+                {
+                    return transitionTo(new DownstreamMergeState(this.maneuverPattern));
+                }
+                // Leader is kinematically unreachable: wait – upstream gap will open as leader pulls away.
+                return null;
             }
             else
             {
                 Acceleration followerInducedDecel = neigh.getGtuDeceleration(actualFollower);
-
-                Parameters params = this.vehicle.getParameters();
                 Acceleration followerDecelThreshold = ego.getFollowerDecelerationThreshold(this.pattern.getTargetDirection());
 
-                if (followerInducedDecel.si > followerDecelThreshold.si)
+                if (followerInducedDecel.si > followerDecelThreshold.si && downstreamGapReachable)
                 {
-                    // Follower decel is okay now, so we can focus on the leader
+                    // Follower decel acceptable AND downstream gap kinematically reachable → merge ahead
                     return transitionTo(new DownstreamMergeState(this.maneuverPattern));
                 }
             }
@@ -646,6 +716,52 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             Length safeDistance = ego.getDesiredFrontHeadway(dir);
             Double safetyReductionFactor =
                     this.vehicle.getParameters().getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange);
+
+            // Continuous kinematic re-evaluation: if the target leader has pulled away and the
+            // downstream gap is no longer reachable within the remaining ramp distance, exit
+            // to EvaluateTargetGapState so the vehicle can wait for an upstream gap instead.
+            if (leader != null && !leader.isParallel() && leader.getDistance().si >= 0.0 && distToLaneEnd != null)
+            {
+                double vEgo = egoSpeed.si;
+                double vLeader = leader.getSpeed().si;
+                Speed desiredSpeedResult = ego.getCurrentDesiredSpeed();
+                double vWunsch = (desiredSpeedResult != null && !Double.isNaN(desiredSpeedResult.si)) ? desiredSpeedResult.si
+                        : this.vehicle.getContext(InfrastructureContext.class).getLegalSpeedLimit().si;
+                // To merge AHEAD of the leader, the ego must go faster than the leader.
+                // Add an overtake margin; evaluate acceleration at this higher (more limiting) speed.
+                final double OVERTAKE_MARGIN_MS = 3.0; // ~11 km/h above leader speed
+                double vTarget = vLeader + OVERTAKE_MARGIN_MS;
+
+                // Acceleration at the overtake target speed – the most limiting (highest) speed
+                // the ego must reach to successfully execute the downstream merge.
+                double aMaxCurrent = Math.max(ego.getMaxPhysicalAccelerationAt(Speed.instantiateSI(vTarget)).si, 0.01);
+
+                boolean reachable = true;
+                if (vTarget > vWunsch)
+                {
+                    // Overtake speed exceeds desired speed → leader kinematically unreachable
+                    reachable = false;
+                }
+                else if (vTarget > vEgo)
+                {
+                    final double LANE_CHANGE_DURATION_BUFFER_S = 4.0;
+                    double dBuffer = Math.min(vEgo * LANE_CHANGE_DURATION_BUFFER_S, distToLaneEnd.si * 0.25);
+                    double dAvailable = Math.max(0.0, distToLaneEnd.si - dBuffer);
+                    double dRequired = (vTarget * vTarget - vEgo * vEgo) / (2.0 * aMaxCurrent);
+                    if (dRequired > dAvailable)
+                    {
+                        reachable = false;
+                    }
+                }
+                // else: already faster than overtake target → reachable
+
+                if (!reachable)
+                {
+                    // Leader is no longer reachable – abandon downstream merge, wait for upstream gap
+                    return transitionTo(new EvaluateTargetGapState(this.maneuverPattern));
+                }
+            }
+
             if (leader != null && (leader.isParallel() || (leader.getDistance().si < safeDistance.si * safetyReductionFactor
                     && Math.abs(leader.getSpeed().si - ego.getEgoSpeed().si) < 1.0)))
             {
@@ -987,8 +1103,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             }
 
             // 4. Parallel block present → creep alongside
-            if (detectParallelBlock(neigh, dir, this.vehicle.getContext(EgoContext.class),
-                    this.vehicle.getParameters()))
+            if (detectParallelBlock(neigh, dir, this.vehicle.getContext(EgoContext.class), this.vehicle.getParameters()))
             {
                 return transitionTo(new CongestedCreepState(this.maneuverPattern));
             }
@@ -1113,8 +1228,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             }
 
             // 3. Parallel block resolved → return to dispatcher
-            if (!detectParallelBlock(neigh, dir, this.vehicle.getContext(EgoContext.class),
-                    this.vehicle.getParameters()))
+            if (!detectParallelBlock(neigh, dir, this.vehicle.getContext(EgoContext.class), this.vehicle.getParameters()))
             {
                 return transitionTo(new CongestedMergeState(this.maneuverPattern));
             }
@@ -1207,7 +1321,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             Acceleration aCf = ego.getCurrentCarFollowingAcceleration();
 
             // 2. Distance-dependent target speed: scale from 15 km/h down to 5 km/h
-            //    within a 200 m reference window before the ramp end.
+            // within a 200 m reference window before the ramp end.
             Length distToLaneEnd = infra.getRouteDistanceToLaneEnd();
             double distSI = distToLaneEnd != null ? Math.max(0.0, distToLaneEnd.si) : 200.0;
             double distFraction = Math.min(1.0, distSI / 200.0);
@@ -1273,8 +1387,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             }
 
             // 4. Parallel block appeared → back to dispatcher (will route to CongestedCreepState)
-            if (detectParallelBlock(neigh, dir, this.vehicle.getContext(EgoContext.class),
-                    this.vehicle.getParameters()))
+            if (detectParallelBlock(neigh, dir, this.vehicle.getContext(EgoContext.class), this.vehicle.getParameters()))
             {
                 return transitionTo(new CongestedMergeState(this.maneuverPattern));
             }
