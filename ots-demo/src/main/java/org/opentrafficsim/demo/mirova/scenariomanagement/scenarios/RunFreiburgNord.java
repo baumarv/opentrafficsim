@@ -40,11 +40,11 @@ public class RunFreiburgNord
             params.set("demandAggregation", 1); // 1-minute aggregation for minute-by-minute demand
 
             // Define parameters directly analogously to RunFreiburgParallel
-            params.set("car." + ParameterTypes.T.getId(), 1.0);
-            params.set("car." + MirovaParameters.vGain.getId(), 20.0);
+            params.set("car." + ParameterTypes.T.getId(), 1.4);
+            params.set("car." + MirovaParameters.vGain.getId(), 15.0);
             params.set("car." + MirovaParameters.A_MAX.getId(), 3.5);
-            params.set("truck." + ParameterTypes.T.getId(), 1.6);
-            params.set("truck." + MirovaParameters.vGain.getId(), 70.0);
+            params.set("truck." + ParameterTypes.T.getId(), 2.0);
+            params.set("truck." + MirovaParameters.vGain.getId(), 30.0);
             params.set("truck." + MirovaParameters.A_MAX.getId(), 2.5);
 
             // Optional: override simulation duration if needed (otherwise it reads from demandCsv)
