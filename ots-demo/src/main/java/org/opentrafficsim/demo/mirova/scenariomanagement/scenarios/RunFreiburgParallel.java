@@ -21,6 +21,24 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  */
 public class RunFreiburgParallel
 {
+    /**
+     * Helper record to represent a simulation time period.
+     */
+    public record TimePeriod(String startDate, String endDate)
+    {
+    }
+
+    /**
+     * Formats a TimePeriod into a filename-friendly string.
+     * @param period the time period
+     * @return a formatted string
+     */
+    private static String formatPeriodName(final TimePeriod period)
+    {
+        String start = period.startDate().replace(" ", "_").replace(":", "-");
+        String end = period.endDate().replace(" ", "_").replace(":", "-");
+        return start + "_to_" + end;
+    }
 
     /**
      * Main execution method.
@@ -30,43 +48,90 @@ public class RunFreiburgParallel
     {
         try
         {
-            // 1. Define the root output directory for the simulation results
-            File outputDirectory = new File("D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\output\\ots\\freiburg_parallel");
+            // Suppress verbose logging and warn/error prints from background threads
+            ScenarioManager.silenceBackgroundThreads();
 
-            // 2. Initialize the ScenarioManager
+            // --- CONFIGURATION START ---
+            // 1. Define the simulation time periods to run
+            java.util.List<TimePeriod> periods = java.util.List.of(
+                    // new TimePeriod("2025-09-17 07:00:00", "2025-09-17 20:00:00"),
+                    // new TimePeriod("2025-09-18 12:00:00", "2025-09-18 20:00:00"),
+                    // new TimePeriod("2025-09-20 06:00:00", "2025-09-20 14:00:00"),
+                    // new TimePeriod("2025-09-15 08:00:00", "2025-09-21 20:00:00"),
+                    new TimePeriod("2025-09-25 13:00:00", "2025-09-25 16:00:00"));
+
+            // 2. Set the number of replications (seeds/runs to run per time period)
+            int numberOfReplications = 10;
+
+            // 3. Number of parallel execution threads
+            int parallelThreads = 16;
+
+            // 4. Define the root output directory for the simulation results
+            File outputDirectory = new File("D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\output\\ots\\freiburg_parallel");
+            // --- CONFIGURATION END ---
+
+            // Initialize the ScenarioManager
             ScenarioManager scenarioManager = new ScenarioManager(outputDirectory);
 
-            // 3. Register the FreiburgNord class under a unique name
-            String scenarioName = "FreiburgNord_Parallel";
-            scenarioManager.addScenario(scenarioName, FreiburgNord.class);
-
-            // 4. Define the base parameters
-            ScenarioParameters baseParameters = new ScenarioParameters();
-            baseParameters.setSeed(42L); // Base seed
-            // baseParameters.setSimulationTime(new Duration(0.1, DurationUnit.HOUR)); // Commented out to read duration
-            // directly from demandCsv
-            baseParameters.set("demandCsv",
-                    "D:\\Mitarbeitende\\gw2128\\repositories\\diss_mvb\\scripts\\evaluation\\fielddata\\detectors\\io\\data\\demand_freiburg_20250925_09-12_low_demand.csv");
-
-            // 5. Define variations
-            // We use ParameterGridBuilder to generate a Cartesian product grid sweep of parameter combinations.
-            java.util.List<ScenarioParameters> variations =
-                    new ParameterGridBuilder(baseParameters).addCarDimension(ParameterTypes.T, 0.7, 0.8, 0.9, 1.0)
-                            .addCarDimension(MirovaParameters.vGain, 30.0, 50.0, 70.0)
-                            .addTruckDimension(ParameterTypes.T, 1.0, 1.2, 1.4)
-                            .addTruckDimension(MirovaParameters.vGain, 70.0, 100.0, 130.0).build();
-
-            for (ScenarioParameters variation : variations)
+            // Define and register each time period as a separate scenario to output to different directories
+            for (TimePeriod period : periods)
             {
-                scenarioManager.addParameterVariation(scenarioName, variation);
+                String specificScenarioName = "FreiburgNord_Calibration_MergeAggression_" + formatPeriodName(period);
+                scenarioManager.addScenario(specificScenarioName, FreiburgNord.class);
+
+                ScenarioParameters baseParams = new ScenarioParameters();
+                baseParams.setSeed(42L); // Base seed
+
+                // Set demand date range and aggregation interval for database loading
+                baseParams.set("demandStartDate", period.startDate());
+                baseParams.set("demandEndDate", period.endDate());
+                baseParams.set("demandAggregation", 5); // 1-minute aggregation for minute-by-minute demand
+
+                // Define parameters directly analogously to RunFreiburgNord
+                baseParams.set("car." + ParameterTypes.T.getId(), 1.4);
+                baseParams.set("car." + MirovaParameters.vGain.getId(), 15.0);
+                baseParams.set("car." + MirovaParameters.A_MAX.getId(), 3.5);
+                baseParams.set("truck." + ParameterTypes.T.getId(), 2.0);
+                baseParams.set("truck." + MirovaParameters.vGain.getId(), 30.0);
+                baseParams.set("truck." + MirovaParameters.A_MAX.getId(), 2.5);
+
+                // Build variations grid using ParameterGridBuilder with custom coupled parameter dimensions (Tuple-based)
+                java.util.List<ScenarioParameters> variations =
+                        new ParameterGridBuilder(baseParams)
+                                .addDimensionParallel(
+                                        new String[] {"coopDecel",
+                                                "car." + MirovaParameters.cooperativeDecelerationThreshold.getId(),
+                                                "truck." + MirovaParameters.cooperativeDecelerationThreshold.getId()},
+                                        -3.0, -2.5)
+                                .addDimensionParallel(new String[][] {
+                                        {"followerMinDecel", "car." + MirovaParameters.minFollowerDecelerationThreshold.getId(),
+                                                "truck." + MirovaParameters.minFollowerDecelerationThreshold.getId()},
+                                        {"car." + MirovaParameters.maxFollowerDecelerationThreshold.getId(),
+                                                "truck." + MirovaParameters.maxFollowerDecelerationThreshold.getId()}},
+                                        new Object[] {-1.5, -3.0}, new Object[] {-2.0, -4.0})
+                                .addDimensionParallel(
+                                        new String[][] {
+                                                {"egoMinDecel", "car." + MirovaParameters.minEgoDecelerationThreshold.getId(),
+                                                        "truck." + MirovaParameters.minEgoDecelerationThreshold.getId()},
+                                                {"car." + MirovaParameters.maxEgoDecelerationThreshold.getId(),
+                                                        "truck." + MirovaParameters.maxEgoDecelerationThreshold.getId()}},
+                                        new Object[] {-1.5, -3.0}, new Object[] {-1.0, -2.5})
+                                .addDimensionParallel(
+                                        new String[] {"safetyDistanceReductionFactorLaneChange",
+                                                "car." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(),
+                                                "truck." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId()},
+                                        0.5, 0.4)
+                                .build();
+
+                for (ScenarioParameters varParams : variations)
+                {
+                    scenarioManager.addParameterVariation(specificScenarioName, varParams);
+                }
             }
 
-            // 6. Set the number of replications (seeds to run per variation)
-            int numberOfReplications = 1;
+            // Set the number of replications (seeds to run per variation)
             scenarioManager.setReplications(numberOfReplications);
 
-            // 7. Run all variations in parallel (e.g., using 4 parallel threads)
-            int parallelThreads = 16;
             boolean enableGUI = false;
 
             System.out.println("Starting parallel execution of FreiburgNord scenarios...");

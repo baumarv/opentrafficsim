@@ -32,20 +32,22 @@ public class RunFreiburgNord
             scenario.setOutputDirectory(outputDir);
 
             ScenarioParameters params = scenario.getDefaultParameters().copy();
-            params.setSeed(42L + run);
+            params.setSeed(46);
 
             // Set demand date range and aggregation interval for database loading
-            params.set("demandStartDate", "2025-09-25 14:30:00");
+            params.set("demandStartDate", "2025-09-25 13:00:00");
             params.set("demandEndDate", "2025-09-25 16:00:00");
-            params.set("demandAggregation", 1); // 1-minute aggregation for minute-by-minute demand
+            params.set("demandAggregation", 5); // 1-minute aggregation for minute-by-minute demand
 
             // Define parameters directly analogously to RunFreiburgParallel
-            params.set("car." + ParameterTypes.T.getId(), 1.4);
+            params.set("car." + ParameterTypes.T.getId(), 1.2);
             params.set("car." + MirovaParameters.vGain.getId(), 15.0);
             params.set("car." + MirovaParameters.A_MAX.getId(), 3.5);
-            params.set("truck." + ParameterTypes.T.getId(), 2.0);
+            params.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(), -2.0);
+            params.set("truck." + ParameterTypes.T.getId(), 1.8);
             params.set("truck." + MirovaParameters.vGain.getId(), 30.0);
             params.set("truck." + MirovaParameters.A_MAX.getId(), 2.5);
+            params.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(), -2.0);
 
             // Optional: override simulation duration if needed (otherwise it reads from demandCsv)
             // params.setSimulationTime(new Duration(6.0, DurationUnit.HOUR));
