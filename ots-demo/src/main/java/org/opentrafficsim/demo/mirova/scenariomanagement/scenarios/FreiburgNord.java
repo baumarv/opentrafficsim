@@ -103,138 +103,6 @@ public class FreiburgNord extends ScenarioGenerator
     /** Active scenario parameters for the current setup. */
     private ScenarioParameters currentParameters;
 
-    /** Cached map of all known ParameterType instances from standard OTS and Mirova. */
-    private static final Map<String, ParameterType<?>> PARAMETER_TYPES = new HashMap<>();
-    static
-    {
-        // 1. Load standard OTS parameters via reflection from ParameterTypes
-        for (java.lang.reflect.Field field : ParameterTypes.class.getFields())
-        {
-            if (java.lang.reflect.Modifier.isStatic(field.getModifiers())
-                    && ParameterType.class.isAssignableFrom(field.getType()))
-            {
-                try
-                {
-                    ParameterType<?> pt = (ParameterType<?>) field.get(null);
-                    if (pt != null)
-                    {
-                        PARAMETER_TYPES.put(pt.getId().toLowerCase(), pt);
-                    }
-                }
-                catch (Exception e)
-                {
-                    // Ignore non-accessible or null fields
-                }
-            }
-        }
-        // 2. Load custom Mirova-specific parameters via reflection from MirovaParameters
-        for (java.lang.reflect.Field field : MirovaParameters.class.getFields())
-        {
-            if (java.lang.reflect.Modifier.isStatic(field.getModifiers())
-                    && ParameterType.class.isAssignableFrom(field.getType()))
-            {
-                try
-                {
-                    ParameterType<?> pt = (ParameterType<?>) field.get(null);
-                    if (pt != null)
-                    {
-                        PARAMETER_TYPES.put(pt.getId().toLowerCase(), pt);
-                    }
-                }
-                catch (Exception e)
-                {
-                    // Ignore non-accessible or null fields
-                }
-            }
-        }
-    }
-
-    /**
-     * Helper method to convert and set parameter values on a Parameters instance. Handles type conversions for Double, Integer,
-     * Boolean, String, and DJUnits (Duration, Length, Speed, Acceleration).
-     * @param parameters Parameters; the Parameters instance to set the value on
-     * @param pt ParameterType<?>; the target ParameterType field
-     * @param value Object; the input value (Number, String, Boolean, or target type)
-     * @throws ParameterException when setting the parameter fails
-     */
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private static void applyParameter(Parameters parameters, ParameterType<?> pt, Object value) throws ParameterException
-    {
-        Class<?> valueClass = pt.getValueClass();
-        Object convertedValue = null;
-        if (valueClass.isInstance(value))
-        {
-            convertedValue = value;
-        }
-        else if (value instanceof Number)
-        {
-            double doubleVal = ((Number) value).doubleValue();
-            if (valueClass == Double.class)
-            {
-                convertedValue = doubleVal;
-            }
-            else if (valueClass == Integer.class)
-            {
-                convertedValue = (int) doubleVal;
-            }
-            else if (valueClass == org.djunits.value.vdouble.scalar.Duration.class)
-            {
-                convertedValue = org.djunits.value.vdouble.scalar.Duration.instantiateSI(doubleVal);
-            }
-            else if (valueClass == org.djunits.value.vdouble.scalar.Length.class)
-            {
-                convertedValue = org.djunits.value.vdouble.scalar.Length.instantiateSI(doubleVal);
-            }
-            else if (valueClass == org.djunits.value.vdouble.scalar.Speed.class)
-            {
-                convertedValue = org.djunits.value.vdouble.scalar.Speed.instantiateSI(doubleVal);
-            }
-            else if (valueClass == org.djunits.value.vdouble.scalar.Acceleration.class)
-            {
-                convertedValue = org.djunits.value.vdouble.scalar.Acceleration.instantiateSI(doubleVal);
-            }
-        }
-        else if (value instanceof String)
-        {
-            String strVal = (String) value;
-            if (valueClass == Boolean.class)
-            {
-                convertedValue = Boolean.parseBoolean(strVal);
-            }
-            else if (valueClass == Double.class)
-            {
-                convertedValue = Double.parseDouble(strVal);
-            }
-            else if (valueClass == Integer.class)
-            {
-                convertedValue = Integer.parseInt(strVal);
-            }
-            else
-            {
-                try
-                {
-                    // Attempt to call valueOf(String) method for DJUnits classes
-                    java.lang.reflect.Method valueOfMethod = valueClass.getMethod("valueOf", String.class);
-                    convertedValue = valueOfMethod.invoke(null, strVal);
-                }
-                catch (Exception e)
-                {
-                    throw new IllegalArgumentException(
-                            "Cannot parse string value '" + strVal + "' for parameter class " + valueClass.getName(), e);
-                }
-            }
-        }
-
-        if (convertedValue != null)
-        {
-            parameters.setParameter((ParameterType) pt, convertedValue);
-        }
-        else
-        {
-            throw new IllegalArgumentException("Cannot convert value " + value + " to type " + valueClass.getName());
-        }
-    }
-
     /**
      * Constructor for FreiburgNord.
      */
@@ -335,141 +203,40 @@ public class FreiburgNord extends ScenarioGenerator
         this.gtuTemplates.put(DefaultsNl.TRUCK, truck);
     }
 
-    /**
-     * Builds the strategical planner factory for cars using the Mirova tactical planner. Applies standard defaults for cars and
-     * then dynamically applies any parameter overrides matching the "car.<parameterId>" prefix from ScenarioParameters.
-     * @return LaneBasedStrategicalPlannerFactory<?>; the strategical planner factory for cars
-     */
-    public LaneBasedStrategicalPlannerFactory<?> buildStrategicalPlannerFactoryCar()
-    {
-        final ScenarioParameters params = this.currentParameters != null ? this.currentParameters : this.defaultParameters;
-        MirovaTacticalPlannerFactory mirovaTacticalPlannerFactoryCars =
-                new MirovaTacticalPlannerFactory(new MirovaIdmPlusFactory(this.stream), new DefaultMirovaPerceptionFactory())
-                {
-                    @Override
-                    public Parameters getParameters() throws ParameterException
-                    {
-                        Parameters parameters = getDefaultParameters();
 
-                        // 1. Apply baseline default car parameters
-                        parameters.setParameter(ParameterTypes.T, new Duration(0.9, DurationUnit.SI));
-                        parameters.setParameter(MirovaParameters.socioSpeedSensitivity, 0.75);
-                        DistContinuous vGainDist = new DistUniform(FreiburgNord.this.stream, 20, 50);
-                        parameters.setParameter(MirovaParameters.vGain, new Speed(vGainDist.draw(), SpeedUnit.KM_PER_HOUR));
-
-                        // 2. Dynamic overrides: look for keys starting with "car."
-                        for (Map.Entry<String, Object> entry : params.asUnmodifiableMap().entrySet())
-                        {
-                            String key = entry.getKey();
-                            if (key.startsWith("car."))
-                            {
-                                String paramId = key.substring(4).toLowerCase();
-                                ParameterType<?> pt = PARAMETER_TYPES.get(paramId);
-                                if (pt != null)
-                                {
-                                    applyParameter(parameters, pt, entry.getValue());
-                                }
-                            }
-                        }
-
-                        return parameters;
-                    }
-                };
-
-        return new LaneBasedStrategicalRoutePlannerFactory(mirovaTacticalPlannerFactoryCars);
-    }
 
     /**
-     * Builds the strategical planner factory for trucks using the Mirova tactical planner. Applies standard defaults for trucks
-     * and then dynamically applies any parameter overrides matching the "truck.<parameterId>" prefix from ScenarioParameters.
-     * @return LaneBasedStrategicalPlannerFactory<?>; the strategical planner factory for trucks
-     */
-    public LaneBasedStrategicalPlannerFactory<?> buildStrategicalPlannerFactoryTruck()
-    {
-        final ScenarioParameters params = this.currentParameters != null ? this.currentParameters : this.defaultParameters;
-        MirovaTacticalPlannerFactory mirovaTacticalPlannerFactoryTrucks =
-                new MirovaTacticalPlannerFactory(new MirovaIdmPlusFactory(this.stream), new DefaultMirovaPerceptionFactory())
-                {
-                    @Override
-                    public Parameters getParameters() throws ParameterException
-                    {
-                        Parameters parameters = getDefaultParameters();
-
-                        // 1. Apply baseline default truck parameters
-                        parameters.setParameter(ParameterTypes.T, new Duration(1.2, DurationUnit.SI));
-                        DistContinuous vGainDist = new DistUniform(FreiburgNord.this.stream, 90, 110);
-                        parameters.setParameter(MirovaParameters.vGain, new Speed(vGainDist.draw(), SpeedUnit.KM_PER_HOUR));
-                        parameters.setParameter(MirovaParameters.cooperativeLaneChangesEnabled, false);
-
-                        // 2. Dynamic overrides: look for keys starting with "truck."
-                        for (Map.Entry<String, Object> entry : params.asUnmodifiableMap().entrySet())
-                        {
-                            String key = entry.getKey();
-                            if (key.startsWith("truck."))
-                            {
-                                String paramId = key.substring(6).toLowerCase();
-                                ParameterType<?> pt = PARAMETER_TYPES.get(paramId);
-                                if (pt != null)
-                                {
-                                    applyParameter(parameters, pt, entry.getValue());
-                                }
-                            }
-                        }
-
-                        return parameters;
-                    }
-                };
-
-        return new LaneBasedStrategicalRoutePlannerFactory(mirovaTacticalPlannerFactoryTrucks);
-    }
-
-    /**
-     * Builds the GTU characteristics generator for the OD matrix. Maps the chosen vehicle template properties onto drawing
-     * characteristics.
-     * @param sim OtsSimulatorInterface; the OTS simulator
-     * @return LaneBasedGtuCharacteristicsGeneratorOd; the characteristics generator
-     */
-    public LaneBasedGtuCharacteristicsGeneratorOd buildOdsCharacteristicsGenerator(final OtsSimulatorInterface sim)
-    {
-        return new LaneBasedGtuCharacteristicsGeneratorOd()
-        {
-            @Override
-            public LaneBasedGtuCharacteristics draw(final Node origin, final Node destination, final Category category,
-                    final StreamInterface randomStream) throws GtuException
-            {
-                GtuType gtuType = category.get(GtuType.class);
-                Route route = null;
-                try
-                {
-                    route = FreiburgNord.this.network.getShortestRouteBetween(gtuType, origin, destination);
-                }
-                catch (NetworkException exception)
-                {
-                    exception.printStackTrace();
-                }
-                GtuCharacteristics gtuCharacteristics = getGtuTemplates().get(gtuType).get();
-                VehicleModel vehicleModel = VehicleModel.MINMAX;
-                LaneBasedStrategicalPlannerFactory<?> strategical =
-                        FreiburgNord.this.gtuTemplates.get(gtuType).getStrategicalPlannerFactory();
-                return new LaneBasedGtuCharacteristics(gtuCharacteristics, strategical, route, origin, destination,
-                        vehicleModel);
-            }
-        };
-    }
-
-    /**
-     * Builds the shortest path route definitions (A-E main highway and F-E ramp merge).
+     * Builds the shortest path route definitions (A-E main highway and F-E ramp merge) for both CAR and TRUCK.
+     * <p>
+     * Routes must be registered for every GTU type that uses them. OTS computes shortest paths in a GTU-type-specific manner
+     * (e.g. restricted lanes differ per type). If a route is only registered for CAR, trucks originating from the on-ramp node
+     * R7_1 will have no valid route and will be silently removed, causing the L7a detector to report near-zero truck counts
+     * despite non-zero demand.
+     * </p>
      * @throws Exception when path calculation fails
      */
     @Override
     public void buildRoutes() throws Exception
     {
         GtuType car = DefaultsNl.CAR;
-        Route routeAE = this.network.getShortestRouteBetween(car, this.network.getNode("N1_1"), this.network.getNode("N5_3"));
-        Route routeFE = this.network.getShortestRouteBetween(car, this.network.getNode("R7_1"), this.network.getNode("N5_3"));
+        GtuType truck = DefaultsNl.TRUCK;
 
-        this.routes.put("A-E", routeAE);
-        this.routes.put("F-E", routeFE);
+        // Routes for cars
+        Route routeAE_car =
+                this.network.getShortestRouteBetween(car, this.network.getNode("N1_1"), this.network.getNode("N5_3"));
+        Route routeFE_car =
+                this.network.getShortestRouteBetween(car, this.network.getNode("R7_1"), this.network.getNode("N5_3"));
+
+        // Routes for trucks — must be registered separately so trucks get a valid path from the on-ramp (L7a)
+        Route routeAE_truck =
+                this.network.getShortestRouteBetween(truck, this.network.getNode("N1_1"), this.network.getNode("N5_3"));
+        Route routeFE_truck =
+                this.network.getShortestRouteBetween(truck, this.network.getNode("R7_1"), this.network.getNode("N5_3"));
+
+        this.routes.put("A-E", routeAE_car);
+        this.routes.put("F-E", routeFE_car);
+        this.routes.put("A-E-truck", routeAE_truck);
+        this.routes.put("F-E-truck", routeFE_truck);
     }
 
     /**
@@ -492,103 +259,9 @@ public class FreiburgNord extends ScenarioGenerator
         Category carCat = new Category(categorization, DefaultsNl.CAR);
         Category truckCat = new Category(categorization, DefaultsNl.TRUCK);
 
-        OdMatrix odMatrix;
+        OdMatrix odMatrix = parseOdMatrixFromCsv(csvFile, this.network, categorization, carCat, truckCat);
 
-        if (csvFile.exists())
-        {
-            System.out.println("Loading simulation demand from CSV: " + csvFile.getAbsolutePath());
-            TreeSet<Double> uniqueTimes = new TreeSet<>();
-            Map<String, Map<Double, Double>> demandMap = new HashMap<>();
-
-            try (BufferedReader br = new BufferedReader(new FileReader(csvFile)))
-            {
-                String line;
-                boolean isHeader = true;
-                while ((line = br.readLine()) != null)
-                {
-                    if (isHeader)
-                    {
-                        isHeader = false;
-                        continue;
-                    }
-                    String[] parts = line.split(",");
-                    if (parts.length < 6)
-                    {
-                        continue;
-                    }
-                    double timeSec = Double.parseDouble(parts[0].trim());
-                    String origin = parts[2].trim();
-                    String destination = parts[3].trim();
-                    String gtuType = parts[4].trim();
-                    double demand = Double.parseDouble(parts[5].trim());
-
-                    uniqueTimes.add(timeSec);
-                    String key = origin + ";" + destination + ";" + gtuType;
-                    demandMap.computeIfAbsent(key, k -> new HashMap<>()).put(timeSec, demand);
-                }
-            }
-
-            int n = uniqueTimes.size();
-            double[] timeArray = new double[n];
-            int idx = 0;
-            for (Double t : uniqueTimes)
-            {
-                timeArray[idx++] = t;
-            }
-
-            TimeVector timeVector =
-                    new TimeVector(DoubleVectorData.instantiate(timeArray, TimeUnit.BASE_SECOND.getScale(), StorageType.DENSE),
-                            TimeUnit.BASE_SECOND);
-
-            odMatrix = new OdMatrix("OD_Merge", origins, destinations, categorization, timeVector, Interpolation.STEPWISE);
-
-            for (Map.Entry<String, Map<Double, Double>> entry : demandMap.entrySet())
-            {
-                String[] keyParts = entry.getKey().split(";");
-                String originName = keyParts[0];
-                String destName = keyParts[1];
-                String gtuTypeStr = keyParts[2];
-
-                Node originNode = this.network.getNode(originName);
-                Node destNode = this.network.getNode(destName);
-
-                if (originNode == null || destNode == null)
-                {
-                    System.err.println("WARNING: Node not found in network: " + originName + " or " + destName);
-                    continue;
-                }
-
-                Category cat;
-                if ("CAR".equalsIgnoreCase(gtuTypeStr))
-                {
-                    cat = carCat;
-                }
-                else if ("TRUCK".equalsIgnoreCase(gtuTypeStr))
-                {
-                    cat = truckCat;
-                }
-                else
-                {
-                    System.err.println("WARNING: Unknown GTU type in CSV: " + gtuTypeStr);
-                    continue;
-                }
-
-                double[] demandArray = new double[n];
-                Map<Double, Double> timeToDemand = entry.getValue();
-                for (int i = 0; i < n; i++)
-                {
-                    Double t = timeArray[i];
-                    demandArray[i] = timeToDemand.getOrDefault(t, 0.0);
-                }
-
-                FrequencyVector demandFreq = new FrequencyVector(
-                        DoubleVectorData.instantiate(demandArray, FrequencyUnit.PER_HOUR.getScale(), StorageType.DENSE),
-                        FrequencyUnit.PER_HOUR);
-
-                odMatrix.putDemandVector(originNode, destNode, cat, demandFreq);
-            }
-        }
-        else
+        if (odMatrix == null)
         {
             System.err.println("WARNING: CSV demand file not found at " + csvFile.getAbsolutePath()
                     + ". Falling back to default programmatic demand.");
@@ -746,7 +419,8 @@ public class FreiburgNord extends ScenarioGenerator
                 // Add loop detectors on specific links (L3a, L7a, L5a)
                 if ((linkId.equals("L3a") && lane.getId().startsWith("Lane"))
                         || (linkId.equals("L7a") && lane.getId().startsWith("Lane"))
-                        || (linkId.equals("L5a") && lane.getId().startsWith("Lane")))
+                        || (linkId.equals("L5a") && lane.getId().startsWith("Lane"))
+                        || (linkId.equals("L6a") && lane.getId().startsWith("Lane")))
                 {
                     LoopDetector detector = new LoopDetector("det_" + lane.getFullId(),
                             new LanePosition(lane, lane.getLength().times(0.5)), Length.ZERO, DefaultsNl.LOOP_DETECTOR,
@@ -779,141 +453,5 @@ public class FreiburgNord extends ScenarioGenerator
         return this.outputConfiguration;
     }
 
-    /**
-     * Builds the simulation script for FreiburgNord, dynamically reading the simulation duration from the configured demand CSV
-     * file if no explicit duration was set.
-     * @param params ScenarioParameters; parameters for this simulation run
-     * @return ScenarioSimulationScript; the constructed simulation script
-     */
-    @Override
-    public ScenarioSimulationScript buildSimulationScript(final ScenarioParameters params)
-    {
-        String startDate = params.get("demandStartDate", String.class);
-        String endDate = params.get("demandEndDate", String.class);
-        Integer aggregation = params.get("demandAggregation", Integer.class);
 
-        if (startDate != null && endDate != null)
-        {
-            File outputDir = getOutputDirectory();
-            if (outputDir != null)
-            {
-                if (aggregation == null)
-                {
-                    aggregation = 1;
-                }
-
-                File outputDemandFile = new File(outputDir, "simulation_demand.csv");
-                System.out.println("Running prepare_simulation_demand.py to load demand from database...");
-                try
-                {
-                    String pythonExe = "D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\venv\\Scripts\\python.exe";
-                    String scriptPath = "D:\\Mitarbeitende\\gw2128\\repositories\\diss_mvb\\scripts\\evaluation\\fielddata\\detectors\\io\\prepare_simulation_demand.py";
-
-                    List<String> command = new ArrayList<>();
-                    command.add(pythonExe);
-                    command.add(scriptPath);
-                    command.add("--start-date");
-                    command.add(startDate);
-                    command.add("--end-date");
-                    command.add(endDate);
-                    command.add("--aggregation");
-                    command.add(String.valueOf(aggregation));
-                    command.add("--output-file");
-                    command.add(outputDemandFile.getAbsolutePath());
-
-                    ProcessBuilder pb = new ProcessBuilder(command);
-                    pb.redirectErrorStream(true);
-                    Process process = pb.start();
-
-                    // Read process output
-                    try (BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(process.getInputStream())))
-                    {
-                        String line;
-                        while ((line = reader.readLine()) != null)
-                        {
-                            System.out.println("[Python Demand Prep] " + line);
-                        }
-                    }
-
-                    int exitCode = process.waitFor();
-                    if (exitCode == 0)
-                    {
-                        System.out.println("[Python Demand Prep] Successfully generated demand at: " + outputDemandFile.getAbsolutePath());
-                        params.set("demandCsv", outputDemandFile.getAbsolutePath());
-                    }
-                    else
-                    {
-                        System.err.println("[ERROR] prepare_simulation_demand.py failed with exit code: " + exitCode);
-                    }
-                }
-                catch (Exception e)
-                {
-                    System.err.println("[ERROR] Failed to run prepare_simulation_demand.py: " + e.getMessage());
-                    e.printStackTrace();
-                }
-            }
-        }
-
-        String demandCsv = params.get("demandCsv", String.class);
-        if (demandCsv != null)
-        {
-            File csvFile = new File(demandCsv);
-            if (csvFile.exists())
-            {
-                if (params.getSimulationTime() == null)
-                {
-                    try
-                    {
-                        double maxTimeSec = 0.0;
-                        try (BufferedReader br = new BufferedReader(new FileReader(csvFile)))
-                        {
-                            String line;
-                            boolean isHeader = true;
-                            while ((line = br.readLine()) != null)
-                            {
-                                if (isHeader)
-                                {
-                                    isHeader = false;
-                                    continue;
-                                }
-                                String[] parts = line.split(",");
-                                if (parts.length > 0)
-                                {
-                                    try
-                                    {
-                                        double timeSec = Double.parseDouble(parts[0].trim());
-                                        if (timeSec > maxTimeSec)
-                                        {
-                                            maxTimeSec = timeSec;
-                                        }
-                                    }
-                                    catch (NumberFormatException e)
-                                    {
-                                        // Ignore header or malformed rows
-                                    }
-                                }
-                            }
-                        }
-                        if (maxTimeSec > 0.0)
-                        {
-                            Duration durationFromCsv = new Duration(maxTimeSec, DurationUnit.SI);
-                            params.setSimulationTime(durationFromCsv);
-                            System.out.println("Dynamically set simulation duration from CSV: " + durationFromCsv + " ("
-                                    + csvFile.getName() + ")");
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        System.err.println("Error reading duration from demand CSV: " + e.getMessage());
-                    }
-                }
-                else
-                {
-                    System.out.println("Using explicitly set simulation duration: " + params.getSimulationTime()
-                            + " (ignoring CSV duration)");
-                }
-            }
-        }
-        return super.buildSimulationScript(params);
-    }
 }
