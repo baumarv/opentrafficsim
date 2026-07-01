@@ -31,7 +31,7 @@ public class ScenarioSimulationScript extends AbstractSimulationScriptBase {
             final ScenarioParameters params
             )
     {
-        super("Scenario-" + scenario.scenarioName, "Scenario simulation runner");
+        super("Scenario-" + scenario.scenarioName + " (seed " + params.getSeed() + ")", "Scenario simulation runner");
         this.scenario = scenario;
         this.parameters = params;
         this.outputConfig = null;
