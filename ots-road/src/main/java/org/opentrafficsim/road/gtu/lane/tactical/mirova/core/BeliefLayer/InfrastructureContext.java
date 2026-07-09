@@ -780,12 +780,21 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
     public Speed getLaneAverageSpeed(final Lane lane, final Length startPosition, final Length endPosition,
             final int maxVehicles, final ScanDirection scanDirection)
     {
+        String key = "laneAverageSpeed_" + lane.getId() + "_" + startPosition.si + "_" + endPosition.si + "_" + maxVehicles + "_" + scanDirection.name();
+        Speed cached = getCachedValue(key, Speed.class);
+        if (cached != null)
+        {
+            return cached;
+        }
+
         ImmutableList<LaneBasedGtu> gtuList = lane.getGtuList();
 
         // Fast fail for empty lanes or invalid requests
         if (gtuList == null || gtuList.isEmpty() || maxVehicles <= 0)
         {
-            return Speed.POSITIVE_INFINITY;
+            Speed result = Speed.POSITIVE_INFINITY;
+            cacheValue(key, result, true);
+            return result;
         }
 
         int count = 0;
@@ -831,17 +840,23 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         {
             // Failsafe: If GTU positioning cannot be resolved, assume free flow
             exception.printStackTrace();
-            return Speed.POSITIVE_INFINITY;
+            Speed result = Speed.POSITIVE_INFINITY;
+            cacheValue(key, result, true);
+            return result;
         }
 
         // Failsafe if the segment was empty
         if (count == 0)
         {
-            return Speed.POSITIVE_INFINITY;
+            Speed result = Speed.POSITIVE_INFINITY;
+            cacheValue(key, result, true);
+            return result;
         }
 
         // Return the arithmetic mean of instantaneous speeds (Space-Mean Speed)
-        return new Speed(sumSpeedSI / count, org.djunits.unit.SpeedUnit.SI);
+        Speed result = new Speed(sumSpeedSI / count, org.djunits.unit.SpeedUnit.SI);
+        cacheValue(key, result, true);
+        return result;
     }
 
     /**
