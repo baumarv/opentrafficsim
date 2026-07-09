@@ -7,7 +7,6 @@ import org.opentrafficsim.base.parameters.ParameterTypes;
 import org.opentrafficsim.core.gtu.GtuType;
 import org.opentrafficsim.core.gtu.plan.operational.OperationalPlanException;
 import org.opentrafficsim.core.network.LateralDirectionality;
-import org.opentrafficsim.road.gtu.lane.perception.RelativeLane;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext;
@@ -32,8 +31,7 @@ import org.opentrafficsim.road.network.lane.Lane;
 public class ProhibitDeadEndIncentive extends DesireIncentive
 {
 
-    private boolean prohibitLeft = false;  // Flag to suppress left lane changes
-    private boolean prohibitRight = false; // Flag to suppress right lane changes
+    private LateralDirectionality mergeDirection = null; // Direction of the potential merge (LEFT or RIGHT)
 
     /**
      * Constructs a new MergeCooperationChunk.
@@ -57,31 +55,48 @@ public class ProhibitDeadEndIncentive extends DesireIncentive
     public boolean isApplicable() throws ParameterException
     {
         InfrastructureContext infraCtx = this.vehicle.getContext(InfrastructureContext.class);
-        
-        this.prohibitLeft = infraCtx.getParallelMerge(LateralDirectionality.LEFT)
-                || isDeadEndForRoute(RelativeLane.LEFT, RelativeLane.CURRENT);
-        this.prohibitRight = infraCtx.getParallelMerge(LateralDirectionality.RIGHT)
-                || isDeadEndForRoute(RelativeLane.RIGHT, RelativeLane.CURRENT);
+        for (LateralDirectionality dir : new LateralDirectionality[] {LateralDirectionality.LEFT, LateralDirectionality.RIGHT})
+        {
+            if (infraCtx.getParallelMerge(dir))
+            {
+                this.mergeDirection = dir;
+                return true;
+            }
+        }
 
-        return this.prohibitLeft || this.prohibitRight;
+        this.mergeDirection = null; // No merge situation detected
+        return false;
     }
 
     /**
-     * Computes the desire to suppress a lane change towards a merging lane, exit lane, or dead end.
+     * Computes the desire to suppress a lane change towards a merging lane or on-ramp.
      * <p>
-     * If a parallel merge or exit/dead-end lane is detected on either side, a negative desire is applied in that direction to
-     * discourage the ego vehicle from changing onto it.
+     * If a parallel merge is detected on either side, a negative desire is applied in that direction to discourage the ego
+     * vehicle from changing onto the merging lane or ramp. If no merge is detected, a neutral desire (0.0) is returned for both
+     * directions.
      * </p>
-     * @return a {@link Desire} object with a negative value in the prohibited directions, or 0.0 if not prohibited
+     * @return a {@link Desire} object with a negative value in the merge direction, or 0.0 if no merge is present
      * @throws ParameterException if required parameters are missing
      */
     @Override
     public Desire computeDesire() throws ParameterException
     {
-        double dLeft = this.prohibitLeft ? -this.vehicle.getParameters().getParameter(MirovaParameters.DMAND) : 0.0;
-        double dRight = this.prohibitRight ? -this.vehicle.getParameters().getParameter(MirovaParameters.DMAND) : 0.0;
 
-        this.desire = new Desire(dLeft, dRight, false);
+        if (this.mergeDirection == LateralDirectionality.LEFT)
+        {
+            this.desire = new Desire(-this.vehicle.getParameters().getParameter(MirovaParameters.DMAND), 0.0, false);
+
+        }
+        else if (this.mergeDirection == LateralDirectionality.RIGHT)
+        {
+            this.desire = new Desire(0.0, -this.vehicle.getParameters().getParameter(MirovaParameters.DMAND), false);
+
+        }
+        else
+        {
+            this.desire = new Desire(0.0, 0.0, false); // Neutral desire if no merge detected
+        }
+
         return this.desire;
     }
 }
