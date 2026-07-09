@@ -110,6 +110,9 @@ public abstract class ScenarioGenerator
     /** Loop detectors in this scenario. */
     protected List<LoopDetector> listLoopDetectors = new ArrayList<>();
 
+    /** Lock object for synchronizing parallel demand preparation. */
+    private static final Object DEMAND_LOCK = new Object();
+
     /**
      * Constructor.
      * @param name scenario name
@@ -591,7 +594,7 @@ public abstract class ScenarioGenerator
                 }
 
                 // Determine smoothing parameter: check if a specific flag is set or assume no-smooth
-                boolean noSmooth = true; // By default we want actual demand without smoothing
+                boolean noSmooth = false; // By default we want actual demand without smoothing
 
                 // Construct clean cache key
                 String smoothSuffix = noSmooth ? "_nosmooth" : "_smooth";
@@ -603,97 +606,100 @@ public abstract class ScenarioGenerator
                 File cacheDemandWideFile = new File(cacheDir, cacheKey + "_wide.csv");
                 File cacheDemandPngFile = new File(cacheDir, cacheKey + ".png");
 
-                if (cacheDemandFile.exists() && cacheDemandWideFile.exists() && cacheDemandPngFile.exists()
-                        && cacheDemandFile.length() > 0)
+                synchronized (DEMAND_LOCK)
                 {
-                    System.out.println("[INFO] Demand cache HIT for key: " + cacheKey + ". Copying cached files...");
-                    try
+                    if (cacheDemandFile.exists() && cacheDemandWideFile.exists() && cacheDemandPngFile.exists()
+                            && cacheDemandFile.length() > 0)
                     {
-                        java.nio.file.Files.copy(cacheDemandFile.toPath(), outputDemandFile.toPath(),
-                                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                        java.nio.file.Files.copy(cacheDemandWideFile.toPath(), outputDemandWideFile.toPath(),
-                                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                        java.nio.file.Files.copy(cacheDemandPngFile.toPath(), outputDemandPngFile.toPath(),
-                                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                        params.set("demandCsv", outputDemandFile.getAbsolutePath());
-                    }
-                    catch (Exception e)
-                    {
-                        System.err.println("[WARNING] Failed to copy cached demand files: " + e.getMessage());
-                    }
-                }
-                else
-                {
-                    System.out.println("[INFO] Demand cache MISS for key: " + cacheKey + ". Running python script...");
-                    cacheDir.mkdirs();
-
-                    try
-                    {
-                        String pythonExe = "D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\venv\\Scripts\\python.exe";
-                        String scriptPath =
-                                "D:\\Mitarbeitende\\gw2128\\repositories\\diss_mvb\\scripts\\evaluation\\fielddata\\detectors\\io\\prepare_simulation_demand.py";
-
-                        List<String> command = new ArrayList<>();
-                        command.add(pythonExe);
-                        command.add(scriptPath);
-                        command.add("--start-date");
-                        command.add(startDate);
-                        command.add("--end-date");
-                        command.add(endDate);
-                        command.add("--aggregation");
-                        command.add(String.valueOf(aggregation));
-                        command.add("--output-file");
-                        command.add(cacheDemandFile.getAbsolutePath());
-                        if (noSmooth)
+                        System.out.println("[INFO] Demand cache HIT for key: " + cacheKey + ". Copying cached files...");
+                        try
                         {
-                            command.add("--no-smooth");
+                            java.nio.file.Files.copy(cacheDemandFile.toPath(), outputDemandFile.toPath(),
+                                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                            java.nio.file.Files.copy(cacheDemandWideFile.toPath(), outputDemandWideFile.toPath(),
+                                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                            java.nio.file.Files.copy(cacheDemandPngFile.toPath(), outputDemandPngFile.toPath(),
+                                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                            params.set("demandCsv", outputDemandFile.getAbsolutePath());
                         }
-
-                        ProcessBuilder pb = new ProcessBuilder(command);
-                        pb.redirectErrorStream(true);
-                        Process process = pb.start();
-
-                        // Read process output
-                        try (BufferedReader reader =
-                                new BufferedReader(new java.io.InputStreamReader(process.getInputStream())))
+                        catch (Exception e)
                         {
-                            String line;
-                            while ((line = reader.readLine()) != null)
-                            {
-                                System.out.println("[Python Demand Prep] " + line);
-                            }
-                        }
-
-                        int exitCode = process.waitFor();
-                        if (exitCode == 0)
-                        {
-                            System.out.println("[Python Demand Prep] Successfully generated demand in cache at: "
-                                    + cacheDemandFile.getAbsolutePath());
-                            try
-                            {
-                                java.nio.file.Files.copy(cacheDemandFile.toPath(), outputDemandFile.toPath(),
-                                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                                java.nio.file.Files.copy(cacheDemandWideFile.toPath(), outputDemandWideFile.toPath(),
-                                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                                java.nio.file.Files.copy(cacheDemandPngFile.toPath(), outputDemandPngFile.toPath(),
-                                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                                params.set("demandCsv", outputDemandFile.getAbsolutePath());
-                            }
-                            catch (Exception e)
-                            {
-                                System.err.println(
-                                        "[WARNING] Failed to copy generated demand files to output dir: " + e.getMessage());
-                            }
-                        }
-                        else
-                        {
-                            System.err.println("[ERROR] prepare_simulation_demand.py failed with exit code: " + exitCode);
+                            System.err.println("[WARNING] Failed to copy cached demand files: " + e.getMessage());
                         }
                     }
-                    catch (Exception e)
+                    else
                     {
-                        System.err.println("[ERROR] Failed to run prepare_simulation_demand.py: " + e.getMessage());
-                        e.printStackTrace();
+                        System.out.println("[INFO] Demand cache MISS for key: " + cacheKey + ". Running python script...");
+                        cacheDir.mkdirs();
+
+                        try
+                        {
+                            String pythonExe = "D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\venv\\Scripts\\python.exe";
+                            String scriptPath =
+                                    "D:\\Mitarbeitende\\gw2128\\repositories\\diss_mvb\\scripts\\evaluation\\fielddata\\detectors\\io\\prepare_simulation_demand.py";
+
+                            List<String> command = new ArrayList<>();
+                            command.add(pythonExe);
+                            command.add(scriptPath);
+                            command.add("--start-date");
+                            command.add(startDate);
+                            command.add("--end-date");
+                            command.add(endDate);
+                            command.add("--aggregation");
+                            command.add(String.valueOf(aggregation));
+                            command.add("--output-file");
+                            command.add(cacheDemandFile.getAbsolutePath());
+                            if (noSmooth)
+                            {
+                                command.add("--no-smooth");
+                            }
+
+                            ProcessBuilder pb = new ProcessBuilder(command);
+                            pb.redirectErrorStream(true);
+                            Process process = pb.start();
+
+                            // Read process output
+                            try (BufferedReader reader =
+                                    new BufferedReader(new java.io.InputStreamReader(process.getInputStream())))
+                            {
+                                String line;
+                                while ((line = reader.readLine()) != null)
+                                {
+                                    System.out.println("[Python Demand Prep] " + line);
+                                }
+                            }
+
+                            int exitCode = process.waitFor();
+                            if (exitCode == 0)
+                            {
+                                System.out.println("[Python Demand Prep] Successfully generated demand in cache at: "
+                                        + cacheDemandFile.getAbsolutePath());
+                                try
+                                {
+                                    java.nio.file.Files.copy(cacheDemandFile.toPath(), outputDemandFile.toPath(),
+                                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                    java.nio.file.Files.copy(cacheDemandWideFile.toPath(), outputDemandWideFile.toPath(),
+                                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                    java.nio.file.Files.copy(cacheDemandPngFile.toPath(), outputDemandPngFile.toPath(),
+                                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                    params.set("demandCsv", outputDemandFile.getAbsolutePath());
+                                }
+                                catch (Exception e)
+                                {
+                                    System.err.println(
+                                            "[WARNING] Failed to copy generated demand files to output dir: " + e.getMessage());
+                                }
+                            }
+                            else
+                            {
+                                System.err.println("[ERROR] prepare_simulation_demand.py failed with exit code: " + exitCode);
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            System.err.println("[ERROR] Failed to run prepare_simulation_demand.py: " + e.getMessage());
+                            e.printStackTrace();
+                        }
                     }
                 }
             }

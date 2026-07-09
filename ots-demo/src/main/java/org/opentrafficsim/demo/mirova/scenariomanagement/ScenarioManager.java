@@ -199,6 +199,33 @@ public class ScenarioManager {
         } else {
             System.out.println("Success: All runs completed without errors.");
         }
+
+        // Run post-run plotting script automatically
+        try
+        {
+            String pythonExe = "D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\venv\\Scripts\\python.exe";
+            String scriptPath =
+                    "D:\\Mitarbeitende\\gw2128\\repositories\\diss_mvb\\scripts\\simulation\\ots\\plot_scenario_results.py";
+            
+            System.out.println("[INFO] Triggering post-run plotting script...");
+            ProcessBuilder pb = new ProcessBuilder(pythonExe, scriptPath, "--output-dir", this.outputRoot.getAbsolutePath());
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream())))
+            {
+                String line;
+                while ((line = reader.readLine()) != null)
+                {
+                    System.out.println("[Plot Script] " + line);
+                }
+            }
+            int exitCode = process.waitFor();
+            System.out.println("[INFO] Plotting script completed with exit code: " + exitCode);
+        }
+        catch (Exception e)
+        {
+            System.err.println("[WARNING] Failed to run post-run plotting script: " + e.getMessage());
+        }
     }
 
     /**
