@@ -69,6 +69,7 @@ public abstract class AbstractSimulationScriptBase implements EventListener {
 
     private OtsSimulatorInterface simulator;
     private RoadNetwork network;
+    private boolean aborted = false;
 
     private final String name;
     private final String description;
@@ -118,6 +119,21 @@ public abstract class AbstractSimulationScriptBase implements EventListener {
         this.gtuColorers = colorers;
     }
 
+    public void abort() {
+        this.aborted = true;
+        try {
+            if (this.simulator != null) {
+                this.simulator.stop();
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+    }
+
+    public boolean isAborted() {
+        return this.aborted;
+    }
+
     // ----------------------------------------------------------------------
     // Starting the simulation
     // ----------------------------------------------------------------------
@@ -163,7 +179,7 @@ public abstract class AbstractSimulationScriptBase implements EventListener {
         double reportIntervalSimTime = 10.0;  // alle 10 Sekunden Simulation
         int lastPercent = -1;
 
-        while (this.simulator.getSimulatorAbsTime().si < this.simulationTime.si) {
+        while (this.simulator.getSimulatorAbsTime().si < this.simulationTime.si && !this.aborted) {
             this.simulator.step();
             double t = this.simulator.getSimulatorAbsTime().si;
 

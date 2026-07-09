@@ -3,6 +3,12 @@ package org.opentrafficsim.demo.mirova.scenariomanagement;
 import org.opentrafficsim.core.dsol.OtsSimulatorInterface;
 import org.opentrafficsim.road.network.RoadNetwork;
 import org.opentrafficsim.swing.gui.OtsAnimationPanel;
+import java.util.ArrayList;
+import java.util.List;
+import org.djutils.event.Event;
+import org.djutils.event.EventListener;
+import org.opentrafficsim.road.network.lane.object.detector.LoopDetector;
+import nl.tudelft.simulation.dsol.SimRuntimeException;
 
 /**
  * Concrete simulation script used by ScenarioManager to run a scenario.
@@ -93,6 +99,7 @@ public class ScenarioSimulationScript extends AbstractSimulationScriptBase {
     {
         RoadNetwork network = this.scenario.setupSimulation(sim, this.parameters);
         this.outputConfig = this.scenario.getOutputConfiguration();
+        setupWatchdog(sim);
         return network;
     }
     /**
@@ -131,5 +138,85 @@ public class ScenarioSimulationScript extends AbstractSimulationScriptBase {
     @Override
     protected void setupDemo(final OtsAnimationPanel panel, final RoadNetwork net) {
         // Nothing by default – scenarios may override
+    }
+
+    /**
+     * Set up the hang/deadlock watchdog by listening to L3a detector trigger events.
+     * @param sim OtsSimulatorInterface
+     */
+    private void setupWatchdog(final OtsSimulatorInterface sim) {
+        List<LoopDetector> detectors = this.scenario.getLoopDetectors();
+        List<LoopDetector> watchdogDetectors = new ArrayList<>();
+        for (LoopDetector detector : detectors) {
+            if (detector.getId().contains("L3a")) {
+                watchdogDetectors.add(detector);
+            }
+        }
+
+        if (watchdogDetectors.isEmpty()) {
+            System.out.println("[Watchdog] No detectors on L3a found. Watchdog disabled.");
+            return;
+        }
+
+        System.out.println("[Watchdog] Registered " + watchdogDetectors.size() + " detectors on L3a for deadlock detection.");
+
+        final double[] lastVehiclePassTime = new double[]{ 0.0 };
+
+        EventListener listener = new EventListener() {
+            private static final long serialVersionUID = 1L;
+            @Override
+            public void notify(final Event event) {
+                lastVehiclePassTime[0] = sim.getSimulatorTime().si;
+            }
+        };
+
+        for (LoopDetector detector : watchdogDetectors) {
+            try {
+                detector.addListener(listener, LoopDetector.LOOP_DETECTOR_TRIGGERED);
+            } catch (Exception e) {
+                System.err.println("[Watchdog] Failed to add listener to detector: " + detector.getId());
+                e.printStackTrace();
+            }
+        }
+
+        scheduleWatchdogCheck(sim, lastVehiclePassTime);
+    }
+
+    /**
+     * Schedules the next watchdog check event.
+     * @param sim OtsSimulatorInterface
+     * @param lastVehiclePassTime double[]
+     */
+    private void scheduleWatchdogCheck(final OtsSimulatorInterface sim, final double[] lastVehiclePassTime) {
+        try {
+            sim.scheduleEventRel(org.djunits.value.vdouble.scalar.Duration.instantiateSI(10.0), this, "checkDeadlock", new Object[]{sim, lastVehiclePassTime});
+        } catch (SimRuntimeException e) {
+            System.err.println("[Watchdog] Failed to schedule deadlock check event.");
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Checks if a deadlock has occurred (no vehicle passing L3a for 3 minutes).
+     * @param sim OtsSimulatorInterface
+     * @param lastVehiclePassTime double[]
+     */
+    @SuppressWarnings("unused")
+    private void checkDeadlock(final OtsSimulatorInterface sim, final double[] lastVehiclePassTime) {
+        double currentTime = sim.getSimulatorTime().si;
+
+        // Warmup/grace period of 5 minutes (300 s) before active checking
+        if (currentTime >= 300.0) {
+            double timeSinceLastVehicle = currentTime - lastVehiclePassTime[0];
+            if (timeSinceLastVehicle > 180.0) {
+                System.out.println(String.format(
+                    "[WATCHDOG] DEADLOCK DETECTED! No vehicles measured on L3a for %.1f seconds (current time: %.1f s). Aborting simulation run.",
+                    timeSinceLastVehicle, currentTime));
+                this.abort();
+                return;
+            }
+        }
+
+        scheduleWatchdogCheck(sim, lastVehiclePassTime);
     }
 }
