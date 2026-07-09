@@ -6,11 +6,13 @@ import org.opentrafficsim.core.gtu.GtuException;
 import org.opentrafficsim.core.gtu.perception.DirectEgoPerception;
 import org.opentrafficsim.core.gtu.plan.operational.OperationalPlanException;
 import org.opentrafficsim.core.network.NetworkException;
+import org.opentrafficsim.road.gtu.lane.perception.RelativeLane;
 import org.opentrafficsim.road.gtu.lane.perception.categories.AnticipationTrafficPerception;
 import org.opentrafficsim.road.gtu.lane.perception.categories.DirectDefaultSimplePerception;
 import org.opentrafficsim.road.gtu.lane.perception.categories.DirectInfrastructurePerception;
 import org.opentrafficsim.road.gtu.lane.perception.categories.neighbors.DirectNeighborsPerception;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
+import org.opentrafficsim.road.network.LaneChangeInfo;
 
 /**
  * Abstract base class representing a declarative KnowledgeChunk in the cognitive driving model.
@@ -178,6 +180,32 @@ public abstract class DesireIncentive
     public Desire getDesire()
     {
         return this.desire;
+    }
+
+    /**
+     * Checks if the target relative lane is a dead end or exit lane for the vehicle's route relative to the source lane.
+     * @param target RelativeLane; the target lane to check
+     * @param source RelativeLane; the source lane to compare against
+     * @return boolean; true if the target lane requires more mandatory lane changes to follow the route than the source lane, false otherwise
+     */
+    protected boolean isDeadEndForRoute(final RelativeLane target, final RelativeLane source)
+    {
+        try
+        {
+            java.util.SortedSet<LaneChangeInfo> targetInfo =
+                    this.infrastructurePerception.getLegalLaneChangeInfo(target);
+            java.util.SortedSet<LaneChangeInfo> sourceInfo =
+                    this.infrastructurePerception.getLegalLaneChangeInfo(source);
+
+            int nTarget = (targetInfo == null || targetInfo.isEmpty()) ? 0 : targetInfo.first().numberOfLaneChanges();
+            int nSource = (sourceInfo == null || sourceInfo.isEmpty()) ? 0 : sourceInfo.first().numberOfLaneChanges();
+
+            return nTarget > nSource;
+        }
+        catch (Exception e)
+        {
+            return false; // Failsafe
+        }
     }
 
 }
