@@ -76,7 +76,8 @@ public class KeepRightIncentive extends DesireIncentive
         double rightDist = getInfrastructurePerception().getLegalLaneChangePossibility(RelativeLane.CURRENT,
                 LateralDirectionality.RIGHT).si;
 
-        if (rightDist <= 0.0 || !getInfrastructurePerception().getCrossSection().contains(RelativeLane.RIGHT))
+        if (rightDist <= 0.0 || !getInfrastructurePerception().getCrossSection().contains(RelativeLane.RIGHT)
+                || isDeadEndForRoute(RelativeLane.RIGHT, RelativeLane.CURRENT))
         {
             this.desire = Desire.zero();
             return this.desire;

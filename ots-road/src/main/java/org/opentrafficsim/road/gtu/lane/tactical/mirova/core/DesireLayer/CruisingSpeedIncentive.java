@@ -97,7 +97,8 @@ public class CruisingSpeedIncentive extends DesireIncentive
         // Left Desire Computation (Speed Gain)
         // ---------------------------------------------------------
         double dLeft;
-        if (leftDist > 0.0 && getInfrastructurePerception().getCrossSection().contains(RelativeLane.LEFT))
+        if (leftDist > 0.0 && getInfrastructurePerception().getCrossSection().contains(RelativeLane.LEFT)
+                && !isDeadEndForRoute(RelativeLane.LEFT, RelativeLane.CURRENT))
         {
             Speed vLeft = infrastructureContext.getAnticipatedSpeed(RelativeLane.LEFT);
             dLeft = aGain.si * (vLeft.si - vCur.si) / vGain.si;
@@ -111,7 +112,8 @@ public class CruisingSpeedIncentive extends DesireIncentive
         // Right Desire Computation (Speed Gain & Keep Right)
         // ---------------------------------------------------------
         double dRight;
-        if (rightDist > 0.0 && getInfrastructurePerception().getCrossSection().contains(RelativeLane.RIGHT))
+        if (rightDist > 0.0 && getInfrastructurePerception().getCrossSection().contains(RelativeLane.RIGHT)
+                && !isDeadEndForRoute(RelativeLane.RIGHT, RelativeLane.CURRENT))
         {
             Speed vRight = infrastructureContext.getAnticipatedSpeed(RelativeLane.RIGHT);
             // no speed gain incentive to the right lane in non-congested situations

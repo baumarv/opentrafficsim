@@ -112,7 +112,8 @@ public class SocialInteractionsIncentives extends DesireIncentive
         {
             if (getInfrastructurePerception().getLegalLaneChangePossibility(RelativeLane.CURRENT, LateralDirectionality.RIGHT)
                     .gt(getParameters().getParameter(ParameterTypes.LOOKAHEAD)) && rhoActualFollower != null && rhoEgo != null
-                    && rhoActualFollower * socioSpeedSensitivity > rhoEgo && rhoActualFollower > rhoEgoRight)
+                    && rhoActualFollower * socioSpeedSensitivity > rhoEgo && rhoActualFollower > rhoEgoRight
+                    && !isDeadEndForRoute(RelativeLane.RIGHT, RelativeLane.CURRENT))
             {
                 // Encourage lane change to right with positive incentive
                 dRight = rhoActualFollower * socioSpeedSensitivity;
