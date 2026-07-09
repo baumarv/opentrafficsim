@@ -12,7 +12,23 @@ This repository is OpenTrafficSim (OTS). On top of it lives the **MiRoVA** (Migr
 - `Berghaus und Oeser - 2025...pdf` — Foundation for the `AccelToGap` state in `GapSearchPattern`/`MandatoryLaneChangePattern`. Provides the DTH car-following model and calibrated parameter values (T_des≈0.7s for mergers, τ_LC=6s, DRAC_min≈-0.1 to -1.5 m/s²) from German freeway data (A59 Duisburg, A4 Cologne).
 - `SP6 final candidate.pdf` — DFG project proposal. Note: originally described SUMO, but OTS was chosen instead (correct decision for this architecture).
 
-## 2. The Four-Layer Architecture ("The Loop")
+## 2. Comprehensive Documentation Map
+To save context window token usage and avoid parsing raw codebase files, refer directly to the modular documentation files under `docs/mirova/`:
+- **Landing Map / Overview**: [docs/mirova/README.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/README.md)
+- **OTS Integration & GTU Lifecycle**: [docs/mirova/ots_integration.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/ots_integration.md)
+- **Layer 1: Perception & Belief**: [docs/mirova/layer1_perception_belief.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/layer1_perception_belief.md)
+- **Layer 2: Desire / Motivation**: [docs/mirova/layer2_desire.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/layer2_desire.md)
+- **Layer 3: Intention / FSMs**: [docs/mirova/layer3_decision_intention.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/layer3_decision_intention.md)
+- **Layer 4: Reactive / Execution**: [docs/mirova/layer4_reactive_control.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/layer4_reactive_control.md)
+- **Arbitration & Plan Selector**: [docs/mirova/arbitration.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/arbitration.md)
+- **Scenario Management**: [docs/mirova/scenarios_and_simulations.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/scenarios_and_simulations.md)
+- **OTS XML Format**: [docs/mirova/ots_xml_format.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/ots_xml_format.md)
+- **OTS Editor Reference**: [docs/mirova/ots_editor.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/ots_editor.md)
+- **Python Pipeline (diss_mvb)**: [docs/mirova/python_pipeline.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/python_pipeline.md)
+
+
+
+## 3. The Four-Layer Architecture ("The Loop")
 All implementations must follow this layered structure:
 
 | Layer | Name | Responsibility |
@@ -22,7 +38,7 @@ All implementations must follow this layered structure:
 | 3 | **Decision** (`PatternSelector`) | Selects the active `ManeuverPattern` based on aggregated desires |
 | 4 | **Procedure & Action** (`ManeuverPattern` / `ActionState`) | Implements the FSM and returns the `SimpleOperationalPlan` |
 
-## 3. Coding Standards
+## 4. Coding Standards
 
 - **Units**: Use DJUnits (`Length`, `Speed`, `Acceleration`, `Duration`) exclusively. Never use primitive `double` for physical values.
 - **Language**: All code, comments, and documentation in English.
@@ -31,7 +47,7 @@ All implementations must follow this layered structure:
 - **Imports**: Always include full imports and the mandatory MiRoVA class header.
 - Do not modify `ParameterTypes.T` in tactical states (parameter-hacking is being replaced).
 
-## 4. Current Focus: Longitudinal Control & Relaxation (Keane & Gao 2021)
+## 5. Current Focus: Longitudinal Control & Relaxation (Keane & Gao 2021)
 
 Replacing parameter-hacking (e.g., temporarily reducing `T` or `s_0`) with a **2-parameter relaxation model**.
 
@@ -58,12 +74,12 @@ Replacing parameter-hacking (e.g., temporarily reducing `T` or `s_0`) with a **2
 - `MandatoryLaneChangePattern` can pre-register a `RelaxationState` for a target leader on an adjacent lane
 - Enables smooth merging before the lane change is physically completed
 
-## 5. Merging & Anticipation Logic
+## 6. Merging & Anticipation Logic
 
 - **Long-Range Anticipation**: `AnticipateMergeState` uses a temporary lookahead boost (up to 1000 m) to sample average speed at bottlenecks.
 - **Signal Smoothing**: Exponential Moving Average low-pass filter on anticipated speeds; smoothing factor α derived from simulation timestep `dt` and time constant τ.
 
-## 6. Verification Checklist (apply when generating or refactoring code)
+## 7. Verification Checklist (apply when generating or refactoring code)
 
 - [ ] No `ParameterTypes.T` modifications in tactical states
 - [ ] `MirovaCarFollowingUtil` used for all acceleration calculations
