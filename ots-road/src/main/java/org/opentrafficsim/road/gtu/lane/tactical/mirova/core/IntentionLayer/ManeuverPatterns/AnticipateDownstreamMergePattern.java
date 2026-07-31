@@ -88,6 +88,17 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                     return new NearAnticipationState(this);
                 }
             }
+            try
+            {
+                if (!this.vehicle.getParameters().getParameter(MirovaParameters.farAnticipationEnabled))
+                {
+                    return null;
+                }
+            }
+            catch (ParameterException e)
+            {
+                // default to true behavior
+            }
             return new FarAnticipationState(this);
         };
         this.requiredContextKeys.add("Ego");
@@ -130,22 +141,28 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
         Length distanceToEndRight = infra.getPhysicalDistanceToLaneEnd(RelativeLane.RIGHT);
         if (distanceToEndRight.eq(Length.POSITIVE_INFINITY))
         {
-            LaneDropInfo dropInfoRight = infra.getAnticipatedLaneDropInfo(LateralDirectionality.RIGHT);
-            if (dropInfoRight != null)
+            if (this.vehicle.getParameters().getParameter(MirovaParameters.farAnticipationEnabled))
             {
-                distanceToEndRight = dropInfoRight.getDistance();
-                this.anticipatedLaneDropMap.put(LateralDirectionality.RIGHT, dropInfoRight);
+                LaneDropInfo dropInfoRight = infra.getAnticipatedLaneDropInfo(LateralDirectionality.RIGHT);
+                if (dropInfoRight != null)
+                {
+                    distanceToEndRight = dropInfoRight.getDistance();
+                    this.anticipatedLaneDropMap.put(LateralDirectionality.RIGHT, dropInfoRight);
+                }
             }
         }
 
         Length distanceToEndLeft = infra.getPhysicalDistanceToLaneEnd(RelativeLane.LEFT);
         if (distanceToEndLeft.eq(Length.POSITIVE_INFINITY))
         {
-            LaneDropInfo dropInfoLeft = infra.getAnticipatedLaneDropInfo(LateralDirectionality.LEFT);
-            if (dropInfoLeft != null)
+            if (this.vehicle.getParameters().getParameter(MirovaParameters.farAnticipationEnabled))
             {
-                distanceToEndLeft = dropInfoLeft.getDistance();
-                this.anticipatedLaneDropMap.put(LateralDirectionality.LEFT, dropInfoLeft);
+                LaneDropInfo dropInfoLeft = infra.getAnticipatedLaneDropInfo(LateralDirectionality.LEFT);
+                if (dropInfoLeft != null)
+                {
+                    distanceToEndLeft = dropInfoLeft.getDistance();
+                    this.anticipatedLaneDropMap.put(LateralDirectionality.LEFT, dropInfoLeft);
+                }
             }
         }
 
@@ -347,7 +364,8 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
             {
                 return null;
             }
-            Acceleration accCoop = this.vehicle.getParameters().getParameter(MirovaParameters.cooperativeDecelerationThreshold);
+            Acceleration accCoop =
+                    this.vehicle.getParameters().getParameter(MirovaParameters.preemptiveCooperativeDeceleration);
             Acceleration finalAcc = Acceleration.min(aDirectLeader, Acceleration.max(aAnticipation, accCoop));
             return new SimpleOperationalPlan(finalAcc, this.vehicle.getParameters().getParameter(ParameterTypes.DT));
         }
