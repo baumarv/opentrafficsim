@@ -145,20 +145,21 @@ public class ScenarioSimulationScript extends AbstractSimulationScriptBase {
      * @param sim OtsSimulatorInterface
      */
     private void setupWatchdog(final OtsSimulatorInterface sim) {
-        List<LoopDetector> detectors = this.scenario.getLoopDetectors();
-        List<LoopDetector> watchdogDetectors = new ArrayList<>();
-        for (LoopDetector detector : detectors) {
-            if (detector.getId().contains("L3a")) {
-                watchdogDetectors.add(detector);
-            }
-        }
-
-        if (watchdogDetectors.isEmpty()) {
-            System.out.println("[Watchdog] No detectors on L3a found. Watchdog disabled.");
+        Boolean enableWatchdog = this.parameters.getOrDefault("enableWatchdog", true, Boolean.class);
+        if (!enableWatchdog) {
+            System.out.println("[Watchdog] Watchdog disabled via parameters.");
             return;
         }
 
-        System.out.println("[Watchdog] Registered " + watchdogDetectors.size() + " detectors on L3a for deadlock detection.");
+        List<LoopDetector> detectors = this.scenario.getLoopDetectors();
+        List<LoopDetector> watchdogDetectors = new ArrayList<>(detectors);
+
+        if (watchdogDetectors.isEmpty()) {
+            System.out.println("[Watchdog] No detectors found. Watchdog disabled.");
+            return;
+        }
+
+        System.out.println("[Watchdog] Registered " + watchdogDetectors.size() + " detectors for deadlock detection.");
 
         final double[] lastVehiclePassTime = new double[]{ 0.0 };
 
@@ -197,7 +198,7 @@ public class ScenarioSimulationScript extends AbstractSimulationScriptBase {
     }
 
     /**
-     * Checks if a deadlock has occurred (no vehicle passing L3a for 3 minutes).
+     * Checks if a deadlock has occurred (no vehicle passing any detector for 3 minutes).
      * @param sim OtsSimulatorInterface
      * @param lastVehiclePassTime double[]
      */
@@ -210,7 +211,7 @@ public class ScenarioSimulationScript extends AbstractSimulationScriptBase {
             double timeSinceLastVehicle = currentTime - lastVehiclePassTime[0];
             if (timeSinceLastVehicle > 180.0) {
                 System.out.println(String.format(
-                    "[WATCHDOG] DEADLOCK DETECTED! No vehicles measured on L3a for %.1f seconds (current time: %.1f s). Aborting simulation run.",
+                    "[WATCHDOG] DEADLOCK DETECTED! No vehicles measured on any detectors for %.1f seconds (current time: %.1f s). Aborting simulation run.",
                     timeSinceLastVehicle, currentTime));
                 this.abort();
                 return;

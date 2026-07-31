@@ -136,7 +136,7 @@ public class SimpleHighwayScenario extends ScenarioGenerator
     @Override
     public RoadNetwork setupSimulation(final OtsSimulatorInterface sim, final ScenarioParameters params) throws Exception
     {
-
+        this.currentParameters = params;
         this.stream = new MersenneTwister(params.getSeed());
 
         buildNetwork(sim);
@@ -352,6 +352,13 @@ public class SimpleHighwayScenario extends ScenarioGenerator
     @Override
     public void buildRoadSamplers() throws NetworkException
     {
+        ScenarioParameters params = this.currentParameters != null ? this.currentParameters : this.defaultParameters;
+        Boolean enableSamplers = params.getOrDefault("enableTrajectoryRecording", true, Boolean.class);
+        if (!enableSamplers)
+        {
+            System.out.println("[Samplers] Trajectory recording (samplers) is disabled via parameters.");
+            return;
+        }
 
         RoadSampler sampler = RoadSampler.build(this.network).registerExtendedDataType(new ExtendedDataRelaxedHeadway())
                 .registerExtendedDataType(new ExtendedDataHeadwayRelaxationProgress())

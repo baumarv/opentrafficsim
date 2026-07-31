@@ -12,7 +12,8 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.ParameterGridBuilder;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 
 /**
- * Runner class to execute parallel simulations of the FreiburgNord scenario with custom parameter configurations.
+ * Runner class to execute parallel fine parameter study simulations of the FreiburgNord scenario.
+ * Evaluates the sweet spot region across both 01.10.2025 and 07.10.2025 with 6 replications per variation.
  * <p>
  * Copyright (c) 2026 Marvin Baumann / KIT. All rights reserved. <br>
  * BSD-style license. See <a href="https://opentrafficsim.org/docs/license.html">OpenTrafficSim License</a>.
@@ -52,69 +53,76 @@ public class RunFreiburgParallel
                         ScenarioManager.silenceBackgroundThreads();
 
                         // --- CONFIGURATION START ---
-                        // 1. Define the simulation time periods to run
-                        java.util.List<TimePeriod> periods =
-                                        java.util.List.of(new TimePeriod("2025-09-18 12:00:00", "2025-09-18 20:00:00"),
-                                                        new TimePeriod("2025-09-20 06:00:00", "2025-09-20 14:00:00"),
-                                                        new TimePeriod("2025-09-21 08:00:00", "2025-09-21 13:00:00"),
-                                                        new TimePeriod("2025-09-23 14:00:00", "2025-09-23 19:00:00"),
-                                                        new TimePeriod("2025-09-17 07:00:00", "2025-09-17 20:00:00"));
+                        // 1. Define the simulation time periods (01.10.2025 & 07.10.2025)
+                        java.util.List<TimePeriod> periods = java.util.List.of(
+                                        new TimePeriod("2025-10-01 13:00:00", "2025-10-01 22:00:00"),
+                                        new TimePeriod("2025-10-07 13:00:00", "2025-10-07 22:00:00")
+                        );
 
-                        // 2. Set the number of replications (seeds/runs to run per time period)
+                        // 2. Set the number of replications (6 seeds/runs to run per parameter variation)
                         int numberOfReplications = 6;
 
                         // 3. Number of parallel execution threads
                         int parallelThreads = 24;
 
-                        // 4. Define the root output directory for the simulation results
+                        // 4. Define the root output directory for the fine parameter study results
                         File outputDirectory = new File(
-                                        "D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\output\\ots\\freiburg_multipleDates");
+                                        "D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\output\\ots\\freiburg_fineParameterStudy_2025-10-01_and_2025-10-07");
                         // --- CONFIGURATION END ---
+
+                        // Define fine parameter combinations in sweet spot region: {RedFac, car.T, truck.T}
+                        double[][] paramCombinations = new double[][] {
+                                {0.50, 0.90, 1.20}, // Var 1: RedFac=0.50, car.T=0.90, truck.T=1.20
+                                {0.45, 0.90, 1.20}, // Var 2: RedFac=0.45, car.T=0.90, truck.T=1.20
+                                {0.40, 0.90, 1.20}, // Var 3: RedFac=0.40, car.T=0.90, truck.T=1.20
+                                {0.40, 0.85, 1.15}, // Var 4: RedFac=0.40, car.T=0.85, truck.T=1.15
+                                {0.40, 0.95, 1.25}, // Var 5: RedFac=0.40, car.T=0.95, truck.T=1.25
+                                {0.35, 0.85, 1.15}, // Var 6: RedFac=0.35, car.T=0.85, truck.T=1.15
+                                {0.35, 0.90, 1.20}, // Var 7: RedFac=0.35, car.T=0.90, truck.T=1.20
+                                {0.45, 0.85, 1.15}  // Var 8: RedFac=0.45, car.T=0.85, truck.T=1.15
+                        };
 
                         // Initialize the ScenarioManager
                         ScenarioManager scenarioManager = new ScenarioManager(outputDirectory);
 
-                        // Define and register each time period as a separate scenario to output to different directories
                         for (TimePeriod period : periods)
                         {
                                 String specificScenarioName = "FreiburgNord_" + formatPeriodName(period);
                                 scenarioManager.addScenario(specificScenarioName, FreiburgNord.class);
 
-                                ScenarioParameters baseParams = new ScenarioParameters();
-                                baseParams.setSeed(42L); // Base seed
-
-                                // Set demand date range and aggregation interval for database loading
-                                baseParams.set("demandStartDate", period.startDate());
-                                baseParams.set("demandEndDate", period.endDate());
-                                baseParams.set("demandAggregation", 5); // 1-minute aggregation for minute-by-minute demand
-
-                                // Define parameters directly analogously to RunFreiburgNord
-                                baseParams.set("car." + ParameterTypes.T.getId(), 1.4);
-                                baseParams.set("car." + MirovaParameters.vGain.getId(), 15.0);
-                                baseParams.set("car." + MirovaParameters.A_MAX.getId(), 3.5);
-                                baseParams.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(), -2.0);
-                                baseParams.set("truck." + ParameterTypes.T.getId(), 2.0);
-                                baseParams.set("truck." + MirovaParameters.vGain.getId(), 30.0);
-                                baseParams.set("truck." + MirovaParameters.A_MAX.getId(), 2.5);
-                                baseParams.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(), -0.5);
-
-                                // Build variations grid using ParameterGridBuilder with custom coupled parameter dimensions
-                                // (Tuple-based)
-                                java.util.List<ScenarioParameters> variations = new ParameterGridBuilder(baseParams)
-                                                .addDimension("car.", ParameterTypes.T.getId(),
-                                                                java.util.List.of(1.2, 1.3, 1.4))
-                                                .addDimension("truck.", ParameterTypes.T.getId(),
-                                                                java.util.List.of(1.8, 1.9, 2.0))
-                                                .addDimensionParallel(new String[] {"coopDecel",
-                                                                "car." + MirovaParameters.cooperativeDecelerationThreshold
-                                                                                .getId(),
-                                                                "truck." + MirovaParameters.cooperativeDecelerationThreshold
-                                                                                .getId()},
-                                                                -3.0, -2.0)
-                                                .build();
-
-                                for (ScenarioParameters varParams : variations)
+                                for (double[] combo : paramCombinations)
                                 {
+                                        double redFac = combo[0];
+                                        double carT = combo[1];
+                                        double truckT = combo[2];
+
+                                        ScenarioParameters varParams = new ScenarioParameters();
+                                        varParams.setSeed(42L); // Base seed
+                                        varParams.set("enableTrajectoryRecording", false);
+
+                                        // Set demand date range and aggregation interval for database loading
+                                        varParams.set("demandStartDate", period.startDate());
+                                        varParams.set("demandEndDate", period.endDate());
+                                        varParams.set("demandAggregation", 2);
+
+                                        // Car parameters
+                                        varParams.set("car." + ParameterTypes.T.getId(), carT);
+                                        varParams.set("car." + MirovaParameters.vGain.getId(), 15.0);
+                                        varParams.set("car." + MirovaParameters.A_MAX.getId(), 3.5);
+                                        varParams.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(), -2.0);
+                                        varParams.set("car." + MirovaParameters.farAnticipationEnabled.getId(), false);
+                                        varParams.set("car." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(), redFac);
+
+                                        // Truck parameters
+                                        varParams.set("truck." + ParameterTypes.T.getId(), truckT);
+                                        varParams.set("truck." + MirovaParameters.vGain.getId(), 30.0);
+                                        varParams.set("truck." + MirovaParameters.A_MAX.getId(), 1.3);
+                                        varParams.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(), -0.5);
+                                        varParams.set("truck." + MirovaParameters.cooperativeLaneChangesEnabled.getId(), false);
+                                        varParams.set("truck." + MirovaParameters.farAnticipationEnabled.getId(), false);
+                                        varParams.set("truck." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(), redFac);
+
+                                        // Register variation
                                         scenarioManager.addParameterVariation(specificScenarioName, varParams);
                                 }
                         }
@@ -124,11 +132,11 @@ public class RunFreiburgParallel
 
                         boolean enableGUI = false;
 
-                        System.out.println("Starting parallel execution of FreiburgNord scenarios...");
-                        scenarioManager.runAll(parallelThreads, enableGUI);
+                        System.out.println("Starting parallel fine parameter study of FreiburgNord (96 runs across 01.10 & 07.10)...");
+                        boolean success = scenarioManager.runAll(parallelThreads, enableGUI);
 
                         System.out.println("Execution finished. Shutting down.");
-                        System.exit(0);
+                        System.exit(success ? 0 : 1);
                 }
                 catch (Exception exception)
                 {

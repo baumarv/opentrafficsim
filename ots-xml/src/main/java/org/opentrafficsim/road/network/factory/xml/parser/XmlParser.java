@@ -200,7 +200,21 @@ public final class XmlParser implements Serializable
     {
         Locale locale = Locale.getDefault();
         Locale.setDefault(Locale.US);
-        JAXBContext jc = JAXBContext.newInstance(Ots.class);
+        JAXBContext jc;
+        try
+        {
+            jc = JAXBContext.newInstance(Ots.class);
+        }
+        catch (Throwable t)
+        {
+            t.printStackTrace();
+            System.err.println("JAXB Exception Cause: " + t.getCause());
+            if (t.getCause() != null)
+            {
+                t.getCause().printStackTrace();
+            }
+            throw t;
+        }
         Unmarshaller unmarshaller = jc.createUnmarshaller();
         SAXParserFactory spf = SAXParserFactory.newInstance();
         spf.setXIncludeAware(true);

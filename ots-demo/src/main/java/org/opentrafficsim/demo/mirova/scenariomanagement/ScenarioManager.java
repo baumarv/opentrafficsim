@@ -78,7 +78,7 @@ public class ScenarioManager {
      * @throws IllegalAccessException
      * @throws InstantiationException
      */
-    public void runAll(final int parallelThreads, final boolean enableGUI) throws InterruptedException, ExecutionException, InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
+    public boolean runAll(final int parallelThreads, final boolean enableGUI) throws InterruptedException, ExecutionException, InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
 
         // Calculate total tasks to run
         int totalTasks = 0;
@@ -226,6 +226,7 @@ public class ScenarioManager {
         {
             System.err.println("[WARNING] Failed to run post-run plotting script: " + e.getMessage());
         }
+        return totalFailed == 0;
     }
 
     /**
@@ -263,6 +264,7 @@ public class ScenarioManager {
     private static class ThreadFilteringPrintStream extends java.io.PrintStream
     {
         private final java.io.PrintStream original;
+        private final ThreadLocal<java.io.ByteArrayOutputStream> buffers = ThreadLocal.withInitial(java.io.ByteArrayOutputStream::new);
 
         public ThreadFilteringPrintStream(final java.io.PrintStream original)
         {
@@ -273,48 +275,61 @@ public class ScenarioManager {
         @Override
         public void write(final int b)
         {
-            if (!shouldSuppress())
+            if (Thread.currentThread().getName().equals("main"))
             {
                 this.original.write(b);
+                return;
+            }
+            
+            java.io.ByteArrayOutputStream buf = this.buffers.get();
+            buf.write(b);
+            if (b == '\n' || b == '\r')
+            {
+                flushThreadBuffer(buf);
             }
         }
 
         @Override
         public void write(final byte[] buf, final int off, final int len)
         {
-            if (!shouldSuppress(buf, off, len))
+            if (Thread.currentThread().getName().equals("main"))
             {
                 this.original.write(buf, off, len);
+                return;
             }
-        }
-
-        private boolean shouldSuppress()
-        {
-            return !Thread.currentThread().getName().equals("main");
-        }
-
-        private boolean shouldSuppress(final byte[] buf, final int off, final int len)
-        {
-            if (!shouldSuppress())
+            
+            java.io.ByteArrayOutputStream threadBuf = this.buffers.get();
+            for (int i = 0; i < len; i++)
             {
-                return false;
-            }
-            if (len > 5)
-            {
-                try
+                int b = buf[off + i];
+                threadBuf.write(b);
+                if (b == '\n' || b == '\r')
                 {
-                    String s = new String(buf, off, Math.min(len, 32), java.nio.charset.StandardCharsets.UTF_8);
-                    if (s.contains("[SIM ") || s.contains("[PROGRESS]") || s.contains("[ERROR]"))
-                    {
-                        return false;
-                    }
-                }
-                catch (Exception e)
-                {
-                    // ignore
+                    flushThreadBuffer(threadBuf);
                 }
             }
-            return true;
+        }
+        
+        private void flushThreadBuffer(java.io.ByteArrayOutputStream threadBuf)
+        {
+            byte[] data = threadBuf.toByteArray();
+            threadBuf.reset();
+            if (data.length == 0)
+            {
+                return;
+            }
+            try
+            {
+                String s = new String(data, java.nio.charset.StandardCharsets.UTF_8);
+                if (s.contains("[SIM ") || s.contains("[PROGRESS]") || s.contains("[ERROR]") || s.contains("[WATCHDOG]") || s.contains("[OUTPUT]"))
+                {
+                    this.original.write(data);
+                }
+            }
+            catch (Exception e)
+            {
+                // ignore
+            }
         }
     }
 }
