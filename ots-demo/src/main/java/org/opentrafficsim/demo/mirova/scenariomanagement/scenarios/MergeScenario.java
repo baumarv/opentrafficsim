@@ -151,6 +151,7 @@ public class MergeScenario extends ScenarioGenerator
     @Override
     public RoadNetwork setupSimulation(final OtsSimulatorInterface sim, final ScenarioParameters params) throws Exception
     {
+        this.currentParameters = params;
         this.stream = new MersenneTwister(params.getSeed());
 
         buildNetwork(sim);
@@ -515,29 +516,22 @@ public class MergeScenario extends ScenarioGenerator
     @Override
     public void buildRoadSamplers() throws NetworkException
     {
+        ScenarioParameters params = this.currentParameters != null ? this.currentParameters : this.defaultParameters;
+        Boolean enableSamplers = params.getOrDefault("enableTrajectoryRecording", true, Boolean.class);
 
-        RoadSampler sampler = RoadSampler.build(this.network)
-                // .registerExtendedDataType(new ExtendedDataRelaxedHeadway())
-                // .registerExtendedDataType(new ExtendedDataHeadwayRelaxationProgress())
-                // .registerExtendedDataType(new ExtendedDataRelaxationTargetHeadway())
-                .registerExtendedDataType(new ExtendedDataActionState())
-                .registerExtendedDataType(new ExtendedDataLaneChangeDesireLeft())
-                .registerExtendedDataType(new ExtendedDataLaneChangeDesireRight())
-                // .registerExtendedDataType(new ExtendedDataIsChangingLane())
-                // .registerExtendedDataType(new ExtendedDataLaneChangePlan())
-                // .registerExtendedDataType(new ExtendedDataLaneChangePlanDirection())
-                // .registerExtendedDataType(new ExtendedDataFrontGapTimeHeadway())
-                // .registerExtendedDataType(new ExtendedDataFrontGapDeltaSpeed())
-                // .registerExtendedDataType(new ExtendedDataFrontGapDistance())
-                // //.registerExtendedDataType(new ExtendedDataW99DrivingMode())
-                // .registerExtendedDataType(new ExtendedDataFollowerDecelRight())
-                // .registerExtendedDataType(new ExtendedDataFollowerDecelLeft())
-                // .registerExtendedDataType(new ExtendedDataEgoDecelRight())
-                // .registerExtendedDataType(new ExtendedDataEgoDecelLeft())
-                // //.registerExtendedDataType(new ExtendedDataCurrentCFAcceleration())
-                // .registerExtendedDataType(new ExtendedDataCurrentDesiredSpeed())
-                // //.registerExtendedDataType(new ExtendedDataSocioSpeedPressure())
-                .create();
+        RoadSampler sampler = null;
+        if (enableSamplers)
+        {
+            sampler = RoadSampler.build(this.network)
+                    .registerExtendedDataType(new ExtendedDataActionState())
+                    .registerExtendedDataType(new ExtendedDataLaneChangeDesireLeft())
+                    .registerExtendedDataType(new ExtendedDataLaneChangeDesireRight())
+                    .create();
+        }
+        else
+        {
+            System.out.println("[Samplers] Trajectory recording (samplers) is disabled via parameters.");
+        }
 
         ImmutableMap<String, Link> linkMap = this.network.getLinkMap();
         ArrayList<Lane> lanesDetector = new ArrayList<>();
@@ -575,8 +569,8 @@ public class MergeScenario extends ScenarioGenerator
                     detector.specificDataFor(DefaultsNl.CAR, DefaultsNl.TRUCK);
                     this.listLoopDetectors.add(detector);
                 }
-                if (lane.getFullId().equals("BC.FORWARD1") || lane.getFullId().equals("BC.FORWARD2")
-                        || lane.getFullId().equals("BC.FORWARD3") || lane.getFullId().equals("BC.FORWAR4"))
+                if (enableSamplers && (lane.getFullId().equals("BC.FORWARD1") || lane.getFullId().equals("BC.FORWARD2")
+                        || lane.getFullId().equals("BC.FORWARD3") || lane.getFullId().equals("BC.FORWAR4")))
                 {
                     GraphPath<LaneDataRoad> path = GraphLaneUtil.createPath("path", lane);
                     sampler.scheduleStartRecording(Time.instantiateSI(0), path.get(0).getSource(0));
@@ -585,19 +579,23 @@ public class MergeScenario extends ScenarioGenerator
         }
 
         // activates sampling on all lanes for the entire simulation duration
-        for (Lane lane : this.listAllLanes)
+        if (enableSamplers)
         {
-            if (lane.getLink().getId().equals("BC"))
+            for (Lane lane : this.listAllLanes)
             {
-                GraphPath<LaneDataRoad> path = GraphLaneUtil.createPath("path", lane);
-                sampler.scheduleStartRecording(Time.instantiateSI(0), path.get(0).getSource(0));
-                System.out.println("Scheduled sampler for lane " + lane.getId());
+                if (lane.getLink().getId().equals("BC"))
+                {
+                    GraphPath<LaneDataRoad> path = GraphLaneUtil.createPath("path", lane);
+                    sampler.scheduleStartRecording(Time.instantiateSI(0), path.get(0).getSource(0));
+                    System.out.println("Scheduled sampler for lane " + lane.getId());
+                }
             }
-
         }
 
-        this.listRoadSamplers.add(sampler);
-
+        if (enableSamplers && sampler != null)
+        {
+            this.listRoadSamplers.add(sampler);
+        }
     }
 
     @Override

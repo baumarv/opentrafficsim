@@ -100,8 +100,6 @@ import nl.tudelft.simulation.jstats.streams.StreamInterface;
  */
 public class FreiburgNord extends ScenarioGenerator
 {
-    /** Active scenario parameters for the current setup. */
-    private ScenarioParameters currentParameters;
 
     /**
      * Constructor for FreiburgNord.
@@ -401,9 +399,20 @@ public class FreiburgNord extends ScenarioGenerator
     @Override
     public void buildRoadSamplers() throws NetworkException
     {
-        RoadSampler sampler = RoadSampler.build(this.network).registerExtendedDataType(new ExtendedDataActionState())
-                .registerExtendedDataType(new ExtendedDataLaneChangeDesireLeft())
-                .registerExtendedDataType(new ExtendedDataLaneChangeDesireRight()).create();
+        ScenarioParameters params = this.currentParameters != null ? this.currentParameters : this.defaultParameters;
+        Boolean enableSamplers = params.getOrDefault("enableTrajectoryRecording", true, Boolean.class);
+
+        RoadSampler sampler = null;
+        if (enableSamplers)
+        {
+            sampler = RoadSampler.build(this.network).registerExtendedDataType(new ExtendedDataActionState())
+                    .registerExtendedDataType(new ExtendedDataLaneChangeDesireLeft())
+                    .registerExtendedDataType(new ExtendedDataLaneChangeDesireRight()).create();
+        }
+        else
+        {
+            System.out.println("[Samplers] Trajectory recording (samplers) is disabled via parameters.");
+        }
 
         ImmutableMap<String, Link> linkMap = this.network.getLinkMap();
         ImmutableIterator<Link> links = linkMap.values().iterator();
@@ -430,7 +439,7 @@ public class FreiburgNord extends ScenarioGenerator
                 }
 
                 // Record trajectory paths starting at link L2a
-                if (linkId.equals("L1a") || linkId.equals("L2a") || linkId.equals("L3a") || linkId.equals("L4a"))
+                if (enableSamplers && (linkId.equals("L1a") || linkId.equals("L2a") || linkId.equals("L3a") || linkId.equals("L4a")))
                 {
                     GraphPath<LaneDataRoad> path = GraphLaneUtil.createPath("path", lane);
                     sampler.scheduleStartRecording(Time.instantiateSI(0), path.get(0).getSource(0));
@@ -438,7 +447,10 @@ public class FreiburgNord extends ScenarioGenerator
             }
         }
 
-        this.listRoadSamplers.add(sampler);
+        if (enableSamplers && sampler != null)
+        {
+            this.listRoadSamplers.add(sampler);
+        }
     }
 
     /**

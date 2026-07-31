@@ -146,6 +146,10 @@ public abstract class AbstractSimulationScriptBase implements EventListener {
         } else {
             runWithGui();
         }
+
+        if (this.aborted) {
+            throw new SimRuntimeException("Simulation run was aborted (Watchdog deadlock detected).");
+        }
     }
 
     private void validate() {

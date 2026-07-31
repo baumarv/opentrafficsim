@@ -141,10 +141,10 @@ public class RunFreiburgParallel_ParameterStudy
                         boolean enableGUI = false;
 
                         System.out.println("Starting parallel execution of FreiburgNord parameter study...");
-                        scenarioManager.runAll(parallelThreads, enableGUI);
+                        boolean success = scenarioManager.runAll(parallelThreads, enableGUI);
 
                         System.out.println("Execution finished. Shutting down.");
-                        System.exit(0);
+                        System.exit(success ? 0 : 1);
                 }
                 catch (Exception exception)
                 {

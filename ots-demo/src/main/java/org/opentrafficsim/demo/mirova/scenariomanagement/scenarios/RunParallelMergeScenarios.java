@@ -58,7 +58,8 @@ public class RunParallelMergeScenarios
             boolean enableGUI = false;
 
             System.out.println("Starting 10 parallel replications of MergeScenario...");
-            scenarioManager.runAll(parallelThreads, enableGUI);
+            boolean success = scenarioManager.runAll(parallelThreads, enableGUI);
+            System.exit(success ? 0 : 1);
 
         }
         catch (Exception exception)
