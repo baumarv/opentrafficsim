@@ -21,3 +21,9 @@
 ## Implementation Checklist
 
 Whenever you generate or modify code in the MiRoVA framework, check the Verification Checklist in [CLAUDE.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/CLAUDE.md#L78-L86).
+
+## Documentation Maintenance Rule
+
+> [!IMPORTANT]
+> Whenever you modify behavioral logic, tactical planner algorithms, or introduce new parameters or features (such as discretionary lane-changing constraints or deadlock watchdog settings), you **MUST** update the corresponding documentation files under `docs/mirova/` immediately to keep them fully synchronized with the implementation.
+

@@ -382,7 +382,9 @@ LoopDetector detector = new LoopDetector(
 
 ### Road Samplers (Trajectory Recording)
 
-`RoadSampler` records full vehicle trajectories including extended data types:
+`RoadSampler` records full vehicle trajectories including extended data types. 
+
+**Opt-Out Parameter**: Trajectory recording can be dynamically disabled for performance optimization (e.g. in parallel batch sweeps) by setting the `"enableTrajectoryRecording"` parameter to `false` in the `ScenarioParameters`. When disabled, the samplers are not registered or scheduled.
 
 ```java
 RoadSampler sampler = RoadSampler.build(this.network)
@@ -500,6 +502,13 @@ ScenarioManager.silenceBackgroundThreads(); // suppress verbose logs from thread
 manager.runAll(16, false);
 ```
 
+### 📺 Real-Time Progress Monitoring (Thread-Local Line Buffering)
+
+To prevent console logging spam from multiple concurrent simulations, `ScenarioManager.silenceBackgroundThreads()` redirects `System.out` and `System.err` to a custom `ThreadFilteringPrintStream`.
+* **Line Buffering**: Instead of blindly discarding all text printed by background threads, the print stream uses a `ThreadLocal` line-buffering mechanism.
+* **Progress Bypass**: Bytes are gathered per-thread until a newline (`\n` or `\r`) is written. The complete line is then inspected. If it contains `[SIM ]`, `[PROGRESS]`, `[ERROR]`, `[WATCHDOG]`, or `[OUTPUT]`, it is written to the original console output. All other verbose library logs (such as class loadings or debug solver steps) are silently ignored.
+* This allows monitoring of individual run progress (e.g. `[SIM FreiburgNord (seed 42)] ... 45%  t=14600/32400 s`) in real-time.
+
 ### Execution Internals
 
 ```mermaid
@@ -536,9 +545,11 @@ diss_mvb/scripts/simulation/ots/plot_scenario_results.py --output-dir <outputRoo
 ### Watchdog / Deadlock Detection
 
 Each simulation has a built-in watchdog (`ScenarioSimulationScript.setupWatchdog()`):
-- Listens to `LoopDetector` trigger events on link `L3a`
-- If no vehicle passes `L3a` for **3 minutes** of simulation time → the run is considered deadlocked and terminated
-- Prevents stuck simulations from blocking parallel workers indefinitely
+- Listens to trigger events on **all loop detectors** present in the network (instead of just a specific link).
+- If no vehicle triggers any detector for **3 minutes** of simulation time → the run is considered deadlocked and terminated.
+- **Opt-Out Parameter**: Can be disabled by setting `"enableWatchdog"` to `false` in the `ScenarioParameters` (useful for zero-demand simulations).
+- **Error Signalling**: When aborted, the watchdog invokes `abort()`, which causes the script's `start()` method to throw a `SimRuntimeException` upon exit. This ensures that standalone launchers and the `ScenarioManager` batch execution capture the deadlock as an execution failure (propagating a non-zero exit code).
+- **Zero-Demand Testing**: The test launcher `RunFreiburgNordNoDemand.java` runs FreiburgNord with zero traffic demand and disables the watchdog via parameters to test baseline behavior without triggering deadlock aborts.
 
 ---
 
