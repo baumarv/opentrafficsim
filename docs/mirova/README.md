@@ -121,6 +121,7 @@ graph TB
 | `vGain` | `MirovaParameters` | 69.6 km/h | Speed gain reference (LMRS discretionary desires) |
 | `extendedLookAheadDistance` | `MirovaParameters` | 1000 m | Long-range anticipation horizon |
 | `cooperativeDecelerationThreshold` | `MirovaParameters` | −3.0 m/s² | Max allowed decel for cooperative patterns |
+| `farAnticipationEnabled` | `MirovaParameters` | **true** | Enable far-range merge speed anticipation state |
 | `LOOKAHEAD` | `ParameterTypes` | — | Standard OTS infrastructure look-ahead distance |
 | `VCONG` | `ParameterTypes` | — | Congestion speed threshold |
 | `LCDUR` | `ParameterTypes` | — | Lane change duration |

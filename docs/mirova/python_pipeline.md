@@ -43,6 +43,33 @@ graph TD
 
 ---
 
+## 📈 Calibration & Fundamental Diagram Analysis (Q-V)
+
+The post-run evaluation script [plot_scenario_results.py](file:///d:/Mitarbeitende/gw2128/repositories/diss_mvb/scripts/simulation/ots/plot_scenario_results.py) compares simulated output vs. empirical field data. Recent enhancements focus on robust mathematical modeling of traffic breakdown and capacity.
+
+### 1. Van Aerde Curve Fitting
+* **Model Equation**: The Van Aerde model links speed ($v$) and flow ($q$) via:
+  $$q = \frac{v}{c_1 + c_2 v + \frac{c_3}{v_f - v}}$$
+* **Coefficient Correction**: The $c_2$ coefficient is computed from physical parameters ($v_f$ free flow speed, $v_c$ critical speed, $q_c$ capacity, $k_j$ jam density):
+  $$c_2 = \frac{1}{q_c} - \frac{c_1}{v_c} - \frac{c_3}{v_c (v_f - v_c)}$$
+  *(Note: A division by $v_c$ in the third term was corrected to ensure robust orthogonal fitting of the curves without optimization degeneracy).*
+* **Orthogonal Fitting**: Uses scipy's `minimize` with `L-BFGS-B` to minimize orthogonal distance of points to the curve, with strict penalty values ($10^6$) for invalid parameter spaces where the denominator $\le 0$.
+
+### 2. GMM Critical Speed & Breakdown Capacity
+* **Dynamic Critical Speed ($v_{\text{crit}}$)**: Fits a 2-component Gaussian Mixture Model (GMM) on speed distributions to find the intersection of the free-flow and congested speed components.
+* **Breakdown Identification**:
+  * Excludes the first **45 minutes** of the simulation run to discard initialization warm-up transients.
+  * Checks for a persistent breakdown event where the speed drops below $v_{\text{crit}}$ with a speed drop $dv \ge dv_{\text{min}}$ (iterating $dv_{\text{min}}$ from $10.0$ down to $5.0\text{ km/h}$).
+  * **Persistence Criteria**: The previous interval must be in free flow ($v_{\text{prev}} \ge v_{\text{crit}}$) and the next interval must remain congested ($v_{\text{after}} < v_{\text{crit}}$) to filter out transient single-interval drops.
+* **Capacity Extraction**: The breakdown capacity is defined as the total mainline flow in the 5-minute interval immediately preceding the breakdown.
+* **Statistical Aggregation**: Computes the mean, median, standard deviation, and a **95% Student-t confidence interval** of breakdown capacities across all successful seed replications.
+
+### 3. Layout Adjustments
+* **Clean Plotting Canvas**: The results annotation box (calibration metrics, fitted coefficients, capacity statistics) is placed outside the main plotting grid (on the right margin using `x=1.02, y=0.70` paper coordinates) by increasing the figure width to $780\text{ px}$ and right margin to $350\text{ px}$.
+* **Removal of Zigzag Line**: The non-monotonic `Sim Median` trace was removed from the q-v plot to prevent zigzag clutter.
+
+---
+
 ## 🔄 Simulation & Data Pipeline Flow
 
 ```mermaid

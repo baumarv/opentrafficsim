@@ -27,6 +27,7 @@ Every declarative incentive extends [DesireIncentive](file:///d:/Mitarbeitende/g
 
 *   `isApplicable()`: Checks if this knowledge chunk is contextually relevant to the current driving situation.
 *   `computeDesire()`: Calculates the directional left/right desire components based on current perception data.
+*   `isDeadEndForRoute(RelativeLane target, RelativeLane source)`: A route-aware helper determining if changing from the source lane to the target lane increases the number of mandatory changes required to stay on route (used to identify diverging/exit lanes).
 
 The base class wires up all relevant OTS perception categories at construction time so that subclasses can access them without redundant lookups.
 
@@ -94,12 +95,13 @@ $$a_{gain} = \frac{a_{max} - a_{cf}}{a_{max}} \quad \text{if } a_{cf} > 0 \text{
 
 **Algorithm**:
 
-A constant desire of `MirovaParameters.DFREE` (default: 0.365) is added to the right direction **if and only if all three conditions hold**:
+A constant desire of `MirovaParameters.DFREE` (default: 0.365) is added to the right direction **if and only if all four conditions hold**:
 1. The anticipated right lane speed ≥ ego vehicle's desired speed (right lane is not slower)
 2. Legal lane-change distance to the right ≥ `ParameterTypes.LOOKAHEAD` (sufficient space ahead)
 3. Right lane is **not congested** ($v_{right} > v_{CONG}$)
+4. The right lane is **not a dead end / exit lane** for the current route (`!isDeadEndForRoute(RelativeLane.RIGHT, RelativeLane.CURRENT)`)
 
-This models the German *Rechtsfahrgebot* (§ 2 StVO) — the obligation to drive in the rightmost available lane unless overtaking.
+This models the German *Rechtsfahrgebot* (§ 2 StVO) — the obligation to drive in the rightmost available lane unless overtaking, while preventing vehicles from keeping right onto exit lanes.
 
 ---
 
