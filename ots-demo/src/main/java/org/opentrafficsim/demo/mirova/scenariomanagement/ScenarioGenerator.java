@@ -593,8 +593,12 @@ public abstract class ScenarioGenerator
                     cacheDir = new File(outputDir, ".demand_cache");
                 }
 
-                // Determine smoothing parameter: check if a specific flag is set or assume no-smooth
-                boolean noSmooth = false; // By default we want actual demand without smoothing
+                // Smoothing: read optional 'demandSmooth' param (defaults to TRUE).
+                // Smoothing applies the "dip-fill + proportional peak trim" strategy
+                // which raises congestion-suppressed intervals to Q_ref while conserving
+                // the total demand integral exactly.
+                Boolean smoothParam = params.get("demandSmooth", Boolean.class);
+                boolean noSmooth = (smoothParam != null) ? !smoothParam : false; // default: smoothing ON
 
                 // Construct clean cache key
                 String smoothSuffix = noSmooth ? "_nosmooth" : "_smooth";
