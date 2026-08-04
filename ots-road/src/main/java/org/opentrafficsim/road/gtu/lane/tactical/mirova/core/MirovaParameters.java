@@ -229,4 +229,41 @@ public final class MirovaParameters implements ConstraintInterface
         public static final ParameterTypeSpeed standstill_speed_threshold = new ParameterTypeSpeed("STANDSTILL_SPEED_THRESHOLD",
                         "Speed threshold below which the vehicle is considered at standstill",
                         new Speed(20.0, SpeedUnit.KM_PER_HOUR), POSITIVE);
+
+        // ----------------------------------------------------------------------
+        // Capacity drop parameters
+        // ----------------------------------------------------------------------
+
+        /**
+         * Enable or disable the capacity drop mechanism.
+         * <p>
+         * When enabled, the desired time headway T is increased at low speeds (below {@link #V_CRIT_DISCHARGE}) using a linear
+         * ramp, modelling the empirically observed capacity drop phenomenon where the discharge flow from congestion is lower
+         * than the pre-breakdown capacity.
+         * </p>
+         */
+        public static final ParameterTypeBoolean CAPACITY_DROP_ENABLED =
+                        new ParameterTypeBoolean("capDropEnabled", "Enable capacity drop headway increase", false);
+
+        /**
+         * Additional time headway [s] applied during congested discharge.
+         * <p>
+         * This value is added to the base headway T when the vehicle speed is below {@link #V_CRIT_DISCHARGE}. The addon is
+         * scaled by a linear ramp factor alpha(v) = max(0, (vCrit - v) / vCrit), so at standstill the full addon applies and at
+         * vCrit it vanishes smoothly.
+         * </p>
+         */
+        public static final ParameterTypeDuration T_DISCHARGE_ADDON = new ParameterTypeDuration("tDischargeAddon",
+                        "Additional time headway during congested discharge", Duration.instantiateSI(0.5),
+                        ConstraintInterface.POSITIVE);
+
+        /**
+         * Critical speed threshold [km/h] for the capacity drop ramp.
+         * <p>
+         * Below this speed, the capacity drop headway addon is applied with a linearly increasing factor. Above this speed, the
+         * standard headway T is used without modification.
+         * </p>
+         */
+        public static final ParameterTypeSpeed V_CRIT_DISCHARGE = new ParameterTypeSpeed("vCritDischarge",
+                        "Critical speed threshold for capacity drop ramp", new Speed(40.0, SpeedUnit.KM_PER_HOUR), POSITIVE);
 }

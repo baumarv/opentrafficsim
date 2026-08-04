@@ -618,18 +618,21 @@ public abstract class ScenarioGenerator
                         System.out.println("[INFO] Demand cache HIT for key: " + cacheKey + ". Copying cached files...");
                         try
                         {
-                            java.nio.file.Files.copy(cacheDemandFile.toPath(), outputDemandFile.toPath(),
-                                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                            java.nio.file.Files.copy(cacheDemandWideFile.toPath(), outputDemandWideFile.toPath(),
-                                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                            java.nio.file.Files.copy(cacheDemandPngFile.toPath(), outputDemandPngFile.toPath(),
-                                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                            params.set("demandCsv", outputDemandFile.getAbsolutePath());
+                            if (!outputDemandFile.exists() || outputDemandFile.length() == 0)
+                            {
+                                java.nio.file.Files.copy(cacheDemandFile.toPath(), outputDemandFile.toPath(),
+                                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                java.nio.file.Files.copy(cacheDemandWideFile.toPath(), outputDemandWideFile.toPath(),
+                                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                java.nio.file.Files.copy(cacheDemandPngFile.toPath(), outputDemandPngFile.toPath(),
+                                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                            }
                         }
                         catch (Exception e)
                         {
-                            System.err.println("[WARNING] Failed to copy cached demand files: " + e.getMessage());
+                            System.err.println("[WARNING] Could not copy cached demand files (may already be in use): " + e.getMessage());
                         }
+                        params.set("demandCsv", outputDemandFile.getAbsolutePath());
                     }
                     else
                     {
@@ -680,19 +683,22 @@ public abstract class ScenarioGenerator
                                         + cacheDemandFile.getAbsolutePath());
                                 try
                                 {
-                                    java.nio.file.Files.copy(cacheDemandFile.toPath(), outputDemandFile.toPath(),
-                                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                                    java.nio.file.Files.copy(cacheDemandWideFile.toPath(), outputDemandWideFile.toPath(),
-                                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                                    java.nio.file.Files.copy(cacheDemandPngFile.toPath(), outputDemandPngFile.toPath(),
-                                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                                    params.set("demandCsv", outputDemandFile.getAbsolutePath());
+                                    if (!outputDemandFile.exists() || outputDemandFile.length() == 0)
+                                    {
+                                        java.nio.file.Files.copy(cacheDemandFile.toPath(), outputDemandFile.toPath(),
+                                                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                        java.nio.file.Files.copy(cacheDemandWideFile.toPath(), outputDemandWideFile.toPath(),
+                                                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                        java.nio.file.Files.copy(cacheDemandPngFile.toPath(), outputDemandPngFile.toPath(),
+                                                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                    }
                                 }
                                 catch (Exception e)
                                 {
                                     System.err.println(
-                                            "[WARNING] Failed to copy generated demand files to output dir: " + e.getMessage());
+                                            "[WARNING] Could not copy generated demand files to output dir: " + e.getMessage());
                                 }
+                                params.set("demandCsv", outputDemandFile.getAbsolutePath());
                             }
                             else
                             {

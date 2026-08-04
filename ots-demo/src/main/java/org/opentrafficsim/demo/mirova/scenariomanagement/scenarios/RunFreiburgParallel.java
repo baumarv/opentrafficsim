@@ -8,12 +8,10 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioParameters;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 
 /**
- * Runner class to test the effect of demand aggregation interval on the
- * "dip-fill + proportional peak trim" smoothing strategy.
+ * Parallel runner for the multi-day evaluation study (32 unique dates across 2025/2026).
  * <p>
- * Fixed parameters: car.T=0.90 s, truck.T=1.20 s, RedFac=0.50<br>
- * Tested aggregation intervals: 5, 10, 15, 20 minutes<br>
- * 6 replications x 4 configs = 24 runs on 24 threads (01.10.2025 only)
+ * Parameters: car.T=1.00 s, truck.T=1.30 s, RedFac=0.60, 5-min demand aggregation, Capacity Drop = disabled.<br>
+ * 32 days x 6 replications = 192 runs total on 24 parallel threads.
  * </p>
  * <p>
  * Copyright (c) 2026 Marvin Baumann / KIT. All rights reserved. <br>
@@ -35,47 +33,50 @@ public class RunFreiburgParallel
                         ScenarioManager.silenceBackgroundThreads();
 
                         // --- CONFIGURATION ---
-                        // Fixed simulation time period: 01.10.2025 afternoon peak
-                        String startDate = "2025-10-01 13:00:00";
-                        String endDate   = "2025-10-01 22:00:00";
+                        // Behavioral parameters
+                        final double CAR_T = 1.00;
+                        final double TRUCK_T = 1.30;
+                        final double RED_FAC = 0.60;
+                        final int AGGREGATION_MIN = 5;
 
-                        // Fixed behavioural parameters (best-performing combo from calibration study)
-                        final double CAR_T   = 0.90;
-                        final double TRUCK_T = 1.20;
-                        final double RED_FAC = 0.50;
+                        // Target dates (32 unique days deduplicated from user selection)
+                        String[] dates = new String[] {
+                                "2025-10-07", "2025-10-09", "2025-10-15", "2025-10-01", "2025-10-29",
+                                "2025-09-17", "2025-10-13", "2025-09-26", "2026-03-20", "2025-10-21",
+                                "2025-10-24", "2025-10-02", "2025-10-30", "2025-09-22", "2026-02-27",
+                                "2025-10-17", "2025-09-19", "2025-09-25", "2025-10-22", "2025-10-27",
+                                "2025-10-14", "2026-02-19", "2025-09-24", "2025-10-16", "2025-09-23",
+                                "2026-02-18", "2025-10-08", "2025-09-18", "2025-10-10", "2026-02-20",
+                                "2025-10-23", "2026-03-02"
+                        };
 
-                        // Demand aggregation intervals to test [minutes]: 5, 10, 15, 20
-                        int[] aggregationIntervals = new int[] {5, 10, 15, 20};
-
-                        // 6 replications per config x 4 configs = 24 runs total
                         int numberOfReplications = 6;
-                        int parallelThreads      = 24;
+                        int parallelThreads = 24;
 
-                        File outputDirectory = new File(
-                                        "D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\output\\ots"
-                                        + "\\freiburg_smoothingIntervalStudy_2025-10-01");
+                        File outputDirectory = new File("D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\output\\ots"
+                                        + "\\freiburg_multiDayStudy_2025_2026");
                         // --- END CONFIGURATION ---
 
                         ScenarioManager scenarioManager = new ScenarioManager(outputDirectory);
 
-                        String scenarioName = "FreiburgNord_2025-10-01_13-00_to_22-00";
-                        scenarioManager.addScenario(scenarioName, FreiburgNord.class);
-
-                        for (int agg : aggregationIntervals)
+                        for (String date : dates)
                         {
+                                String startDate = date + " 13:00:00";
+                                String endDate = date + " 22:00:00";
+                                String scenarioName = "FreiburgNord_" + date + "_13-00_to_22-00";
+
+                                scenarioManager.addScenario(scenarioName, FreiburgNord.class);
+
                                 ScenarioParameters varParams = new ScenarioParameters();
                                 varParams.setSeed(42L);
                                 varParams.set("enableTrajectoryRecording", false);
 
                                 // Demand period
                                 varParams.set("demandStartDate", startDate);
-                                varParams.set("demandEndDate",   endDate);
+                                varParams.set("demandEndDate", endDate);
 
-                                // Aggregation interval -- this is the variable under study
-                                varParams.set("demandAggregation", agg);
-
-                                // Explicitly enable the "dip-fill + proportional peak trim" smoothing strategy
-                                // (also the default, but stated here for clarity)
+                                // 5-minute aggregation + integral-conserving demand smoothing
+                                varParams.set("demandAggregation", AGGREGATION_MIN);
                                 varParams.set("demandSmooth", true);
 
                                 // Car parameters
@@ -84,8 +85,8 @@ public class RunFreiburgParallel
                                 varParams.set("car." + MirovaParameters.A_MAX.getId(), 3.5);
                                 varParams.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(), -2.0);
                                 varParams.set("car." + MirovaParameters.farAnticipationEnabled.getId(), false);
-                                varParams.set("car." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(),
-                                                RED_FAC);
+                                varParams.set("car." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(), RED_FAC);
+                                varParams.set("car." + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), false);
 
                                 // Truck parameters
                                 varParams.set("truck." + ParameterTypes.T.getId(), TRUCK_T);
@@ -94,22 +95,20 @@ public class RunFreiburgParallel
                                 varParams.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(), -0.5);
                                 varParams.set("truck." + MirovaParameters.cooperativeLaneChangesEnabled.getId(), false);
                                 varParams.set("truck." + MirovaParameters.farAnticipationEnabled.getId(), false);
-                                varParams.set("truck." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(),
-                                                RED_FAC);
+                                varParams.set("truck." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(), RED_FAC);
+                                varParams.set("truck." + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), false);
 
                                 scenarioManager.addParameterVariation(scenarioName, varParams);
-                                System.out.println("Registered: aggregation=" + agg + " min"
-                                                + " | carT=" + CAR_T + " | truckT=" + TRUCK_T
-                                                + " | RedFac=" + RED_FAC);
                         }
 
                         scenarioManager.setReplications(numberOfReplications);
 
-                        System.out.println("Starting smoothing aggregation study: "
-                                        + aggregationIntervals.length + " configs x "
-                                        + numberOfReplications + " runs = "
-                                        + (aggregationIntervals.length * numberOfReplications)
-                                        + " total runs on " + parallelThreads + " threads...");
+                        System.out.println("Registered " + dates.length + " simulation days with parameters:"
+                                        + " carT=" + CAR_T + " | truckT=" + TRUCK_T + " | RedFac=" + RED_FAC
+                                        + " | capDrop=false | agg=" + AGGREGATION_MIN + "min");
+                        System.out.println("Total runs: " + dates.length + " days x " + numberOfReplications
+                                        + " replications = " + (dates.length * numberOfReplications)
+                                        + " runs on " + parallelThreads + " parallel threads.");
 
                         boolean success = scenarioManager.runAll(parallelThreads, false);
                         System.out.println("Execution finished. Shutting down.");

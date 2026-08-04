@@ -291,11 +291,15 @@ public abstract class AbstractSimulationScriptBase implements EventListener {
             streams.put("default", new MersenneTwister(AbstractSimulationScriptBase.this.seed + 1));
             this.simulator.getModel().getStreams().putAll(streams);
 
-            AbstractSimulationScriptBase.this.network = Try.assign(
-                () -> setupSimulation(this.simulator),
-                RuntimeException.class,
-                "Exception during setupSimulation()"
-            );
+            try
+            {
+                AbstractSimulationScriptBase.this.network = setupSimulation(this.simulator);
+            }
+            catch (Throwable e)
+            {
+                e.printStackTrace();
+                throw new RuntimeException("Exception during setupSimulation(): " + e.getMessage(), e);
+            }
 
             try {
                 this.simulator.addListener(AbstractSimulationScriptBase.this, Replication.END_REPLICATION_EVENT);

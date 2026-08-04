@@ -79,6 +79,12 @@ public final class XmlParser implements Serializable
     /** */
     private static final long serialVersionUID = 2019022L;
 
+    /** Thread-safe singleton JAXBContext – created once, reused by all threads. */
+    private static volatile JAXBContext JAXB_CONTEXT = null;
+
+    /** Lock for lazy JAXBContext initialization. */
+    private static final Object JAXB_CONTEXT_LOCK = new Object();
+
     /** Road network. */
     private final RoadNetwork network;
 
@@ -200,21 +206,32 @@ public final class XmlParser implements Serializable
     {
         Locale locale = Locale.getDefault();
         Locale.setDefault(Locale.US);
-        JAXBContext jc;
-        try
+        // Lazily create JAXBContext once – JAXBContext.newInstance is NOT thread-safe;
+        // use double-checked locking to ensure only one thread initializes it.
+        if (JAXB_CONTEXT == null)
         {
-            jc = JAXBContext.newInstance(Ots.class);
-        }
-        catch (Throwable t)
-        {
-            t.printStackTrace();
-            System.err.println("JAXB Exception Cause: " + t.getCause());
-            if (t.getCause() != null)
+            synchronized (JAXB_CONTEXT_LOCK)
             {
-                t.getCause().printStackTrace();
+                if (JAXB_CONTEXT == null)
+                {
+                    try
+                    {
+                        JAXB_CONTEXT = JAXBContext.newInstance(Ots.class);
+                    }
+                    catch (Throwable t)
+                    {
+                        t.printStackTrace();
+                        System.err.println("JAXB Exception Cause: " + t.getCause());
+                        if (t.getCause() != null)
+                        {
+                            t.getCause().printStackTrace();
+                        }
+                        throw t;
+                    }
+                }
             }
-            throw t;
         }
+        JAXBContext jc = JAXB_CONTEXT;
         Unmarshaller unmarshaller = jc.createUnmarshaller();
         SAXParserFactory spf = SAXParserFactory.newInstance();
         spf.setXIncludeAware(true);
