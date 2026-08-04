@@ -155,9 +155,14 @@ stateDiagram-v2
 ```
 [OpenGapState]
     → Calculates target acceleration to create the required gap in front of the merging vehicle
-    → May trigger an evasive lane change to the opposite side if a free gap exists
+    → May trigger an evasive lane change to the opposite side if a free gap exists (strictly checked: mandatory desire in target direction must be ≥ 0.0)
     → Terminates when candidate has merged (is no longer in adjacent lane) or the cooperation zone ends
 ```
+
+> [!IMPORTANT]
+> **Cooperative Lane-Change Constraint (Mandatory Desire Check):**
+> Evasive/cooperative lane changes (e.g. in `GapOpenerPattern`, `AnticipateDownstreamMergePattern`, `PreventUndercuttingPattern`, or `PerformLaneChangeState`) are strictly restricted:
+> A cooperative lane change to `oppositeDir` is ONLY executed if the ego vehicle's mandatory desire in that direction is non-negative (`getMandatoryLaneChangeDesire().getMandatoryDesire(oppositeDir) >= 0.0`). This prevents cooperative evasive maneuvers from forcing a vehicle onto dead-end lanes or causing it to miss an upcoming route split.
 
 ---
 
