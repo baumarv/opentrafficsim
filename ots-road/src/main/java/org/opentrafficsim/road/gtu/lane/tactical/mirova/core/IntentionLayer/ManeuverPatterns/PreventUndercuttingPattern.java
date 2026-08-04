@@ -225,7 +225,8 @@ public class PreventUndercuttingPattern extends ManeuverPattern
         {
             NeighborsContext neighbors = this.vehicle.getContext(NeighborsContext.class);
 
-            if (neighbors.getIfLaneChangePossible(LateralDirectionality.LEFT))
+            if (this.vehicle.getMandatoryLaneChangeDesire().getMandatoryDesire(LateralDirectionality.LEFT) >= 0.0
+                    && neighbors.getIfLaneChangePossible(LateralDirectionality.LEFT))
             {
                 // Transition to performing the lane change
                 return transitionTo(new SimpleLaneChangePattern.PerformLaneChangeState(this.maneuverPattern,
