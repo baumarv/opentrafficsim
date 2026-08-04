@@ -88,95 +88,106 @@ public class ScenarioManager {
         final int totalRuns = totalTasks;
 
         System.out.println("Starting ScenarioManager with " + parallelThreads + " parallel threads. Total runs to execute: " + totalRuns);
+        org.opentrafficsim.road.network.factory.xml.parser.XmlParser.warmUpJAXBContext();
         ExecutorService pool = Executors.newFixedThreadPool(parallelThreads);
         CompletionService<Boolean> completionService = new ExecutorCompletionService<>(pool);
 
         // Map to collect error stack traces per variation directory in the background
         ConcurrentMap<File, List<String>> variationErrorsMap = new ConcurrentHashMap<>();
 
-        for (Map.Entry<String, ScenarioEntry> entry : this.scenarios.entrySet()) {
-            String scenarioName = entry.getKey();
-            Class<? extends ScenarioGenerator> genClass = entry.getValue().generatorClass;
-            List<ScenarioParameters> variations = entry.getValue().parameterVariations;
+        try {
+            for (Map.Entry<String, ScenarioEntry> entry : this.scenarios.entrySet()) {
+                String scenarioName = entry.getKey();
+                Class<? extends ScenarioGenerator> genClass = entry.getValue().generatorClass;
+                List<ScenarioParameters> variations = entry.getValue().parameterVariations;
 
-            File scenarioFolder = new File(this.outputRoot, scenarioName);
-            scenarioFolder.mkdirs();
+                File scenarioFolder = new File(this.outputRoot, scenarioName);
+                scenarioFolder.mkdirs();
 
-            for (ScenarioParameters paramsVariation : variations) {
-                // Create unique folder for this variation
-                File variationFolder = new File(scenarioFolder, "variation_" + UUID.randomUUID().toString());
-                variationFolder.mkdirs();
-                // Save runParams as a text file in variationFolder
-                File paramsFile = new File(variationFolder, "runParams.txt");
-                try (FileWriter writer = new FileWriter(paramsFile)) {
-                    writer.write(paramsVariation.toString());
-                } catch (IOException e) {
-                    System.err.println("    [ERROR] Failed to write parameter variation: " + e.getMessage());
-                }
+                for (ScenarioParameters paramsVariation : variations) {
+                    // Create unique folder for this variation
+                    File variationFolder = new File(scenarioFolder, "variation_" + UUID.randomUUID().toString());
+                    variationFolder.mkdirs();
+                    // Save runParams as a text file in variationFolder
+                    File paramsFile = new File(variationFolder, "runParams.txt");
+                    try (FileWriter writer = new FileWriter(paramsFile)) {
+                        writer.write(paramsVariation.toString());
+                    } catch (IOException e) {
+                        System.err.println("    [ERROR] Failed to write parameter variation: " + e.getMessage());
+                    }
 
-                for (int run = 0; run < this.replications; run++) {
-                    // → create NEW ScenarioGenerator instance
-                    ScenarioGenerator generator = genClass.getDeclaredConstructor().newInstance();
-                    ScenarioParameters defaultParams = generator.getDefaultParameters();
-                    // copy parameters
-                    ScenarioParameters runParams = paramsVariation.copy();
-                    long seed = defaultParams.getSeed() + run;
-                    runParams.setSeed(seed);
-                    // build output folder
-                    File runFolder = new File(variationFolder, "run_seed_" + seed);
-                    runFolder.mkdirs();
+                    for (int run = 0; run < this.replications; run++) {
+                        // → create NEW ScenarioGenerator instance
+                        ScenarioGenerator generator = genClass.getDeclaredConstructor().newInstance();
+                        ScenarioParameters defaultParams = generator.getDefaultParameters();
+                        // copy parameters
+                        ScenarioParameters runParams = paramsVariation.copy();
+                        long seed = defaultParams.getSeed() + run;
+                        runParams.setSeed(seed);
+                        // build output folder
+                        File runFolder = new File(variationFolder, "run_seed_" + seed);
+                        runFolder.mkdirs();
 
-                    generator.setOutputDirectory(runFolder);
+                        generator.setOutputDirectory(runFolder);
 
-                    // Create SimulationScript
-                    ScenarioSimulationScript script =
-                            generator.buildSimulationScript(defaultParams.copy().applyOverridesFrom(runParams));
+                        // Create SimulationScript
+                        ScenarioSimulationScript script =
+                                generator.buildSimulationScript(defaultParams.copy().applyOverridesFrom(runParams));
 
-                    script.setGuiEnabled(false);
+                        script.setGuiEnabled(false);
 
-                    final File varFolder = variationFolder;
-                    final long seedVal = seed;
-                    completionService.submit(() -> {
-                        try {
-                            script.start();
-                            return true;
-                        } catch (Exception e) {
-                            // Suppress verbose stack trace on standard error, collect it instead
-                            StringBuilder sb = new StringBuilder();
-                            Throwable rootCause = e.getCause() != null ? e.getCause() : e;
-                            sb.append("Seed ").append(seedVal).append(" failed: ").append(rootCause.toString()).append("\n");
-                            for (StackTraceElement element : rootCause.getStackTrace()) {
-                                sb.append("\tat ").append(element.toString()).append("\n");
-                            }
-                            if (rootCause.getCause() != null) {
-                                sb.append("Caused by: ").append(rootCause.getCause().toString()).append("\n");
-                                for (StackTraceElement element : rootCause.getCause().getStackTrace()) {
+                        final File varFolder = variationFolder;
+                        final long seedVal = seed;
+                        final ClassLoader mainClassLoader = Thread.currentThread().getContextClassLoader();
+                        completionService.submit(() -> {
+                            try {
+                                Thread.currentThread().setContextClassLoader(mainClassLoader);
+                                script.start();
+                                return true;
+                            } catch (Throwable e) {
+                                // Suppress verbose stack trace on standard error, collect it instead
+                                StringBuilder sb = new StringBuilder();
+                                Throwable rootCause = e.getCause() != null ? e.getCause() : e;
+                                sb.append("Seed ").append(seedVal).append(" failed: ").append(rootCause.toString()).append("\n");
+                                for (StackTraceElement element : rootCause.getStackTrace()) {
                                     sb.append("\tat ").append(element.toString()).append("\n");
                                 }
+                                if (rootCause.getCause() != null) {
+                                    sb.append("Caused by: ").append(rootCause.getCause().toString()).append("\n");
+                                    for (StackTraceElement element : rootCause.getCause().getStackTrace()) {
+                                        sb.append("\tat ").append(element.toString()).append("\n");
+                                    }
+                                }
+                                variationErrorsMap.computeIfAbsent(varFolder, k -> new CopyOnWriteArrayList<>()).add(sb.toString());
+                                return false;
                             }
-                            variationErrorsMap.computeIfAbsent(varFolder, k -> new CopyOnWriteArrayList<>()).add(sb.toString());
-                            return false;
-                        }
-                    });
+                        });
+                    }
                 }
             }
-        }
 
-        // Wait for all to finish and print progress on the main thread
-        int completed = 0;
-        int failed = 0;
-        while (completed < totalRuns) {
-            Future<Boolean> completedFuture = completionService.take();
-            boolean success = completedFuture.get();
-            completed++;
-            if (!success) {
-                failed++;
+            // Wait for all to finish and print progress on the main thread
+            int completed = 0;
+            int failed = 0;
+            while (completed < totalRuns) {
+                Future<Boolean> completedFuture = completionService.take();
+                boolean success = false;
+                try {
+                    success = completedFuture.get();
+                } catch (Throwable t) {
+                    success = false;
+                }
+                completed++;
+                if (!success) {
+                    failed++;
+                }
+                System.out.println(String.format("[PROGRESS] %d/%d simulations completed (%d%%, %d failed)", completed, totalRuns, (completed * 100) / totalRuns, failed));
             }
-            System.out.println(String.format("[PROGRESS] %d/%d simulations completed (%d%%, %d failed)", completed, totalRuns, (completed * 100) / totalRuns, failed));
+        } finally {
+            pool.shutdown();
+            pool.awaitTermination(10, TimeUnit.SECONDS);
+            pool.shutdownNow();
         }
-
-        pool.shutdown();
-        pool.awaitTermination(7, TimeUnit.DAYS);
 
         // Write collected errors to each variation's folder
         for (Map.Entry<File, List<String>> entryErr : variationErrorsMap.entrySet()) {

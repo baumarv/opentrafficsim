@@ -85,6 +85,30 @@ public final class XmlParser implements Serializable
     /** Lock for lazy JAXBContext initialization. */
     private static final Object JAXB_CONTEXT_LOCK = new Object();
 
+    /**
+     * Pre-warms JAXBContext on main thread to prevent parallel classloading race conditions.
+     */
+    public static void warmUpJAXBContext()
+    {
+        if (JAXB_CONTEXT == null)
+        {
+            synchronized (JAXB_CONTEXT_LOCK)
+            {
+                if (JAXB_CONTEXT == null)
+                {
+                    try
+                    {
+                        JAXB_CONTEXT = JAXBContext.newInstance(Ots.class);
+                    }
+                    catch (Throwable t)
+                    {
+                        System.err.println("JAXB Context Warmup Exception: " + t);
+                    }
+                }
+            }
+        }
+    }
+
     /** Road network. */
     private final RoadNetwork network;
 

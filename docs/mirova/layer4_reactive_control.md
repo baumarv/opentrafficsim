@@ -54,3 +54,27 @@ MiRoVA interfaces with standard OTS car-following structures but relies heavily 
 ### 2. IDM Plus Model (`MirovaIdmPlus`)
 *   **Location**: [MirovaIdmPlus.java](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/MirovaIdmPlus.java)
 *   **Description**: An extension of the Intelligent Driver Model (IDM) that optimizes the acceleration and deceleration behaviors, adapted to work seamlessly with the MiRoVA parameter sets.
+
+---
+
+## 🛑 Congested Acceleration Reduction & Exponential Relaxation
+
+To model realistic human reaction delays and prevent unnatural instant queue dissolution after a bottleneck breakdown, MiRoVA scales positive accelerations during and after congested traffic states:
+
+### Dynamics & Formula
+When vehicle speed $v \le V_{\text{CONG}}$ (congested state, default $50\,\text{km/h}$), positive acceleration capabilities are reduced by $a_{\text{cong\_factor}}$ (default $0.50$ or $50\%$). 
+
+Upon accelerating out of congestion ($v > V_{\text{CONG}}$), the reduction factor relaxes exponentially back towards $1.00$ with time constant $\tau_a$ (default $20\,\text{s}$):
+
+$$f_a(t) = 1.0 - (1.0 - a_{\text{cong\_factor}}) \cdot e^{-\frac{t - t_{\text{cong\_exit}}}{\tau_a}}$$
+
+$$a_{\text{effective}}(t) = a_{\text{calculated}}(t) \cdot f_a(t) \quad \text{for } a_{\text{calculated}} > 0$$
+
+> [!IMPORTANT]
+> This reduction applies **strictly to positive accelerations** ($a > 0$). Decelerations and emergency braking limits ($a \le 0$) are never reduced, preserving full vehicle safety capabilities.
+
+### Parameters
+*   `ParameterTypes.VCONG` (`vCong`): Standard OTS speed threshold below which the vehicle is considered in congested state (default $60\,\text{km/h}$).
+*   `A_CONG_FACTOR` (`aCongFactor`): Acceleration scaling factor in congested state ($0.50$).
+*   `TAU_A` (`tau_a`): Exponential relaxation time constant for acceleration recovery ($20\,\text{s}$).
+

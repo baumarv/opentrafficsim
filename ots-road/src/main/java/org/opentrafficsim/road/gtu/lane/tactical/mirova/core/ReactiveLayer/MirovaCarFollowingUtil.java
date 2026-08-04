@@ -111,10 +111,14 @@ public final class MirovaCarFollowingUtil
                 ego.getEgoSpeed(), vehicle.getContext(InfrastructureContext.class).getCurrentSpeedLimit(), perceivedDistance,
                 perceivedLeaderSpeed);
 
-        // System.out.println("DEBUG: GTU " + vehicle.getGtu().getId() + " is Following leader " + leaderId
-        // + " with perceived distance " + perceivedDistance + " and speed " + perceivedLeaderSpeed
-        // + " while actual distance is " + leader.getDistance() + " and speed is " + leader.getSpeed()
-        // + ". Calculated acceleration: " + result + ". Active relaxation: " + (activeRelaxation != null));
+        if (result.si > 0.0)
+        {
+            double fCong = ego.getCongestedAccelerationFactor();
+            if (fCong < 1.0)
+            {
+                result = Acceleration.instantiateSI(result.si * fCong);
+            }
+        }
 
         // 4. Store the result in the cache for subsequent calls in this tick
         if (leaderId != null)
@@ -122,17 +126,7 @@ public final class MirovaCarFollowingUtil
             ego.cacheAcceleration(leaderId, result);
         }
 
-        // if (result.lt(Acceleration.instantiateSI(-8.0)))
-        // {
-        // System.out.println("WARNING: Unusually strong deceleration calculated for GTU " + vehicle.getGtu().getId()
-        // + " following leader " + leaderId + " with perceived distance " + perceivedDistance + " and speed "
-        // + perceivedLeaderSpeed + ". Actual distance is " + leader.getDistance() + " and speed is "
-        // + leader.getSpeed() + ". Calculated acceleration: " + result + ". Active relaxation: "
-        // + (activeRelaxation != null));
-        // }
-
         return result;
-
     }
 
     /**
@@ -245,9 +239,19 @@ public final class MirovaCarFollowingUtil
     public static Acceleration followDistanceAndSpeed(final MirovaTacticalPlanner vehicle, final Length distance,
             final Speed leaderSpeed) throws ParameterException, GtuException
     {
-        return CarFollowingUtil.followSingleLeader(vehicle.getCarFollowingModel(), vehicle.getParameters(),
-                vehicle.getContext(EgoContext.class).getEgoSpeed(),
+        EgoContext ego = vehicle.getContext(EgoContext.class);
+        Acceleration result = CarFollowingUtil.followSingleLeader(vehicle.getCarFollowingModel(), vehicle.getParameters(),
+                ego.getEgoSpeed(),
                 vehicle.getContext(InfrastructureContext.class).getCurrentSpeedLimit(), distance, leaderSpeed);
+        if (result.si > 0.0)
+        {
+            double fCong = ego.getCongestedAccelerationFactor();
+            if (fCong < 1.0)
+            {
+                result = Acceleration.instantiateSI(result.si * fCong);
+            }
+        }
+        return result;
     }
 
     /**
@@ -294,9 +298,19 @@ public final class MirovaCarFollowingUtil
      */
     public static Acceleration freeAcceleration(final MirovaTacticalPlanner vehicle) throws ParameterException, GtuException
     {
-        return CarFollowingUtil.freeAcceleration(vehicle.getCarFollowingModel(), vehicle.getParameters(),
-                vehicle.getContext(EgoContext.class).getEgoSpeed(),
+        EgoContext ego = vehicle.getContext(EgoContext.class);
+        Acceleration result = CarFollowingUtil.freeAcceleration(vehicle.getCarFollowingModel(), vehicle.getParameters(),
+                ego.getEgoSpeed(),
                 vehicle.getContext(InfrastructureContext.class).getCurrentSpeedLimit());
+        if (result.si > 0.0)
+        {
+            double fCong = ego.getCongestedAccelerationFactor();
+            if (fCong < 1.0)
+            {
+                result = Acceleration.instantiateSI(result.si * fCong);
+            }
+        }
+        return result;
     }
 
     /**
