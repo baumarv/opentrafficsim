@@ -138,8 +138,17 @@ The factory applies both standard OTS parameters and MiRoVA-specific ones:
 |:--|:--|
 | OTS/LMRS | `VCONG`, `T0`, `LCDUR`, `A`, `B`, `BCRIT`, `TMIN`, `TMAX`, `TAU`, `LOOKAHEAD`, `LOOKBACK` |
 | Conflict/Light | `ConflictUtil` defaults, `TrafficLightUtil` defaults |
-| MiRoVA | All `MirovaParameters.*` (DFREE, DMAND, relaxation tau, cooperation thresholds, etc.) |
+| MiRoVA | All `MirovaParameters.*` (DFREE, DMAND, relaxation tau, cooperation thresholds, `vehicleDiffusionTime`, etc.) |
 | Override | `DT = 0.2 s` (higher resolution than the default OTS timestep) |
+
+### 4. Vehicle Diffusion & Deadlock Prevention (VISSIM-style)
+
+To prevent simulation gridlocks and crashes caused by vehicles stuck at exit off-ramps or blocked during active lane changes:
+- **`MirovaParameters.vehicleDiffusionTime`** (Default: 60.0 s): Time threshold after which a stationary vehicle ($v \le 0.1\text{ m/s}$) is removed via `gtu.destroy()`.
+- **Trigger Conditions:**
+  1. Vehicle is executing an active lane change while stopped (`laneChange.isChangingLane()`), OR
+  2. Vehicle is standing near the route emergency stopping location ($\text{distToLaneEnd} < 2 \times \text{emergencyStoppingDistance}$).
+- **Timer Lifecycle:** Starts at the first tick where stoppage conditions are met, resets to 0 if vehicle speed $> 0.1\text{ m/s}$, and diffuses (destroys) the GTU if duration exceeds `vehicleDiffusionTime`.
 
 ---
 

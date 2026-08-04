@@ -169,6 +169,9 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     /** Simulation time at which the vehicle was created. */
     private Duration createTime;
 
+    /** Simulation time at which the vehicle became stopped/deadlocked at route end or during a lane change. */
+    private Duration stoppageStartTime = null;
+
     // ----------------------------------------------------------------------
     // Construction
     // ----------------------------------------------------------------------
@@ -213,6 +216,11 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     public OperationalPlan generateOperationalPlan(final Time startTime, final DirectedPoint2d locationAtStartTime)
             throws GtuException, NetworkException, ParameterException
     {
+        if (getGtu().isDestroyed())
+        {
+            return OperationalPlan.standStill(getGtu(), locationAtStartTime, startTime, Duration.ZERO);
+        }
+
         Duration dt = getGtu().getParameters().getParameter(ParameterTypes.DT);
         SimpleOperationalPlan plan;
         Boolean justCreated = (startTime.si < this.createTime.si + 1.0);
@@ -229,7 +237,91 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
             plan = this.update();
         }
 
+        if (getGtu().isDestroyed())
+        {
+            return OperationalPlan.standStill(getGtu(), locationAtStartTime, startTime, Duration.ZERO);
+        }
+
         return LaneOperationalPlanBuilder.buildPlanFromSimplePlan(getGtu(), startTime, plan, this.getLaneChange());
+    }
+
+    /**
+     * Checks if the GTU is stopped due to an off-ramp / route-end deadlock or blocked lane change,
+     * and diffuses (destroys) the GTU if the stoppage duration exceeds vehicleDiffusionTime.
+     * @return true if the vehicle was diffused (destroyed), false otherwise
+     */
+    protected boolean checkAndHandleVehicleDiffusion()
+    {
+        try
+        {
+            if (getGtu() == null || getGtu().isDestroyed())
+            {
+                return true;
+            }
+
+            Speed speed = getGtu().getSpeed();
+            boolean isStopped = speed != null && speed.si <= 0.1;
+
+            if (!isStopped)
+            {
+                this.stoppageStartTime = null;
+                return false;
+            }
+
+            // Condition 1: Vehicle is currently executing an active lane change while stopped
+            boolean activeLaneChange = this.laneChange != null && this.laneChange.isChangingLane();
+
+            // Condition 2: Vehicle is standing VERY close to the emergency stopping position / route lane end
+            boolean nearEmergencyStoppingPosition = false;
+            InfrastructureContext infraContext = this.contextManager.getCategory("Infrastructure", InfrastructureContext.class);
+            if (infraContext != null)
+            {
+                Length routeDistToLaneEnd = infraContext.getRouteDistanceToLaneEnd();
+                Length emergencyStoppingDist = getGtu().getParameters().getParameter(MirovaParameters.emergencyStoppingDistance);
+                if (routeDistToLaneEnd != null && emergencyStoppingDist != null)
+                {
+                    if (routeDistToLaneEnd.si < 2.0 * emergencyStoppingDist.si)
+                    {
+                        nearEmergencyStoppingPosition = true;
+                    }
+                }
+            }
+
+            if (activeLaneChange || nearEmergencyStoppingPosition)
+            {
+                Duration currentTime = getGtu().getSimulator().getSimulatorTime();
+                if (this.stoppageStartTime == null)
+                {
+                    this.stoppageStartTime = currentTime;
+                }
+
+                Duration stoppageDuration = currentTime.minus(this.stoppageStartTime);
+                Duration maxDiffusionTime = getGtu().getParameters().getParameter(MirovaParameters.vehicleDiffusionTime);
+
+                if (stoppageDuration.gt(maxDiffusionTime))
+                {
+                    System.out.printf(
+                        "[DIFFUSION] GTU %s deadlocked for %.1fs (activeLaneChange=%b, distToLaneEnd=%.1fm). Removing vehicle from simulation.%n",
+                        getGtu().getId(),
+                        stoppageDuration.si,
+                        activeLaneChange,
+                        (infraContext != null && infraContext.getRouteDistanceToLaneEnd() != null) ? infraContext.getRouteDistanceToLaneEnd().si : -1.0
+                    );
+                    getGtu().destroy();
+                    return true;
+                }
+            }
+            else
+            {
+                // Stopped in a normal traffic queue, not at route end/active lane change -> reset timer
+                this.stoppageStartTime = null;
+            }
+        }
+        catch (Exception e)
+        {
+            // Fail-safe
+        }
+        return false;
     }
 
     /**
@@ -264,6 +356,13 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         this.contextManager.advanceTick();
         updateTimeSinceLastLaneChange();
         this.updateContext();
+
+        // 1b. Check for deadlock diffusion (VISSIM-style vehicle removal)
+        if (checkAndHandleVehicleDiffusion())
+        {
+            Duration dt = this.getGtu().getParameters().getParameter(ParameterTypes.DT);
+            return new SimpleOperationalPlan(Acceleration.ZERO, dt, LateralDirectionality.NONE);
+        }
 
         // 2. Compute current LMRS-style net desire (aggregated from all knowledge chunks)
         updateLaneChangeDesire();

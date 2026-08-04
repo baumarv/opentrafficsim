@@ -58,6 +58,11 @@ public final class MirovaParameters implements ConstraintInterface
                         "EMERGENCY_STOPPING_DISTANCE", "Additional distance required for emergency stopping maneuvers",
                         Length.instantiateSI(5.0), POSITIVE);
 
+        /** Time threshold after which a stopped/deadlocked vehicle is removed to prevent gridlock. */
+        public static final ParameterTypeDuration vehicleDiffusionTime = new ParameterTypeDuration(
+                        "VEHICLE_DIFFUSION_TIME", "Time threshold after which a stopped/deadlocked vehicle is removed to prevent gridlock",
+                        Duration.instantiateSI(60.0), POSITIVE);
+
         /** Look-ahead distance to check for mandatory lane changes. */
         public static final ParameterTypeLength mandatoryLaneChangeLookAheadDistance = new ParameterTypeLength(
                         "MANDATORY_LANE_CHANGE_LOOK_AHEAD_DISTANCE", "Look-ahead distance to check for mandatory lane changes",
