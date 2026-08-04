@@ -140,6 +140,7 @@ public abstract class AbstractSimulationScriptBase implements EventListener {
 
     public final void start() throws Exception {
         validate();
+        org.opentrafficsim.road.gtu.lane.tactical.mirova.util.VehicleDiffusionLogger.reset();
 
         if (!this.enableGui) {
             runHeadless();

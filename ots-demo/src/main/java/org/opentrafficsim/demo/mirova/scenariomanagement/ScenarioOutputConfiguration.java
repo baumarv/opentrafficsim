@@ -405,6 +405,10 @@ public class ScenarioOutputConfiguration
             }
         }
 
+        // Export vehicle diffusion / deadlock log
+        File diffusionFile = new File(outDir, "diffused_vehicles.csv");
+        org.opentrafficsim.road.gtu.lane.tactical.mirova.util.VehicleDiffusionLogger.exportToCsv(diffusionFile);
+
         // ---------------------------------------------------------
         // Write additional scenario-level custom exports (optional)
         // ---------------------------------------------------------
