@@ -43,6 +43,8 @@ import org.opentrafficsim.road.network.*;
 import org.opentrafficsim.road.network.lane.Lane;
 import org.opentrafficsim.road.network.speed.*;
 
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.VehicleDiffusionLogger;
+
 import java.util.*;
 
 /**
@@ -300,13 +302,34 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
 
                 if (stoppageDuration.gt(maxDiffusionTime))
                 {
+                    double distM = (infraContext != null && infraContext.getRouteDistanceToLaneEnd() != null) ? infraContext.getRouteDistanceToLaneEnd().si : -1.0;
+                    String laneIdStr = "UNKNOWN";
+                    try {
+                        if (getGtu().getReferencePosition() != null && getGtu().getReferencePosition().lane() != null) {
+                            laneIdStr = getGtu().getReferencePosition().lane().getId();
+                        }
+                    } catch (Exception ex) {}
+
+                    String reasonStr = activeLaneChange ? "BLOCKED_LANE_CHANGE_DEADLOCK" : "ROUTE_LANE_END_EMERGENCY_STOP";
+
                     System.out.printf(
-                        "[DIFFUSION] GTU %s deadlocked for %.1fs (activeLaneChange=%b, distToLaneEnd=%.1fm). Removing vehicle from simulation.%n",
+                        "[DIFFUSION] GTU %s deadlocked for %.1fs (activeLaneChange=%b, distToLaneEnd=%.1fm, lane=%s). Removing vehicle from simulation.%n",
                         getGtu().getId(),
                         stoppageDuration.si,
                         activeLaneChange,
-                        (infraContext != null && infraContext.getRouteDistanceToLaneEnd() != null) ? infraContext.getRouteDistanceToLaneEnd().si : -1.0
+                        distM,
+                        laneIdStr
                     );
+
+                    VehicleDiffusionLogger.logDiffusion(
+                        getGtu().getId(),
+                        currentTime.si,
+                        laneIdStr,
+                        distM,
+                        activeLaneChange,
+                        reasonStr
+                    );
+
                     getGtu().destroy();
                     return true;
                 }
