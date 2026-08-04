@@ -38,11 +38,55 @@ public class MirovaIdmPlus extends AbstractIdm implements DynamicHeadwayProvider
     private static final long serialVersionUID = 20260430L;
 
     /**
-     * Default constructor using default models for desired headway and desired speed.
+     * MiRoVA-specific desired headway model with optional capacity drop mechanism.
+     * <p>
+     * Extends the standard IDM headway {@code s0 + v * T} with a speed-dependent capacity drop addon. When the capacity drop
+     * is enabled ({@link MirovaParameters#CAPACITY_DROP_ENABLED}), an additional headway term is added at low speeds:
+     * </p>
+     *
+     * <pre>
+     *   T_eff = T + alpha(v) * T_DISCHARGE_ADDON
+     *   alpha(v) = max(0, (V_CRIT_DISCHARGE - v) / V_CRIT_DISCHARGE)
+     * </pre>
+     * <p>
+     * The linear ramp factor alpha(v) ensures a smooth transition: full addon at standstill, zero addon at or above
+     * V_CRIT_DISCHARGE. This models the empirically observed capacity drop where discharge flow from congestion is 5-20% lower
+     * than pre-breakdown capacity, without requiring a separate relaxation mechanism.
+     * </p>
+     */
+    public static final DesiredHeadwayModel MIROVA_HEADWAY = new DesiredHeadwayModel()
+    {
+        @Override
+        public Length desiredHeadway(final Parameters parameters, final Speed speed) throws ParameterException
+        {
+            double s0 = parameters.getParameter(S0).si;
+            double tBase = parameters.getParameter(T).si;
+            double vSi = speed.si;
+
+            double tEff = tBase;
+
+            // Apply capacity drop addon if enabled
+            if (parameters.getParameter(MirovaParameters.CAPACITY_DROP_ENABLED))
+            {
+                double vCritSi = parameters.getParameter(MirovaParameters.V_CRIT_DISCHARGE).si;
+                if (vSi < vCritSi && vCritSi > 0.0)
+                {
+                    double alpha = (vCritSi - vSi) / vCritSi;
+                    double deltaT = parameters.getParameter(MirovaParameters.T_DISCHARGE_ADDON).si;
+                    tEff += alpha * deltaT;
+                }
+            }
+
+            return Length.instantiateSI(s0 + vSi * tEff);
+        }
+    };
+
+    /**
+     * Default constructor using the MiRoVA headway model (with capacity drop support) and default desired speed.
      */
     public MirovaIdmPlus()
     {
-        super(HEADWAY, DESIRED_SPEED);
+        super(MIROVA_HEADWAY, DESIRED_SPEED);
     }
 
     /**

@@ -143,9 +143,16 @@ public class ScenarioManager {
                         } catch (Exception e) {
                             // Suppress verbose stack trace on standard error, collect it instead
                             StringBuilder sb = new StringBuilder();
-                            sb.append("Seed ").append(seedVal).append(" failed: ").append(e.toString()).append("\n");
-                            for (StackTraceElement element : e.getStackTrace()) {
+                            Throwable rootCause = e.getCause() != null ? e.getCause() : e;
+                            sb.append("Seed ").append(seedVal).append(" failed: ").append(rootCause.toString()).append("\n");
+                            for (StackTraceElement element : rootCause.getStackTrace()) {
                                 sb.append("\tat ").append(element.toString()).append("\n");
+                            }
+                            if (rootCause.getCause() != null) {
+                                sb.append("Caused by: ").append(rootCause.getCause().toString()).append("\n");
+                                for (StackTraceElement element : rootCause.getCause().getStackTrace()) {
+                                    sb.append("\tat ").append(element.toString()).append("\n");
+                                }
                             }
                             variationErrorsMap.computeIfAbsent(varFolder, k -> new CopyOnWriteArrayList<>()).add(sb.toString());
                             return false;
