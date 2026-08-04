@@ -101,6 +101,9 @@ public class EgoContext extends ContextCategory implements UpdatableContext
      */
     private final Map<String, Acceleration> tickAccelerationCache = new HashMap<>();
 
+    /** Simulator time of the last exit from congested state (v <= V_CONG). */
+    private Duration lastCongestedExitTime = null;
+
     // ----------------------------------------------------------------------
     // Construction
     // ----------------------------------------------------------------------
@@ -784,8 +787,68 @@ public class EgoContext extends ContextCategory implements UpdatableContext
             // Failsafe if simulator time is temporarily unavailable
         }
 
-        // 3. Mark the context properties cache as valid (Lazy evaluation trigger)
+        // 3. Update congestion state tracking for acceleration relaxation (VCONG)
+        try
+        {
+            Speed currentSpeed = getEgoSpeed();
+            Speed vCong = vehicle.getParameters().getParameter(ParameterTypes.VCONG);
+            if (currentSpeed.le(vCong))
+            {
+                Duration now = vehicle.getGtu().getSimulator().getSimulatorTime();
+                this.lastCongestedExitTime = now;
+            }
+        }
+        catch (Exception e)
+        {
+            // Failsafe if parameters or perception not fully ready
+        }
+
+        // 4. Mark the context properties cache as valid (Lazy evaluation trigger)
         markCacheValid();
+    }
+
+    /**
+     * Calculates the current acceleration reduction factor (between A_CONG_FACTOR and 1.0)
+     * based on current speed and exponential relaxation (Tau_a) since exiting congestion.
+     * @return double; acceleration scaling factor in [A_CONG_FACTOR, 1.0]
+     */
+    public double getCongestedAccelerationFactor()
+    {
+        try
+        {
+            Parameters params = this.vehicle.getParameters();
+            Speed currentSpeed = getEgoSpeed();
+            Speed vCong = params.getParameter(ParameterTypes.VCONG);
+            double aCongFactor = params.getParameter(MirovaParameters.A_CONG_FACTOR);
+            Duration tauA = params.getParameter(MirovaParameters.TAU_A);
+
+            Duration now = this.vehicle.getGtu().getSimulator().getSimulatorTime();
+
+            if (currentSpeed.le(vCong) || this.lastCongestedExitTime == null)
+            {
+                if (currentSpeed.le(vCong))
+                {
+                    this.lastCongestedExitTime = now;
+                    return aCongFactor;
+                }
+                return 1.0;
+            }
+
+            double dt = now.minus(this.lastCongestedExitTime).si;
+            if (dt < 0.0)
+            {
+                return aCongFactor;
+            }
+
+            // Exponential decay from aCongFactor towards 1.0:
+            // f_a(t) = 1.0 - (1.0 - aCongFactor) * exp(-dt / tauA)
+            double factor = 1.0 - (1.0 - aCongFactor) * Math.exp(-dt / tauA.si);
+            return Math.min(1.0, Math.max(aCongFactor, factor));
+        }
+        catch (Exception e)
+        {
+            return 1.0;
+        }
     }
 
     /**

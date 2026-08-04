@@ -271,4 +271,26 @@ public final class MirovaParameters implements ConstraintInterface
          */
         public static final ParameterTypeSpeed V_CRIT_DISCHARGE = new ParameterTypeSpeed("vCritDischarge",
                         "Critical speed threshold for capacity drop ramp", new Speed(40.0, SpeedUnit.KM_PER_HOUR), POSITIVE);
+
+        // ----------------------------------------------------------------------
+        // Congested acceleration reduction & relaxation parameters
+        // ----------------------------------------------------------------------
+
+        /**
+         * Acceleration reduction factor in congested state (aCongFactor).
+         * <p>
+         * Scaling factor (e.g., 0.50 = 50%) applied to positive acceleration when in or exiting congested state.
+         * </p>
+         */
+        public static final ParameterTypeDouble A_CONG_FACTOR = new ParameterTypeDouble("aCongFactor",
+                        "Acceleration reduction factor in congested state", 0.50, POSITIVE);
+
+        /**
+         * Acceleration relaxation time constant [s] (Tau_a).
+         * <p>
+         * Exponential relaxation time constant governing the recovery of acceleration capability after exiting congestion.
+         * </p>
+         */
+        public static final ParameterTypeDuration TAU_A = new ParameterTypeDuration("tau_a",
+                        "Acceleration relaxation time constant when transitioning out of congestion", Duration.instantiateSI(20.0), POSITIVE);
 }
