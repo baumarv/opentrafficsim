@@ -207,11 +207,8 @@ public class SimpleLaneChangePattern extends ManeuverPattern
             if (!this.vehicle.getLaneChange().isChangingLane())
             {
                 Speed resultingSpeed = egoSpeed.plus(minAcc.times(this.maneuverPattern.getPatternSpecificTimestep()));
-                boolean mandatoryOk = !this.isCooperative
-                        || (this.vehicle.getMandatoryLaneChangeDesire().getMandatoryDesire(this.direction) >= 0.0);
-                this.startCondition = mandatoryOk
-                        && resultingSpeed.gt(Speed.instantiateSI(5.0))
-                        && neighborsCtx.getIfLaneChangePossible(this.direction);
+                this.startCondition =
+                        resultingSpeed.gt(Speed.instantiateSI(5.0)) && neighborsCtx.getIfLaneChangePossible(this.direction);
             }
 
             if (!this.startCondition)
