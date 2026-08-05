@@ -49,7 +49,7 @@ public class RunFreiburgParallel
                         int parallelThreads = 24;
 
                         File outputDirectory = new File("D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\output\\ots"
-                                        + "\\freiburg_multiDayStudy_2025_different_Parameters");
+                                        + "\\freiburg_multiDayStudy_2025_noDemandSmooth_congestedAcc");
                         // --- END CONFIGURATION ---
 
                         // Pre-warm JAXBContext on the main thread (with exec:java classloader)
@@ -78,9 +78,9 @@ public class RunFreiburgParallel
                                         varParams.set("demandStartDate", startDate);
                                         varParams.set("demandEndDate", endDate);
 
-                                        // 5-minute aggregation + integral-conserving demand smoothing
+                                        // 5-minute aggregation + disabled demand smoothing
                                         varParams.set("demandAggregation", AGGREGATION_MIN);
-                                        varParams.set("demandSmooth", true);
+                                        varParams.set("demandSmooth", false);
 
                                         // Car parameters
                                         varParams.set("car." + ParameterTypes.T.getId(), carT);
