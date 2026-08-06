@@ -275,6 +275,7 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
 
             // Condition 2: Vehicle is standing VERY close to the emergency stopping position / route lane end
             boolean nearEmergencyStoppingPosition = false;
+            boolean nearCriticalLaneEnd = false;
             InfrastructureContext infraContext = this.contextManager.getCategory("Infrastructure", InfrastructureContext.class);
             if (infraContext != null)
             {
@@ -286,10 +287,16 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
                     {
                         nearEmergencyStoppingPosition = true;
                     }
+                    if (routeDistToLaneEnd.si < 100.0)
+                    {
+                        nearCriticalLaneEnd = true;
+                    }
                 }
             }
 
-            if (activeLaneChange || nearEmergencyStoppingPosition)
+            // A stopped vehicle mid-lane-change is only deadlocked if it is near a critical lane end or emergency stop position.
+            // Stopped vehicles in normal mainline traffic queues (away from lane ends) are not deadlocked.
+            if ((activeLaneChange && (nearCriticalLaneEnd || nearEmergencyStoppingPosition)) || nearEmergencyStoppingPosition)
             {
                 Duration currentTime = getGtu().getSimulator().getSimulatorTime();
                 if (this.stoppageStartTime == null)
