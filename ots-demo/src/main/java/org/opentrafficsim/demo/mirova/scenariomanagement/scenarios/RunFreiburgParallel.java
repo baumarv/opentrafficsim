@@ -33,27 +33,37 @@ public class RunFreiburgParallel
                         ScenarioManager.silenceBackgroundThreads();
 
                         // --- CONFIGURATION ---
-                        // Behavioral parameters
-                        final double CAR_T = 1.00;
-                        final double TRUCK_T = 1.30;
                         final double RED_FAC = 0.60;
                         final int AGGREGATION_MIN = 5;
 
-                        // Target dates (6 requested dates)
-                        String[] dates = new String[] {"2025-09-22", "2025-09-23", "2025-10-01", "2025-10-07", "2025-10-08",
-                                        "2025-10-13"};
+                        // 6 Target dates (13:00:00 to 22:00:00)
+                        String[] dates = new String[] {
+                                        "2025-09-22",
+                                        "2025-09-23",
+                                        "2025-10-01",
+                                        "2025-10-07",
+                                        "2025-10-08",
+                                        "2025-10-13"
+                        };
 
-                        double[][] headways = new double[][] {{0.90, 1.20}, {1.00, 1.30}};
+                        // 2 Headway T combinations: (0.9/1.2) and (1.0/1.3)
+                        double[][] headways = new double[][] {
+                                        {0.90, 1.20},
+                                        {1.00, 1.30}
+                        };
+
+                        // 2 Acceleration Damping Factors: 0.8 and 0.6
+                        double[] dampingFactors = new double[] {0.8, 0.6};
 
                         int numberOfReplications = 6;
                         int parallelThreads = 24;
 
                         File outputDirectory = new File("D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\output\\ots"
-                                        + "\\freiburg_multiDayStudy_2025_noDemandSmooth_congestedAcc");
+                                        + "\\freiburg_multiDayStudy_2025_accDamping_0.8_and_0.6");
                         // --- END CONFIGURATION ---
 
                         // Pre-warm JAXBContext on the main thread (with exec:java classloader)
-                        jakarta.xml.bind.JAXBContext.newInstance(org.opentrafficsim.xml.generated.Ots.class);
+                        org.opentrafficsim.road.network.factory.xml.parser.XmlParser.warmUpJAXBContext();
 
                         ScenarioManager scenarioManager = new ScenarioManager(outputDirectory);
 
@@ -70,52 +80,59 @@ public class RunFreiburgParallel
                                         double carT = h[0];
                                         double truckT = h[1];
 
-                                        ScenarioParameters varParams = new ScenarioParameters();
-                                        varParams.setSeed(42L);
-                                        varParams.set("enableTrajectoryRecording", false);
+                                        for (double dampFactor : dampingFactors)
+                                        {
+                                                ScenarioParameters varParams = new ScenarioParameters();
+                                                varParams.setSeed(42L);
+                                                varParams.set("enableTrajectoryRecording", false);
 
-                                        // Demand period
-                                        varParams.set("demandStartDate", startDate);
-                                        varParams.set("demandEndDate", endDate);
+                                                // Demand period
+                                                varParams.set("demandStartDate", startDate);
+                                                varParams.set("demandEndDate", endDate);
 
-                                        // 5-minute aggregation + disabled demand smoothing
-                                        varParams.set("demandAggregation", AGGREGATION_MIN);
-                                        varParams.set("demandSmooth", false);
+                                                // 5-minute aggregation + disabled demand smoothing
+                                                varParams.set("demandAggregation", AGGREGATION_MIN);
+                                                varParams.set("demandSmooth", false);
 
-                                        // Car parameters
-                                        varParams.set("car." + ParameterTypes.T.getId(), carT);
-                                        varParams.set("car." + MirovaParameters.vGain.getId(), 15.0);
-                                        varParams.set("car." + MirovaParameters.A_MAX.getId(), 3.5);
-                                        varParams.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(), -2.0);
-                                        varParams.set("car." + MirovaParameters.farAnticipationEnabled.getId(), false);
-                                        varParams.set("car." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(),
-                                                        RED_FAC);
-                                        varParams.set("car." + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), false);
+                                                // Car parameters
+                                                varParams.set("car." + ParameterTypes.T.getId(), carT);
+                                                varParams.set("car." + MirovaParameters.vGain.getId(), 15.0);
+                                                varParams.set("car." + MirovaParameters.A_MAX.getId(), 3.5);
+                                                varParams.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(), -2.0);
+                                                varParams.set("car." + MirovaParameters.farAnticipationEnabled.getId(), false);
+                                                varParams.set("car." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(),
+                                                                RED_FAC);
+                                                varParams.set("car." + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), false);
+                                                varParams.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), dampFactor);
+                                                varParams.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_ENABLED.getId(), true);
 
-                                        // Truck parameters
-                                        varParams.set("truck." + ParameterTypes.T.getId(), truckT);
-                                        varParams.set("truck." + MirovaParameters.vGain.getId(), 30.0);
-                                        varParams.set("truck." + MirovaParameters.A_MAX.getId(), 1.3);
-                                        varParams.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(),
-                                                        -0.5);
-                                        varParams.set("truck." + MirovaParameters.cooperativeLaneChangesEnabled.getId(), false);
-                                        varParams.set("truck." + MirovaParameters.farAnticipationEnabled.getId(), false);
-                                        varParams.set("truck."
-                                                        + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(),
-                                                        RED_FAC);
-                                        varParams.set("truck." + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), false);
+                                                // Truck parameters
+                                                varParams.set("truck." + ParameterTypes.T.getId(), truckT);
+                                                varParams.set("truck." + MirovaParameters.vGain.getId(), 30.0);
+                                                varParams.set("truck." + MirovaParameters.A_MAX.getId(), 1.3);
+                                                varParams.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(),
+                                                                -0.5);
+                                                varParams.set("truck." + MirovaParameters.cooperativeLaneChangesEnabled.getId(), false);
+                                                varParams.set("truck." + MirovaParameters.farAnticipationEnabled.getId(), false);
+                                                varParams.set("truck."
+                                                                + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(),
+                                                                RED_FAC);
+                                                varParams.set("truck." + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), false);
+                                                varParams.set("truck." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), dampFactor);
+                                                varParams.set("truck." + MirovaParameters.RELAXATION_ACC_DAMPING_ENABLED.getId(), true);
 
-                                        scenarioManager.addParameterVariation(scenarioName, varParams);
+                                                scenarioManager.addParameterVariation(scenarioName, varParams);
+                                        }
                                 }
                         }
 
                         scenarioManager.setReplications(numberOfReplications);
 
+                        int totalVariations = dates.length * headways.length * dampingFactors.length;
+                        int totalRuns = totalVariations * numberOfReplications;
                         System.out.println("Registered " + dates.length
-                                        + " simulation days with 2 T variations each (0.9/1.2 & 1.0/1.3), RedFac=" + RED_FAC);
-                        System.out.println("Total runs: " + dates.length + " days x 2 variations x " + numberOfReplications
-                                        + " replications = " + (dates.length * 2 * numberOfReplications) + " runs on "
-                                        + parallelThreads + " parallel threads.");
+                                        + " simulation days with " + headways.length + " T pairs and " + dampingFactors.length + " damping factors (0.8, 0.6).");
+                        System.out.println("Total variations: " + totalVariations + " | Total runs: " + totalRuns + " on " + parallelThreads + " parallel threads.");
 
                         boolean success = scenarioManager.runAll(parallelThreads, false);
                         System.out.println("Execution finished. Shutting down.");

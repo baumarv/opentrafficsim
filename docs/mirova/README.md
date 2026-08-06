@@ -25,6 +25,7 @@ This documentation is divided into modular files. Each file corresponds to a spe
 | XML | [**ots_xml_format.md**](ots_xml_format.md) | OTS XML network format, RoadLayouts, offsets, merge/diverge patterns | `XmlParser`, `FreiburgNord.xml`, `MergeBodegraven.xml` |
 | Editor | [**ots_editor.md**](ots_editor.md) | OTS Editor desktop app, UI layout, key features, step-by-step editing | `OtsEditor`, `RunEditor`, `EditorMap` |
 | Python | [**python_pipeline.md**](python_pipeline.md) | Trajectory import, lane-matching, dashboarding | `match_lanes.py`, `dashboard_trajectories.py`, `execute_db_import.py` |
+| Build | [**troubleshooting_and_compilation.md**](troubleshooting_and_compilation.md) | JAXB ClassLoader issues, Maven `.m2` sync, fast build flags, direct Java execution | `XmlParser`, `RunFreiburgParallel`, `mvn` |
 
 
 ---

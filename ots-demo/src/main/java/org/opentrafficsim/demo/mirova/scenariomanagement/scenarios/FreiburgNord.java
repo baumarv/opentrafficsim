@@ -72,6 +72,7 @@ import org.opentrafficsim.road.network.lane.CrossSectionLink;
 import org.opentrafficsim.road.network.lane.Lane;
 import org.opentrafficsim.road.network.lane.LanePosition;
 import org.opentrafficsim.road.network.lane.object.detector.LoopDetector;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataAccelerationDamping;
 import org.opentrafficsim.road.network.sampling.LaneDataRoad;
 import org.opentrafficsim.road.network.sampling.RoadSampler;
 import org.opentrafficsim.road.od.Categorization;
@@ -407,7 +408,8 @@ public class FreiburgNord extends ScenarioGenerator
         {
             sampler = RoadSampler.build(this.network).registerExtendedDataType(new ExtendedDataActionState())
                     .registerExtendedDataType(new ExtendedDataLaneChangeDesireLeft())
-                    .registerExtendedDataType(new ExtendedDataLaneChangeDesireRight()).create();
+                    .registerExtendedDataType(new ExtendedDataLaneChangeDesireRight())
+                    .registerExtendedDataType(new ExtendedDataAccelerationDamping()).create();
         }
         else
         {
