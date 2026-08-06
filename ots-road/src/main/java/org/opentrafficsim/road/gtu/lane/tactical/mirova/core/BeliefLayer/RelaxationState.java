@@ -109,6 +109,15 @@ public class RelaxationState
     }
 
     /**
+     * Returns the initial space headway deficit [m] at the time of the relaxation event.
+     * @return Length; initial space headway deficit
+     */
+    public Length getInitialSpaceDeficit()
+    {
+        return this.initialSpaceDeficit;
+    }
+
+    /**
      * Returns a string representation of the relaxation state.
      * @return string representation of the relaxation state
      */
