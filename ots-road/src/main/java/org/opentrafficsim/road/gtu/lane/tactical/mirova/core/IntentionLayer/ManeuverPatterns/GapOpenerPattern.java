@@ -20,7 +20,9 @@ import org.opentrafficsim.road.gtu.lane.perception.headway.HeadwayGtu;
 import org.opentrafficsim.road.gtu.lane.plan.operational.SimpleOperationalPlan;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
+import org.opentrafficsim.road.gtu.lane.perception.RelativeLane;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoContext;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.NeighborsContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext.LaneDropInfo;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ActionState;
@@ -191,8 +193,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
                         if (distanceCandidate.gt(this.vehicle.getParameters().getParameter(ParameterTypes.S0)))
                         {
                             Acceleration cooperationAcceleration = neighbors.getGtuDeceleration(candidate);
-                            Acceleration decelThreshold = this.vehicle.getParameters()
-                                    .getParameter(MirovaParameters.cooperativeDecelerationThreshold);
+                            Acceleration decelThreshold = getDynamicCooperativeDecelerationThreshold(candidate, dir);
 
                             if (cooperationAcceleration.ge(decelThreshold))
                             {
@@ -284,16 +285,58 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
         Acceleration leaderInducedAcceleration = Acceleration
                 .instantiateSI(-Math.pow(leaderCandidateSpeedDelta.si, 2.0) / (2.0 * leaderCandidateDistanceHeadwway.si));
 
-        Acceleration decelThreshold =
-                this.vehicle.getParameters().getParameter(MirovaParameters.cooperativeDecelerationThreshold);
-
-        // System.out.println("GTU " + this.vehicle.getGtu().getId() + ": Evaluating leader cooperation: leader="
-        // + frontLeader.getId() + ", candidate=" + candidate.getId() + ", leaderSpeed=" + leaderSpeed
-        // + ", candidateSpeed=" + candidate.getSpeed() + ", distanceToFrontLeader=" + distanceToFrontLeader
-        // + ", leaderToCandidateDistance=" + leaderToCandidateDistance + ", leaderDesiredHeadway=" + leaderDesiredHeadway
-        // + ", leaderInducedAcceleration=" + leaderInducedAcceleration + ", decelThreshold=" + decelThreshold);
+        Acceleration decelThreshold = getDynamicCooperativeDecelerationThreshold(candidate, this.directionOfMergeCandidate);
 
         return leaderInducedAcceleration.ge(decelThreshold);
+    }
+
+    /**
+     * Calculates the dynamic cooperative deceleration threshold based on the candidate's distance to its lane end.
+     * <p>
+     * At large distances (d >= LOOKAHEAD, e.g. >= 400m), cooperation willingness is conservative, bounded by
+     * {@link MirovaParameters#preemptiveCooperativeDeceleration} (e.g. -0.5 m/s^2).
+     * As the candidate approaches the lane end (d <= 100m), cooperation willingness
+     * ramps up to {@link MirovaParameters#cooperativeDecelerationThreshold} (e.g. -2.0 m/s^2).
+     * </p>
+     * @param candidate the candidate GTU for merge cooperation
+     * @param dir the direction of the merge candidate (RIGHT or LEFT)
+     * @return Acceleration dynamic threshold (negative value)
+     * @throws ParameterException if parameter lookup fails
+     */
+    public Acceleration getDynamicCooperativeDecelerationThreshold(HeadwayGtu candidate, LateralDirectionality dir)
+            throws ParameterException
+    {
+        Acceleration maxCoop = this.vehicle.getParameters().getParameter(MirovaParameters.cooperativeDecelerationThreshold);
+        Acceleration minCoop = this.vehicle.getParameters().getParameter(MirovaParameters.preemptiveCooperativeDeceleration);
+
+        InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
+        RelativeLane relLane = (dir != null && dir.isLeft()) ? RelativeLane.LEFT : RelativeLane.RIGHT;
+        Length distToLaneEnd = infra != null ? infra.getRouteDistanceToLaneEnd(relLane) : null;
+
+        if (distToLaneEnd == null || Double.isInfinite(distToLaneEnd.si))
+        {
+            return maxCoop;
+        }
+
+        double lookahead = this.vehicle.getParameters().getParameter(ParameterTypes.LOOKAHEAD).si;
+        double criticalDist = 100.0; // 100m critical distance threshold near ramp end
+
+        if (distToLaneEnd.si >= lookahead)
+        {
+            return minCoop;
+        }
+        else if (distToLaneEnd.si <= criticalDist)
+        {
+            return maxCoop;
+        }
+        else
+        {
+            double ratio = (distToLaneEnd.si - criticalDist) / (lookahead - criticalDist);
+            ratio = Math.min(1.0, Math.max(0.0, ratio));
+            // Linear interpolation between maxCoop (-2.0) and minCoop (-0.5)
+            double interpolatedSI = maxCoop.si + (minCoop.si - maxCoop.si) * ratio;
+            return Acceleration.instantiateSI(interpolatedSI);
+        }
     }
 
     /*
@@ -361,8 +404,8 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
             HeadwayGtu candidate = this.maneuverPattern.activeMergeCandidate;
             if (candidate != null)
             {
-                Acceleration decelThreshold =
-                        this.vehicle.getParameters().getParameter(MirovaParameters.cooperativeDecelerationThreshold);
+                Acceleration decelThreshold = this.maneuverPattern.getDynamicCooperativeDecelerationThreshold(candidate,
+                        this.maneuverPattern.directionOfMergeCandidate);
                 if (candidate.getDistance().si > 0)
                 {
                     aCooperation = MirovaCarFollowingUtil.followSingleLeader(vehicle, candidate);

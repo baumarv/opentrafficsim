@@ -144,10 +144,12 @@ stateDiagram-v2
 - Distance threshold (slow traffic): 250 m to lane end
 - Time threshold (free-flow): 30 s time-to-lane-end
 
-**Candidate Detection** (`findNewCandidate()`):
+**Candidate Detection & Dynamic Cooperation Threshold** (`findNewCandidate()`):
 1. Scans adjacent lane leaders within `considerGapOpeningLookaheadDistance` (default: 100 m)
 2. Checks if the candidate's turn indicator points toward the ego lane
-3. Verifies cooperative deceleration feasibility: required decel ≤ `cooperativeDecelerationThreshold` (-3.0 m/s²)
+3. Evaluates **Dynamic Cooperative Deceleration Threshold** ($a_{\text{threshold}}(d_{\text{end}})$):
+   - Linear interpolation between `preemptiveCooperativeDeceleration` ($-0.5\text{ m/s}^2$ at $d_{\text{end}} \ge \text{LOOKAHEAD} \approx 400\text{m}$) and `cooperativeDecelerationThreshold` ($-2.0\text{ m/s}^2$ at $d_{\text{end}} \le 100\text{m}$).
+   - Prevents unnecessary early/hard braking on the mainline in low-traffic conditions while ensuring full cooperation near ramp ends.
 4. Verifies candidate hasn't already passed ego's own leader
 
 **State Machine**:
