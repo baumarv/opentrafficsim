@@ -101,9 +101,6 @@ public class EgoContext extends ContextCategory implements UpdatableContext
      */
     private final Map<String, Acceleration> tickAccelerationCache = new HashMap<>();
 
-    /** Simulator time of the last exit from congested state (v <= V_CONG). */
-    private Duration lastCongestedExitTime = null;
-
     // ----------------------------------------------------------------------
     // Construction
     // ----------------------------------------------------------------------
@@ -787,68 +784,82 @@ public class EgoContext extends ContextCategory implements UpdatableContext
             // Failsafe if simulator time is temporarily unavailable
         }
 
-        // 3. Update congestion state tracking for acceleration relaxation (VCONG)
-        try
-        {
-            Speed currentSpeed = getEgoSpeed();
-            Speed vCong = vehicle.getParameters().getParameter(ParameterTypes.VCONG);
-            if (currentSpeed.le(vCong))
-            {
-                Duration now = vehicle.getGtu().getSimulator().getSimulatorTime();
-                this.lastCongestedExitTime = now;
-            }
-        }
-        catch (Exception e)
-        {
-            // Failsafe if parameters or perception not fully ready
-        }
-
-        // 4. Mark the context properties cache as valid (Lazy evaluation trigger)
+        // 3. Mark the context properties cache as valid (Lazy evaluation trigger)
         markCacheValid();
     }
 
     /**
-     * Calculates the current acceleration reduction factor (between A_CONG_FACTOR and 1.0)
-     * based on current speed and exponential relaxation (Tau_a) since exiting congestion.
-     * @return double; acceleration scaling factor in [A_CONG_FACTOR, 1.0]
+     * Calculates the positive acceleration scaling factor in [aRelaxDamping, 1.0]
+     * based on the active headway relaxation state for a specific leader GTU.
+     * @param leaderId String; the GTU ID of the leader
+     * @return double; acceleration scaling factor in [aRelaxDamping, 1.0]
      */
-    public double getCongestedAccelerationFactor()
+    public double getRelaxationAccelerationFactor(final String leaderId)
     {
+        if (leaderId == null || !this.activeRelaxations.containsKey(leaderId))
+        {
+            return 1.0;
+        }
+
+        RelaxationState state = this.activeRelaxations.get(leaderId);
+        if (state == null)
+        {
+            return 1.0;
+        }
+
         try
         {
-            Parameters params = this.vehicle.getParameters();
-            Speed currentSpeed = getEgoSpeed();
-            Speed vCong = params.getParameter(ParameterTypes.VCONG);
-            double aCongFactor = params.getParameter(MirovaParameters.A_CONG_FACTOR);
-            Duration tauA = params.getParameter(MirovaParameters.TAU_A);
-
             Duration now = this.vehicle.getGtu().getSimulator().getSimulatorTime();
+            Length spaceBuffer = state.getVirtualSpaceBuffer(now);
+            Length initialDeficit = state.getInitialSpaceDeficit();
 
-            if (currentSpeed.le(vCong) || this.lastCongestedExitTime == null)
+            if (spaceBuffer == null || initialDeficit == null || spaceBuffer.si <= 0.0 || initialDeficit.si <= 0.0)
             {
-                if (currentSpeed.le(vCong))
-                {
-                    this.lastCongestedExitTime = now;
-                    return aCongFactor;
-                }
                 return 1.0;
             }
 
-            double dt = now.minus(this.lastCongestedExitTime).si;
-            if (dt < 0.0)
+            boolean enabled = this.vehicle.getParameters().getParameter(MirovaParameters.RELAXATION_ACC_DAMPING_ENABLED);
+            if (!enabled)
             {
-                return aCongFactor;
+                return 1.0;
             }
 
-            // Exponential decay from aCongFactor towards 1.0:
-            // f_a(t) = 1.0 - (1.0 - aCongFactor) * exp(-dt / tauA)
-            double factor = 1.0 - (1.0 - aCongFactor) * Math.exp(-dt / tauA.si);
-            return Math.min(1.0, Math.max(aCongFactor, factor));
+            double minFactor = this.vehicle.getParameters().getParameter(MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR);
+            double ratio = Math.min(1.0, Math.max(0.0, spaceBuffer.si / initialDeficit.si));
+
+            // Linear / exponential recovery from minFactor (0.40) towards 1.0 as spaceBuffer decays to 0:
+            // f(t) = 1.0 - (1.0 - minFactor) * ratio
+            double factor = 1.0 - (1.0 - minFactor) * ratio;
+            return Math.min(1.0, Math.max(minFactor, factor));
         }
         catch (Exception e)
         {
             return 1.0;
         }
+    }
+
+    /**
+     * Calculates the minimum active positive acceleration scaling factor in [aRelaxDamping, 1.0]
+     * across all active headway relaxations, or 1.0 if no relaxation is active.
+     * @return double; acceleration scaling factor in [aRelaxDamping, 1.0]
+     */
+    public double getPrimaryRelaxationAccelerationFactor()
+    {
+        if (this.activeRelaxations.isEmpty())
+        {
+            return 1.0;
+        }
+
+        double minFactor = 1.0;
+        for (String leaderId : this.activeRelaxations.keySet())
+        {
+            double factor = getRelaxationAccelerationFactor(leaderId);
+            if (factor < minFactor)
+            {
+                minFactor = factor;
+            }
+        }
+        return minFactor;
     }
 
     /**

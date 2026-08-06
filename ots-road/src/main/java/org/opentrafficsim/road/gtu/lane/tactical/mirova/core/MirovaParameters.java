@@ -273,24 +273,20 @@ public final class MirovaParameters implements ConstraintInterface
                         "Critical speed threshold for capacity drop ramp", new Speed(40.0, SpeedUnit.KM_PER_HOUR), POSITIVE);
 
         // ----------------------------------------------------------------------
-        // Congested acceleration reduction & relaxation parameters
+        // Headway relaxation acceleration damping parameters
         // ----------------------------------------------------------------------
 
         /**
-         * Acceleration reduction factor in congested state (aCongFactor).
+         * Acceleration scaling factor during active headway relaxation (aRelaxDamping).
          * <p>
-         * Scaling factor (e.g., 0.50 = 50%) applied to positive acceleration when in or exiting congested state.
+         * Minimum scaling factor (e.g. 0.40 = 40%) applied to positive acceleration when headway relaxation is 100% active.
+         * As the relaxation buffer decays exponentially over time, the acceleration capability recovers towards 1.0 (100%).
          * </p>
          */
-        public static final ParameterTypeDouble A_CONG_FACTOR = new ParameterTypeDouble("aCongFactor",
-                        "Acceleration reduction factor in congested state", 0.50, POSITIVE);
+        public static final ParameterTypeDouble RELAXATION_ACC_DAMPING_FACTOR = new ParameterTypeDouble("aRelaxDamping",
+                        "Acceleration scaling factor during active headway relaxation", 0.40, POSITIVE);
 
-        /**
-         * Acceleration relaxation time constant [s] (Tau_a).
-         * <p>
-         * Exponential relaxation time constant governing the recovery of acceleration capability after exiting congestion.
-         * </p>
-         */
-        public static final ParameterTypeDuration TAU_A = new ParameterTypeDuration("tau_a",
-                        "Acceleration relaxation time constant when transitioning out of congestion", Duration.instantiateSI(20.0), POSITIVE);
+        /** Whether acceleration damping during active headway relaxation is enabled. */
+        public static final ParameterTypeBoolean RELAXATION_ACC_DAMPING_ENABLED = new ParameterTypeBoolean("aRelaxDampingEnabled",
+                        "Whether acceleration damping during active headway relaxation is enabled", true);
 }

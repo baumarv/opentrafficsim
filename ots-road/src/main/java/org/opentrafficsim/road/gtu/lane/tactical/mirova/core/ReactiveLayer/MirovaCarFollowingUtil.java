@@ -111,12 +111,12 @@ public final class MirovaCarFollowingUtil
                 ego.getEgoSpeed(), vehicle.getContext(InfrastructureContext.class).getCurrentSpeedLimit(), perceivedDistance,
                 perceivedLeaderSpeed);
 
-        if (result.si > 0.0)
+        if (result.si > 0.0 && leaderId != null)
         {
-            double fCong = ego.getCongestedAccelerationFactor();
-            if (fCong < 1.0)
+            double fRelaxAcc = ego.getRelaxationAccelerationFactor(leaderId);
+            if (fRelaxAcc < 1.0)
             {
-                result = Acceleration.instantiateSI(result.si * fCong);
+                result = Acceleration.instantiateSI(result.si * fRelaxAcc);
             }
         }
 
@@ -239,19 +239,9 @@ public final class MirovaCarFollowingUtil
     public static Acceleration followDistanceAndSpeed(final MirovaTacticalPlanner vehicle, final Length distance,
             final Speed leaderSpeed) throws ParameterException, GtuException
     {
-        EgoContext ego = vehicle.getContext(EgoContext.class);
-        Acceleration result = CarFollowingUtil.followSingleLeader(vehicle.getCarFollowingModel(), vehicle.getParameters(),
-                ego.getEgoSpeed(),
+        return CarFollowingUtil.followSingleLeader(vehicle.getCarFollowingModel(), vehicle.getParameters(),
+                vehicle.getContext(EgoContext.class).getEgoSpeed(),
                 vehicle.getContext(InfrastructureContext.class).getCurrentSpeedLimit(), distance, leaderSpeed);
-        if (result.si > 0.0)
-        {
-            double fCong = ego.getCongestedAccelerationFactor();
-            if (fCong < 1.0)
-            {
-                result = Acceleration.instantiateSI(result.si * fCong);
-            }
-        }
-        return result;
     }
 
     /**
@@ -298,19 +288,9 @@ public final class MirovaCarFollowingUtil
      */
     public static Acceleration freeAcceleration(final MirovaTacticalPlanner vehicle) throws ParameterException, GtuException
     {
-        EgoContext ego = vehicle.getContext(EgoContext.class);
-        Acceleration result = CarFollowingUtil.freeAcceleration(vehicle.getCarFollowingModel(), vehicle.getParameters(),
-                ego.getEgoSpeed(),
+        return CarFollowingUtil.freeAcceleration(vehicle.getCarFollowingModel(), vehicle.getParameters(),
+                vehicle.getContext(EgoContext.class).getEgoSpeed(),
                 vehicle.getContext(InfrastructureContext.class).getCurrentSpeedLimit());
-        if (result.si > 0.0)
-        {
-            double fCong = ego.getCongestedAccelerationFactor();
-            if (fCong < 1.0)
-            {
-                result = Acceleration.instantiateSI(result.si * fCong);
-            }
-        }
-        return result;
     }
 
     /**

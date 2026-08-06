@@ -57,24 +57,28 @@ MiRoVA interfaces with standard OTS car-following structures but relies heavily 
 
 ---
 
-## 🛑 Congested Acceleration Reduction & Exponential Relaxation
+---
 
-To model realistic human reaction delays and prevent unnatural instant queue dissolution after a bottleneck breakdown, MiRoVA scales positive accelerations during and after congested traffic states:
+## 🛑 Headway Relaxation-Bound Acceleration Damping
+
+To model realistic human behavior after cut-ins and merging maneuvers without generating artificial shockwaves or emergency braking, MiRoVA links positive acceleration damping directly to active Keane & Gao headway relaxation states:
 
 ### Dynamics & Formula
-When vehicle speed $v \le V_{\text{CONG}}$ (congested state, default $50\,\text{km/h}$), positive acceleration capabilities are reduced by $a_{\text{cong\_factor}}$ (default $0.50$ or $50\%$). 
+When a vehicle is in an active `RelaxationState` following a leader (e.g. after a cut-in), positive acceleration demands ($a > 0$) are automatically damped proportionally to the remaining virtual headway buffer $s_{\text{buf}}(t)$:
 
-Upon accelerating out of congestion ($v > V_{\text{CONG}}$), the reduction factor relaxes exponentially back towards $1.00$ with time constant $\tau_a$ (default $20\,\text{s}$):
+$$f_{\text{relax\_acc}}(t) = 1.0 - (1.0 - a_{\text{relax\_damping}}) \cdot \left(\frac{s_{\text{buf}}(t)}{\gamma_s}\right)$$
 
-$$f_a(t) = 1.0 - (1.0 - a_{\text{cong\_factor}}) \cdot e^{-\frac{t - t_{\text{cong\_exit}}}{\tau_a}}$$
+$$a_{\text{effective}}(t) = a_{\text{calculated}}(t) \cdot f_{\text{relax\_acc}}(t) \quad \text{for } a_{\text{calculated}} > 0$$
 
-$$a_{\text{effective}}(t) = a_{\text{calculated}}(t) \cdot f_a(t) \quad \text{for } a_{\text{calculated}} > 0$$
+- **At Cut-In ($t = t_0$)**: $s_{\text{buf}} = \gamma_s \Rightarrow f_{\text{relax\_acc}} = a_{\text{relax\_damping}} = 0.40$ ($40\%$ of normal acceleration capability).
+- **During Relaxation ($t > t_0$)**: As $s_{\text{buf}}(t)$ decays exponentially towards zero ($\tau_s$), $f_{\text{relax\_acc}}(t)$ smoothly recovers towards $1.00$ ($100\%$).
+- **Effect**: The follower vehicle refrains from aggressive acceleration while the leader pulls ahead, restoring the desired equilibrium gap naturally without active braking.
 
 > [!IMPORTANT]
-> This reduction applies **strictly to positive accelerations** ($a > 0$). Decelerations and emergency braking limits ($a \le 0$) are never reduced, preserving full vehicle safety capabilities.
+> Damping applies **strictly to positive accelerations** ($a > 0$). Decelerations and emergency braking ($a \le 0$) are completely unconstrained for safety.
 
 ### Parameters
-*   `ParameterTypes.VCONG` (`vCong`): Standard OTS speed threshold below which the vehicle is considered in congested state (default $60\,\text{km/h}$).
-*   `A_CONG_FACTOR` (`aCongFactor`): Acceleration scaling factor in congested state ($0.50$).
-*   `TAU_A` (`tau_a`): Exponential relaxation time constant for acceleration recovery ($20\,\text{s}$).
+*   `RELAXATION_ACC_DAMPING_FACTOR` (`aRelaxDamping`): Acceleration scaling factor when headway relaxation is 100% active (default $0.40 = 40\%$).
+*   `RELAXATION_ACC_DAMPING_ENABLED` (`aRelaxDampingEnabled`): Boolean flag to enable or disable acceleration damping during active headway relaxation (default `true`). When set to `false` or when `aRelaxDamping = 1.0`, acceleration damping is completely bypassed, producing numerically identical results.
+
 
