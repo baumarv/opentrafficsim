@@ -27,3 +27,16 @@ Whenever you generate or modify code in the MiRoVA framework, check the Verifica
 > [!IMPORTANT]
 > Whenever you modify behavioral logic, tactical planner algorithms, or introduce new parameters or features (such as discretionary lane-changing constraints or deadlock watchdog settings), you **MUST** update the corresponding documentation files under `docs/mirova/` immediately to keep them fully synchronized with the implementation.
 
+## Modular Git Commit Rule
+
+> [!IMPORTANT]
+> Whenever committing code changes, you **MUST** split modifications into logically clustered, modular commits following Conventional Commits syntax (`feat(...)`, `fix(...)`, `refactor(...)`, `docs(...)`) instead of dumping all changes into a single monolithic commit.
+> 
+> Standard commit grouping pattern:
+> 1. **Core Behavioral & Parameter Logic**: `feat(mirova): ...` (Core algorithms, parameters, context models)
+> 2. **Watchdogs & Safety Fixes**: `fix(mirova): ...` (Refining deadlocks, emergency stopping, edge-cases)
+> 3. **Maneuver Patterns & Intention Layer**: `feat(mirova): ...` (FSM states, action patterns like GapOpenerPattern)
+> 4. **Scenarios & Execution Scripts**: `feat(demo): ...` (Runner scripts, scenario management, parameters)
+> 5. **Evaluation Pipeline & Dashboard**: `feat(scripts): ...` (Python plotting, dashboard table features in dependent repos)
+
+
