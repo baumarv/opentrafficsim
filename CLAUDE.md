@@ -87,3 +87,10 @@ Replacing parameter-hacking (e.g., temporarily reducing `T` or `s_0`) with a **2
 - [ ] Full imports included
 - [ ] Mandatory MiRoVA class header present
 - [ ] Physical values use DJUnits, not primitive `double`
+
+## 8. Modular Git Commit Rule
+
+- **Conventional Commits**: Always use structured, conventional commit messages (`feat(...)`, `fix(...)`, `refactor(...)`, `docs(...)`).
+- **Cluster by Subsystem**: Never create monolithic commits across unrelated layers. Separate core logic, watchdog fixes, maneuver patterns, scenario runners, and evaluation scripts into distinct commits.
+
+
