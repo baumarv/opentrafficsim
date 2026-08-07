@@ -11,7 +11,8 @@ This guide documents common compilation issues, ClassLoader pitfalls, Maven exec
 | **Fast Install (All Modules)** | `mvn install "-Dmaven.test.skip=true" "-Dmaven.javadoc.skip=true" "-Djacoco.skip=true"` | Skips tests, javadocs, and JaCoCo coverage |
 | **Fast Install (Specific Submodule)** | `mvn install -pl ots-road -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Djacoco.skip=true` | Installs updated JAR into local `.m2` repo |
 | **Build Classpath for `ots-demo`** | `mvn dependency:build-classpath "-Dmdep.outputFile=classpath.txt"` | (Run inside `ots-demo` folder) |
-| **Direct Java Simulation Execution** | `$cp = "target/classes;../ots-xml/target/classes;../ots-road/target/classes;../ots-core/target/classes;../ots-base/target/classes;../ots-kpi/target/classes;" + (Get-Content classpath.txt); java -cp $cp org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunFreiburgParallel` | Fast, avoids `exec-maven-plugin` JAXB ClassLoader issues |
+| **Direct Java Simulation Execution (Study)** | `$cp = "target/classes;../ots-xml/target/classes;../ots-road/target/classes;../ots-core/target/classes;../ots-base/target/classes;../ots-kpi/target/classes;" + (Get-Content classpath.txt); java -cp $cp org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunFreiburgParallel` | Fast, avoids `exec-maven-plugin` JAXB ClassLoader issues |
+| **Direct Java Execution (Dynamic Coop Test)** | `$cp = "target/classes;../ots-xml/target/classes;../ots-road/target/classes;../ots-core/target/classes;../ots-base/target/classes;../ots-kpi/target/classes;" + (Get-Content classpath.txt); java -cp $cp org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunDynamicCooperationTest20251001` | Evaluates dynamic vs. static cooperation for 2025-10-01 |
 
 ---
 
