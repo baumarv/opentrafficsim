@@ -307,13 +307,6 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
             throws ParameterException
     {
         Acceleration maxCoop = this.vehicle.getParameters().getParameter(MirovaParameters.cooperativeDecelerationThreshold);
-        boolean dynamicEnabled = this.vehicle.getParameters().getParameter(MirovaParameters.enableDynamicCooperativeThreshold);
-
-        if (!dynamicEnabled)
-        {
-            return maxCoop;
-        }
-
         Acceleration minCoop = this.vehicle.getParameters().getParameter(MirovaParameters.preemptiveCooperativeDeceleration);
 
         InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);

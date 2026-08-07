@@ -178,10 +178,6 @@ public final class MirovaParameters implements ConstraintInterface
         public static final ParameterTypeBoolean cooperativeLaneChangesEnabled =
                         new ParameterTypeBoolean("COOPERATIVE_LANE_CHANGES_ENABLED", "Enable cooperative lane changes", true);
 
-        /** Enable distance-dependent dynamic cooperative deceleration threshold. */
-        public static final ParameterTypeBoolean enableDynamicCooperativeThreshold =
-                        new ParameterTypeBoolean("ENABLE_DYNAMIC_COOPERATIVE_THRESHOLD", "Enable distance-dependent dynamic cooperative deceleration threshold", true);
-
         /** Enable far-range speed anticipation. */
         public static final ParameterTypeBoolean farAnticipationEnabled =
                         new ParameterTypeBoolean("FAR_ANTICIPATION_ENABLED", "Enable far-range speed anticipation", true);
