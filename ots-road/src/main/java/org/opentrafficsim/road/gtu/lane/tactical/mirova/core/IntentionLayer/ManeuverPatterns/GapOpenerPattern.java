@@ -325,7 +325,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
             return maxCoop;
         }
 
-        double lookahead = this.vehicle.getParameters().getParameter(MirovaParameters.dynamicCooperativeLookAheadDistance).si;
+        double lookahead = this.vehicle.getParameters().getParameter(ParameterTypes.LOOKAHEAD).si;
         double criticalDist = 100.0; // 100m critical distance threshold near ramp end
 
         if (distToLaneEnd.si >= lookahead)
