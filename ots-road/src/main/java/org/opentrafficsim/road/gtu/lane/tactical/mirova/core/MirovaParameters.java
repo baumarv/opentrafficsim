@@ -182,6 +182,12 @@ public final class MirovaParameters implements ConstraintInterface
         public static final ParameterTypeBoolean enableDynamicCooperativeThreshold =
                         new ParameterTypeBoolean("ENABLE_DYNAMIC_COOPERATIVE_THRESHOLD", "Enable distance-dependent dynamic cooperative deceleration threshold", true);
 
+        /** Look-ahead distance at which dynamic cooperation deceleration threshold begins to ramp up (default 200m). */
+        public static final ParameterTypeLength dynamicCooperativeLookAheadDistance = new ParameterTypeLength(
+                        "DYNAMIC_COOPERATIVE_LOOK_AHEAD_DISTANCE",
+                        "Look-ahead distance at which dynamic cooperation deceleration threshold begins to ramp up",
+                        Length.instantiateSI(200.0), POSITIVE);
+
         /** Enable far-range speed anticipation. */
         public static final ParameterTypeBoolean farAnticipationEnabled =
                         new ParameterTypeBoolean("FAR_ANTICIPATION_ENABLED", "Enable far-range speed anticipation", true);
