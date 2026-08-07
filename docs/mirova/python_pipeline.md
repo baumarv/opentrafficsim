@@ -72,6 +72,29 @@ The post-run evaluation script [plot_scenario_results.py](file:///d:/Mitarbeiten
 
 ---
 
+## 🔬 Multi-Day Calibration Analysis Extensions (`calibration_analysis_extensions.py`)
+
+The evaluation pipeline includes three advanced calibration extensions and a per-day metrics comparison matrix:
+
+1. **Module 1 — Per-Day & Per-Seed Van Aerde Distributions**:
+   * Treats individual fits ($n=6$ empirical, $n=36$ per simulation setting) as the true unit of replication to prevent serial autocorrelation inflation.
+   * Outputs: `van_aerde_fits_tidy.csv`, `van_aerde_parameter_distributions.png`.
+2. **Module 2 — DTW Time-Series Decomposition**:
+   * Employs C-optimized `dtaidistance` to extract breakdown **Onset Lag (minutes)** and timing-corrected **Aligned Speed RMSE / MAE**.
+   * Output: `dtw_time_series_metrics.csv` (recorded per individual seed run).
+3. **Module 3 — Cross-Day Consistency Hypothesis Test**:
+   * Evaluates fixed parameter set stability across varying demand days using Coefficient of Variation ($CV = SD / \text{Mean}$) and Min-Max ranges.
+   * Outputs: `cross_day_consistency_summary.csv`, `cross_day_consistency_summary.md`.
+4. **Per-Day Metrics Breakdown Matrix**:
+   * Compares empirical vs. simulated $q_c, v_c$, Van Aerde fit RMSE, DTW Onset Lag, and Aligned Speed RMSE for **each individual demand date**.
+   * Output: `per_day_calibration_metrics.csv`.
+5. **Fast Evaluation Runner**:
+   * Executable via `python run_calibration_extensions_fast.py --output-dir <path>` to update all metrics and HTML dashboard in $< 5\text{ seconds}$ using detector cache files.
+
+For complete details on execution commands, script parameters, and output artifacts, see the detailed pipeline documentation in [scripts/simulation/ots/README.md](file:///d:/Mitarbeitende/gw2128/repositories/diss_mvb/scripts/simulation/ots/README.md).
+
+---
+
 ## 🔄 Simulation & Data Pipeline Flow
 
 ```mermaid
