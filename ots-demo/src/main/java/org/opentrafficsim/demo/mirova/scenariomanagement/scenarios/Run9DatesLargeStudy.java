@@ -10,7 +10,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 /**
  * Sequential day-by-day parallel runner for the large 9-day simulation study.
  * <p>
- * Dates (9 total): 2025-10-01, 2025-10-07, 2025-10-08, 2025-10-09, 2025-10-14, 2025-10-15,
+ * Dates (9 total): 2025-09-22, 2025-09-23, 2025-10-01, 2025-10-07, 2025-10-08, 2025-10-13,
  * 2025-10-21, 2025-10-27, 2025-10-29.<br>
  * Variations per day (4 total):
  * <ul>
@@ -50,12 +50,12 @@ public class Run9DatesLargeStudy
 
             // 9 Target dates (13:00:00 to 22:00:00)
             String[] dates = new String[] {
+                "2025-09-22",
+                "2025-09-23",
                 "2025-10-01",
                 "2025-10-07",
                 "2025-10-08",
-                "2025-10-09",
-                "2025-10-14",
-                "2025-10-15",
+                "2025-10-13",
                 "2025-10-21",
                 "2025-10-27",
                 "2025-10-29"
