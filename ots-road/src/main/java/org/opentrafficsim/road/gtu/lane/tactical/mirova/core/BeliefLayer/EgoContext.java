@@ -698,6 +698,30 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         Acceleration maxThreshold =
                 this.vehicle.getParameters().getParameter(MirovaParameters.maxFollowerDecelerationThreshold);
 
+        // FREE ACCELERATION RESTRICTION:
+        // When ego is freely accelerating along the ramp (aCf >= aMax - 0.1 m/s²) and still has ample ramp distance (> 100 m),
+        // cap the acceptable follower deceleration threshold at minFollowerDecelerationThreshold.
+        // This prevents aggressive early lane changes that force target-lane followers to brake heavily (-2.0 m/s²)
+        // when ego still has plenty of acceleration room to build speed and merge smoothly.
+        try
+        {
+            Acceleration aCf = getCurrentCarFollowingAcceleration();
+            Acceleration aMax = getMaxPhysicalAcceleration();
+            if (aCf != null && aMax != null && aCf.si >= aMax.si - 0.1)
+            {
+                InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
+                Length distToLaneEnd = infra.getRouteDistanceToLaneEnd();
+                if (distToLaneEnd == null || distToLaneEnd.si > 100.0)
+                {
+                    return minThreshold;
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            // Failsafe: fall back to desire-based interpolation
+        }
+
         // Use primitive double to avoid unnecessary autoboxing/unboxing overhead in the simulation loop
         double currentDirectionDesire = this.vehicle.getLaneChangeDesire().getDirectionalDesire(dir);
         double mandatoryDesireThreshold = this.vehicle.getParameters().getParameter(MirovaParameters.DMAND);

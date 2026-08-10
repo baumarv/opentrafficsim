@@ -294,9 +294,9 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
      * Calculates the dynamic cooperative deceleration threshold based on the candidate's distance to its lane end.
      * <p>
      * At large distances (d >= LOOKAHEAD, e.g. >= 400m), cooperation willingness is conservative, bounded by
-     * {@link MirovaParameters#preemptiveCooperativeDeceleration} (e.g. -0.5 m/s^2).
-     * As the candidate approaches the lane end (d <= 100m), cooperation willingness
-     * ramps up to {@link MirovaParameters#cooperativeDecelerationThreshold} (e.g. -2.0 m/s^2).
+     * {@link MirovaParameters#preemptiveCooperativeDeceleration} (e.g. -0.5 m/s^2). As the candidate approaches the lane end (d
+     * <= 100m), cooperation willingness ramps up to {@link MirovaParameters#cooperativeDecelerationThreshold} (e.g. -2.0
+     * m/s^2).
      * </p>
      * @param candidate the candidate GTU for merge cooperation
      * @param dir the direction of the merge candidate (RIGHT or LEFT)
