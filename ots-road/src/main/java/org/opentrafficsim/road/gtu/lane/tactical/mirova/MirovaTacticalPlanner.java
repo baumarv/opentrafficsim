@@ -405,7 +405,15 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         // updateCurrentRelaxedHeadway();
         updateDecelerationThresholds();
 
-        // 5. Reset operational plan for this time step
+        // 5. Save acceleration executed in previous simulation tick to EgoContext, then reset operational plan for this tick
+        if (this.operationalPlan != null)
+        {
+            EgoContext egoCtx = getContextManager().getCategory("Ego", EgoContext.class);
+            if (egoCtx != null)
+            {
+                egoCtx.setLastTickAcceleration(this.operationalPlan.getAcceleration());
+            }
+        }
         this.operationalPlan = null;
 
         // 6. Determine operational plan using the hybrid three-step arbitration scheme.

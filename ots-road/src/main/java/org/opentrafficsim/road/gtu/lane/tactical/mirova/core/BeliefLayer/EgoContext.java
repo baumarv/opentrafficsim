@@ -679,6 +679,27 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         return desiredRearHeadway;
     }
 
+    /** Acceleration of the executed operational plan from the previous simulation tick. */
+    private Acceleration lastTickAcceleration = Acceleration.ZERO;
+
+    /**
+     * Gets the executed operational plan acceleration from the previous simulation tick.
+     * @return Acceleration from the previous tick
+     */
+    public Acceleration getLastTickAcceleration()
+    {
+        return this.lastTickAcceleration;
+    }
+
+    /**
+     * Sets the executed operational plan acceleration from the previous simulation tick.
+     * @param lastTickAcceleration Acceleration from the previous tick
+     */
+    public void setLastTickAcceleration(final Acceleration lastTickAcceleration)
+    {
+        this.lastTickAcceleration = lastTickAcceleration;
+    }
+
     /**
      * Interpolates the acceptable follower deceleration threshold based on current lane change desire.
      * <p>
@@ -697,25 +718,6 @@ public class EgoContext extends ContextCategory implements UpdatableContext
                 this.vehicle.getParameters().getParameter(MirovaParameters.minFollowerDecelerationThreshold);
         Acceleration maxThreshold =
                 this.vehicle.getParameters().getParameter(MirovaParameters.maxFollowerDecelerationThreshold);
-
-        // FREE ACCELERATION RESTRICTION:
-        // When ego is freely accelerating along the ramp (aCf >= aMax - 0.1 m/s²), cap the acceptable follower deceleration
-        // threshold at minFollowerDecelerationThreshold.
-        // This prevents aggressive early lane changes that force target-lane followers to brake heavily (-2.0 m/s²)
-        // when ego is still actively accelerating to build up speed.
-        try
-        {
-            Acceleration aCf = getCurrentCarFollowingAcceleration();
-            Acceleration aMax = getMaxPhysicalAcceleration();
-            if (aCf != null && aMax != null && aCf.si >= aMax.si - 0.1)
-            {
-                return minThreshold;
-            }
-        }
-        catch (Exception e)
-        {
-            // Failsafe: fall back to desire-based interpolation
-        }
 
         // Use primitive double to avoid unnecessary autoboxing/unboxing overhead in the simulation loop
         double currentDirectionDesire = this.vehicle.getLaneChangeDesire().getDirectionalDesire(dir);
