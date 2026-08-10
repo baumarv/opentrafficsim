@@ -85,7 +85,7 @@ public class ScenarioManager {
         for (ScenarioEntry entry : this.scenarios.values()) {
             totalTasks += entry.parameterVariations.size() * this.replications;
         }
-        final int totalRuns = totalTasks;
+        int totalRuns = totalTasks;
 
         System.out.println("Starting ScenarioManager with " + parallelThreads + " parallel threads. Total runs to execute: " + totalRuns);
         org.opentrafficsim.road.network.factory.xml.parser.XmlParser.warmUpJAXBContext();
@@ -126,6 +126,13 @@ public class ScenarioManager {
                         runParams.setSeed(seed);
                         // build output folder
                         File runFolder = new File(variationFolder, "run_seed_" + seed);
+                        File trajZip = new File(runFolder, "sampler_RoadSampler_[samplingInterval=null].csv.zip");
+                        File detZip = new File(runFolder, "detector_periodic.csv.zip");
+                        if (trajZip.exists() && trajZip.length() > 0 && detZip.exists() && detZip.length() > 0) {
+                            System.out.println("  [SKIP] Seed " + seed + " in " + variationFolder.getName() + " already completed.");
+                            totalRuns--;
+                            continue;
+                        }
                         runFolder.mkdirs();
 
                         generator.setOutputDirectory(runFolder);
@@ -164,6 +171,11 @@ public class ScenarioManager {
                         });
                     }
                 }
+            }
+
+            if (totalRuns == 0) {
+                System.out.println("  [INFO] All runs for this scenario variation set already completed!");
+                return true;
             }
 
             // Wait for all to finish and print progress on the main thread

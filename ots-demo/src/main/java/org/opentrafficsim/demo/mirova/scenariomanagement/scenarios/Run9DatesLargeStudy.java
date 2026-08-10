@@ -46,7 +46,7 @@ public class Run9DatesLargeStudy
             final double RED_FAC = 0.60;
             final int AGGREGATION_MIN = 5;
             final int NUMBER_OF_REPLICATIONS = 10;
-            final int PARALLEL_THREADS = 24;
+            final int PARALLEL_THREADS = 12;
 
             // 9 Target dates (13:00:00 to 22:00:00)
             String[] dates = new String[] {
