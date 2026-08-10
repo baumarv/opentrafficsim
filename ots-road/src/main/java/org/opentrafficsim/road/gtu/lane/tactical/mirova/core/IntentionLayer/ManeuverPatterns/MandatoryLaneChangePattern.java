@@ -986,7 +986,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     {
 
         /** Threshold for sufficient distance to lane end to attempt accelerating ahead [m]. */
-        private static final double SUFFICIENT_DISTANCE_THRESHOLD = 250.0;
+        private static final double SUFFICIENT_DISTANCE_THRESHOLD = 200.0;
 
         private HeadwayGtu parallelVehicle = null;
 
@@ -1017,45 +1017,9 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
 
             if (distToLaneEnd != null)
             {
-                // Kinematic check: Overtake strategy is ONLY physically feasible if:
-                // 1. Remaining ramp distance is at least 250 m
-                // 2. Ego is not significantly slower than parallel blocker (vEgo >= vPart - 2.0 m/s)
-                // 3. SUVAT kinematic calculation proves required distance <= available distance
-                boolean overtakeFeasible = false;
-                if (distToLaneEnd.si >= SUFFICIENT_DISTANCE_THRESHOLD && parallelVehicle != null && !parallelVehicle.isAhead())
-                {
-                    double vEgo = ego.getEgoSpeed().si;
-                    double vPart = parallelVehicle.getSpeed().si;
-                    double aMax = Math.max(ego.getMaxPhysicalAcceleration().si, 0.1);
-                    double lcdur = this.vehicle.getParameters().getParameter(ParameterTypes.LCDUR).si;
-
-                    // Relative distance required to clear blocker length + ego length + safety buffer
-                    double overlap = (parallelVehicle.getDistance().si < 0.0) ? -parallelVehicle.getDistance().si : 0.0;
-                    double safetyBuffer = 5.0;
-                    double dRel0 = parallelVehicle.getLength().si + this.vehicle.getGtu().getLength().si + overlap + safetyBuffer;
-
-                    double dV = vEgo - vPart;
-                    double discriminant = dV * dV + 2.0 * aMax * dRel0;
-                    if (discriminant >= 0.0)
-                    {
-                        double tOvertake = (-dV + Math.sqrt(discriminant)) / aMax;
-                        if (tOvertake > 0.0)
-                        {
-                            double vFinal = vEgo + aMax * tOvertake;
-                            double dOvertake = vPart * tOvertake + dRel0;
-                            double dLaneChange = vFinal * lcdur;
-                            double dRequired = dOvertake + dLaneChange;
-                            double dAvailable = Math.max(0.0, distToLaneEnd.si - RAMP_END_BUFFER.si);
-
-                            if (dRequired <= dAvailable && aCf.si > 0.5 && vEgo >= vPart - 2.0)
-                            {
-                                overtakeFeasible = true;
-                            }
-                        }
-                    }
-                }
-
-                if (overtakeFeasible)
+                // Strategy: Check if we have enough room and momentum to overtake the parallel vehicle
+                if (distToLaneEnd != null && distToLaneEnd.si > SUFFICIENT_DISTANCE_THRESHOLD && aCf.si > 1.0
+                        && parallelVehicle != null && !parallelVehicle.isAhead())
                 {
                     // Accelerate maximally to merge ahead
                     targetAcc = ego.getMaxPhysicalAcceleration();

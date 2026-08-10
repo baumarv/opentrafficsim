@@ -119,7 +119,7 @@ stateDiagram-v2
 | `AnticipateMergeState` | Long-range speed sampling (up to 1000 m) with EMA filter. Adjusts speed smoothly. No active gap search. |
 | `EvaluateTargetGapState` | Scans available gap candidates. Evaluates required decel for follower and ego. Dispatches to sub-states. |
 | `MatchLeaderSpeedState` | Active braking to drop behind a slower target lane leader. Kinematic check that gap is reachable. |
-| `SolveParallelVehicleState` | Resolves a parallel blocker. Overtake strategy requires ≥ 250m ramp distance, $v_{\text{ego}} \ge v_{\text{blocker}} - 2\text{ m/s}$, and a kinematic SUVAT proof that $d_{\text{required}} \le d_{\text{available}}$. Otherwise: Yields behind blocker. |
+| `SolveParallelVehicleState` | Resolves a parallel blocker. If enough room (>200m) and space ahead: overtake. Otherwise: yield behind. |
 | `CongestedMergeState` | Dispatcher in congestion. Routes to creep or follow sub-state. Transitions back to free-flow state if speed recovers. |
 | `CongestedCreepState` | Creeps at 3 km/h, max 0.3 m/s², alongside a blocking vehicle. No acceleration competition. |
 | `CongestedFollowLeaderState` | Follows target lane leader at speed scaled from 15→5 km/h as ramp end approaches. |
@@ -128,7 +128,6 @@ stateDiagram-v2
 
 **Key Implementation Details**:
 - **Free-Acceleration Restriction**: During `checkCommonTransitions()`, if the ego vehicle was freely accelerating in the previous timestep (`lastTickAcceleration >= aMax - 0.1 m/s²`), the allowable target follower deceleration is restricted to `minFollowerDecelerationThreshold` (-0.5 m/s²). This prevents premature aggressive merging early on the ramp while the vehicle is actively accelerating to match main-lane traffic speed.
-- **Kinematic Overtake Validation**: In `SolveParallelVehicleState`, the Overtake strategy evaluates speed difference $\Delta v = v_{\text{ego}} - v_{\text{part}}$, solves the quadratic equation for $t_{\text{overtake}}$, and requires $d_{\text{required}} \le d_{\text{available}}$ and $d_{\text{ramp}} \ge 250\text{ m}$. In short-ramp merge scenarios (e.g. 180 m ramp), vehicles automatically choose the Yield strategy to drop behind the parallel blocker safely.
 - Uses `GapCandidate` helper class to score and rank available gaps on the target lane
 - Pattern-specific timestep: `0.1 s` (higher resolution during critical merge maneuvers)
 - Pre-registers a `RelaxationState` for the future leader before the lane change begins
