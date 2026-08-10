@@ -43,6 +43,25 @@ diss_mvb/scripts/simulation/ots/
 
 ---
 
+## 🐍 Package Import Examples (`diss_mvb` in PYTHONPATH)
+
+Since `diss_mvb` is in `PYTHONPATH`, all modules are cleanly accessible via fully qualified package paths:
+
+```python
+from diss_mvb.scripts.simulation.ots.io.empirical import load_empirical_data, DETECTOR_MAPPING
+from diss_mvb.scripts.simulation.ots.io.params_parser import scan_scenarios_in_output_root
+from diss_mvb.scripts.simulation.ots.io.detector_cache import load_detector_data_for_variation
+from diss_mvb.scripts.simulation.ots.analytics.van_aerde import fit_van_aerde, van_aerde_q
+from diss_mvb.scripts.simulation.ots.analytics.breakdown import fit_gmm_vcrit, find_breakdown_capacity
+from diss_mvb.scripts.simulation.ots.plotting.detectors.speed_series import plot_detector_speed_series
+from diss_mvb.scripts.simulation.ots.plotting.detectors.qv_diagrams import plot_detector_qv_diagram
+from diss_mvb.scripts.simulation.ots.plotting.trajectories.profiles import plot_trajectory_profiles
+from diss_mvb.scripts.simulation.ots.plotting.trajectories.lane_changes import plot_lane_change_evaluations
+from diss_mvb.scripts.simulation.ots.dashboards.html_builder import generate_overview_html
+```
+
+---
+
 ## 🛠️ Main Packages & Modules
 
 ### 1. Data I/O & Parsing (`ots.io`)
