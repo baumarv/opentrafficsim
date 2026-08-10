@@ -33,51 +33,50 @@ import org.opentrafficsim.road.network.lane.Lane;
 /**
  * Mandatory lane change pattern with long-range anticipation for merge scenarios.
  * <p>
- * This pattern implements a state-machine based lane change process, transitioning from early speed anticipation 
- * to active gap evaluation, conflict resolution, and execution.
+ * This pattern implements a state-machine based lane change process, transitioning from early speed anticipation to active gap
+ * evaluation, conflict resolution, and execution.
  * </p>
- * 
  * <h3>Functional State Machine Flow:</h3>
  * <ol>
- *   <li><b>AnticipateMergeState</b> (Initial Phase): Looks far ahead (up to extendedLookAheadDistance) to estimate average 
- *       downstream speed on the target lane. The speed signal is smoothed using an Exponential Moving Average (EMA) filter. 
- *       The vehicle adjusts its speed smoothly without actively looking for gaps or forcing a lane change. When the target 
- *       lane is within reach, it transitions to <i>EvaluateTargetGapState</i>.</li>
- *   <li><b>EvaluateTargetGapState</b> (Gap Evaluation Phase): Searches for suitable gap candidates on the adjacent lane. 
- *       It evaluates required safety decelerations and coordinates parallel blocks. 
- *       <ul>
- *         <li><b>Slower Target Lane (Exit/Decel Scenario):</b> When changing to a slower lane, the target lane leader speed 
- *             is lower than the ego speed. The safety deceleration threshold is typically violated. The vehicle transitions to 
- *             <i>MatchLeaderSpeedState</i> to brake and drop behind the slower leader.</li>
- *         <li><b>Faster Target Lane (Merge/Accel Scenario):</b> The vehicle accelerates towards target lane speed. If a parallel 
- *             block is detected, it transitions to <i>SolveParallelVehicleState</i> to handle overtaking.</li>
- *       </ul>
- *       If speed drops below 15 km/h, it transitions to <i>CongestedMergeState</i>. If a gap is physically open, 
- *       it transitions to <i>ExecuteLaneChangeState</i>.</li>
- *   <li><b>MatchLeaderSpeedState</b> (Active Braking Phase): Entered when the ego vehicle is too fast/close to the target leader. 
- *       It actively decelerates the ego vehicle to safely match the target leader's speed and fall behind it. 
- *       It kinematically checks if the gap is still reachable within the remaining ramp end distance; if not, it transitions back 
- *       to <i>EvaluateTargetGapState</i>. If a parallel blocker appears, it transitions to <i>SolveParallelVehicleState</i>.</li>
- *   <li><b>SolveParallelVehicleState</b> (Parallel Conflict Resolution): Resolves situations where a vehicle is driving 
- *       parallel on the adjacent lane. If there is enough remaining ramp distance (>200m) and own lane headway, it accelerates 
- *       maximally to overtake and merge ahead (Overtake Strategy). Otherwise, it decelerates to drop behind the blocker.</li>
- *   <li><b>CongestedMergeState</b> (Congested Flow Dispatcher): Activated under congested conditions (speed < 15 km/h). 
- *       Acts as a pure routing dispatcher, transitioning to <i>CongestedCreepState</i> when a parallel vehicle is blocking, 
- *       or <i>CongestedFollowLeaderState</i> when the target lane leader is clear but the lane change is not yet physically possible. 
- *       If speed recovers above 30 km/h, it transitions back to <i>EvaluateTargetGapState</i>.</li>
- *   <li><b>CongestedCreepState</b> (Congested Parallel Blocking): Creeps forward at a very low speed (3 km/h, max 0.3 m/s²) 
- *       without accelerating alongside the blocking vehicle. It returns to <i>CongestedMergeState</i> when the block is resolved.</li>
- *   <li><b>CongestedFollowLeaderState</b> (Congested Target Following): Follows the leader in the target lane at a speed 
- *       scaling down from 15 km/h to 5 km/h as the end of the ramp approaches. If a parallel block appears, it transitions back 
- *       to <i>CongestedMergeState</i>.</li>
- *   <li><b>EmergencyStopState</b> (Emergency Stop & Last-Minute Overtake): Triggered when approaching the end of the lane 
- *       without finding a gap (e.g. at the end of a merge ramp or when approaching a highway exit on the main road). 
- *       It stops the vehicle before the lane end buffer. While decelerating, it continuously checks if a last-minute 
- *       overtake and lane change is safely possible.</li>
- *   <li><b>ExecuteLaneChangeState</b> (Lateral Execution): Performs the physical lateral movement, temporarily triggering 
- *       safety distance relaxation (cooperative gap creation) for adjacent leaders and followers.</li>
+ * <li><b>AnticipateMergeState</b> (Initial Phase): Looks far ahead (up to extendedLookAheadDistance) to estimate average
+ * downstream speed on the target lane. The speed signal is smoothed using an Exponential Moving Average (EMA) filter. The
+ * vehicle adjusts its speed smoothly without actively looking for gaps or forcing a lane change. When the target lane is within
+ * reach, it transitions to <i>EvaluateTargetGapState</i>.</li>
+ * <li><b>EvaluateTargetGapState</b> (Gap Evaluation Phase): Searches for suitable gap candidates on the adjacent lane. It
+ * evaluates required safety decelerations and coordinates parallel blocks.
+ * <ul>
+ * <li><b>Slower Target Lane (Exit/Decel Scenario):</b> When changing to a slower lane, the target lane leader speed is lower
+ * than the ego speed. The safety deceleration threshold is typically violated. The vehicle transitions to
+ * <i>MatchLeaderSpeedState</i> to brake and drop behind the slower leader.</li>
+ * <li><b>Faster Target Lane (Merge/Accel Scenario):</b> The vehicle accelerates towards target lane speed. If a parallel block
+ * is detected, it transitions to <i>SolveParallelVehicleState</i> to handle overtaking.</li>
+ * </ul>
+ * If speed drops below 15 km/h, it transitions to <i>CongestedMergeState</i>. If a gap is physically open, it transitions to
+ * <i>ExecuteLaneChangeState</i>.</li>
+ * <li><b>MatchLeaderSpeedState</b> (Active Braking Phase): Entered when the ego vehicle is too fast/close to the target leader.
+ * It actively decelerates the ego vehicle to safely match the target leader's speed and fall behind it. It kinematically checks
+ * if the gap is still reachable within the remaining ramp end distance; if not, it transitions back to
+ * <i>EvaluateTargetGapState</i>. If a parallel blocker appears, it transitions to <i>SolveParallelVehicleState</i>.</li>
+ * <li><b>SolveParallelVehicleState</b> (Parallel Conflict Resolution): Resolves situations where a vehicle is driving parallel
+ * on the adjacent lane. If there is enough remaining ramp distance (>200m) and own lane headway, it accelerates maximally to
+ * overtake and merge ahead (Overtake Strategy). Otherwise, it decelerates to drop behind the blocker.</li>
+ * <li><b>CongestedMergeState</b> (Congested Flow Dispatcher): Activated under congested conditions (speed < 15 km/h). Acts as a
+ * pure routing dispatcher, transitioning to <i>CongestedCreepState</i> when a parallel vehicle is blocking, or
+ * <i>CongestedFollowLeaderState</i> when the target lane leader is clear but the lane change is not yet physically possible. If
+ * speed recovers above 30 km/h, it transitions back to <i>EvaluateTargetGapState</i>.</li>
+ * <li><b>CongestedCreepState</b> (Congested Parallel Blocking): Creeps forward at a very low speed (3 km/h, max 0.3 m/s²)
+ * without accelerating alongside the blocking vehicle. It returns to <i>CongestedMergeState</i> when the block is
+ * resolved.</li>
+ * <li><b>CongestedFollowLeaderState</b> (Congested Target Following): Follows the leader in the target lane at a speed scaling
+ * down from 15 km/h to 5 km/h as the end of the ramp approaches. If a parallel block appears, it transitions back to
+ * <i>CongestedMergeState</i>.</li>
+ * <li><b>EmergencyStopState</b> (Emergency Stop & Last-Minute Overtake): Triggered when approaching the end of the lane without
+ * finding a gap (e.g. at the end of a merge ramp or when approaching a highway exit on the main road). It stops the vehicle
+ * before the lane end buffer. While decelerating, it continuously checks if a last-minute overtake and lane change is safely
+ * possible.</li>
+ * <li><b>ExecuteLaneChangeState</b> (Lateral Execution): Performs the physical lateral movement, temporarily triggering safety
+ * distance relaxation (cooperative gap creation) for adjacent leaders and followers.</li>
  * </ol>
- * 
  * <p>
  * Copyright (c) 2026 Marvin Baumann / KIT. All rights reserved. <br>
  * BSD-style license. See <a href="https://opentrafficsim.org/docs/license.html">OpenTrafficSim License</a>.
@@ -225,8 +224,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
      */
 
     /**
-     * Base class for action states within MandatoryLaneChangePattern.
-     * Reduces code duplication of utility, abort checks, indicators, and common transitions.
+     * Base class for action states within MandatoryLaneChangePattern. Reduces code duplication of utility, abort checks,
+     * indicators, and common transitions.
      */
     public abstract static class MandatoryLaneChangeState extends ActionState
     {
@@ -293,7 +292,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                             this.vehicle.getParameters().getParameter(MirovaParameters.minFollowerDecelerationThreshold);
                     if (!Double.isNaN(followerDecel.si) && followerDecel.le(minFollowerThresh))
                     {
-                        // Target follower deceleration would be harsher than minFollowerThreshold -> delay ExecuteLaneChangeState
+                        // Target follower deceleration would be harsher than minFollowerThreshold -> delay
+                        // ExecuteLaneChangeState
                         return null;
                     }
                 }
@@ -332,15 +332,15 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         /**
          * Checks for a parallel blocking vehicle on the target lane.
          */
-        protected HeadwayGtu getParallelBlock(final NeighborsContext neigh, final LateralDirectionality dir, final EgoContext ego)
-                throws ParameterException
+        protected HeadwayGtu getParallelBlock(final NeighborsContext neigh, final LateralDirectionality dir,
+                final EgoContext ego) throws ParameterException
         {
             HeadwayGtu leader = neigh.getLeader(dir);
             HeadwayGtu follower = neigh.getFollower(dir);
             Length safe = ego.getDesiredFrontHeadway(dir);
             double factor = this.vehicle.getParameters().getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange);
-            if (leader != null && (leader.isParallel()
-                    || (leader.getDistance().si < safe.si * factor && Math.abs(leader.getSpeed().si - ego.getEgoSpeed().si) < 1.0)))
+            if (leader != null && (leader.isParallel() || (leader.getDistance().si < safe.si * factor
+                    && Math.abs(leader.getSpeed().si - ego.getEgoSpeed().si) < 1.0)))
             {
                 return leader;
             }
@@ -373,8 +373,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         /**
          * Checks if the parallel block is still present based on safety distance (without speed synchronization check).
          */
-        protected HeadwayGtu getParallelBlockWithoutSpeedCheck(final NeighborsContext neigh, final LateralDirectionality dir, final EgoContext ego)
-                throws ParameterException
+        protected HeadwayGtu getParallelBlockWithoutSpeedCheck(final NeighborsContext neigh, final LateralDirectionality dir,
+                final EgoContext ego) throws ParameterException
         {
             HeadwayGtu leader = neigh.getLeader(dir);
             HeadwayGtu follower = neigh.getFollower(dir);
@@ -400,22 +400,21 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     /**
      * <b>State 1: Speed Anticipation Phase (AnticipateMergeState)</b>
      * <p>
-     * Early state focused on speed synchronization with the target merge area bottleneck before 
-     * actively searching for gap candidates or executing lateral actions.
+     * Early state focused on speed synchronization with the target merge area bottleneck before actively searching for gap
+     * candidates or executing lateral actions.
      * </p>
-     * 
      * <h4>Functional Behavior:</h4>
      * <ul>
-     *   <li>Looks ahead up to <i>extendedLookAheadDistance</i> on the adjacent/main road lane to determine the average traffic speed.</li>
-     *   <li>Applies an Exponential Moving Average (EMA) low-pass filter to smooth out short-term speed fluctuations.</li>
-     *   <li>Softly adapts the ego vehicle's longitudinal speed to match the smoothed merge speed, ensuring a smooth, 
-     *       non-disruptive merge approach.</li>
+     * <li>Looks ahead up to <i>extendedLookAheadDistance</i> on the adjacent/main road lane to determine the average traffic
+     * speed.</li>
+     * <li>Applies an Exponential Moving Average (EMA) low-pass filter to smooth out short-term speed fluctuations.</li>
+     * <li>Softly adapts the ego vehicle's longitudinal speed to match the smoothed merge speed, ensuring a smooth,
+     * non-disruptive merge approach.</li>
      * </ul>
-     * 
      * <h4>Transitions:</h4>
      * <ul>
-     *   <li>Transitions to <i>EvaluateTargetGapState</i> as soon as the target lane becomes physically available and 
-     *       within the active lane change matching range.</li>
+     * <li>Transitions to <i>EvaluateTargetGapState</i> as soon as the target lane becomes physically available and within the
+     * active lane change matching range.</li>
      * </ul>
      */
     public static class AnticipateMergeState extends MandatoryLaneChangeState
@@ -465,7 +464,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                     {
                         Speed targetLaneSpeed = infra.getLaneAverageSpeed(targetLane, Length.instantiateSI(0.0),
                                 Length.instantiateSI(150.0), 3, ScanDirection.FRONT_TO_BACK);
-                        
+
                         Speed actualSpeed = Double.isInfinite(targetLaneSpeed.si) ? speedLimit : targetLaneSpeed;
                         if (this.smoothedMergeSpeed == null || Double.isInfinite(this.smoothedMergeSpeed.si))
                         {
@@ -473,8 +472,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                         }
                         else
                         {
-                            this.smoothedMergeSpeed = Speed.instantiateSI(
-                                    (1.0 - this.SPEED_SMOOTHING_FACTOR) * this.smoothedMergeSpeed.si
+                            this.smoothedMergeSpeed =
+                                    Speed.instantiateSI((1.0 - this.SPEED_SMOOTHING_FACTOR) * this.smoothedMergeSpeed.si
                                             + this.SPEED_SMOOTHING_FACTOR * actualSpeed.si);
                         }
 
@@ -546,26 +545,25 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     /**
      * <b>State 2: Gap Evaluation Phase (EvaluateTargetGapState)</b>
      * <p>
-     * Active gap selection and evaluation state that uses a safety-first heuristic hierarchy to identify 
-     * a feasible adjacent gap candidate.
+     * Active gap selection and evaluation state that uses a safety-first heuristic hierarchy to identify a feasible adjacent
+     * gap candidate.
      * </p>
-     * 
      * <h4>Functional Behavior:</h4>
      * <ul>
-     *   <li>Searches for adjacent gaps and selects the most promising candidate.</li>
-     *   <li>Evaluates kinematic safety constraints: checks if merging requires the ego to brake excessively, 
-     *       or forces the target lane follower to brake harder than its comfort deceleration limit.</li>
-     *   <li><b>Speed adaptation:</b> In a slower target lane (exit scenario), the ego vehicle must decelerate to align. 
-     *       In a faster target lane (merge scenario), it accelerates towards the target flow speed.</li>
+     * <li>Searches for adjacent gaps and selects the most promising candidate.</li>
+     * <li>Evaluates kinematic safety constraints: checks if merging requires the ego to brake excessively, or forces the target
+     * lane follower to brake harder than its comfort deceleration limit.</li>
+     * <li><b>Speed adaptation:</b> In a slower target lane (exit scenario), the ego vehicle must decelerate to align. In a
+     * faster target lane (merge scenario), it accelerates towards the target flow speed.</li>
      * </ul>
-     * 
      * <h4>Transitions:</h4>
      * <ul>
-     *   <li>Transitions to <i>ExecuteLaneChangeState</i> immediately if the gap is physically clear (safety constraints met).</li>
-     *   <li>Transitions to <i>CongestedMergeState</i> if traffic speed falls below 15 km/h.</li>
-     *   <li>Transitions to <i>MatchLeaderSpeedState</i> if the deceleration required to align behind the target leader 
-     *       exceeds comfort limits (safety-first heuristic).</li>
-     *   <li>Transitions to <i>SolveParallelVehicleState</i> if a parallel vehicle is blocking access to the gap.</li>
+     * <li>Transitions to <i>ExecuteLaneChangeState</i> immediately if the gap is physically clear (safety constraints
+     * met).</li>
+     * <li>Transitions to <i>CongestedMergeState</i> if traffic speed falls below 15 km/h.</li>
+     * <li>Transitions to <i>MatchLeaderSpeedState</i> if the deceleration required to align behind the target leader exceeds
+     * comfort limits (safety-first heuristic).</li>
+     * <li>Transitions to <i>SolveParallelVehicleState</i> if a parallel vehicle is blocking access to the gap.</li>
      * </ul>
      */
     public static class EvaluateTargetGapState extends MandatoryLaneChangeState
@@ -774,28 +772,27 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     /**
      * <b>State 3: Match Target Leader Speed (MatchLeaderSpeedState)</b>
      * <p>
-     * Active braking/alignment state entered when the ego vehicle is traveling too fast relative to the target lane leader 
-     * (EgoDecelerationThreshold is violated). It overrides standard car-following acceleration with a targeted deceleration 
-     * maneuver to yield and drop behind the leader. This occurs especially when changing to a slower target lane (exit scenario).
+     * Active braking/alignment state entered when the ego vehicle is traveling too fast relative to the target lane leader
+     * (EgoDecelerationThreshold is violated). It overrides standard car-following acceleration with a targeted deceleration
+     * maneuver to yield and drop behind the leader. This occurs especially when changing to a slower target lane (exit
+     * scenario).
      * </p>
-     * 
      * <h4>Functional Behavior:</h4>
      * <ul>
-     *   <li>Applies deceleration required to follow the target lane leader safely.</li>
-     *   <li>Imposes a distance-dependent speed cap in congested conditions near the end of the ramp (approaching 15 down to 5 km/h) 
-     *       to prevent accelerating into tight openings.</li>
-     *   <li>Continuously performs a kinematic reachability check: evaluates whether the target leader can be overtaken 
-     *       or followed within the remaining ramp distance.</li>
+     * <li>Applies deceleration required to follow the target lane leader safely.</li>
+     * <li>Imposes a distance-dependent speed cap in congested conditions near the end of the ramp (approaching 15 down to 5
+     * km/h) to prevent accelerating into tight openings.</li>
+     * <li>Continuously performs a kinematic reachability check: evaluates whether the target leader can be overtaken or
+     * followed within the remaining ramp distance.</li>
      * </ul>
-     * 
      * <h4>Transitions:</h4>
      * <ul>
-     *   <li>Transitions to <i>ExecuteLaneChangeState</i> if the lane change becomes physically possible.</li>
-     *   <li>Transitions to <i>EmergencyStopState</i> if the end of the lane is critically close (emergency stop condition).</li>
-     *   <li>Transitions to <i>CongestedMergeState</i> if speed drops below 15 km/h.</li>
-     *   <li>Transitions to <i>EvaluateTargetGapState</i> if the downstream gap becomes kinematically unreachable, 
-     *       meaning the vehicle must stop and wait for an upstream gap instead.</li>
-     *   <li>Transitions to <i>SolveParallelVehicleState</i> if a parallel blocking vehicle is detected.</li>
+     * <li>Transitions to <i>ExecuteLaneChangeState</i> if the lane change becomes physically possible.</li>
+     * <li>Transitions to <i>EmergencyStopState</i> if the end of the lane is critically close (emergency stop condition).</li>
+     * <li>Transitions to <i>CongestedMergeState</i> if speed drops below 15 km/h.</li>
+     * <li>Transitions to <i>EvaluateTargetGapState</i> if the downstream gap becomes kinematically unreachable, meaning the
+     * vehicle must stop and wait for an upstream gap instead.</li>
+     * <li>Transitions to <i>SolveParallelVehicleState</i> if a parallel blocking vehicle is detected.</li>
      * </ul>
      */
     public static class MatchLeaderSpeedState extends MandatoryLaneChangeState
@@ -965,35 +962,35 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     /**
      * <b>State 4: Parallel Conflict Resolution (SolveParallelVehicleState)</b>
      * <p>
-     * Active state entered when a vehicle is driving parallel on the target lane, blocking the lane change. 
-     * It chooses between accelerating ahead or decelerating behind based on the remaining ramp distance.
+     * Active state entered when a vehicle is driving parallel on the target lane, blocking the lane change. It chooses between
+     * accelerating ahead or decelerating behind based on the remaining ramp distance.
      * </p>
-     * 
      * <h4>Functional Behavior:</h4>
      * <ul>
-     *   <li><b>Overtake Strategy (Merge/Accel Scenario):</b> If the distance to the lane end is greater than 200 m, 
-     *       car-following acceleration is positive (&gt; 1 m/s²), and the blocker is not ahead, the ego vehicle 
-     *       accelerates maximally to pass the parallel vehicle and merge ahead.</li>
-     *   <li><b>Yield Strategy (Exit/Decel Scenario):</b> Otherwise, the vehicle decelerates comfortability (-1.0 m/s²) 
-     *       to let the parallel vehicle pass, while ensuring it doesn't crash into leaders in its own lane.</li>
+     * <li><b>Overtake Strategy (Merge/Accel Scenario):</b> If the distance to the lane end is greater than 200 m, car-following
+     * acceleration is positive (&gt; 1 m/s²), and the blocker is not ahead, the ego vehicle accelerates maximally to pass the
+     * parallel vehicle and merge ahead.</li>
+     * <li><b>Yield Strategy (Exit/Decel Scenario):</b> Otherwise, the vehicle decelerates comfortability (-1.0 m/s²) to let the
+     * parallel vehicle pass, while ensuring it doesn't crash into leaders in its own lane.</li>
      * </ul>
-     * 
      * <h4>Transitions:</h4>
      * <ul>
-     *   <li>Transitions to <i>ExecuteLaneChangeState</i> if a gap becomes physically open.</li>
-     *   <li>Transitions to <i>EmergencyStopState</i> if the end of the lane is critically close (emergency stop).</li>
-     *   <li>Transitions to <i>CongestedMergeState</i> if speed drops below 15 km/h.</li>
-     *   <li>Transitions to <i>MatchLeaderSpeedState</i> once the parallel block is resolved, if the target leader is ahead.</li>
-     *   <li>Transitions to <i>EvaluateTargetGapState</i> once the parallel block is resolved and target lane is clear.</li>
+     * <li>Transitions to <i>ExecuteLaneChangeState</i> if a gap becomes physically open.</li>
+     * <li>Transitions to <i>EmergencyStopState</i> if the end of the lane is critically close (emergency stop).</li>
+     * <li>Transitions to <i>CongestedMergeState</i> if speed drops below 15 km/h.</li>
+     * <li>Transitions to <i>MatchLeaderSpeedState</i> once the parallel block is resolved, if the target leader is ahead.</li>
+     * <li>Transitions to <i>EvaluateTargetGapState</i> once the parallel block is resolved and target lane is clear.</li>
      * </ul>
      */
     public static class SolveParallelVehicleState extends MandatoryLaneChangeState
     {
 
         /** Threshold for sufficient distance to lane end to attempt accelerating ahead [m]. */
-        private static final double SUFFICIENT_DISTANCE_THRESHOLD = 200.0;
+        private static final double SUFFICIENT_DISTANCE_THRESHOLD = 250.0;
 
         private HeadwayGtu parallelVehicle = null;
+
+        private String strategy = "";
 
         /**
          * Constructor for the solve parallel vehicle state.
@@ -1020,12 +1017,49 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
 
             if (distToLaneEnd != null)
             {
-                // Strategy: Check if we have enough room and momentum to overtake the parallel vehicle
-                if (distToLaneEnd != null && distToLaneEnd.si > SUFFICIENT_DISTANCE_THRESHOLD && aCf.si > 1.0
-                        && parallelVehicle != null && !parallelVehicle.isAhead())
+                // Kinematic check: Overtake strategy is ONLY physically feasible if:
+                // 1. Remaining ramp distance is at least 250 m
+                // 2. Ego is not significantly slower than parallel blocker (vEgo >= vPart - 2.0 m/s)
+                // 3. SUVAT kinematic calculation proves required distance <= available distance
+                boolean overtakeFeasible = false;
+                if (distToLaneEnd.si >= SUFFICIENT_DISTANCE_THRESHOLD && parallelVehicle != null && !parallelVehicle.isAhead())
+                {
+                    double vEgo = ego.getEgoSpeed().si;
+                    double vPart = parallelVehicle.getSpeed().si;
+                    double aMax = Math.max(ego.getMaxPhysicalAcceleration().si, 0.1);
+                    double lcdur = this.vehicle.getParameters().getParameter(ParameterTypes.LCDUR).si;
+
+                    // Relative distance required to clear blocker length + ego length + safety buffer
+                    double overlap = (parallelVehicle.getDistance().si < 0.0) ? -parallelVehicle.getDistance().si : 0.0;
+                    double safetyBuffer = 5.0;
+                    double dRel0 = parallelVehicle.getLength().si + this.vehicle.getGtu().getLength().si + overlap + safetyBuffer;
+
+                    double dV = vEgo - vPart;
+                    double discriminant = dV * dV + 2.0 * aMax * dRel0;
+                    if (discriminant >= 0.0)
+                    {
+                        double tOvertake = (-dV + Math.sqrt(discriminant)) / aMax;
+                        if (tOvertake > 0.0)
+                        {
+                            double vFinal = vEgo + aMax * tOvertake;
+                            double dOvertake = vPart * tOvertake + dRel0;
+                            double dLaneChange = vFinal * lcdur;
+                            double dRequired = dOvertake + dLaneChange;
+                            double dAvailable = Math.max(0.0, distToLaneEnd.si - RAMP_END_BUFFER.si);
+
+                            if (dRequired <= dAvailable && aCf.si > 0.5 && vEgo >= vPart - 2.0)
+                            {
+                                overtakeFeasible = true;
+                            }
+                        }
+                    }
+                }
+
+                if (overtakeFeasible)
                 {
                     // Accelerate maximally to merge ahead
                     targetAcc = ego.getMaxPhysicalAcceleration();
+                    this.strategy = "Overtake";
                 }
                 else
                 {
@@ -1044,6 +1078,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                         aStop = Acceleration.min(aStop, Acceleration.instantiateSI(-1.0));
                     }
                     targetAcc = Acceleration.min(aCf, aStop);
+                    this.strategy = "Yield";
                 }
             }
             SimpleOperationalPlan plan = new SimpleOperationalPlan(targetAcc, this.pattern.patternSpecificTimestep);
@@ -1093,7 +1128,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         @Override
         public String toString()
         {
-            return "SolveParallelVehicleState";
+            return "SolveParallelVehicleState[" + this.strategy + "]";
         }
     }
 
@@ -1105,24 +1140,21 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     /**
      * <b>State 5: Congested Flow Dispatcher (CongestedMergeState)</b>
      * <p>
-     * Dispatcher state activated in slow or stop-and-go traffic (ego speed &lt; 15 km/h). 
-     * It does not control longitudinal behavior itself, but immediately routes control to a specific 
-     * congested sub-state based on immediate blocker presence.
+     * Dispatcher state activated in slow or stop-and-go traffic (ego speed &lt; 15 km/h). It does not control longitudinal
+     * behavior itself, but immediately routes control to a specific congested sub-state based on immediate blocker presence.
      * </p>
-     * 
      * <h4>Functional Behavior:</h4>
      * <ul>
-     *   <li>Acts as a pure decision dispatcher evaluated on every simulation step.</li>
-     *   <li>Returns default own-lane car-following acceleration as a neutral fallback.</li>
+     * <li>Acts as a pure decision dispatcher evaluated on every simulation step.</li>
+     * <li>Returns default own-lane car-following acceleration as a neutral fallback.</li>
      * </ul>
-     * 
      * <h4>Transitions:</h4>
      * <ul>
-     *   <li>Transitions to <i>ExecuteLaneChangeState</i> if a gap becomes physically open.</li>
-     *   <li>Transitions to <i>EmergencyStopState</i> if the end of the lane is critically close (emergency stop).</li>
-     *   <li>Transitions to <i>EvaluateTargetGapState</i> if speed recovers above 30 km/h, returning to normal evaluation.</li>
-     *   <li>Transitions to <i>CongestedCreepState</i> if a parallel vehicle is blocking the adjacent gap.</li>
-     *   <li>Transitions to <i>CongestedFollowLeaderState</i> if no parallel blocker is present but a target leader exists.</li>
+     * <li>Transitions to <i>ExecuteLaneChangeState</i> if a gap becomes physically open.</li>
+     * <li>Transitions to <i>EmergencyStopState</i> if the end of the lane is critically close (emergency stop).</li>
+     * <li>Transitions to <i>EvaluateTargetGapState</i> if speed recovers above 30 km/h, returning to normal evaluation.</li>
+     * <li>Transitions to <i>CongestedCreepState</i> if a parallel vehicle is blocking the adjacent gap.</li>
+     * <li>Transitions to <i>CongestedFollowLeaderState</i> if no parallel blocker is present but a target leader exists.</li>
      * </ul>
      */
     public static class CongestedMergeState extends MandatoryLaneChangeState
@@ -1197,20 +1229,18 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
      * <p>
      * Sub-state of the congested merge sequence when a parallel-blocking vehicle is present on the target lane.
      * </p>
-     * 
      * <h4>Functional Behavior:</h4>
      * <ul>
-     *   <li>Creeps gently forward at a target speed of 3 km/h with a low maximum acceleration cap of 0.3 m/s².</li>
-     *   <li>This prevents the ego vehicle from driving alongside the blocking vehicle, positioning it to fall 
-     *       behind the blocker and wait for the block to clear.</li>
-     *   <li>Ensures longitudinal safety by flooring acceleration at own-lane car-following requirements.</li>
+     * <li>Creeps gently forward at a target speed of 3 km/h with a low maximum acceleration cap of 0.3 m/s².</li>
+     * <li>This prevents the ego vehicle from driving alongside the blocking vehicle, positioning it to fall behind the blocker
+     * and wait for the block to clear.</li>
+     * <li>Ensures longitudinal safety by flooring acceleration at own-lane car-following requirements.</li>
      * </ul>
-     * 
      * <h4>Transitions:</h4>
      * <ul>
-     *   <li>Transitions to <i>ExecuteLaneChangeState</i> if a gap becomes physically open.</li>
-     *   <li>Transitions to <i>EmergencyStopState</i> if the end of the lane is critically close (emergency stop).</li>
-     *   <li>Transitions back to <i>CongestedMergeState</i> (dispatcher) as soon as the parallel block is resolved.</li>
+     * <li>Transitions to <i>ExecuteLaneChangeState</i> if a gap becomes physically open.</li>
+     * <li>Transitions to <i>EmergencyStopState</i> if the end of the lane is critically close (emergency stop).</li>
+     * <li>Transitions back to <i>CongestedMergeState</i> (dispatcher) as soon as the parallel block is resolved.</li>
      * </ul>
      */
     public static class CongestedCreepState extends MandatoryLaneChangeState
@@ -1280,25 +1310,22 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     /**
      * <b>State 5b: Congested Follow Leader Sub-state (CongestedFollowLeaderState)</b>
      * <p>
-     * Sub-state of the congested merge sequence when no parallel blocking vehicle is present, but the target 
-     * gap is not yet open.
+     * Sub-state of the congested merge sequence when no parallel blocking vehicle is present, but the target gap is not yet
+     * open.
      * </p>
-     * 
      * <h4>Functional Behavior:</h4>
      * <ul>
-     *   <li>Follows the putative leader on the target lane.</li>
-     *   <li>Enforces a distance-dependent target speed cap that scales linearly from 15 km/h down to 5 km/h 
-     *       as the ramp end approaches within a 200 m window. This prevents the ego vehicle from accelerating 
-     *       rapidly towards the bottleneck.</li>
-     *   <li>Floors acceleration at own-lane car-following requirements to maintain absolute longitudinal safety.</li>
+     * <li>Follows the putative leader on the target lane.</li>
+     * <li>Enforces a distance-dependent target speed cap that scales linearly from 15 km/h down to 5 km/h as the ramp end
+     * approaches within a 200 m window. This prevents the ego vehicle from accelerating rapidly towards the bottleneck.</li>
+     * <li>Floors acceleration at own-lane car-following requirements to maintain absolute longitudinal safety.</li>
      * </ul>
-     * 
      * <h4>Transitions:</h4>
      * <ul>
-     *   <li>Transitions to <i>ExecuteLaneChangeState</i> if a gap becomes physically open.</li>
-     *   <li>Transitions to <i>EmergencyStopState</i> if the end of the lane is critically close (emergency stop).</li>
-     *   <li>Transitions to <i>EvaluateTargetGapState</i> if traffic speed recovers above 30 km/h.</li>
-     *   <li>Transitions back to <i>CongestedMergeState</i> (dispatcher) if a parallel block appears.</li>
+     * <li>Transitions to <i>ExecuteLaneChangeState</i> if a gap becomes physically open.</li>
+     * <li>Transitions to <i>EmergencyStopState</i> if the end of the lane is critically close (emergency stop).</li>
+     * <li>Transitions to <i>EvaluateTargetGapState</i> if traffic speed recovers above 30 km/h.</li>
+     * <li>Transitions back to <i>CongestedMergeState</i> (dispatcher) if a parallel block appears.</li>
      * </ul>
      */
     public static class CongestedFollowLeaderState extends MandatoryLaneChangeState
@@ -1398,24 +1425,23 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     /**
      * <b>State 6: Emergency Stop & Last-Minute Overtake (EmergencyStopState)</b>
      * <p>
-     * Emergency braking state activated when the remaining lane length (ramp end or exit point) is critically low 
-     * and no gap has been found. It ensures the vehicle stops safely before the lane end buffer, while continuously 
-     * checking for a last-minute overtake opportunity.
+     * Emergency braking state activated when the remaining lane length (ramp end or exit point) is critically low and no gap
+     * has been found. It ensures the vehicle stops safely before the lane end buffer, while continuously checking for a
+     * last-minute overtake opportunity.
      * </p>
-     * 
      * <h4>Functional Behavior:</h4>
      * <ul>
-     *   <li>Calculates deceleration to stop completely before the lane end buffer.</li>
-     *   <li>If a parallel vehicle is blocking, it solves a quadratic kinematic equation to estimate the time and distance 
-     *       required to accelerate maximally, pass the parallel vehicle, and complete the lane change within the remaining distance.</li>
-     *   <li>If the last-minute overtake is calculated to be safe and within the available distance, it overrides the stopping constraint 
-     *       and accelerates maximally.</li>
-     *   <li>Otherwise, it decelerates more aggressively (at least -2.5 m/s²) to drop back and let the blocker pass.</li>
+     * <li>Calculates deceleration to stop completely before the lane end buffer.</li>
+     * <li>If a parallel vehicle is blocking, it solves a quadratic kinematic equation to estimate the time and distance
+     * required to accelerate maximally, pass the parallel vehicle, and complete the lane change within the remaining
+     * distance.</li>
+     * <li>If the last-minute overtake is calculated to be safe and within the available distance, it overrides the stopping
+     * constraint and accelerates maximally.</li>
+     * <li>Otherwise, it decelerates more aggressively (at least -2.5 m/s²) to drop back and let the blocker pass.</li>
      * </ul>
-     * 
      * <h4>Transitions:</h4>
      * <ul>
-     *   <li>Transitions to <i>ExecuteLaneChangeState</i> immediately if the lane change becomes physically possible.</li>
+     * <li>Transitions to <i>ExecuteLaneChangeState</i> immediately if the lane change becomes physically possible.</li>
      * </ul>
      */
     public static class EmergencyStopState extends MandatoryLaneChangeState
@@ -1495,7 +1521,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 }
 
                 // 2. Solve quadratic equation for t_overtake:
-                // dRel0 = dV * t + 0.5 * a * t^2  ==>  0.5 * a * t^2 + dV * t - dRel0 = 0
+                // dRel0 = dV * t + 0.5 * a * t^2 ==> 0.5 * a * t^2 + dV * t - dRel0 = 0
                 // where dV = vEgo - vPart
                 double dV = vEgo - vPart;
                 double discriminant = dV * dV + 2.0 * aMax * dRel0;
@@ -1579,19 +1605,17 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
      * <p>
      * Final action state in the sequence where the physical lateral lane change is initiated and executed.
      * </p>
-     * 
      * <h4>Functional Behavior:</h4>
      * <ul>
-     *   <li>Commits the vehicle to the lane-change action lock, preventing interruptions.</li>
-     *   <li>Triggers temporary safety-distance relaxation on surrounding vehicles (cooperative gap creation) 
-     *       so that target lane vehicles can adjust to accommodate the merge.</li>
-     *   <li>Calculates joint longitudinal and lateral trajectories to perform the shift.</li>
+     * <li>Commits the vehicle to the lane-change action lock, preventing interruptions.</li>
+     * <li>Triggers temporary safety-distance relaxation on surrounding vehicles (cooperative gap creation) so that target lane
+     * vehicles can adjust to accommodate the merge.</li>
+     * <li>Calculates joint longitudinal and lateral trajectories to perform the shift.</li>
      * </ul>
-     * 
      * <h4>Transitions:</h4>
      * <ul>
-     *   <li>Releases the action lock and finishes the maneuver pattern once the lane change is complete 
-     *       and the vehicle is fully established on the target lane.</li>
+     * <li>Releases the action lock and finishes the maneuver pattern once the lane change is complete and the vehicle is fully
+     * established on the target lane.</li>
      * </ul>
      */
     public static class ExecuteLaneChangeState extends MandatoryLaneChangeState
