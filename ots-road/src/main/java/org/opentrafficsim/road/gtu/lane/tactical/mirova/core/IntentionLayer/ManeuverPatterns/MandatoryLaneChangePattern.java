@@ -279,6 +279,25 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         {
             if (neigh.getIfLaneChangePossible(dir))
             {
+                // Mandatory-Lane-Change specific free-acceleration check:
+                // If ego was freely accelerating in the previous tick (lastTickAcceleration >= aMax - 0.1 m/s²),
+                // require that the target follower's deceleration is no harsher than minFollowerDecelerationThreshold.
+                // This prevents premature aggressive merging early on the ramp when ego is still accelerating.
+                EgoContext ego = this.vehicle.getContext(EgoContext.class);
+                Acceleration lastAcc = ego.getLastTickAcceleration();
+                Acceleration aMax = ego.getMaxPhysicalAcceleration();
+                if (lastAcc != null && aMax != null && lastAcc.si >= aMax.si - 0.1)
+                {
+                    Acceleration followerDecel = neigh.getFollowerDeceleration(dir);
+                    Acceleration minFollowerThresh =
+                            this.vehicle.getParameters().getParameter(MirovaParameters.minFollowerDecelerationThreshold);
+                    if (!Double.isNaN(followerDecel.si) && followerDecel.le(minFollowerThresh))
+                    {
+                        // Target follower deceleration would be harsher than minFollowerThreshold -> delay ExecuteLaneChangeState
+                        return null;
+                    }
+                }
+
                 return transitionTo(new ExecuteLaneChangeState(this.maneuverPattern, dir));
             }
 
