@@ -25,6 +25,7 @@ ots-demo/src/main/java/org/opentrafficsim/demo/mirova/
       RunFreiburgNord.java      ← Single-run launcher (with GUI)
       RunFreiburgParallel.java  ← Multi-seed parallel runner
       RunFreiburgParallel_ParameterStudy.java ← OAT parameter study runner
+      Run9DatesLargeStudy.java  ← 9-day multi-day trajectory simulation study runner
       RunParallelMergeScenarios.java ← Merge scenario batch runner
 ```
 
