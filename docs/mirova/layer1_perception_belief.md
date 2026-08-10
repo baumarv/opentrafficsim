@@ -21,10 +21,9 @@ Every MiRoVA vehicle contains an instance of [VehicleContextManager](file:///d:/
 
 The [EgoContext](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/BeliefLayer/EgoContext.java) manages parameters and dynamic values that belong to the ego vehicle.
 
-### Key Responsibilities:
-2.  **Deceleration Thresholds & Free-Acceleration Restriction**:
+1.  **State Properties**: Exposes core physical quantities like current Speed, Acceleration, Length, Width, Route, Target Speed, and `lastTickAcceleration` (the executed operational plan acceleration from the previous simulation step).
+2.  **Deceleration Thresholds**:
     *   Dynamically interpolates `followerDecelerationThreshold` between `minFollowerDecelerationThreshold` (-0.5 m/s²) and `maxFollowerDecelerationThreshold` (-2.0 m/s²) based on lane change desire.
-    *   **Free-Acceleration Restriction**: When ego is in free acceleration ($a_{\text{CF}} \ge a_{\max} - 0.1\text{ m/s}^2$), `followerDecelerationThreshold` is capped at `minFollowerDecelerationThreshold` to prevent aggressive early merges that force target-lane followers to brake heavily while ego is actively accelerating to build up speed.
 3.  **Relaxation State Management**:
     *   Maintains the active [RelaxationState](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/BeliefLayer/RelaxationState.java) mapping for current and target lane leaders.
     *   This is the backbone of the Keane & Gao 2021 relaxation implementation. It maps a leader's unique ID to its respective spatial ($\gamma_s$) and velocity ($\gamma_v$) relaxation scaling factors.
