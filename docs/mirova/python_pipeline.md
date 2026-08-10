@@ -4,110 +4,77 @@ While the OpenTrafficSim (OTS) simulator runs in Java, the data processing, vali
 
 ---
 
-## 📂 Repository Structure
+## 📂 Repository & Package Architecture
 
-The `diss_mvb/scripts` directory is organized into four main packages:
+The simulation evaluation pipeline under `diss_mvb/scripts/simulation/ots/` is organized into modular Python subpackages:
 
-```mermaid
-graph TD
-    A[scripts/] --> B(database)
-    A --> C(evaluation)
-    A --> D(format)
-    A --> E(simulation)
-    
-    C --> F(fielddata)
-    F --> G(detectors)
-    F --> H(trajectories)
-    H --> I(imports)
-    H --> J(processing)
-    H --> K(analysis)
+```
+diss_mvb/scripts/simulation/ots/
+├── __init__.py                        # Top-level package marker
+├── cli/                               # Command-line entry points
+│   ├── run_evaluation.py              # Main simulation evaluation runner
+│   ├── run_calibration_fast.py        # Fast launcher using detector cache
+│   └── run_ieee_lc_eval.py            # IEEE Lane Change evaluation runner
+├── io/                                # Data loading & parsing
+│   ├── empirical.py                   # PostgreSQL empirical detector data loader
+│   ├── detector_cache.py              # CSV detector run cache management
+│   └── params_parser.py               # runParams.txt parsing & variation scanner
+├── analytics/                         # Math modeling & statistical calibration
+│   ├── van_aerde.py                   # Van Aerde q-v model fitting (L-BFGS-B)
+│   ├── breakdown.py                   # GMM v_crit threshold & breakdown capacity
+│   ├── dtw_analysis.py                # Dynamic Time Warping (DTW) onset-lag
+│   └── cross_day.py                   # Modules 1-3 & cross-day hypothesis testing
+├── plotting/                          # Visualization subpackages
+│   ├── detectors/                     # Detector-level plots
+│   │   ├── speed_series.py            # Speed time series (det_L3a_speed.png)
+│   │   └── qv_diagrams.py             # Fundamental diagrams (det_L3a_qv.png)
+│   └── trajectories/                  # Microscopic trajectory plots
+│       ├── profiles.py                # Stitched spatial speed/accel/desire profiles
+│       └── lane_changes.py            # On-ramp merge position & speed distributions
+└── dashboards/                        # Dashboard generation
+    ├── html_builder.py                # Multi-date overview_all_scenarios.html builder
+    ├── calibration_badges.py          # Metric badge & section HTML injection
+    └── interactive/                   # Interactive Plotly / Streamlit dashboards
+        ├── comparison.py
+        ├── multi_dates.py
+        ├── demand.py
+        └── trajectory_viz.py
 ```
 
 ---
 
-## 🛠️ Main Packages & Scripts
+## 🛠️ Main Packages & Modules
 
-### 1. Trajectory Imports (`imports/`)
-*   **Purpose**: Extracts raw field measurements from datasets (e.g., Freiburg Nord, DLR HT) and structures/imports them into local files or database tables.
-*   **Key Script**: [execute_db_import.py](file:///d:/Mitarbeitende/gw2128/repositories/diss_mvb/scripts/evaluation/fielddata/trajectories/imports/datasets/a2_mai23/execute_db_import.py) orchestrates the ingestion of raw trajectory files into a unified PostgreSQL format.
+### 1. Data I/O & Parsing (`ots.io`)
+*   **Empirical Loader (`io/empirical.py`)**: Connects to PostgreSQL database to fetch 5-minute empirical loop detector counts and harmonic speeds.
+*   **Detector Cache (`io/detector_cache.py`)**: Automatically creates and validates `detector_runs_cache.csv` per scenario variation for sub-second re-runs.
+*   **Params Parser (`io/params_parser.py`)**: Parses `runParams.txt` configuration files and scans multi-date output directories.
 
-### 2. Trajectory Processing (`processing/`)
-*   **Purpose**: Filters outliers, resolves anomalies, and matches raw spatial coordinate trajectories to discrete highway lanes.
-*   **Key Algorithms**:
-    *   **Lane Tracker (`match_lanes.py`)**: [match_lanes.py](file:///d:/Mitarbeitende/gw2128/repositories/diss_mvb/scripts/evaluation/fielddata/trajectories/processing/match_lanes.py) maps vehicles to lanes using a rolling-window Gaussian Mixture Model (GMM), Hungarian matching, and bi-directional dead reckoning. This solves the "label-switching" problem during section-wise cluster analysis (e.g., at on-ramps and off-ramps).
-    *   **Anomaly Checker (`check_trajectory_anomalies.py`)**: [check_trajectory_anomalies.py](file:///d:/Mitarbeitende/gw2128/repositories/diss_mvb/scripts/evaluation/fielddata/trajectories/processing/helpers/check_trajectory_anomalies.py) filters out teleportation spikes, physical acceleration violations, and reverse driving outliers.
+### 2. Analytics & Math Modeling (`ots.analytics`)
+*   **Van Aerde Model (`analytics/van_aerde.py`)**: Fits non-linear 4-parameter speed-flow curves using orthogonal L-BFGS-B optimization.
+*   **Breakdown & Capacity (`analytics/breakdown.py`)**: Fits 2-component GMM speed distributions to find $v_{\text{crit}}$, detects persistent breakdowns, and computes capacity with 95% Student-t confidence intervals.
+*   **DTW Time-Series Analysis (`analytics/dtw_analysis.py`)**: Computes breakdown onset lag (minutes) and timing-corrected aligned speed RMSE.
+*   **Cross-Day Consistency (`analytics/cross_day.py`)**: Evaluates fixed parameter set performance stability across varying demand days.
 
-### 3. Simulation Verification (`simulation/ots/`)
-*   **Purpose**: Configures the execution of OTS simulations from Python and processes the results.
-*   **Key Script**: [dashboard_trajectories.py](file:///d:/Mitarbeitende/gw2128/repositories/diss_mvb/scripts/simulation/ots/dashboard_trajectories.py) generates dynamic web-based dashboard plots (using Plotly/Streamlit) to visually inspect simulated vehicle trajectories.
+### 3. Plotting & Visualization (`ots.plotting`)
+*   **Detector Plots (`plotting/detectors/`)**: Generates `det_L3a_speed.png` time series and `det_L3a_qv.png` fundamental diagrams.
+*   **Microscopic Trajectory Plots (`plotting/trajectories/`)**: Parallelized multithreaded reader for spatial speed/accel/desire profiles along the corridor, as well as IEEE on-ramp merge position histograms (`evaluation_trajectories_lc_freq.png`) and merge speed distributions (`evaluation_trajectories_lc_speed.png`).
 
----
-
-## 📈 Calibration & Fundamental Diagram Analysis (Q-V)
-
-The post-run evaluation script [plot_scenario_results.py](file:///d:/Mitarbeitende/gw2128/repositories/diss_mvb/scripts/simulation/ots/plot_scenario_results.py) compares simulated output vs. empirical field data. Recent enhancements focus on robust mathematical modeling of traffic breakdown and capacity.
-
-### 1. Van Aerde Curve Fitting
-* **Model Equation**: The Van Aerde model links speed ($v$) and flow ($q$) via:
-  $$q = \frac{v}{c_1 + c_2 v + \frac{c_3}{v_f - v}}$$
-* **Coefficient Correction**: The $c_2$ coefficient is computed from physical parameters ($v_f$ free flow speed, $v_c$ critical speed, $q_c$ capacity, $k_j$ jam density):
-  $$c_2 = \frac{1}{q_c} - \frac{c_1}{v_c} - \frac{c_3}{v_c (v_f - v_c)}$$
-  *(Note: A division by $v_c$ in the third term was corrected to ensure robust orthogonal fitting of the curves without optimization degeneracy).*
-* **Orthogonal Fitting**: Uses scipy's `minimize` with `L-BFGS-B` to minimize orthogonal distance of points to the curve, with strict penalty values ($10^6$) for invalid parameter spaces where the denominator $\le 0$.
-
-### 2. GMM Critical Speed & Breakdown Capacity
-* **Dynamic Critical Speed ($v_{\text{crit}}$)**: Fits a 2-component Gaussian Mixture Model (GMM) on speed distributions to find the intersection of the free-flow and congested speed components.
-* **Breakdown Identification**:
-  * Excludes the first **45 minutes** of the simulation run to discard initialization warm-up transients.
-  * Checks for a persistent breakdown event where the speed drops below $v_{\text{crit}}$ with a speed drop $dv \ge dv_{\text{min}}$ (iterating $dv_{\text{min}}$ from $10.0$ down to $5.0\text{ km/h}$).
-  * **Persistence Criteria**: The previous interval must be in free flow ($v_{\text{prev}} \ge v_{\text{crit}}$) and the next interval must remain congested ($v_{\text{after}} < v_{\text{crit}}$) to filter out transient single-interval drops.
-* **Capacity Extraction**: The breakdown capacity is defined as the total mainline flow in the 5-minute interval immediately preceding the breakdown.
-* **Statistical Aggregation**: Computes the mean, median, standard deviation, and a **95% Student-t confidence interval** of breakdown capacities across all successful seed replications.
-
-### 3. Layout Adjustments & HTML Overview Dashboard
-* **Clean Plotting Canvas**: The results annotation box (calibration metrics, fitted coefficients, capacity statistics) is placed outside the main plotting grid (on the right margin using `x=1.02, y=0.70` paper coordinates) by increasing the figure width to $780\text{ px}$ and right margin to $350\text{ px}$.
-* **Removal of Zigzag Line**: The non-monotonic `Sim Median` trace was removed from the q-v plot to prevent zigzag clutter.
-* **Speed over Time Sparklines Grid**: The top-level `overview_all_scenarios.html` includes a responsive CSS grid section displaying compact Speed-over-Time plots for detector `det_L3a` across all variations. Each plot displays every individual simulation seed run as a thin semi-transparent line, the median trajectory as a bold line, and empirical detector data as a dotted black reference line.
-* **CSV Detector Run Cache**: To avoid re-parsing large `detector_periodic.csv.zip` files on repeated pipeline runs, aggregated per-run detector data is automatically cached to `{variation_dir}/plots/detector_runs_cache.csv`. The cache is automatically validated against source zip file modification timestamps (`st_mtime`).
+### 4. Dashboards & Web Reports (`ots.dashboards`)
+*   **HTML Dashboard Builder (`dashboards/html_builder.py`)**: Generates responsive, date-grouped `overview_all_scenarios.html` web dashboards.
+*   **Calibration Badges (`dashboards/calibration_badges.py`)**: Injects dynamic calibration metric badges into HTML cards.
 
 ---
 
-## 🔬 Multi-Day Calibration Analysis Extensions (`calibration_analysis_extensions.py`)
+## 💻 Execution Commands
 
-The evaluation pipeline includes three advanced calibration extensions and a per-day metrics comparison matrix:
+```bash
+# 1. Full simulation evaluation & plot generation
+python scripts/simulation/ots/plot_scenario_results.py --output-dir "D:/Mitarbeitende/gw2128/repositories/mirova/output/ots/study_9dates_trajectories_10seeds_202510"
 
-1. **Module 1 — Per-Day & Per-Seed Van Aerde Distributions**:
-   * Treats individual fits ($n=6$ empirical, $n=36$ per simulation setting) as the true unit of replication to prevent serial autocorrelation inflation.
-   * Outputs: `van_aerde_fits_tidy.csv`, `van_aerde_parameter_distributions.png`.
-2. **Module 2 — DTW Time-Series Decomposition**:
-   * Employs C-optimized `dtaidistance` to extract breakdown **Onset Lag (minutes)** and timing-corrected **Aligned Speed RMSE / MAE**.
-   * Output: `dtw_time_series_metrics.csv` (recorded per individual seed run).
-3. **Module 3 — Cross-Day Consistency Hypothesis Test**:
-   * Evaluates fixed parameter set stability across varying demand days using Coefficient of Variation ($CV = SD / \text{Mean}$) and Min-Max ranges.
-   * Outputs: `cross_day_consistency_summary.csv`, `cross_day_consistency_summary.md`.
-4. **Per-Day Metrics Breakdown Matrix**:
-   * Compares empirical vs. simulated $q_c, v_c$, Van Aerde fit RMSE, DTW Onset Lag, and Aligned Speed RMSE for **each individual demand date**.
-   * Output: `per_day_calibration_metrics.csv`.
-5. **Fast Evaluation Runner**:
-   * Executable via `python run_calibration_extensions_fast.py --output-dir <path>` to update all metrics and HTML dashboard in $< 5\text{ seconds}$ using detector cache files.
+# 2. Fast calibration extensions runner (< 5s execution via cache)
+python scripts/simulation/ots/run_calibration_extensions_fast.py --output-dir "D:/Mitarbeitende/gw2128/repositories/mirova/output/ots/study_9dates_trajectories_10seeds_202510"
 
-For complete details on execution commands, script parameters, and output artifacts, see the detailed pipeline documentation in [scripts/simulation/ots/README.md](file:///d:/Mitarbeitende/gw2128/repositories/diss_mvb/scripts/simulation/ots/README.md).
-
----
-
-## 🔄 Simulation & Data Pipeline Flow
-
-```mermaid
-sequenceDiagram
-    participant F as Raw Field Data
-    participant P as Python Processing (GMM Lane Matching)
-    participant D as DB / Pickett Files
-    participant O as OTS Simulation (Java)
-    participant E as Python Evaluation (Dashboard & Plotting)
-    
-    F->>P: 1. Raw spatial coordinates (X, Y)
-    P->>D: 2. Structured trajectories, matched lanes
-    D->>O: 3. OD matrices & demand input
-    O->>E: 4. Simulation trajectory output (CSV)
-    E->>E: 5. Compare simulated vs. field data (Plotting)
+# 3. IEEE On-Ramp Merging evaluation
+python scripts/simulation/ots/run_ieee_lane_change_eval.py --output-dir "D:/Mitarbeitende/gw2128/repositories/mirova/output/ots/study_9dates_trajectories_10seeds_202510"
 ```
