@@ -22,11 +22,13 @@ Every MiRoVA vehicle contains an instance of [VehicleContextManager](file:///d:/
 The [EgoContext](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/BeliefLayer/EgoContext.java) manages parameters and dynamic values that belong to the ego vehicle.
 
 ### Key Responsibilities:
-1.  **State Properties**: Exposes core physical quantities like current Speed, Acceleration, Length, Width, Route, and Target Speed.
-2.  **Relaxation State Management**:
+2.  **Deceleration Thresholds & Free-Acceleration Restriction**:
+    *   Dynamically interpolates `followerDecelerationThreshold` between `minFollowerDecelerationThreshold` (-0.5 m/s²) and `maxFollowerDecelerationThreshold` (-2.0 m/s²) based on lane change desire.
+    *   **Free-Acceleration Restriction**: When ego is in free acceleration ($a_{\text{CF}} \ge a_{\max} - 0.1\text{ m/s}^2$) and sufficient ramp distance remains ($d_{\text{laneEnd}} > 100\text{ m}$), `followerDecelerationThreshold` is capped at `minFollowerDecelerationThreshold` to prevent aggressive early merges that force target-lane followers to brake heavily while ego still has room to accelerate.
+3.  **Relaxation State Management**:
     *   Maintains the active [RelaxationState](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/BeliefLayer/RelaxationState.java) mapping for current and target lane leaders.
     *   This is the backbone of the Keane & Gao 2021 relaxation implementation. It maps a leader's unique ID to its respective spatial ($\gamma_s$) and velocity ($\gamma_v$) relaxation scaling factors.
-3.  **Tick Acceleration Caching**:
+4.  **Tick Acceleration Caching**:
     *   To prevent evaluating car-following models multiple times for the same leader in a single tick (e.g. if queried by different maneuver patterns), `EgoContext` caches the evaluation results in `tickAccelerationCache`, which is cleared each tick.
 
 ---
