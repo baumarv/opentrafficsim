@@ -127,6 +127,7 @@ stateDiagram-v2
 | `ExecuteLaneChangeState` | Executes the physical lateral movement. Applies relaxation for target leaders and followers. |
 
 **Key Implementation Details**:
+- **Direct Merge Target Speed Guard**: In `EvaluateTargetGapState`, when an immediate open gap is detected via `checkCommonTransitions()`, the direct transition to `ExecuteLaneChangeState` is only permitted if the ego vehicle has reached at least 66% of the target lane's average speed ($v_{\text{ego}} \ge 0.66 \cdot v_{\text{targetLane}}$, sourced from `MacroTrafficContext` or legal speed limit fallback). This prevents premature cut-ins at low speeds while leaving subsequent states and congested merging behavior unaffected.
 - Uses `GapCandidate` helper class to score and rank available gaps on the target lane
 - Pattern-specific timestep: `0.1 s` (higher resolution during critical merge maneuvers)
 - Pre-registers a `RelaxationState` for the future leader before the lane change begins

@@ -608,7 +608,25 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             SimpleOperationalPlan commonTransition = checkCommonTransitions(neigh, dir);
             if (commonTransition != null)
             {
-                return commonTransition;
+                // Target speed check on direct merge in EvaluateTargetGapState:
+                // Only permit direct merge if ego has reached at least 66% of the target lane speed.
+                MacroTrafficContext macro = this.vehicle.getContext(MacroTrafficContext.class);
+                RelativeLane targetRelativeLane = dir.isLeft() ? RelativeLane.LEFT : RelativeLane.RIGHT;
+                Speed targetLaneSpeed = macro.getAverageSpeed(targetRelativeLane);
+                if (targetLaneSpeed == null || Double.isNaN(targetLaneSpeed.si) || targetLaneSpeed.si <= 0.0)
+                {
+                    targetLaneSpeed = this.vehicle.getContext(InfrastructureContext.class).getLegalSpeedLimit();
+                }
+
+                Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
+                if (targetLaneSpeed != null && !Double.isNaN(targetLaneSpeed.si) && egoSpeed.si < 0.66 * targetLaneSpeed.si)
+                {
+                    // Delay direct merge execution to build up sufficient speed on the current lane
+                }
+                else
+                {
+                    return commonTransition;
+                }
             }
 
             Length distToLaneEnd = this.vehicle.getContext(InfrastructureContext.class).getRouteDistanceToLaneEnd();
