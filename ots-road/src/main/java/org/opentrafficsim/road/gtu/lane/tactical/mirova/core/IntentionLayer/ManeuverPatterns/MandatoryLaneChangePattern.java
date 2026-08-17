@@ -278,6 +278,27 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         {
             if (neigh.getIfLaneChangePossible(dir))
             {
+                // Target speed percentage check in free-flow conditions:
+                // If sufficient physical roadway remains (> 80 m), delay the lane change until
+                // ego has built up at least 66% of the target lane's average speed.
+                Length physDistToLaneEnd = this.vehicle.getContext(InfrastructureContext.class).getPhysicalDistanceToLaneEnd();
+                if (physDistToLaneEnd == null || physDistToLaneEnd.si > 80.0)
+                {
+                    MacroTrafficContext macro = this.vehicle.getContext(MacroTrafficContext.class);
+                    RelativeLane targetRelativeLane = dir.isLeft() ? RelativeLane.LEFT : RelativeLane.RIGHT;
+                    Speed targetLaneSpeed = macro.getAverageSpeed(targetRelativeLane);
+                    if (targetLaneSpeed == null || Double.isNaN(targetLaneSpeed.si) || targetLaneSpeed.si <= 0.0)
+                    {
+                        targetLaneSpeed = this.vehicle.getContext(InfrastructureContext.class).getLegalSpeedLimit();
+                    }
+
+                    Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
+                    if (targetLaneSpeed != null && !Double.isNaN(targetLaneSpeed.si) && egoSpeed.si < 0.66 * targetLaneSpeed.si)
+                    {
+                        return null; // Delay lane change to allow ego to accelerate further
+                    }
+                }
+
                 return transitionTo(new ExecuteLaneChangeState(this.maneuverPattern, dir));
             }
 
@@ -608,25 +629,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             SimpleOperationalPlan commonTransition = checkCommonTransitions(neigh, dir);
             if (commonTransition != null)
             {
-                // Target speed check on direct merge in EvaluateTargetGapState:
-                // Only permit direct merge if ego has reached at least 66% of the target lane speed.
-                MacroTrafficContext macro = this.vehicle.getContext(MacroTrafficContext.class);
-                RelativeLane targetRelativeLane = dir.isLeft() ? RelativeLane.LEFT : RelativeLane.RIGHT;
-                Speed targetLaneSpeed = macro.getAverageSpeed(targetRelativeLane);
-                if (targetLaneSpeed == null || Double.isNaN(targetLaneSpeed.si) || targetLaneSpeed.si <= 0.0)
-                {
-                    targetLaneSpeed = this.vehicle.getContext(InfrastructureContext.class).getLegalSpeedLimit();
-                }
-
-                Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
-                if (targetLaneSpeed != null && !Double.isNaN(targetLaneSpeed.si) && egoSpeed.si < 0.66 * targetLaneSpeed.si)
-                {
-                    // Delay direct merge execution to build up sufficient speed on the current lane
-                }
-                else
-                {
-                    return commonTransition;
-                }
+                return commonTransition;
             }
 
             Length distToLaneEnd = this.vehicle.getContext(InfrastructureContext.class).getRouteDistanceToLaneEnd();
