@@ -440,8 +440,8 @@ public class FreiburgNord extends ScenarioGenerator
                     this.listLoopDetectors.add(detector);
                 }
 
-                // Record trajectory paths starting at link L2a
-                if (enableSamplers && (linkId.equals("L1a") || linkId.equals("L2a") || linkId.equals("L3a") || linkId.equals("L4a")))
+                // Record trajectory paths for link L4a (on-ramp merge section)
+                if (enableSamplers && linkId.equals("L4a"))
                 {
                     GraphPath<LaneDataRoad> path = GraphLaneUtil.createPath("path", lane);
                     sampler.scheduleStartRecording(Time.instantiateSI(0), path.get(0).getSource(0));

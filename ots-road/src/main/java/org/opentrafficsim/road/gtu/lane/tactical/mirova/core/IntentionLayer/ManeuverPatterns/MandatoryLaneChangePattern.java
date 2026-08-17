@@ -278,32 +278,6 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         {
             if (neigh.getIfLaneChangePossible(dir))
             {
-                // Prevent premature aggressive merges when ego is significantly slower than the target follower
-                // and still has plenty of physical roadway to accelerate up to target lane speed.
-                EgoContext ego = this.vehicle.getContext(EgoContext.class);
-                Acceleration lastAcc = ego.getLastTickAcceleration();
-                Acceleration aMax = ego.getMaxPhysicalAcceleration();
-                Length physDistToLaneEnd = this.vehicle.getContext(InfrastructureContext.class).getPhysicalDistanceToLaneEnd();
-                Speed rearDeltaSpeed = neigh.getRearGapDeltaSpeed(dir); // (v_ego - v_follower)
-
-                // Condition: Sufficient physical road remains (> 80 m), ego is accelerating freely,
-                // and ego is significantly slower than the approaching target follower (deficit > 3.0 m/s ~ 11 km/h).
-                boolean hasPhysicalRoom = physDistToLaneEnd == null || physDistToLaneEnd.si > 80.0;
-                boolean isSignificantlySlower = rearDeltaSpeed != null && rearDeltaSpeed.si < -3.0;
-                boolean isFreelyAccelerating = lastAcc != null && aMax != null && lastAcc.si >= aMax.si - 0.1;
-
-                if (hasPhysicalRoom && isFreelyAccelerating && isSignificantlySlower)
-                {
-                    Acceleration followerDecel = neigh.getFollowerDeceleration(dir);
-                    Acceleration minFollowerThresh =
-                            this.vehicle.getParameters().getParameter(MirovaParameters.minFollowerDecelerationThreshold);
-                    if (!Double.isNaN(followerDecel.si) && followerDecel.le(minFollowerThresh))
-                    {
-                        // Delay lane change execution to allow ego to accelerate further rather than abruptly braking follower
-                        return null;
-                    }
-                }
-
                 return transitionTo(new ExecuteLaneChangeState(this.maneuverPattern, dir));
             }
 

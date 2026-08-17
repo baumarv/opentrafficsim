@@ -127,7 +127,6 @@ stateDiagram-v2
 | `ExecuteLaneChangeState` | Executes the physical lateral movement. Applies relaxation for target leaders and followers. |
 
 **Key Implementation Details**:
-- **Physical Lane-End & Rear Speed-Delta Merge Guard**: During `checkCommonTransitions()`, if sufficient physical roadway remains (`physDistToLaneEnd > 80 m`), ego is freely accelerating (`lastTickAcceleration >= aMax - 0.1 m/s²`), and ego is significantly slower than the approaching target lane follower (`rearDeltaSpeed < -3.0 m/s` ~ 11 km/h deficit), the allowable follower deceleration is strictly guarded by `minFollowerDecelerationThreshold` (-1.0 m/s²). As speed matches or physical lane end approaches (<= 80 m), the dynamic interpolation seamlessly permits cooperative lane changing.
 - Uses `GapCandidate` helper class to score and rank available gaps on the target lane
 - Pattern-specific timestep: `0.1 s` (higher resolution during critical merge maneuvers)
 - Pre-registers a `RelaxationState` for the future leader before the lane change begins
