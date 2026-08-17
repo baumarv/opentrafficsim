@@ -127,7 +127,7 @@ stateDiagram-v2
 | `ExecuteLaneChangeState` | Executes the physical lateral movement. Applies relaxation for target leaders and followers. |
 
 **Key Implementation Details**:
-- **Free-Acceleration Restriction**: During `checkCommonTransitions()`, if the ego vehicle was freely accelerating in the previous timestep (`lastTickAcceleration >= aMax - 0.1 m/s²`), the allowable target follower deceleration is restricted to `minFollowerDecelerationThreshold` (-0.5 m/s²). This prevents premature aggressive merging early on the ramp while the vehicle is actively accelerating to match main-lane traffic speed.
+- **Dynamic Follower Deceleration Threshold**: During `checkCommonTransitions()`, `getIfLaneChangePossible()` dynamically evaluates the acceptable follower deceleration interpolated between `minFollowerDecelerationThreshold` (-0.5 to -1.0 m/s²) and `maxFollowerDecelerationThreshold` (-2.0 to -4.0 m/s²) based on mandatory lane change desire. This prevents premature aggressive merging early on the ramp while smoothly allowing necessary cooperative merges near the ramp end.
 - Uses `GapCandidate` helper class to score and rank available gaps on the target lane
 - Pattern-specific timestep: `0.1 s` (higher resolution during critical merge maneuvers)
 - Pre-registers a `RelaxationState` for the future leader before the lane change begins
