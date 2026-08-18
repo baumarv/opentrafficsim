@@ -584,12 +584,27 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                     && (isCongestedTarget || (effectiveTargetSpeedSI > 0.0
                             && (effectiveTargetSpeedSI - egoSpeed.si) <= MAX_OBSTRUCTED_DELTA_SI));
 
-            // 1. Hard distance fallback: transition unconditionally at the very end of the ramp (dist <= 0)
-            boolean isAtRampEnd = dist <= 0.0;
+            // 1. Hard distance fallback: transition unconditionally when reaching the final approach zone.
+            // A threshold of 20 m gives EvaluateTargetGapState enough room to find or force a gap
+            // before the EmergencyStop safety net triggers (which requires requiredStopAccel < -5 m/s²).
+            // Using dist <= 0 was too late: at any meaningful speed the vehicle would overshoot the
+            // ramp end before checkCommonTransitions() in the next state could react.
+            final double RAMP_FINAL_APPROACH_DISTANCE = 20.0; // [m]
+            boolean isAtRampEnd = dist <= RAMP_FINAL_APPROACH_DISTANCE;
 
             if (isAtRampEnd || isSpeedSynchronized || isObstructedOnRamp || isCongestedTarget)
             {
                 return transitionTo(new EvaluateTargetGapState(this.maneuverPattern));
+            }
+
+            // Safety net: even while still in AnticipateMergeState, check for emergency-stop condition.
+            // AnticipateMergeState does not call checkCommonTransitions() during normal execution,
+            // so without this call the EmergencyStop branch would never be reached from this state.
+            NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
+            SimpleOperationalPlan emergencyCheck = checkCommonTransitions(neigh, this.pattern.getTargetDirection());
+            if (emergencyCheck != null)
+            {
+                return emergencyCheck;
             }
 
             return null; // Stay in AnticipateMergeState to build up speed on the acceleration lane
