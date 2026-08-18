@@ -493,11 +493,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             Length distToLaneEnd = infra.getPhysicalDistanceToLaneEnd();
             Speed egoSpeed = ego.getEgoSpeed();
 
-            // 1. Distance criterion: transition to active gap evaluation when approaching ramp end (<= 120 m)
-            final double ACTIVE_MERGE_DISTANCE_THRESHOLD = 120.0;
-            boolean isApproachingEnd = distToLaneEnd != null && distToLaneEnd.si <= ACTIVE_MERGE_DISTANCE_THRESHOLD;
-
-            // 2. Target lane traffic speed evaluation
+            // 2. Target lane traffic speed evaluation (evaluated first, needed for early congested routing below)
             MacroTrafficContext macro = this.vehicle.getContext(MacroTrafficContext.class);
             RelativeLane targetRelativeLane =
                     (this.pattern.getTargetDirection().isLeft()) ? RelativeLane.LEFT : RelativeLane.RIGHT;
@@ -511,24 +507,95 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 }
             }
 
-            // 3. Speed synchronization: ego has built up at least 66% of the target lane flow speed
-            final double MIN_MERGE_SPEED_FRACTION = 0.66;
-            boolean isSpeedSynchronized = targetLaneSpeed != null && !Double.isNaN(targetLaneSpeed.si)
-                    && egoSpeed.si >= MIN_MERGE_SPEED_FRACTION * targetLaneSpeed.si;
-
-            // 4. Platoon obstruction on ramp: if ego is trapped behind a slower vehicle (a_cf <= 0.2 m/s²), transition immediately
-            boolean isObstructedOnRamp = ego.getCurrentCarFollowingAcceleration().si <= 0.2;
+            // Cap the reference speed at ego's desired speed (v_wunsch).
+            // If the ego structurally cannot reach the target lane flow speed (e.g. a truck whose
+            // v_wunsch = 80 km/h when target lane flows at 120 km/h), all delta- and fraction-based
+            // release criteria must be evaluated against the speed the vehicle can actually achieve,
+            // not the absolute target lane flow. Without this cap the vehicle would never be released.
+            Speed desiredSpeed = ego.getCurrentDesiredSpeed();
+            double effectiveTargetSpeedSI = (targetLaneSpeed != null && !Double.isNaN(targetLaneSpeed.si))
+                    ? targetLaneSpeed.si : 0.0;
+            if (desiredSpeed != null && !Double.isNaN(desiredSpeed.si) && desiredSpeed.si > 0.0)
+            {
+                effectiveTargetSpeedSI = Math.min(effectiveTargetSpeedSI, desiredSpeed.si);
+            }
 
             // 5. Congested target lane traffic (< 40 km/h): no high-speed ramp acceleration required
             boolean isCongestedTarget = targetLaneSpeed != null && !Double.isNaN(targetLaneSpeed.si) && targetLaneSpeed.si < 11.11;
 
-            if (isApproachingEnd || isSpeedSynchronized || isObstructedOnRamp || isCongestedTarget)
+            // Fix 1: Early congested routing at pattern entry.
+            // If the target lane is already congested when we first reach the active gate zone, bypass
+            // speed synchronisation entirely and dispatch straight to CongestedMergeState. Without this,
+            // executeControl() would accelerate the vehicle to >= 20 km/h before the congested branch
+            // is ever evaluated, causing late-stage emergency stops (observed ~17% standstill rate).
+            final double RAMP_GATE_START_DISTANCE = 120.0; // [m] – outer boundary of the active merge zone
+            double dist = (distToLaneEnd != null) ? distToLaneEnd.si : Double.MAX_VALUE;
+            if (isCongestedTarget && dist <= RAMP_GATE_START_DISTANCE)
+            {
+                return transitionTo(new CongestedMergeState(this.maneuverPattern));
+            }
+
+            // Fix 3: Soft distance-threshold – replace the hard binary 120 m switch with a linearly
+            // relaxed speed-fraction requirement. As the vehicle approaches the ramp end, the minimum
+            // fraction shrinks from MIN_MERGE_SPEED_FRACTION (at RAMP_GATE_START_DISTANCE) down to
+            // MIN_SPEED_FRACTION_FLOOR (at 0 m). This eliminates the spatial clustering artefact that
+            // previously appeared as a dense scatter-cloud at Merge-Position ≈ 80 m.
+            final double MIN_MERGE_SPEED_FRACTION = 0.66;
+            final double MIN_SPEED_FRACTION_FLOOR  = 0.50;
+            double relaxedFraction;
+            if (dist >= RAMP_GATE_START_DISTANCE)
+            {
+                relaxedFraction = MIN_MERGE_SPEED_FRACTION; // full fraction required while far from end
+            }
+            else
+            {
+                // Linear interpolation: 0.66 at 120 m → 0.50 at 0 m
+                double t = Math.max(0.0, dist / RAMP_GATE_START_DISTANCE);
+                relaxedFraction = MIN_SPEED_FRACTION_FLOOR + t * (MIN_MERGE_SPEED_FRACTION - MIN_SPEED_FRACTION_FLOOR);
+            }
+
+            // Fix 2: Speed proximity check – delta to effective target speed.
+            // Instead of an absolute speed floor (which overfits to a specific speed limit),
+            // we require that the ego is within MAX_SPEED_DELTA of the effective target speed.
+            // effectiveTargetSpeedSI = min(targetLaneFlow, v_wunsch) ensures that vehicles which
+            // structurally cannot reach target lane flow (e.g. trucks) are evaluated against their
+            // own maximum comfortable speed, not the absolute traffic flow speed.
+            // This criterion scales naturally across different speed limits and vehicle types:
+            //   - 100 km/h flow, v_wunsch = 130 km/h: effective = 100, release at ego >= 80 km/h
+            //   - 120 km/h flow, v_wunsch =  80 km/h: effective =  80, release at ego >= 60 km/h
+            final double MAX_SPEED_DELTA_SI = 20.0 / 3.6; // max allowed delta to effective target speed [m/s]
+
+            // 3. Speed synchronization: ego has built up at least relaxedFraction of the effective target
+            //    speed AND is within MAX_SPEED_DELTA of it (free-flow regime only).
+            boolean isSpeedSynchronized = effectiveTargetSpeedSI > 0.0
+                    && egoSpeed.si >= relaxedFraction * effectiveTargetSpeedSI
+                    && (isCongestedTarget || (effectiveTargetSpeedSI - egoSpeed.si) <= MAX_SPEED_DELTA_SI);
+
+            // 4. Platoon obstruction on ramp: ego is trapped behind a slower vehicle (a_cf <= 0.2 m/s²).
+            // The bare a_cf criterion is intentionally combined with a speed proximity guard: without it,
+            // the condition also fires when the ego has reached its desired ramp speed and the CF model
+            // simply requests no further acceleration (a_cf ≈ 0), which is not a genuine obstruction.
+            // Using a wider delta (30 km/h) than the free-flow case (20 km/h) to allow obstructed vehicles
+            // a realistic merge window even if full speed sync was impossible, while still preventing
+            // dangerously large speed differences (e.g. 50 km/h ego into 100 km/h traffic).
+            // Again referenced against effectiveTargetSpeedSI to handle v_wunsch < targetLaneFlow.
+            final double MAX_OBSTRUCTED_DELTA_SI = 30.0 / 3.6; // max allowed speed gap for obstructed merge [m/s]
+            boolean isObstructedOnRamp = ego.getCurrentCarFollowingAcceleration().si <= 0.2
+                    && (isCongestedTarget || (effectiveTargetSpeedSI > 0.0
+                            && (effectiveTargetSpeedSI - egoSpeed.si) <= MAX_OBSTRUCTED_DELTA_SI));
+
+            // 1. Hard distance fallback: transition unconditionally at the very end of the ramp (dist <= 0)
+            boolean isAtRampEnd = dist <= 0.0;
+
+            if (isAtRampEnd || isSpeedSynchronized || isObstructedOnRamp || isCongestedTarget)
             {
                 return transitionTo(new EvaluateTargetGapState(this.maneuverPattern));
             }
 
             return null; // Stay in AnticipateMergeState to build up speed on the acceleration lane
         }
+
+
 
         @Override
         public SimpleOperationalPlan abort() throws ParameterException, GtuException, NetworkException
