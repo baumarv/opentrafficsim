@@ -127,6 +127,7 @@ stateDiagram-v2
 | `ExecuteLaneChangeState` | Executes the physical lateral movement. Applies relaxation for target leaders and followers. |
 
 **Key Implementation Details**:
+- **Speed Synchronization Phase (`AnticipateMergeState`)**: Gating transition into active gap evaluation (`EvaluateTargetGapState`) until ego has built up speed on the acceleration lane ($v_{\text{ego}} \ge 0.66 \cdot v_{\text{targetLane}}$), physical ramp distance falls below $120\,\text{m}$, platoon obstruction occurs ($a_{\text{cf}} \le 0.2\,\text{m/s}^2$), or target lane traffic is congested ($< 40\,\text{km/h}$).
 - Uses `GapCandidate` helper class to score and rank available gaps on the target lane
 - Pattern-specific timestep: `0.1 s` (higher resolution during critical merge maneuvers)
 - Pre-registers a `RelaxationState` for the future leader before the lane change begins
