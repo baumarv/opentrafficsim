@@ -597,14 +597,20 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 return transitionTo(new EvaluateTargetGapState(this.maneuverPattern));
             }
 
-            // Safety net: even while still in AnticipateMergeState, check for emergency-stop condition.
-            // AnticipateMergeState does not call checkCommonTransitions() during normal execution,
-            // so without this call the EmergencyStop branch would never be reached from this state.
-            NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
-            SimpleOperationalPlan emergencyCheck = checkCommonTransitions(neigh, this.pattern.getTargetDirection());
-            if (emergencyCheck != null)
+            // Safety net: check for emergency-stop condition ONLY – intentionally NOT calling
+            // checkCommonTransitions() here. That method also calls getIfLaneChangePossible(), which
+            // would immediately transition to ExecuteLaneChangeState bypassing all speed-sync gating.
+            // We isolate only the EmergencyStop branch: if a full stop before the ramp end would
+            // require deceleration > 5 m/s², transition to EmergencyStopState immediately.
+            Length routeDistToEnd = infra.getRouteDistanceToLaneEnd();
+            if (routeDistToEnd != null)
             {
-                return emergencyCheck;
+                Acceleration requiredStopAccel =
+                        MirovaCarFollowingUtil.stop(this.vehicle, routeDistToEnd.minus(RAMP_END_BUFFER));
+                if (requiredStopAccel.si < -5.0)
+                {
+                    return transitionTo(new EmergencyStopState(this.maneuverPattern));
+                }
             }
 
             return null; // Stay in AnticipateMergeState to build up speed on the acceleration lane
