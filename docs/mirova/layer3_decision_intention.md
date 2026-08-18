@@ -127,7 +127,11 @@ stateDiagram-v2
 | `ExecuteLaneChangeState` | Executes the physical lateral movement. Applies relaxation for target leaders and followers. |
 
 **Key Implementation Details**:
-- **Speed Synchronization Phase (`AnticipateMergeState`)**: Gating transition into active gap evaluation (`EvaluateTargetGapState`) until ego has built up speed on the acceleration lane ($v_{\text{ego}} \ge 0.66 \cdot v_{\text{targetLane}}$), physical ramp distance falls below $120\,\text{m}$, platoon obstruction occurs ($a_{\text{cf}} \le 0.2\,\text{m/s}^2$), or target lane traffic is congested ($< 40\,\text{km/h}$).
+- **Speed Synchronization Phase (`AnticipateMergeState`)**: Gating transition into active gap evaluation. All speed-based criteria are evaluated against `effectiveTargetSpeed = min(v_targetLane, v_wunsch)` so that vehicles whose desired speed is below the target lane flow (e.g. trucks) are never permanently blocked:
+  - **Congested early-exit**: if `v_targetLane < 40 km/h` AND `dist ≤ 120 m` → directly to `CongestedMergeState` (bypasses speed sync entirely, avoids emergency-stop cascade)
+  - **Speed sync** (`isSpeedSynchronized`): `v_ego ≥ relaxedFraction · effectiveTargetSpeed` AND `(effectiveTargetSpeed − v_ego) ≤ 20 km/h`. `relaxedFraction` decreases linearly from `0.66` at `dist = 120 m` to `0.50` at `dist = 0 m` (soft threshold, eliminates spatial clustering artefact at ≈ 80 m)
+  - **Platoon obstruction** (`isObstructedOnRamp`): `a_cf ≤ 0.2 m/s²` AND `(effectiveTargetSpeed − v_ego) ≤ 30 km/h`. The delta guard prevents false positives when ego simply reached its ramp desired speed (a_cf ≈ 0 with no genuine blocker ahead)
+  - **Hard ramp-end fallback**: `dist ≤ 0 m` → unconditional transition
 - Uses `GapCandidate` helper class to score and rank available gaps on the target lane
 - Pattern-specific timestep: `0.1 s` (higher resolution during critical merge maneuvers)
 - Pre-registers a `RelaxationState` for the future leader before the lane change begins
