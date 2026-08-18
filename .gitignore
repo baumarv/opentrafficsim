@@ -10,3 +10,11 @@
 
 # VS Code project files
 .vscode/
+
+# Local build artifacts
+build_clean/
+**/build_clean/
+classpath.txt
+**/classpath.txt
+sources.txt
+**/sources.txt
