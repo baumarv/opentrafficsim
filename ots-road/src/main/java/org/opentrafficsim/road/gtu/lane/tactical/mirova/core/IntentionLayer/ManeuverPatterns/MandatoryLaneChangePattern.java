@@ -483,14 +483,51 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         public SimpleOperationalPlan next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
         {
             InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
-            // 1. FIX: Den vergessenen ANTICIPATION_THRESHOLD anwenden!
             boolean isLaneAvailable = infra.getIfLaneAvailable(this.pattern.getTargetDirection());
-            if (isLaneAvailable)
+            if (!isLaneAvailable)
+            {
+                return null; // Target lane is not yet physically available
+            }
+
+            EgoContext ego = this.vehicle.getContext(EgoContext.class);
+            Length distToLaneEnd = infra.getPhysicalDistanceToLaneEnd();
+            Speed egoSpeed = ego.getEgoSpeed();
+
+            // 1. Distance criterion: transition to active gap evaluation when approaching ramp end (<= 120 m)
+            final double ACTIVE_MERGE_DISTANCE_THRESHOLD = 120.0;
+            boolean isApproachingEnd = distToLaneEnd != null && distToLaneEnd.si <= ACTIVE_MERGE_DISTANCE_THRESHOLD;
+
+            // 2. Target lane traffic speed evaluation
+            MacroTrafficContext macro = this.vehicle.getContext(MacroTrafficContext.class);
+            RelativeLane targetRelativeLane =
+                    (this.pattern.getTargetDirection().isLeft()) ? RelativeLane.LEFT : RelativeLane.RIGHT;
+            Speed targetLaneSpeed = macro.getAverageSpeed(targetRelativeLane);
+            if (targetLaneSpeed == null || Double.isNaN(targetLaneSpeed.si) || targetLaneSpeed.si <= 0.0)
+            {
+                targetLaneSpeed = infra.getLegalSpeedLimit();
+                if (targetLaneSpeed != null && targetLaneSpeed.gt(new Speed(100.0, SpeedUnit.KM_PER_HOUR)))
+                {
+                    targetLaneSpeed = new Speed(100.0, SpeedUnit.KM_PER_HOUR);
+                }
+            }
+
+            // 3. Speed synchronization: ego has built up at least 66% of the target lane flow speed
+            final double MIN_MERGE_SPEED_FRACTION = 0.66;
+            boolean isSpeedSynchronized = targetLaneSpeed != null && !Double.isNaN(targetLaneSpeed.si)
+                    && egoSpeed.si >= MIN_MERGE_SPEED_FRACTION * targetLaneSpeed.si;
+
+            // 4. Platoon obstruction on ramp: if ego is trapped behind a slower vehicle (a_cf <= 0.2 m/s²), transition immediately
+            boolean isObstructedOnRamp = ego.getCurrentCarFollowingAcceleration().si <= 0.2;
+
+            // 5. Congested target lane traffic (< 40 km/h): no high-speed ramp acceleration required
+            boolean isCongestedTarget = targetLaneSpeed != null && !Double.isNaN(targetLaneSpeed.si) && targetLaneSpeed.si < 11.11;
+
+            if (isApproachingEnd || isSpeedSynchronized || isObstructedOnRamp || isCongestedTarget)
             {
                 return transitionTo(new EvaluateTargetGapState(this.maneuverPattern));
             }
 
-            return null; // Bleibe in der Antizipation, wenn noch weit weg
+            return null; // Stay in AnticipateMergeState to build up speed on the acceleration lane
         }
 
         @Override
