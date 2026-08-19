@@ -456,16 +456,30 @@ runners. Python paths can be redirected via `MIROVA_PYTHON`, `MIROVA_DEMAND_SCRI
 
 Post-processing and plotting happen afterwards, off the cluster, on the copied-back output tree.
 
-## Batched mode (fallback)
+## Running several runs in one process
 
-`RunFreiburgParallelCluster` remains as a secondary entry point: a comma-separated date list
-plus `parallelThreads`/`replications`, executed through `ScenarioManager.runAll`. It is not
-used by `run_mirova.sbatch` and is kept for scenarios whose per-run overhead is *not*
-negligible, and for running several dates in one interactive session. It shares the
-`FreiburgStudyParameters` definition with the `dates` study, so the two cannot drift apart.
+`RunMirovaClusterStudy` executes exactly one run per invocation. There used to be a second,
+batched entry point for cases where per-run overhead might matter; it has been removed, because
+that concern turned out not to exist here — a run takes 90–120 minutes against seconds of JVM
+startup, and the two-runs-per-task bundling in `run_mirova.sbatch` already fills the allocation
+(49.8% CPU efficiency with one run per task, 95.4% with two).
+
+To run several runs locally in one go — e.g. interactively, without SLURM — loop over the
+indices `--count` reports:
 
 ```bash
-java -Xmx48g -cp "$(cat $(ws_find mirova)/cp.txt)" \
-  org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunFreiburgParallelCluster \
-  $(ws_find mirova)/output/batched 16 6 "2025-09-22,2025-09-23" $(ws_find mirova)/demand --strict
+WS=$(ws_find mirova)
+CLASS=org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunMirovaClusterStudy
+N=$(java -cp "$(cat $WS/cp.txt)" $CLASS --study=dates --output=$WS/output/dates \
+      --dates=cluster/dates.txt --demand=$WS/demand --count)
+
+for i in $(seq 0 $((N - 1))); do
+  java -Xmx6g -XX:ActiveProcessorCount=1 -cp "$(cat $WS/cp.txt)" $CLASS \
+    --study=dates --output=$WS/output/dates --index=$i \
+    --dates=cluster/dates.txt --demand=$WS/demand --strict=true &
+done
+wait
 ```
+
+Add `-P` batching (or `xargs -P`) if you do not want all of them at once. The single-run path is
+the same one the cluster uses, so results are identical either way.
