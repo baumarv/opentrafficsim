@@ -2,19 +2,33 @@
 
 Runs a MiRoVA study on the cluster as a SLURM job array.
 
-**One array task = one simulation run = one core**, and
-**`SLURM_ARRAY_TASK_ID` *is* the run's global index** — there is no lookup table.
+**One array task = two simulation runs, one per core, run concurrently.** Array task *T*
+executes global run indices **2·T** and **2·T+1**.
 
-## Why one run per task
+## Why two runs per task
 
-A single Freiburg-Nord run takes **90–120 minutes** wall-clock, while JVM startup and JAXB
-warm-up cost seconds — **under 0.5% of a run**. Bundling runs to amortize startup therefore
-optimizes something that isn't a cost.
+A run is single-threaded and takes **90–120 minutes**, while JVM startup costs seconds, so
+bundling buys nothing in startup terms — the earlier design deliberately ran one run per task
+for maximum scheduling elasticity.
 
-What matters is scheduling elasticity. A task asking for one core can be backfilled into any
-free core anywhere, at any time, independently of every other task. A task asking for N cores
-must wait for N cores to line up on one node. With ~200 independent, hour-scale runs, one run
-per task is strictly easier for SLURM to place, and partial progress accumulates immediately.
+What changed is an empirical finding: on the `cpu` partition SLURM allocates **two logical
+CPUs even for `--cpus-per-task=1`**. Observed as `AllocTRES=cpu=2` on jobs `6366033`,
+`6366103` and `6366286`; the partition reports `MaxCPUsPerNode=192` across 80 nodes
+(`TotalCPUs=15360`), i.e. 96 physical cores × 2 SMT threads, so a physical core looks like the
+smallest allocatable unit. The completed canary run `6366286` shows the cost directly:
+
+```
+CPU Utilized:   00:18:25
+Wall-clock:     00:18:29
+CPU Efficiency: 49.82%      <- one core busy, one allocated and idle
+```
+
+Since the allocation is two cores either way, the second one now carries a second run. This
+does not weaken the scheduling argument: a two-core task is still the smallest thing the
+partition hands out, so it is just as backfillable as the one-core request was.
+
+`--cpus-per-task=2` is requested explicitly rather than relying on that rounding, so the
+allocation stays correct if the rounding behavior ever changes.
 
 ## Files
 
@@ -160,10 +174,27 @@ java -cp "$(cat $WS/cp.txt)" \
   --dates=cluster/dates.txt --demand=$WS/demand --count
 ```
 
-This prints a single integer N and runs nothing. Set `#SBATCH --array=0-<N-1>`.
+This prints a single integer N and runs nothing. Since each task runs **two** runs, set
 
-For the date study: 32 dates × 6 replications → `192` → `--array=0-191`.
-For the parameter study: 17 variations × 6 replications → `102` → `--array=0-101`.
+```
+#SBATCH --array=0-<ceil(N/2)-1>
+```
+
+| Study | N | Tasks = ⌈N/2⌉ | `--array` |
+|:---|---:|---:|:---|
+| dates, 32 dates × 6 replications | 192 | 96 | `0-95` |
+| dates, 9 placeholder dates × 6 | 54 | 27 | `0-26` |
+| paramgrid, 17 variations × 6 | 102 | 51 | `0-50` |
+| paramgrid, 17 variations × 1 | 17 | 9 | `0-8` |
+
+An **odd** N is fine, as in the last row: the final task finds that its second index
+(`2·8+1 = 17`) is beyond the study's 17 runs and launches only one process, logging
+`no run at global index 17 (study has 17); nothing to launch.` The script asks the study for
+N itself at task start, so this needs no manual bookkeeping — set `MIROVA_TOTAL_RUNS` to skip
+that extra JVM start if you prefer.
+
+Sizing the array *larger* than ⌈N/2⌉ is rejected: a task with no runs at all exits `2` rather
+than reporting success for doing nothing.
 
 Optionally add `--manifest=$WS/output/manifest.tsv` to also write a human-readable
 `index → scenario / variation / replication / seed / parameters` table. It is **informational
@@ -200,7 +231,9 @@ Configure via environment variables — no need to edit the script:
 | `MIROVA_DEMAND_DIR` | `<ws>/demand` | Pre-generated demand CSVs |
 | `MIROVA_OUTPUT_ROOT` | `<ws>/output/<study>` | Results root |
 | `MIROVA_DATES_FILE` | `cluster/dates.txt` | Date list for the date study |
-| `MIROVA_JAVA_HEAP` | `6g` | `-Xmx` for the JVM |
+| `MIROVA_JAVA_HEAP` | `6g` | `-Xmx` **per run**; two runs share `2 × --mem-per-cpu` |
+| `MIROVA_RUNS_PER_TASK` | `2` | Runs bundled per array task |
+| `MIROVA_TOTAL_RUNS` | *(asked of the study)* | Skips the `--count` call at task start |
 
 Example — run the parameter study instead:
 
@@ -208,15 +241,21 @@ Example — run the parameter study instead:
 export MIROVA_CLUSTER_DIR="$PWD/cluster"
 export MIROVA_STUDY=paramgrid
 export MIROVA_STUDY_OPTS="--demand=$(ws_find mirova)/demand --strict=true"
-sbatch --chdir="$(ws_find mirova)" --array=0-101 cluster/run_mirova.sbatch
+sbatch --chdir="$(ws_find mirova)" --array=0-50 cluster/run_mirova.sbatch   # 102 runs -> 51 tasks
 ```
 
 ## 6. Resources per task
 
-`--cpus-per-task=1` is correct: `AbstractSimulationScriptBase.runHeadless()` drives
+Each run is single-threaded: `AbstractSimulationScriptBase.runHeadless()` drives
 `simulator.step()` in a plain `while` loop **on the calling thread** — no DSOL worker thread,
-no executor inside a run. The script also sets `-XX:ActiveProcessorCount=1` so the JVM's GC
-and JIT threads don't oversubscribe the single allocated core.
+no executor inside a run. The task therefore places two such processes on its two cores, each
+with `-XX:ActiveProcessorCount=1` so neither JVM's GC and JIT threads oversubscribe the pair.
+
+Where `taskset` is available, the two processes are pinned to distinct CPUs taken from the
+task's own affinity mask (so the pinning respects the cgroup SLURM placed the job in, rather
+than assuming CPUs 0 and 1). Without `taskset`, placement is left to the OS scheduler, which
+spreads two runnable single-threaded processes across two free cores by itself; the log line
+per slot states which of the two applied.
 
 `--time=03:00:00` gives ~50% headroom over the measured 90–120 min. `--mem-per-cpu` is a
 **placeholder for one run** — measure a single run's peak RSS locally, then set it together
