@@ -32,9 +32,19 @@
 #                9 dates x 6 replications  =  54 runs -> 27 tasks -> --array=0-26
 #                32 dates x 6 replications = 192 runs -> 96 tasks -> --array=0-95
 #                An odd N is fine: the last task skips its second index (see below).
-# --mem-per-cpu  PLACEHOLDER, per core, so a task gets twice this for its two runs.
-#                Measure the peak RSS of a single run, add JVM overhead, then set this and
-#                JAVA_HEAP (which is per run, so keep 2 x JAVA_HEAP below 2 x mem-per-cpu).
+# --mem-per-cpu  PLACEHOLDER, per core, so a task's memory limit is 2 x this value while
+#                TWO JVMs live inside it. MIROVA_JAVA_HEAP is likewise per run, so the
+#                constraint to satisfy when calibrating is
+#
+#                    2 x MIROVA_JAVA_HEAP  <  2 x --mem-per-cpu  -  (2 x off-heap per JVM)
+#
+#                i.e. per run: JAVA_HEAP < mem-per-cpu - off-heap. The headroom must cover
+#                TWO JVMs' non-heap footprint (metaspace, code cache, GC structures, thread
+#                stacks, direct buffers), not one's - roughly 0.5-1 GB each, so with
+#                mem-per-cpu=8G a JAVA_HEAP of 6g leaves ~2 GB per run for that.
+#                Measure the peak RSS of a single run first, then set both accordingly:
+#                exceeding the limit gets the whole task OOM-killed, taking down the healthy
+#                run alongside the greedy one.
 # --time         03:00:00 gives ~50% headroom over the measured 90-120 min per run. The two
 #                runs are concurrent, so this stays a per-run budget, not a sum.
 # --partition    choose per bwUniCluster 3.0 queue documentation.
@@ -116,6 +126,12 @@ OUTPUT_ROOT="${MIROVA_OUTPUT_ROOT:-${WORKSPACE}/output/${STUDY}}"
 DATES_FILE="${MIROVA_DATES_FILE:-${CLUSTER_DIR}/dates.txt}"
 STUDY_OPTS="${MIROVA_STUDY_OPTS:---dates=${DATES_FILE} --demand=${DEMAND_DIR} --strict=true}"
 
+# Split into an array honouring quotes, so that options whose value contains a space work -
+# '--start="2025-09-22 13:00:00"' would otherwise be split into two broken arguments. eval is
+# safe enough here: MIROVA_STUDY_OPTS is set by the submitter for their own job.
+declare -a STUDY_OPTS_ARR
+eval "STUDY_OPTS_ARR=(${STUDY_OPTS})"
+
 # Heap for a single run. Keep below --mem-per-cpu to leave room for JVM off-heap memory.
 JAVA_HEAP="${MIROVA_JAVA_HEAP:-6g}"
 
@@ -158,9 +174,9 @@ mkdir -p "${OUTPUT_ROOT}" "${WORKSPACE}/logs"
 # (seconds) against a 90-120 minute task. Set MIROVA_TOTAL_RUNS to skip it.
 TOTAL_RUNS="${MIROVA_TOTAL_RUNS:-}"
 if [ -z "${TOTAL_RUNS}" ]; then
-    # shellcheck disable=SC2086  # STUDY_OPTS is intentionally word-split into separate options
     TOTAL_RUNS="$(java -cp "${CLASSPATH_VALUE}" "${MAIN_CLASS}" \
-        --study="${STUDY}" --output="${OUTPUT_ROOT}" ${STUDY_OPTS} --count 2>/dev/null | tail -1 | tr -d '[:space:]')"
+        --study="${STUDY}" --output="${OUTPUT_ROOT}" "${STUDY_OPTS_ARR[@]}" --count 2>/dev/null \
+        | tail -1 | tr -d '[:space:]')"
 fi
 if ! [[ "${TOTAL_RUNS}" =~ ^[0-9]+$ ]] || [ "${TOTAL_RUNS}" -lt 1 ]; then
     echo "ERROR: could not determine the study's total run count (got '${TOTAL_RUNS}')." >&2
@@ -212,18 +228,18 @@ for (( slot = 0; slot < RUNS_PER_TASK; slot++ )); do
     if [ "${#CPU_LIST[@]}" -gt "${slot}" ]; then
         cpu="${CPU_LIST[${slot}]}"
         echo "[slot ${slot}] run ${index} pinned to CPU ${cpu} -> ${log}"
-        # shellcheck disable=SC2086
+        # shellcheck disable=SC2086  # JAVA_OPTS is intentionally word-split
         taskset -c "${cpu}" java -Xmx"${JAVA_HEAP}" ${JAVA_OPTS} -cp "${CLASSPATH_VALUE}" "${MAIN_CLASS}" \
-            --study="${STUDY}" --output="${OUTPUT_ROOT}" --index="${index}" ${STUDY_OPTS} \
+            --study="${STUDY}" --output="${OUTPUT_ROOT}" --index="${index}" "${STUDY_OPTS_ARR[@]}" \
             > "${log}" 2>&1 &
     else
         # No taskset, or fewer CPUs in the mask than slots: leave placement to the OS
         # scheduler, which spreads two runnable single-threaded processes across the
         # allocated cores by itself.
         echo "[slot ${slot}] run ${index} unpinned (OS scheduler) -> ${log}"
-        # shellcheck disable=SC2086
+        # shellcheck disable=SC2086  # JAVA_OPTS is intentionally word-split
         java -Xmx"${JAVA_HEAP}" ${JAVA_OPTS} -cp "${CLASSPATH_VALUE}" "${MAIN_CLASS}" \
-            --study="${STUDY}" --output="${OUTPUT_ROOT}" --index="${index}" ${STUDY_OPTS} \
+            --study="${STUDY}" --output="${OUTPUT_ROOT}" --index="${index}" "${STUDY_OPTS_ARR[@]}" \
             > "${log}" 2>&1 &
     fi
     RUN_PIDS+=("$!")

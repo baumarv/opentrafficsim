@@ -257,9 +257,27 @@ than assuming CPUs 0 and 1). Without `taskset`, placement is left to the OS sche
 spreads two runnable single-threaded processes across two free cores by itself; the log line
 per slot states which of the two applied.
 
-`--time=03:00:00` gives ~50% headroom over the measured 90–120 min. `--mem-per-cpu` is a
-**placeholder for one run** — measure a single run's peak RSS locally, then set it together
-with `MIROVA_JAVA_HEAP` (keep the heap below `--mem-per-cpu` for JVM off-heap memory).
+`--time=03:00:00` gives ~50% headroom over the measured 90–120 min. Because the two runs are
+**concurrent**, this stays a per-run budget rather than a sum.
+
+### Memory: calibrate for two JVMs, not one
+
+`--mem-per-cpu` is a **placeholder**. It is applied *per core*, so a task's memory limit is
+`2 × --mem-per-cpu` — but there are also **two** JVMs living inside that limit, and
+`MIROVA_JAVA_HEAP` is per run. The constraint to satisfy is therefore:
+
+```
+2 × MIROVA_JAVA_HEAP  <  2 × mem-per-cpu  −  (2 × off-heap per JVM)
+```
+
+which per run reduces to `JAVA_HEAP < mem-per-cpu − off-heap`. The headroom has to cover
+**two** JVMs' non-heap footprint — metaspace, code cache, GC structures, thread stacks, direct
+buffers — not one's; roughly 0.5–1 GB each. The current defaults (`mem-per-cpu=8G`,
+`JAVA_HEAP=6g`) leave about 2 GB per run for that.
+
+Measure a single run's peak RSS first, then set both together. Getting this wrong is not a
+per-run failure: exceeding the task's limit gets the **whole task** OOM-killed, so the healthy
+run dies alongside the greedy one.
 
 ---
 
