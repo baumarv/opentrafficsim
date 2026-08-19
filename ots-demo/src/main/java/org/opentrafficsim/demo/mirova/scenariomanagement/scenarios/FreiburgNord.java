@@ -47,6 +47,7 @@ import org.opentrafficsim.core.network.route.ProbabilisticRouteGenerator;
 import org.opentrafficsim.core.network.route.Route;
 import org.opentrafficsim.core.object.DetectorType;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioGenerator;
+import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioManager;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioOutputConfiguration;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioParameters;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioSimulationScript;
@@ -239,16 +240,59 @@ public class FreiburgNord extends ScenarioGenerator
     }
 
     /**
-     * ------------------------------------------------------------ Create vehicles from OD matrix
-     * @param params
-     * @param sim
-     * @throws Exception
+     * Scenario parameter key that, when set to {@code Boolean.TRUE}, turns a missing or unreadable demand CSV into a fatal
+     * error instead of a silent fallback to synthetic demand. Takes precedence over {@value #ENV_DEMAND_CSV_STRICT}.
+     */
+    public static final String KEY_DEMAND_CSV_STRICT = "demandCsvStrict";
+
+    /**
+     * Environment variable that, when set to "1" or "true", turns a missing or unreadable demand CSV into a fatal error
+     * instead of a silent fallback to synthetic demand.
+     */
+    public static final String ENV_DEMAND_CSV_STRICT = "MIROVA_STRICT_DEMAND";
+
+    /** Environment variable overriding the demand CSV used when no 'demandCsv' scenario parameter is present. */
+    public static final String ENV_DEMAND_CSV = "MIROVA_DEMAND_CSV";
+
+    /**
+     * Scenario parameter key overriding the minimum total demand a parsed OD matrix must carry in strict mode, in vehicles
+     * per hour summed over all intervals, origins, destinations and GTU types.
+     */
+    public static final String KEY_DEMAND_MIN_TOTAL = "demandCsvMinTotal";
+
+    /**
+     * Minimum total demand a parsed OD matrix must carry in strict mode, in vehicles per hour summed over all intervals,
+     * origins, destinations and GTU types.
+     * <p>
+     * The check is meant to catch a structurally broken input — a truncated CSV, a period filtered to nothing, or unexpected
+     * column/node names that make every row be skipped — not to judge whether traffic was light. A real 13:00-22:00 Freiburg
+     * day sums to five or six digits here, whereas any of those failure modes sums to exactly zero. The threshold is
+     * therefore placed just above zero rather than at a "plausible traffic" level: it must never reject a genuinely quiet
+     * measurement period, only an input that carries no usable demand at all. Override via {@value #KEY_DEMAND_MIN_TOTAL}.
+     * </p>
+     */
+    public static final double DEFAULT_DEMAND_MIN_TOTAL = 1.0;
+
+    /** Demand CSV used when neither the 'demandCsv' parameter nor {@value #ENV_DEMAND_CSV} is set (local Windows default). */
+    public static final String DEFAULT_DEMAND_CSV =
+            "D:\\Mitarbeitende\\gw2128\\repositories\\diss_mvb\\scripts\\evaluation\\fielddata\\detectors\\io\\data"
+                    + "\\demand_freiburg_20250925_06-12_low_demand.csv";
+
+    /**
+     * Creates the vehicle generators from the OD matrix, which is read from the configured demand CSV file. When the CSV
+     * cannot be read, synthetic step-wise demand is used instead, unless strict mode is enabled.
+     * @param params ScenarioParameters; the parameters of this simulation run
+     * @param sim OtsSimulatorInterface; the simulator
+     * @throws Exception when the OD matrix cannot be built or applied, or when strict mode rejects a missing demand CSV
      */
     public void createVehiclesFromODMatrix(final ScenarioParameters params, final OtsSimulatorInterface sim) throws Exception
     {
-        String demandCsv = params.getOrDefault("demandCsv",
-                "D:\\Mitarbeitende\\gw2128\\repositories\\diss_mvb\\scripts\\evaluation\\fielddata\\detectors\\io\\data\\demand_freiburg_20250925_06-12_low_demand.csv",
-                String.class);
+        String fallbackCsv = System.getenv(ENV_DEMAND_CSV);
+        if (fallbackCsv == null || fallbackCsv.trim().isEmpty())
+        {
+            fallbackCsv = DEFAULT_DEMAND_CSV;
+        }
+        String demandCsv = params.getOrDefault("demandCsv", fallbackCsv, String.class);
         File csvFile = new File(demandCsv);
 
         Categorization categorization = new Categorization("MyCategorization", GtuType.class);
@@ -260,8 +304,39 @@ public class FreiburgNord extends ScenarioGenerator
 
         OdMatrix odMatrix = parseOdMatrixFromCsv(csvFile, this.network, categorization, carCat, truckCat);
 
+        // Strict mode (batch/validation runs): fabricated demand must never silently replace field data.
+        Boolean strictParam = params.get(KEY_DEMAND_CSV_STRICT, Boolean.class);
+        boolean strict =
+                (strictParam != null) ? strictParam : ScenarioManager.isTruthy(System.getenv(ENV_DEMAND_CSV_STRICT));
+
+        if (odMatrix != null && strict)
+        {
+            // A CSV that exists and parses but carries (almost) no demand would otherwise produce a vehicle-free run,
+            // detected only later and indirectly by the deadlock watchdog. Reject it here, where the cause is still known.
+            double minTotal = params.getOrDefault(KEY_DEMAND_MIN_TOTAL, DEFAULT_DEMAND_MIN_TOTAL, Double.class);
+            double totalDemand = totalDemand(odMatrix, origins, destinations, carCat, truckCat);
+            if (totalDemand < minTotal)
+            {
+                String message = "FATAL: demand CSV at " + csvFile.getAbsolutePath() + " parsed to an empty or near-empty"
+                        + " OD matrix (total demand " + totalDemand + " veh/h summed over all intervals, origins,"
+                        + " destinations and GTU types; minimum required is " + minTotal + " veh/h). The file is most"
+                        + " likely truncated, filtered to an empty period, or written with unexpected column names or"
+                        + " node identifiers. Refusing to run a demand-free simulation in strict demand mode.";
+                System.err.println(message);
+                throw new IllegalStateException(message);
+            }
+        }
+
         if (odMatrix == null)
         {
+            if (strict)
+            {
+                String message = "FATAL: demand CSV could not be read at " + csvFile.getAbsolutePath()
+                        + " and strict demand mode is enabled. Refusing to fall back to synthetic demand.";
+                System.err.println(message);
+                throw new IllegalStateException(message);
+            }
+
             System.err.println("WARNING: CSV demand file not found at " + csvFile.getAbsolutePath()
                     + ". Falling back to default programmatic demand.");
 
@@ -324,6 +399,52 @@ public class FreiburgNord extends ScenarioGenerator
         System.out.println("Applying OD matrix: \n" + odMatrix);
 
         OdApplier.applyOd(this.network, odMatrix, odOptions, new DetectorType("NL.VEHICLES"));
+    }
+
+    /**
+     * Sums the demand of an OD matrix over all intervals, origin-destination pairs and GTU types.
+     * <p>
+     * The result is a sum of frequencies in vehicles per hour and therefore not a vehicle count; it is used solely to
+     * distinguish an OD matrix that carries demand from one that carries none.
+     * </p>
+     * @param odMatrix OdMatrix; the matrix to sum
+     * @param origins List&lt;Node&gt;; the origin nodes to consider
+     * @param destinations List&lt;Node&gt;; the destination nodes to consider
+     * @param categories Category...; the categories to consider
+     * @return double; the summed demand in veh/h, or 0.0 when the matrix carries no demand vectors at all
+     */
+    public static double totalDemand(final OdMatrix odMatrix, final List<Node> origins, final List<Node> destinations,
+            final Category... categories)
+    {
+        double total = 0.0;
+        for (Node origin : origins)
+        {
+            for (Node destination : destinations)
+            {
+                for (Category category : categories)
+                {
+                    FrequencyVector demandVector;
+                    try
+                    {
+                        demandVector = odMatrix.getDemandVector(origin, destination, category);
+                    }
+                    catch (Exception exception)
+                    {
+                        // Origin/destination/category combination not present in this matrix
+                        continue;
+                    }
+                    if (demandVector == null)
+                    {
+                        continue;
+                    }
+                    for (int i = 0; i < demandVector.size(); i++)
+                    {
+                        total += Math.abs(demandVector.get(i).getInUnit(FrequencyUnit.PER_HOUR));
+                    }
+                }
+            }
+        }
+        return total;
     }
 
     /**
