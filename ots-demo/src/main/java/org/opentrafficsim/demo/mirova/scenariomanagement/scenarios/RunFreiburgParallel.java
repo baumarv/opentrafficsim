@@ -8,10 +8,10 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioParameters;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 
 /**
- * Parallel runner for the multi-day evaluation study (32 unique dates across 2025/2026).
+ * Parallel runner – AnticipateMergeFix validation run (2025-09-23).
  * <p>
- * Parameters: car.T=1.00 s, truck.T=1.30 s, RedFac=0.60, 5-min demand aggregation, Capacity Drop = disabled.<br>
- * 32 days x 6 replications = 192 runs total on 24 parallel threads.
+ * Two T pairs: car/truck = (1.00/1.30) and (0.90/1.20). RedFac=0.60, 5-min demand aggregation.<br>
+ * 1 date x 2 T-pairs x 6 replications = 12 runs total on 6 parallel threads.
  * </p>
  * <p>
  * Copyright (c) 2026 Marvin Baumann / KIT. All rights reserved. <br>
@@ -40,13 +40,14 @@ public class RunFreiburgParallel
                         String[] dates = new String[] {"2025-09-23"};
 
                         // Standard Headway T: (1.00 / 1.30)
-                        double[][] headways = new double[][] {{1.00, 1.30}};
+                        // Two T-pairs: standard (1.00/1.30) and tighter (0.90/1.20)
+                        double[][] headways = new double[][] {{1.00, 1.30}, {0.90, 1.20}};
 
                         int numberOfReplications = 6;
                         int parallelThreads = 6;
 
                         File outputDirectory = new File("D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\output\\ots"
-                                        + "\\freiburg_20250923_AnticipateMergeSync");
+                                        + "\\freiburg_20250923_AnticipateMergeFix");
                         // --- END CONFIGURATION ---
 
                         // Pre-warm JAXBContext on the main thread (with exec:java classloader)
