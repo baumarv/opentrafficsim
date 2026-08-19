@@ -1,0 +1,202 @@
+# MiRoVA Scenario Management & Cluster Architecture — Overview
+
+**Scope:** This document describes the **orchestration / scenario-management layer**
+(`ots-demo/.../mirova/scenariomanagement/`) and the cluster-tooling layer built on top of it
+(`cluster/`). It does **not** describe the tactical-cognitive driving-behavior architecture (the
+layered BDI model, `ContextManager`, `KnowledgeChunk`, `PatternSelector`, `ManeuverPattern`, in
+`ots-road/.../tactical/mirova/`) — that is documented in
+[layer1_perception_belief.md](layer1_perception_belief.md) through
+[layer4_reactive_control.md](layer4_reactive_control.md), [arbitration.md](arbitration.md) and the
+ITSC paper, and is unaffected by any of this.
+
+Companion document: [troubleshooting_and_compilation.md](troubleshooting_and_compilation.md) —
+this one is *what connects to what*, that one is *what breaks and how to fix it* (JAXB ClassLoader
+issues, `.m2` sync, fast-build flags, inconsistent `ots-xml` state).
+
+Status: after the cluster migration (workspace, global run addressing, bundling) and the baseline
+unification. Update this when structural changes land (e.g. the planned facility generalization).
+
+---
+
+## 1. The core idea
+
+A **study** (`StudyDefinition`) describes *what* to simulate: which scenarios, with which parameter
+variations, how many replications. The **`ScenarioManager`** executes it — locally as a batch with a
+thread pool, or on the cluster as one individually addressable simulation per SLURM array task. Both
+execution paths run through the **same enumeration logic**, so a run started locally or on the
+cluster always gets the same seed and the same parameters.
+
+```
+StudyDefinition               ScenarioManager                    ScenarioGenerator
+  (what to simulate?)   →       (how to execute?)           →      (what IS the scenario?)
+  dates/paramgrid/combos         enumeration, seeds,                FreiburgNord: network,
+                                 output folders, parallelism        GTU templates, OD matrix, ...
+```
+
+---
+
+## 2. The engine classes (`scenariomanagement/`, excluding `scenarios/`)
+
+| Class | Role |
+|---|---|
+| **`ScenarioManager`** | The execution engine. Manages registered scenarios + parameter variations, computes seeds (`seedFor`), executes runs — either as a full batch (`runAll`) or individually addressed via a global index (`runByGlobalIndex`, `countRuns`, `describeRuns`). Both paths share the same internal enumeration (scenario → variation → replication) — this is the foundation of cluster addressing. |
+| **`ScenarioGenerator`** (abstract) | Defines *what* a scenario is: road network, GTU templates, routes, OD matrix/demand, sampling configuration. Every concrete traffic facility is a subclass of this. |
+| **`ScenarioParameters`** | A typed key-value container for everything configurable (seed, timings, demand, arbitrary car/truck parameters). `applyOverridesFrom(...)` merges two instances — the mechanism by which a variation overrides the baseline. |
+| **`ScenarioSimulationScript`** / **`AbstractSimulationScriptBase`** | The actual simulation execution (DSOL integration, `runHeadless`, watchdog deadlock detection). Not a user entry point — instantiated per run by `ScenarioManager`. |
+| **`ParameterGridBuilder`** | Builds either a full Cartesian product (`build()`) or a one-at-a-time sweep (`buildIsolated()`) over several parameter dimensions from a baseline. Foundation of the `paramgrid` study. |
+| **`ScenarioOutputConfiguration`** | What and how output is recorded: samplers, loop detectors, time windows, extended-data types (the `ExtendedData*` classes in `ots-road`), CSV/ZIP output. |
+| **`StudyDefinition`** (interface) | The contract for a study: `getName()`, `getDescription()`, `register(ScenarioManager, Map<String, String>)`. Registration must be **deterministic** — a prerequisite for global-index addressing across independently started processes. |
+| **`StudyRegistry`** | Resolves a study short name (`dates`, `paramgrid`, `combos`) to its `StudyDefinition` implementation. A new study can also run by its fully qualified class name without being registered here. |
+
+There are **three** concrete `ScenarioGenerator` subclasses: `FreiburgNord` (the only one the
+cluster studies use), plus `MergeScenario` and `SimpleHighwayScenario`, which are driven by their
+own local runners.
+
+---
+
+## 3. The three current studies (`scenariomanagement/scenarios/`)
+
+All three build on **`FreiburgStudyParameters.baseBehaviorParams()`** — the shared behavioral
+baseline (`T`, `vGain`, `A_MAX`, cooperation thresholds, relaxation/capacity-drop flags etc. for car
+and truck). That is the single place these values are defined; all three studies only override what
+they actually vary.
+
+| Study | Short name | Varies | Built on |
+|---|---|---|---|
+| **`FreiburgDateStudy`** | `dates` | One fixed parameter combination across multiple days | `FreiburgStudyParameters.forDate(...)` |
+| **`FreiburgParameterStudy`** | `paramgrid` | Several parameter dimensions (one-at-a-time sweep) on a fixed period | `ParameterGridBuilder.buildIsolated()` |
+| **`FreiburgCombinationStudy`** | `combos` | Named parameter combinations across multiple days — currently headway pairs × safety-distance factors | Cartesian product of two fixed lists, each cell from `forDate(...)` |
+
+**When to use which?** `dates` for the plain multi-day validation study (one parameter set, many
+days, many replications). `paramgrid` for "how does the model react to changes in individual
+parameters" (sensitivity analysis around a baseline). `combos` for "I want to compare a handful of
+specific, hand-picked parameter sets against each other" (not a systematic sweep, but targeted
+cases) — structurally what `RunFreiburgParallel.java` does locally / ad hoc, just cluster-capable
+and across days.
+
+`FreiburgNord` itself (592 lines) is the concrete `ScenarioGenerator` implementation: network, GTU
+templates, routes, OD-matrix parsing including time-window slicing/re-basing, strict-demand
+validation, watchdog configuration.
+
+---
+
+## 4. How a run is addressed
+
+A single simulation run is uniquely determined by three coordinates: **scenario (registration order)
+→ variation (list order) → replication index.**
+
+`ScenarioManager` walks this structure in exactly the same order whether via `runAll` (full batch,
+local) or `runByGlobalIndex(n)` (single run, cluster) — both call the same private `enumerateRuns()`
+and the same `prepareRun(...)`.
+
+A run's **seed** is `generator.getDefaultParameters().getSeed() + replicationIndex` — note it comes
+from the *generator's* defaults, not from the caller's variation, and it depends only on the
+replication index. Replication 3 therefore gets the same seed on every date and in every variation
+(here: 45). That is intentional (comparability across days), but easy to mistake for "unique seed
+per run."
+
+**Why this matters:** because both execution paths share the same enumeration, `--index=17` on the
+cluster produces exactly the run (scenario, parameters, seed) that a local `runAll` batch would have
+produced at position 17 — verified, not just assumed.
+
+---
+
+## 5. The cluster entry point: `RunMirovaClusterStudy`
+
+```
+RunMirovaClusterStudy --study=<name|class> --output=<dir> (--count | --manifest=<file> | --index=<n>) [--key=value ...]
+```
+
+- `--count` — total number of runs for this study (with the given options), no simulation.
+- `--index=<n>` — executes exactly this one run (0-based, global index).
+- `--manifest=<file>` — writes a human-readable index → scenario / variation / replication / seed /
+  parameters table, purely informational, not part of execution logic.
+- Any further `--key=value` is passed through to the selected study, which documents which keys it
+  honors (e.g. `--demand=`, `--dates=`, `--replications=`, `--strict=true`).
+
+Adding a new study requires **no** change to this entry point or the sbatch script — only a new
+`StudyDefinition` implementation, optionally a short-name entry in `StudyRegistry`.
+
+---
+
+## 6. The cluster-tooling layer (`cluster/`)
+
+| File | Role |
+|---|---|
+| `mirova_env.sh` | Single source for workspace resolution (`resolve_workspace`, requires `MIROVA_WORKSPACE`, no `$HOME` fallback) and Java/Maven toolchain activation (`activate_toolchain`) — since bwUniCluster 3.0 provides no Java/Maven module, both are provisioned as tarballs into the workspace. |
+| `build_for_cluster.sh` | Builds the project (`mvn install -pl ots-demo -am -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Djacoco.skip=true`), provisions Java/Maven idempotently with download validation, writes `cp.txt` (classpath). |
+| `run_mirova.sbatch` | The SLURM job array script. One array task = two bundled individual runs (global indices `2×TaskID` and `2×TaskID+1`). Each of the two runs gets `-XX:ActiveProcessorCount=1` and its own log file; CPU affinity is read from the task's own affinity mask at runtime (`taskset -cp $$`), never assumed. Requires `MIROVA_CLUSTER_DIR` — `sbatch` runs a *copy* of the script from the job spool directory, so it cannot locate its own directory. |
+| `dates.txt` | The date list for the `dates`/`combos` studies — currently a placeholder (the 9 dates of `Run9DatesLargeStudy`, verified identical), still to be replaced with the real 32 dates. |
+| `generate_demand_csvs.ps1` / `.py` | Generate the full-day demand CSVs on the Windows workstation, where the detector database is reachable. Never run on the cluster. |
+| `README.md` | Operational guide: workspace allocation, build, array sizing, submission, studies, calibration. |
+| `demand/` | One full 24-hour demand CSV per date (`demand_{date}.csv`), from which each study slices its own time window. Generated, therefore **git-ignored** — not part of the repository. |
+
+**Why one array task = two runs, not one:** The original decision was "one run per task" (maximum
+scheduling elasticity), since JVM/JAXB warmup overhead is negligible against a 90–120 min run.
+Empirically, the partition allocates at least 2 cores per task regardless — one core would otherwise
+sit idle (measured: 49.8% CPU efficiency with one run per task, 95.4% with two bundled runs on a
+normally loaded node). The script now requests `--cpus-per-task=2` explicitly rather than relying on
+that rounding.
+
+Because two JVMs then live inside a limit of `2 × --mem-per-cpu`, the memory constraint is
+`2 × MIROVA_JAVA_HEAP < 2 × mem-per-cpu − (2 × off-heap per JVM)`; the limit is per *task*, so
+overshooting OOM-kills the healthy run along with the greedy one. See `cluster/README.md`.
+
+**Known noise source, not a bug:** on a cluster with `OverSubscribe=OK`, a neighboring job on the
+same node can noticeably slow down your own run (observed: ~5–6× on one specific node). Not a
+concern for a retry on a different node, but worth accounting for in walltime calculations for the
+full study.
+
+---
+
+## 7. Known cleanup candidates (not yet acted on)
+
+These classes are likely obsolete but not yet confirmed/removed:
+
+- **`Scenario.java`** — a parameter-holder class in `scenariomanagement/`, superseded by
+  `ScenarioParameters`. No reference anywhere in the codebase.
+- **`Run9DatesLargeStudy.java`** — `cluster/dates.txt` was taken directly from its 9 dates. No
+  references.
+- **`TestReflection.java`** — looks like a debug/scratch file with no apparent production role. No
+  references.
+- **`RunFreiburgParallel_ParameterStudy.java`** — the source `FreiburgParameterStudy` was extracted
+  from verbatim. Still referenced from that class's Javadoc and from a doc page, so removing it is
+  not free.
+- **`RunFreiburgParallelCluster.java`** — kept as a fallback for "overhead becomes relevant"; likely
+  unnecessary now given the bundling logic in `run_mirova.sbatch`. Still referenced from
+  `FreiburgStudyParameters`' Javadoc and documented in `cluster/README.md`.
+
+**Before deleting anything:** verify nothing still references it — don't remove on suspicion alone.
+
+---
+
+## 8. Planned, not yet implemented: facility generalization
+
+Currently, "Freiburg" is hard-wired into every study at exactly two points: which
+`ScenarioGenerator` class (`FreiburgNord.class`) and which baseline parameter source
+(`FreiburgStudyParameters`). Everything else in each study (date lists, demand resolution,
+replications, enumeration) is already fully generic. Planned: a small `TrafficFacility` abstraction
+(generator class + baseline parameter provider + scenario naming) plus a `FacilityRegistry` modeled
+on `StudyRegistry`, so a new traffic facility automatically gets all three study types without
+rewriting them. Freiburg becomes the first implementation of this abstraction, with no behavioral
+change from the outside.
+
+---
+
+## 9. Quick reference: how do I...
+
+**...run a single scenario locally:** edit and run `RunFreiburgParallel.java` (the scratch space —
+occasionally extracted into a real study, see `combos`).
+
+**...run an existing study on the cluster:** `--study=<name> --count` for the total run count N, then
+`sbatch` with `--array=0-<ceil(N/2)-1>` (bundling — two runs per task, and an odd N simply leaves the
+last task with one run) and the study-specific `--key=value` options via `MIROVA_STUDY_OPTS`.
+
+**...add a new study:** a new class implementing `StudyDefinition`, built on
+`FreiburgStudyParameters.baseBehaviorParams()`, registering scenarios/variations deterministically.
+Optionally add a short-name entry in `StudyRegistry`.
+
+**...add a new traffic facility:** currently — a new `ScenarioGenerator` subclass plus its own
+baseline parameter class, then a separate `StudyDefinition` class per desired study type
+(duplication). After the planned facility generalization (Section 8) — just the `ScenarioGenerator`
+subclass plus a small `TrafficFacility` implementation, all three study types usable automatically.
