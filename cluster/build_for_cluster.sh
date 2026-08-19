@@ -79,4 +79,8 @@ echo "    org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunMirovaC
 echo "    --study=dates --output=${WORKSPACE}/output/dates \\"
 echo "    --dates=${CLUSTER_DIR}/dates.txt --demand=${WORKSPACE}/demand --count"
 echo "then set '#SBATCH --array=0-<N-1>' in cluster/run_mirova.sbatch and submit:"
+echo "  export MIROVA_CLUSTER_DIR=${CLUSTER_DIR}"
 echo "  sbatch --chdir=${WORKSPACE} ${CLUSTER_DIR}/run_mirova.sbatch"
+echo
+echo "(The export is required: sbatch runs a copy of the script from the job spool"
+echo " directory, so it cannot find mirova_env.sh next to itself.)"
