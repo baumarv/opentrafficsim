@@ -165,13 +165,15 @@ including as string literals, in case of reflective lookup by name:
 One class was deliberately **kept**:
 
 - **`TestReflection.java`** — despite the name and the absence of references, this is not scratch
-  code. It walks every generated `org.opentrafficsim.xml.generated.*` class, loads it via
-  `Class.forName` and calls `getDeclaredFields()` on it and its inner classes, counting those that
-  fail with `NoClassDefFoundError`. That is precisely the failure mode of
-  [troubleshooting_and_compilation.md](troubleshooting_and_compilation.md) issues 1 and 5 — the
-  GlassFish JAXB annotation reader tripping over an inconsistent `ots-xml` artifact. It is a
-  diagnostic for a recurring problem, not a leftover. Its scan directory is hardcoded to one
-  machine's absolute path, so it needs that fixed before it is useful to anyone else.
+  code but a diagnostic for a recurring problem. It enumerates the generated
+  `org.opentrafficsim.xml.generated.*` classes **as the JVM sees them**, loads each one and calls
+  `getDeclaredFields()` on it and its inner classes, and reports every class that fails with a
+  `NoClassDefFoundError` — precisely the failure mode of
+  [troubleshooting_and_compilation.md](troubleshooting_and_compilation.md) issues 1 and 5, the
+  GlassFish JAXB annotation reader tripping over an inconsistent `ots-xml` artifact. It also prints
+  which artifact the classes came from (`.m2` JAR vs. a module's `target/classes`), which is usually
+  the actual answer. Run it with the same classpath as the failing simulation; it exits 1 when any
+  class fails. See the "Diagnosis" block of issue 5.
 
 **Before deleting anything else:** verify nothing still references it — including by name as a
 string — and don't remove on suspicion alone.

@@ -131,6 +131,29 @@ At **build time**, in files nobody edited (e.g. `ShortMerge.java`, `TrafCodDemo2
 - `ots-demo` resolves `ots-xml` from `.m2` (see issue 2), so it then compiles and runs against that inconsistent artifact — which is why the errors surface in classes that were never modified.
 - **Incremental compilation masks it**: an unchanged source file is not recompiled, so a stale `target/classes` may keep working for several builds before a clean build exposes the breakage.
 
+#### 🔬 Diagnosis
+`TestReflection` reproduces the failure in seconds, without running a simulation. It enumerates the generated classes **as the JVM sees them** and performs the same reflection the JAXB annotation reader does:
+
+```powershell
+java -cp $cp org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.TestReflection
+```
+
+Healthy:
+```text
+Loaded from: file:/C:/Users/<user>/.m2/repository/org/opentrafficsim/ots-xml/1.7.6/ots-xml-1.7.6.jar  (JAR - typically the .m2 copy)
+Scanned 116 classes, 0 offending.
+```
+
+Broken:
+```text
+Loaded from: .../ots-xml/target/classes/org/opentrafficsim/xml/generated  (directory - typically a module's target/classes)
+  OFFENDING: org.opentrafficsim.xml.generated.LinkAnimationType
+             NoClassDefFoundError: org/opentrafficsim/xml/bindings/types/ColorType
+Scanned 116 classes, 7 offending.
+```
+
+The **`Loaded from:`** line is usually the actual answer: it names which copy of `ots-xml` this classpath resolves to, which is the thing that differs between a working and a failing run. Exit code is 0 when clean and 1 when any class fails, so it can gate a run in a script. Pass a package name as an argument to scan something else.
+
 #### ✅ Solution
 Rebuild the whole dependency chain in one **online** clean build, so `jaxb:generate` runs and every artifact is regenerated and reinstalled consistently:
 ```powershell
