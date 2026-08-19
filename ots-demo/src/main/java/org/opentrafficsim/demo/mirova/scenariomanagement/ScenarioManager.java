@@ -67,25 +67,86 @@ public class ScenarioManager {
     // ------------------------------------------------------------
 
     /**
-     * Runs all scenarios including parameter variations & replications.
+     * Environment variable that, when set to "1" or "true", suppresses the post-run Python plotting step. Intended for cluster
+     * (non-Windows) execution where neither the virtual environment nor the plotting script is available.
+     */
+    public static final String ENV_SKIP_POSTPROCESSING = "MIROVA_SKIP_POSTPROCESSING";
+
+    /** Environment variable overriding the Python executable used for post-run plotting. */
+    public static final String ENV_PYTHON_EXECUTABLE = "MIROVA_PYTHON";
+
+    /** Environment variable overriding the path of the post-run plotting script. */
+    public static final String ENV_PLOT_SCRIPT = "MIROVA_PLOT_SCRIPT";
+
+    /**
+     * Interprets an environment variable value as a boolean flag. Accepted true values are "1", "true" and "yes"
+     * (case-insensitive); anything else, including null, yields false.
+     * @param value String; the raw environment variable value, may be null
+     * @return boolean; true if the value denotes an enabled flag
+     */
+    public static boolean isTruthy(final String value)
+    {
+        if (value == null)
+        {
+            return false;
+        }
+        String normalized = value.trim().toLowerCase(java.util.Locale.ROOT);
+        return normalized.equals("1") || normalized.equals("true") || normalized.equals("yes");
+    }
+
+    /**
+     * Returns the value of an environment variable, or the given fallback when the variable is unset or blank.
+     * @param name String; the environment variable name
+     * @param fallback String; the value to use when the variable is not set
+     * @return String; the resolved value
+     */
+    private static String envOrDefault(final String name, final String fallback)
+    {
+        String value = System.getenv(name);
+        return (value == null || value.trim().isEmpty()) ? fallback : value;
+    }
+
+    /**
+     * Runs all scenarios including parameter variations &amp; replications. Post-processing is executed unless the environment
+     * variable {@value #ENV_SKIP_POSTPROCESSING} requests otherwise; this preserves the historical behaviour of all existing
+     * (local/Windows) call sites.
      * @param parallelThreads number of parallel workers
-     * @throws InterruptedException
-     * @throws ExecutionException
-     * @throws SecurityException
-     * @throws NoSuchMethodException
-     * @throws InvocationTargetException
-     * @throws IllegalArgumentException
-     * @throws IllegalAccessException
-     * @throws InstantiationException
+     * @param enableGUI whether to enable the GUI (currently always disabled for worker scripts)
+     * @return boolean; true if all runs completed without errors
+     * @throws InterruptedException when a worker thread is interrupted
+     * @throws ExecutionException when a worker task fails
+     * @throws SecurityException when the scenario generator cannot be instantiated reflectively
+     * @throws NoSuchMethodException when the scenario generator has no default constructor
+     * @throws InvocationTargetException when the scenario generator constructor throws
+     * @throws IllegalArgumentException when the scenario generator constructor rejects the arguments
+     * @throws IllegalAccessException when the scenario generator constructor is not accessible
+     * @throws InstantiationException when the scenario generator cannot be instantiated
      */
     public boolean runAll(final int parallelThreads, final boolean enableGUI) throws InterruptedException, ExecutionException, InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
+        return runAll(parallelThreads, enableGUI, isTruthy(System.getenv(ENV_SKIP_POSTPROCESSING)));
+    }
 
-        // Calculate total tasks to run
-        int totalTasks = 0;
-        for (ScenarioEntry entry : this.scenarios.values()) {
-            totalTasks += entry.parameterVariations.size() * this.replications;
-        }
-        final int totalRuns = totalTasks;
+    /**
+     * Runs all scenarios including parameter variations &amp; replications, with explicit control over the post-run Python
+     * plotting step.
+     * @param parallelThreads number of parallel workers
+     * @param enableGUI whether to enable the GUI (currently always disabled for worker scripts)
+     * @param skipPostProcessing when true, the post-run Python plotting script is not invoked
+     * @return boolean; true if all runs completed without errors
+     * @throws InterruptedException when a worker thread is interrupted
+     * @throws ExecutionException when a worker task fails
+     * @throws SecurityException when the scenario generator cannot be instantiated reflectively
+     * @throws NoSuchMethodException when the scenario generator has no default constructor
+     * @throws InvocationTargetException when the scenario generator constructor throws
+     * @throws IllegalArgumentException when the scenario generator constructor rejects the arguments
+     * @throws IllegalAccessException when the scenario generator constructor is not accessible
+     * @throws InstantiationException when the scenario generator cannot be instantiated
+     */
+    public boolean runAll(final int parallelThreads, final boolean enableGUI, final boolean skipPostProcessing) throws InterruptedException, ExecutionException, InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
+
+        // The ordered enumeration of all runs; also the addressing basis of runByGlobalIndex(int)
+        List<RunAddress> runs = enumerateRuns();
+        final int totalRuns = runs.size();
 
         System.out.println("Starting ScenarioManager with " + parallelThreads + " parallel threads. Total runs to execute: " + totalRuns);
         org.opentrafficsim.road.network.factory.xml.parser.XmlParser.warmUpJAXBContext();
@@ -95,49 +156,20 @@ public class ScenarioManager {
         // Map to collect error stack traces per variation directory in the background
         ConcurrentMap<File, List<String>> variationErrorsMap = new ConcurrentHashMap<>();
 
+        // One folder per (scenario, variation), created on first use and shared by that variation's replications
+        Map<String, File> variationFolders = new LinkedHashMap<>();
+
         try {
-            for (Map.Entry<String, ScenarioEntry> entry : this.scenarios.entrySet()) {
-                String scenarioName = entry.getKey();
-                Class<? extends ScenarioGenerator> genClass = entry.getValue().generatorClass;
-                List<ScenarioParameters> variations = entry.getValue().parameterVariations;
+            for (RunAddress address : runs) {
+                        File variationFolder = variationFolders.computeIfAbsent(address.variationKey(),
+                                key -> prepareVariationFolder(address, false));
 
-                File scenarioFolder = new File(this.outputRoot, scenarioName);
-                scenarioFolder.mkdirs();
-
-                for (ScenarioParameters paramsVariation : variations) {
-                    // Create unique folder for this variation
-                    File variationFolder = new File(scenarioFolder, "variation_" + UUID.randomUUID().toString());
-                    variationFolder.mkdirs();
-                    // Save runParams as a text file in variationFolder
-                    File paramsFile = new File(variationFolder, "runParams.txt");
-                    try (FileWriter writer = new FileWriter(paramsFile)) {
-                        writer.write(paramsVariation.toString());
-                    } catch (IOException e) {
-                        System.err.println("    [ERROR] Failed to write parameter variation: " + e.getMessage());
-                    }
-
-                    for (int run = 0; run < this.replications; run++) {
-                        // → create NEW ScenarioGenerator instance
-                        ScenarioGenerator generator = genClass.getDeclaredConstructor().newInstance();
-                        ScenarioParameters defaultParams = generator.getDefaultParameters();
-                        // copy parameters
-                        ScenarioParameters runParams = paramsVariation.copy();
-                        long seed = defaultParams.getSeed() + run;
-                        runParams.setSeed(seed);
-                        // build output folder
-                        File runFolder = new File(variationFolder, "run_seed_" + seed);
-                        runFolder.mkdirs();
-
-                        generator.setOutputDirectory(runFolder);
-
-                        // Create SimulationScript
-                        ScenarioSimulationScript script =
-                                generator.buildSimulationScript(defaultParams.copy().applyOverridesFrom(runParams));
-
-                        script.setGuiEnabled(false);
+                        PreparedRun prepared =
+                                prepareRun(address.generatorClass, address.variation, address.replicationIndex, variationFolder);
+                        ScenarioSimulationScript script = prepared.script;
 
                         final File varFolder = variationFolder;
-                        final long seedVal = seed;
+                        final long seedVal = prepared.seed;
                         final ClassLoader mainClassLoader = Thread.currentThread().getContextClassLoader();
                         completionService.submit(() -> {
                             try {
@@ -162,8 +194,6 @@ public class ScenarioManager {
                                 return false;
                             }
                         });
-                    }
-                }
             }
 
             // Wait for all to finish and print progress on the main thread
@@ -218,13 +248,20 @@ public class ScenarioManager {
             System.out.println("Success: All runs completed without errors.");
         }
 
-        // Run post-run plotting script automatically
+        // Run post-run plotting script automatically (unless explicitly skipped, e.g. on the cluster)
+        if (skipPostProcessing)
+        {
+            System.out.println("[INFO] Post-run plotting script skipped.");
+            return totalFailed == 0;
+        }
         try
         {
-            String pythonExe = "D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\venv\\Scripts\\python.exe";
-            String scriptPath =
-                    "D:\\Mitarbeitende\\gw2128\\repositories\\diss_mvb\\scripts\\simulation\\ots\\plot_scenario_results.py";
-            
+            String pythonExe = envOrDefault(ENV_PYTHON_EXECUTABLE,
+                    "D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\venv\\Scripts\\python.exe");
+            String scriptPath = envOrDefault(ENV_PLOT_SCRIPT,
+                    "D:\\Mitarbeitende\\gw2128\\repositories\\diss_mvb\\scripts\\simulation\\ots\\plot_scenario_results.py");
+
+
             System.out.println("[INFO] Triggering post-run plotting script...");
             ProcessBuilder pb = new ProcessBuilder(pythonExe, scriptPath, "--output-dir", this.outputRoot.getAbsolutePath());
             pb.redirectErrorStream(true);
@@ -245,6 +282,316 @@ public class ScenarioManager {
             System.err.println("[WARNING] Failed to run post-run plotting script: " + e.getMessage());
         }
         return totalFailed == 0;
+    }
+
+    /**
+     * Prepares one individual simulation run. This is the single place where the run seed is derived and the simulation
+     * script is built; both {@link #runAll(int, boolean, boolean)} and {@link #runByGlobalIndex(int)} use it, so that a run
+     * identified by (variation, replicationIndex) is bit-for-bit identically configured no matter which of the two execution
+     * paths drives it.
+     * @param genClass Class&lt;? extends ScenarioGenerator&gt;; the scenario generator class to instantiate
+     * @param paramsVariation ScenarioParameters; the parameter variation for this run
+     * @param replicationIndex int; the 0-based replication index within the variation
+     * @param variationFolder File; the folder of the parameter variation; the run folder is created inside it
+     * @return PreparedRun; the built simulation script together with its seed and run folder
+     * @throws InstantiationException when the scenario generator cannot be instantiated
+     * @throws IllegalAccessException when the scenario generator constructor is not accessible
+     * @throws IllegalArgumentException when the scenario generator constructor rejects the arguments
+     * @throws InvocationTargetException when the scenario generator constructor throws
+     * @throws NoSuchMethodException when the scenario generator has no default constructor
+     * @throws SecurityException when the scenario generator cannot be instantiated reflectively
+     */
+    private PreparedRun prepareRun(final Class<? extends ScenarioGenerator> genClass,
+            final ScenarioParameters paramsVariation, final int replicationIndex, final File variationFolder)
+            throws InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+
+        // → create NEW ScenarioGenerator instance
+        ScenarioGenerator generator = genClass.getDeclaredConstructor().newInstance();
+        ScenarioParameters defaultParams = generator.getDefaultParameters();
+        // copy parameters
+        ScenarioParameters runParams = paramsVariation.copy();
+        long seed = seedFor(defaultParams, replicationIndex);
+        runParams.setSeed(seed);
+        // build output folder
+        File runFolder = new File(variationFolder, "run_seed_" + seed);
+        runFolder.mkdirs();
+
+        generator.setOutputDirectory(runFolder);
+
+        // Create SimulationScript
+        ScenarioSimulationScript script =
+                generator.buildSimulationScript(defaultParams.copy().applyOverridesFrom(runParams));
+
+        script.setGuiEnabled(false);
+
+        return new PreparedRun(script, seed, runFolder);
+    }
+
+    /**
+     * Derives the seed of a single replication from the scenario generator's own default parameters, exactly as the
+     * replication loop of {@link #runAll(int, boolean, boolean)} does. The base seed deliberately comes from the generator
+     * defaults and not from the caller's parameter variation, matching the historical behaviour.
+     * @param generatorDefaults ScenarioParameters; the default parameters of the scenario generator
+     * @param replicationIndex int; the 0-based replication index
+     * @return long; the seed of that replication
+     */
+    public static long seedFor(final ScenarioParameters generatorDefaults, final int replicationIndex) {
+        return generatorDefaults.getSeed() + replicationIndex;
+    }
+
+    /**
+     * Derives the seed of a single replication of the given scenario generator class, without running anything. Intended for
+     * cluster entry points that execute one replication per process, and for verifying seed equivalence with the batched
+     * execution path.
+     * @param genClass Class&lt;? extends ScenarioGenerator&gt;; the scenario generator class
+     * @param replicationIndex int; the 0-based replication index
+     * @return long; the seed of that replication
+     * @throws InstantiationException when the scenario generator cannot be instantiated
+     * @throws IllegalAccessException when the scenario generator constructor is not accessible
+     * @throws IllegalArgumentException when the scenario generator constructor rejects the arguments
+     * @throws InvocationTargetException when the scenario generator constructor throws
+     * @throws NoSuchMethodException when the scenario generator has no default constructor
+     * @throws SecurityException when the scenario generator cannot be instantiated reflectively
+     */
+    public static long seedFor(final Class<? extends ScenarioGenerator> genClass, final int replicationIndex)
+            throws InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        return seedFor(genClass.getDeclaredConstructor().newInstance().getDefaultParameters(), replicationIndex);
+    }
+
+    /**
+     * Returns the ordered enumeration of every run of all currently registered scenarios: for each scenario in registration
+     * order, for each of its parameter variations in list order, for each replication index. This is the single definition of
+     * the run order; both {@link #runAll(int, boolean, boolean)} and {@link #runByGlobalIndex(int)} walk it, so a global index
+     * always addresses the same run as the corresponding position in a batched execution.
+     * @return List&lt;RunAddress&gt;; the ordered list of all runs
+     */
+    private List<RunAddress> enumerateRuns() {
+        List<RunAddress> runs = new ArrayList<>();
+        for (Map.Entry<String, ScenarioEntry> entry : this.scenarios.entrySet()) {
+            List<ScenarioParameters> variations = entry.getValue().parameterVariations;
+            for (int variationIndex = 0; variationIndex < variations.size(); variationIndex++) {
+                for (int replication = 0; replication < this.replications; replication++) {
+                    runs.add(new RunAddress(entry.getKey(), entry.getValue().generatorClass,
+                            variations.get(variationIndex), variationIndex, replication));
+                }
+            }
+        }
+        return runs;
+    }
+
+    /**
+     * Returns the total number of runs over all registered scenarios, parameter variations and replications. This is the
+     * number of SLURM array tasks needed to execute the study one run at a time; valid global indices are
+     * {@code 0 .. countRuns() - 1}.
+     * @return int; the total number of runs
+     */
+    public int countRuns() {
+        return enumerateRuns().size();
+    }
+
+    /**
+     * Returns a human-readable description of every run, in global-index order. Intended for generating an informational
+     * manifest; execution never depends on it, since the authoritative mapping is the deterministic enumeration itself.
+     * @return List&lt;String&gt;; one description line per run, indexed by global index
+     * @throws InstantiationException when a scenario generator cannot be instantiated
+     * @throws IllegalAccessException when a scenario generator constructor is not accessible
+     * @throws IllegalArgumentException when a scenario generator constructor rejects the arguments
+     * @throws InvocationTargetException when a scenario generator constructor throws
+     * @throws NoSuchMethodException when a scenario generator has no default constructor
+     * @throws SecurityException when a scenario generator cannot be instantiated reflectively
+     */
+    public List<String> describeRuns() throws InstantiationException, IllegalAccessException, IllegalArgumentException,
+            InvocationTargetException, NoSuchMethodException, SecurityException {
+        List<String> lines = new ArrayList<>();
+        List<RunAddress> runs = enumerateRuns();
+        for (int index = 0; index < runs.size(); index++) {
+            RunAddress address = runs.get(index);
+            long seed = seedFor(address.generatorClass, address.replicationIndex);
+            lines.add(index + "\t" + address.scenarioName + "\tvariation_" + address.variationIndex + "\treplication="
+                    + address.replicationIndex + "\tseed=" + seed + "\t" + address.variation);
+        }
+        return lines;
+    }
+
+    /**
+     * Runs exactly one run of the enumeration in the calling thread, without any thread pool and without post-processing.
+     * Intended for cluster execution where one SLURM array task corresponds to one simulation run on one core.
+     * <p>
+     * The run is configured through the same {@code prepareRun} path as the batched {@link #runAll(int, boolean, boolean)},
+     * so seed and all derived parameters are identical to those the batched execution would produce for the same position in
+     * the enumeration. The output folder layout ({@code <scenario>/<variation>/run_seed_<seed>}) is likewise unchanged,
+     * except that the variation folder name is derived deterministically from the variation index instead of a random UUID,
+     * so that concurrent array tasks of the same variation share one folder and a re-submitted task reuses it.
+     * </p>
+     * @param globalIndex int; the 0-based index into the run enumeration
+     * @return boolean; true if the run completed without errors
+     * @throws InstantiationException when the scenario generator cannot be instantiated
+     * @throws IllegalAccessException when the scenario generator constructor is not accessible
+     * @throws IllegalArgumentException when the scenario generator constructor rejects the arguments
+     * @throws InvocationTargetException when the scenario generator constructor throws
+     * @throws NoSuchMethodException when the scenario generator has no default constructor
+     * @throws SecurityException when the scenario generator cannot be instantiated reflectively
+     */
+    public boolean runByGlobalIndex(final int globalIndex)
+            throws InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+
+        List<RunAddress> runs = enumerateRuns();
+        if (globalIndex < 0 || globalIndex >= runs.size()) {
+            throw new IllegalArgumentException(
+                    "Global run index " + globalIndex + " is out of range; this study has " + runs.size()
+                            + " runs (valid indices 0.." + (runs.size() - 1) + ").");
+        }
+
+        RunAddress address = runs.get(globalIndex);
+        // Writes runParams.txt for this variation, exactly as the batched path does
+        File variationFolder = prepareVariationFolder(address, true);
+        PreparedRun prepared =
+                prepareRun(address.generatorClass, address.variation, address.replicationIndex, variationFolder);
+
+        System.out.println("Starting run " + globalIndex + " of " + runs.size() + ": scenario=" + address.scenarioName
+                + ", variation=" + address.variationIndex + ", replication=" + address.replicationIndex + ", seed="
+                + prepared.seed);
+        System.out.println("Run folder: " + prepared.runFolder.getAbsolutePath());
+
+        try {
+            prepared.script.start();
+            System.out.println("[PROGRESS] 1/1 simulations completed (100%, 0 failed)");
+            return true;
+        } catch (Throwable e) {
+            Throwable rootCause = e.getCause() != null ? e.getCause() : e;
+            StringBuilder sb = new StringBuilder();
+            sb.append("Seed ").append(prepared.seed).append(" failed: ").append(rootCause.toString()).append("\n");
+            for (StackTraceElement element : rootCause.getStackTrace()) {
+                sb.append("\tat ").append(element.toString()).append("\n");
+            }
+            System.err.println("[ERROR] " + sb);
+
+            // Written into the run folder, not the shared variation folder: concurrent array tasks of the same
+            // variation must not overwrite each other's error reports.
+            File errorsFile = new File(prepared.runFolder, "errors.txt");
+            try (FileWriter writer = new FileWriter(errorsFile)) {
+                writer.write("Total failed runs: 1\n\n");
+                writer.write(sb.toString());
+            } catch (IOException ioException) {
+                System.err.println("Failed to write errors.txt to " + prepared.runFolder.getAbsolutePath() + ": "
+                        + ioException.getMessage());
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Creates the output folder of a variation and writes its {@code runParams.txt} metadata, which downstream
+     * post-processing uses to recover which parameters produced which output.
+     * @param address RunAddress; the run whose variation folder is prepared
+     * @param deterministicName boolean; when true the folder is named {@code variation_<variationIndex>} so that separate
+     *            processes executing runs of the same variation agree on it; when false a random UUID is used, preserving the
+     *            historical naming of the batched path
+     * @return File; the variation folder
+     */
+    private File prepareVariationFolder(final RunAddress address, final boolean deterministicName) {
+        File scenarioFolder = new File(this.outputRoot, address.scenarioName);
+        scenarioFolder.mkdirs();
+        File variationFolder = new File(scenarioFolder,
+                deterministicName ? "variation_" + address.variationIndex : "variation_" + UUID.randomUUID().toString());
+        variationFolder.mkdirs();
+
+        // Save runParams as a text file in variationFolder. Written only when absent and moved into place atomically, so
+        // that concurrent single-run processes sharing this folder cannot produce a torn file.
+        File paramsFile = new File(variationFolder, "runParams.txt");
+        if (!paramsFile.exists()) {
+            try {
+                File tempFile = File.createTempFile("runParams", ".tmp", variationFolder);
+                try (FileWriter writer = new FileWriter(tempFile)) {
+                    writer.write(address.variation.toString());
+                }
+                try {
+                    java.nio.file.Files.move(tempFile.toPath(), paramsFile.toPath(),
+                            java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+                } catch (java.nio.file.FileAlreadyExistsException e) {
+                    tempFile.delete(); // another process won the race; its content is identical
+                }
+            } catch (IOException e) {
+                System.err.println("    [ERROR] Failed to write parameter variation: " + e.getMessage());
+            }
+        }
+        return variationFolder;
+    }
+
+    /**
+     * The address of one individual run within the enumeration of a study.
+     */
+    private static class RunAddress {
+
+        /** The name of the scenario this run belongs to. */
+        private final String scenarioName;
+
+        /** The scenario generator class. */
+        private final Class<? extends ScenarioGenerator> generatorClass;
+
+        /** The parameter variation of this run. */
+        private final ScenarioParameters variation;
+
+        /** The 0-based index of the variation within its scenario. */
+        private final int variationIndex;
+
+        /** The 0-based replication index within the variation. */
+        private final int replicationIndex;
+
+        /**
+         * Constructor.
+         * @param scenarioName String; the name of the scenario this run belongs to
+         * @param generatorClass Class&lt;? extends ScenarioGenerator&gt;; the scenario generator class
+         * @param variation ScenarioParameters; the parameter variation of this run
+         * @param variationIndex int; the 0-based index of the variation within its scenario
+         * @param replicationIndex int; the 0-based replication index within the variation
+         */
+        RunAddress(final String scenarioName, final Class<? extends ScenarioGenerator> generatorClass,
+                final ScenarioParameters variation, final int variationIndex, final int replicationIndex) {
+            this.scenarioName = scenarioName;
+            this.generatorClass = generatorClass;
+            this.variation = variation;
+            this.variationIndex = variationIndex;
+            this.replicationIndex = replicationIndex;
+        }
+
+        /**
+         * Returns the key identifying the variation this run belongs to; all replications of one variation share it.
+         * @return String; the variation key
+         */
+        String variationKey() {
+            return this.scenarioName + "#" + this.variationIndex;
+        }
+    }
+
+    /**
+     * An individual simulation run that has been fully configured but not yet started.
+     */
+    private static class PreparedRun {
+
+        /** The configured simulation script. */
+        private final ScenarioSimulationScript script;
+
+        /** The seed of this run. */
+        private final long seed;
+
+        /** The output folder of this run. */
+        private final File runFolder;
+
+        /**
+         * Constructor.
+         * @param script ScenarioSimulationScript; the configured simulation script
+         * @param seed long; the seed of this run
+         * @param runFolder File; the output folder of this run
+         */
+        PreparedRun(final ScenarioSimulationScript script, final long seed, final File runFolder) {
+            this.script = script;
+            this.seed = seed;
+            this.runFolder = runFolder;
+        }
     }
 
     /**
