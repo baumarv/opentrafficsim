@@ -4,7 +4,6 @@ import java.io.File;
 import java.util.List;
 import java.util.Map;
 
-import org.opentrafficsim.base.parameters.ParameterTypes;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ParameterGridBuilder;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioGenerator;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioManager;
@@ -19,6 +18,11 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * This is the configuration of {@link RunFreiburgParallel_ParameterStudy} extracted into a reusable
  * {@link StudyDefinition}, so that the same study can be executed either locally through
  * {@link ScenarioManager#runAll(int, boolean, boolean)} or on the cluster as one array task per run.
+ * </p>
+ * <p>
+ * The baseline every dimension is swept against comes from {@link FreiburgStudyParameters#baseBehaviorParams()}, the same
+ * definition the multi-day evaluation study runs, so a sweep always measures a deviation from that study's configuration.
+ * Only the demand wiring — period, aggregation, smoothing and the CSV — is defined here.
  * </p>
  * <p>
  * Options honoured by {@link #register(ScenarioManager, Map)}:
@@ -42,17 +46,14 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  */
 public class FreiburgParameterStudy implements StudyDefinition
 {
-    /** Default start of the simulated period. */
-    public static final String DEFAULT_START = "2025-09-25 13:00:00";
+    /** Default start of the simulated period; the same daily window the multi-day evaluation study uses. */
+    public static final String DEFAULT_START = "2025-09-25 " + FreiburgStudyParameters.START_TIME_OF_DAY;
 
-    /** Default end of the simulated period. */
-    public static final String DEFAULT_END = "2025-09-25 16:00:00";
+    /** Default end of the simulated period; the same daily window the multi-day evaluation study uses. */
+    public static final String DEFAULT_END = "2025-09-25 " + FreiburgStudyParameters.END_TIME_OF_DAY;
 
     /** Default number of replications per variation. */
     public static final int DEFAULT_REPLICATIONS = 6;
-
-    /** Demand aggregation interval in minutes. */
-    public static final int AGGREGATION_MIN = 5;
 
     @Override
     public String getName()
@@ -77,13 +78,16 @@ public class FreiburgParameterStudy implements StudyDefinition
         String scenarioName = "FreiburgNord_ParameterStudy_" + formatPeriodName(startDate, endDate);
         manager.addScenario(scenarioName, FreiburgNord.class);
 
-        ScenarioParameters baseParams = new ScenarioParameters();
+        // The behavioural baseline is shared with the multi-day evaluation study, so that every swept dimension is
+        // measured against exactly the configuration that study runs.
+        ScenarioParameters baseParams = FreiburgStudyParameters.baseBehaviorParams();
         baseParams.setSeed(42L); // Base seed
 
         // Set demand date range and aggregation interval
         baseParams.set("demandStartDate", startDate);
         baseParams.set("demandEndDate", endDate);
-        baseParams.set("demandAggregation", AGGREGATION_MIN);
+        baseParams.set("demandAggregation", FreiburgStudyParameters.AGGREGATION_MIN);
+        baseParams.set("demandSmooth", false);
 
         // Pre-generated demand (cluster): use the CSV as-is and never invoke the Python preparation pipeline
         String demandOption = options.get("demand");
@@ -105,14 +109,6 @@ public class FreiburgParameterStudy implements StudyDefinition
             baseParams.set(ScenarioGenerator.KEY_SKIP_DEMAND_PREP, true);
             baseParams.set(FreiburgNord.KEY_DEMAND_CSV_STRICT, strict);
         }
-
-        // Baseline behaviour parameters
-        baseParams.set("car." + ParameterTypes.T.getId(), 1.2);
-        baseParams.set("car." + MirovaParameters.vGain.getId(), 15.0);
-        baseParams.set("car." + MirovaParameters.A_MAX.getId(), 3.5);
-        baseParams.set("truck." + ParameterTypes.T.getId(), 1.8);
-        baseParams.set("truck." + MirovaParameters.vGain.getId(), 30.0);
-        baseParams.set("truck." + MirovaParameters.A_MAX.getId(), 2.5);
 
         for (ScenarioParameters varParams : buildVariations(baseParams))
         {

@@ -68,7 +68,7 @@ public final class FreiburgStudyParameters
      */
     public static ScenarioParameters forDate(final String date, final String demandCsvPath, final boolean strict)
     {
-        ScenarioParameters varParams = new ScenarioParameters();
+        ScenarioParameters varParams = baseBehaviorParams();
         varParams.setSeed(42L);
         varParams.set("enableTrajectoryRecording", true);
 
@@ -85,29 +85,51 @@ public final class FreiburgStudyParameters
         varParams.set(ScenarioGenerator.KEY_SKIP_DEMAND_PREP, true);
         varParams.set(FreiburgNord.KEY_DEMAND_CSV_STRICT, strict);
 
+        return varParams;
+    }
+
+    /**
+     * Builds the behavioural baseline shared by every Freiburg-Nord study: the car and truck parameters that define how the
+     * modelled drivers behave, independent of which period is simulated or where its demand comes from.
+     * <p>
+     * This is the single source of truth for these values. Studies layer their own seed, demand wiring and, for parameter
+     * studies, their swept dimensions on top, so that a sweep is always measured against the same baseline the multi-day
+     * evaluation study runs — the two cannot drift apart the way the previously duplicated blocks did.
+     * </p>
+     * <p>
+     * Deliberately <i>not</i> included, because they configure the run rather than the driving behaviour: the seed, output
+     * switches such as {@code enableTrajectoryRecording}, and all demand wiring ({@code demandStartDate},
+     * {@code demandEndDate}, {@code demandAggregation}, {@code demandSmooth}, {@code demandCsv} and the strictness flags).
+     * </p>
+     * @return ScenarioParameters; a fresh instance holding only the behavioural baseline
+     */
+    public static ScenarioParameters baseBehaviorParams()
+    {
+        ScenarioParameters params = new ScenarioParameters();
+
         // Car parameters
-        varParams.set("car." + ParameterTypes.T.getId(), CAR_T);
-        varParams.set("car." + MirovaParameters.vGain.getId(), 15.0);
-        varParams.set("car." + MirovaParameters.A_MAX.getId(), 3.5);
-        varParams.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(), -2.0);
-        varParams.set("car." + MirovaParameters.farAnticipationEnabled.getId(), false);
-        varParams.set("car." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(), RED_FAC);
-        varParams.set("car." + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), false);
-        varParams.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), 0.8);
-        varParams.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_ENABLED.getId(), true);
+        params.set("car." + ParameterTypes.T.getId(), CAR_T);
+        params.set("car." + MirovaParameters.vGain.getId(), 15.0);
+        params.set("car." + MirovaParameters.A_MAX.getId(), 3.5);
+        params.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(), -2.0);
+        params.set("car." + MirovaParameters.farAnticipationEnabled.getId(), false);
+        params.set("car." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(), RED_FAC);
+        params.set("car." + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), false);
+        params.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), 0.8);
+        params.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_ENABLED.getId(), true);
 
         // Truck parameters
-        varParams.set("truck." + ParameterTypes.T.getId(), TRUCK_T);
-        varParams.set("truck." + MirovaParameters.vGain.getId(), 30.0);
-        varParams.set("truck." + MirovaParameters.A_MAX.getId(), 1.3);
-        varParams.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(), -0.5);
-        varParams.set("truck." + MirovaParameters.cooperativeLaneChangesEnabled.getId(), false);
-        varParams.set("truck." + MirovaParameters.farAnticipationEnabled.getId(), false);
-        varParams.set("truck." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(), RED_FAC);
-        varParams.set("truck." + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), false);
-        varParams.set("truck." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), 0.8);
-        varParams.set("truck." + MirovaParameters.RELAXATION_ACC_DAMPING_ENABLED.getId(), true);
+        params.set("truck." + ParameterTypes.T.getId(), TRUCK_T);
+        params.set("truck." + MirovaParameters.vGain.getId(), 30.0);
+        params.set("truck." + MirovaParameters.A_MAX.getId(), 1.3);
+        params.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(), -0.5);
+        params.set("truck." + MirovaParameters.cooperativeLaneChangesEnabled.getId(), false);
+        params.set("truck." + MirovaParameters.farAnticipationEnabled.getId(), false);
+        params.set("truck." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(), RED_FAC);
+        params.set("truck." + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), false);
+        params.set("truck." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), 0.8);
+        params.set("truck." + MirovaParameters.RELAXATION_ACC_DAMPING_ENABLED.getId(), true);
 
-        return varParams;
+        return params;
     }
 }
