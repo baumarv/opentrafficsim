@@ -20,6 +20,7 @@ per task is strictly easier for SLURM to place, and partial progress accumulates
 
 | File | Purpose |
 |:---|:---|
+| `generate_demand_csvs.ps1` / `.py` | Generates full-day demand CSVs locally on Windows from detector database |
 | `mirova_env.sh` | Single definition of workspace, `JAVA_HOME`/`PATH` and toolchain provisioning (sourced, not executed) |
 | `build_for_cluster.sh` | Provisions Java/Maven, builds the modules, writes `cp.txt` into the workspace |
 | `dates.txt` | Date list for the date study (**template — swap in the real 32 dates**) |
@@ -57,6 +58,23 @@ $(ws_find mirova)/
 ├── demand/       # pre-generated demand CSVs  <- put yours here
 ├── output/       # simulation results, per study
 └── logs/         # SLURM job logs
+```
+
+### Generating Demand CSVs Locally (Windows Workstation)
+
+Before running the date study on the cluster, generate the full-day demand CSVs on your local Windows machine where the detector PostgreSQL database is accessible:
+
+```powershell
+# In opentrafficsim repository on Windows:
+.\cluster\generate_demand_csvs.ps1
+```
+
+This reads `cluster/dates.txt`, queries `detektoren_autobahn_freiburg`, and creates full-day (`00:00:00`–`23:55:00`, 5-min aggregation) files named `demand_{date}.csv` in `cluster/demand/`. Then upload the contents of `cluster/demand/` to `$(ws_find mirova)/demand/` on the cluster.
+
+The generator is idempotent and validates output integrity (non-zero volume, expected row count). Use `-Force` to regenerate existing files:
+
+```powershell
+.\cluster\generate_demand_csvs.ps1 -Force
 ```
 
 ## 2. Get the repository
