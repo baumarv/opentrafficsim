@@ -55,6 +55,19 @@ public final class FreiburgStudyParameters
     }
 
     /**
+     * Returns the scenario name used for the given date and named parameter variant. Keeping the label in the scenario name
+     * makes an output folder identifiable by date and variant on its own, without resolving a numeric variation index
+     * against the study definition.
+     * @param date String; the simulated date in yyyy-MM-dd form
+     * @param variantLabel String; the label of the parameter variant, e.g. a headway combination name
+     * @return String; the scenario name, which is also the output sub-directory name
+     */
+    public static String scenarioName(final String date, final String variantLabel)
+    {
+        return scenarioName(date) + "_" + variantLabel;
+    }
+
+    /**
      * Builds the parameter variation of the study for one simulated date.
      * <p>
      * The seed set here is irrelevant for the actual run: both execution paths derive the effective seed from the scenario

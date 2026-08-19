@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -73,22 +74,44 @@ public class FreiburgDateStudy implements StudyDefinition
         boolean strict = Boolean.parseBoolean(options.getOrDefault("strict", "false"));
         int replications = Integer.parseInt(options.getOrDefault("replications", String.valueOf(DEFAULT_REPLICATIONS)));
 
-        List<String> missing = new ArrayList<>();
+        Map<String, File> demandPerDate = resolveDemandCsvs(dates, demandLocation, pattern, strict);
+
         for (String date : dates)
         {
-            File demandCsv = resolveDemandCsv(demandLocation, pattern, date);
+            String scenarioName = FreiburgStudyParameters.scenarioName(date);
+            manager.addScenario(scenarioName, FreiburgNord.class);
+            manager.addParameterVariation(scenarioName,
+                    FreiburgStudyParameters.forDate(date, demandPerDate.get(date).getAbsolutePath(), strict));
+        }
+
+        manager.setReplications(replications);
+    }
+
+    /**
+     * Resolves the demand CSV of every date and reports the ones that are missing, so that a study aborts before any
+     * simulation starts rather than discovering a missing input mid-run. Shared by every date-driven study.
+     * @param dates List&lt;String&gt;; the dates to resolve
+     * @param location File; the demand CSV file or the directory holding per-date CSV files
+     * @param pattern String; the per-date file name pattern, containing the placeholder <code>{date}</code>
+     * @param strict boolean; when true, a missing demand CSV aborts instead of warning
+     * @return Map&lt;String, File&gt;; the resolved demand CSV per date, in the order the dates were given
+     * @throws IllegalStateException when a demand CSV is missing and strict mode is enabled
+     */
+    public static Map<String, File> resolveDemandCsvs(final List<String> dates, final File location, final String pattern,
+            final boolean strict)
+    {
+        Map<String, File> resolved = new LinkedHashMap<>();
+        List<String> missing = new ArrayList<>();
+
+        for (String date : dates)
+        {
+            File demandCsv = resolveDemandCsv(location, pattern, date);
+            resolved.put(date, demandCsv);
             if (!demandCsv.isFile())
             {
                 missing.add(date + " -> " + demandCsv.getAbsolutePath());
             }
-
-            String scenarioName = FreiburgStudyParameters.scenarioName(date);
-            manager.addScenario(scenarioName, FreiburgNord.class);
-            manager.addParameterVariation(scenarioName,
-                    FreiburgStudyParameters.forDate(date, demandCsv.getAbsolutePath(), strict));
         }
-
-        manager.setReplications(replications);
 
         if (!missing.isEmpty())
         {
@@ -99,11 +122,11 @@ public class FreiburgDateStudy implements StudyDefinition
             }
             if (strict)
             {
-                throw new IllegalStateException(
-                        "Strict mode is enabled; refusing to run with missing demand CSV files.");
+                throw new IllegalStateException("Strict mode is enabled; refusing to run with missing demand CSV files.");
             }
             System.err.println("WARNING: these runs will fall back to synthetic demand. Use --strict=true to forbid this.");
         }
+        return resolved;
     }
 
     /**
@@ -124,7 +147,7 @@ public class FreiburgDateStudy implements StudyDefinition
      * @return List&lt;String&gt;; the dates, in the given order
      * @throws IOException when the date file cannot be read
      */
-    private static List<String> resolveDates(final String datesOption) throws IOException
+    public static List<String> resolveDates(final String datesOption) throws IOException
     {
         List<String> dates = new ArrayList<>();
         if (datesOption == null || datesOption.trim().isEmpty())
