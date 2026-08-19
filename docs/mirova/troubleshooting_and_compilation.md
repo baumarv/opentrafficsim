@@ -100,3 +100,44 @@ org.opentrafficsim.road.network.factory.xml.parser.XmlParser.warmUpJAXBContext()
 ```
 
 ---
+
+### 5. Inconsistent `ots-xml` State after a Module-Scoped `mvn clean`
+
+#### 🚩 Symptoms
+Several unrelated-looking failures, all traceable to the same cause. At **runtime**, in code that was never touched:
+```text
+JAXB Context Warmup Exception: java.lang.NoClassDefFoundError: ColorType
+java.lang.NoClassDefFoundError: StringType
+```
+thrown from `XmlParser.parseXml` → `FreiburgNord.buildNetwork`, even though the class in question is present in `ots-xml/target/classes` and loadable with `javap`.
+
+At **build time**, in files nobody edited (e.g. `ShortMerge.java`, `TrafCodDemo2.java`):
+```text
+[ERROR] cannot access XmlParserException
+  class file for XmlParserException not found
+[ERROR] Failed to execute goal ...maven-jar-plugin:jar (default-jar) on project ots-xml:
+  java.nio.file.NoSuchFileException: ...\ots-xml\target\classes\...\DemandParser$2$1.class
+[ERROR] Failed to execute goal ...maven-source-plugin:jar-no-fork (attach-sources) on project ots-xml:
+  ...\ots-xml\src\main\java\org\opentrafficsim\xml\generated\AccelerationDistType.java
+```
+
+#### 🔍 Root Cause
+`ots-xml` generates its JAXB binding classes during `generate-sources` (`jaxb:4.0.8:generate`).
+
+- A module-scoped `mvn clean -pl ots-xml` deletes `target/`, including those generated sources.
+- If the following rebuild is **offline** (`-o`) or otherwise partial, an **incomplete JAR can still be installed into `.m2`**, and the plugin can fail midway leaving `target/classes` and the installed artifact disagreeing with each other.
+- `ots-demo` resolves `ots-xml` from `.m2` (see issue 2), so it then compiles and runs against that inconsistent artifact — which is why the errors surface in classes that were never modified.
+- **Incremental compilation masks it**: an unchanged source file is not recompiled, so a stale `target/classes` may keep working for several builds before a clean build exposes the breakage.
+
+#### ✅ Solution
+Rebuild the whole dependency chain in one **online** clean build, so `jaxb:generate` runs and every artifact is regenerated and reinstalled consistently:
+```powershell
+mvn clean install -pl ots-demo -am "-Dmaven.test.skip=true" "-Dmaven.javadoc.skip=true" "-Djacoco.skip=true"
+```
+Leave off `-o` here: the JAXB plugin and its dependencies must be resolvable.
+
+#### 🛡️ Prevention
+- Avoid module-scoped `mvn clean -pl ots-xml`. Clean the chain (`-pl ots-demo -am`) or not at all.
+- Never trust an incremental `BUILD SUCCESS` after an `ots-xml` failure — verify with a clean build before drawing conclusions from a run.
+
+---
