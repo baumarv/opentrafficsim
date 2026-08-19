@@ -173,8 +173,18 @@ never reads this file.
 ## 5. Submit
 
 ```bash
+cd <repository>                                   # e.g. $(ws_find mirova)/opentrafficsim
+export MIROVA_WORKSPACE=mirova
+export MIROVA_CLUSTER_DIR="$PWD/cluster"
 sbatch --chdir="$(ws_find mirova)" cluster/run_mirova.sbatch
 ```
+
+`MIROVA_CLUSTER_DIR` is **required**. `sbatch` copies the submitted script's *content* into
+`/var/spool/slurmd/job<id>/slurm_script` and executes that copy, so the script cannot locate
+its own directory and would not find `mirova_env.sh` beside it. It therefore refuses to guess:
+without the export the job exits immediately with an explanatory message rather than failing
+obscurely a few lines later. This applies however you invoke `sbatch` — relative path, absolute
+path, any working directory.
 
 `--chdir` makes the relative `logs/` paths in the `#SBATCH --output`/`--error` directives land
 in the workspace (those directives are literal and cannot call `ws_find` themselves).
@@ -184,6 +194,7 @@ Configure via environment variables — no need to edit the script:
 | Variable | Default | Meaning |
 |:---|:---|:---|
 | `MIROVA_WORKSPACE` | *(required)* | Workspace name, resolved via `ws_find` |
+| `MIROVA_CLUSTER_DIR` | *(required)* | Path of the repository's `cluster/` directory; `sbatch` copies the script, so it cannot find itself |
 | `MIROVA_STUDY` | `dates` | Study short name or `StudyDefinition` class name |
 | `MIROVA_STUDY_OPTS` | `--dates=… --demand=… --strict=true` | Options passed to the study |
 | `MIROVA_DEMAND_DIR` | `<ws>/demand` | Pre-generated demand CSVs |
@@ -194,6 +205,7 @@ Configure via environment variables — no need to edit the script:
 Example — run the parameter study instead:
 
 ```bash
+export MIROVA_CLUSTER_DIR="$PWD/cluster"
 export MIROVA_STUDY=paramgrid
 export MIROVA_STUDY_OPTS="--demand=$(ws_find mirova)/demand --strict=true"
 sbatch --chdir="$(ws_find mirova)" --array=0-101 cluster/run_mirova.sbatch

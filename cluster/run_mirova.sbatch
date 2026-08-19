@@ -8,8 +8,13 @@
 # A single run takes 90-120 min while JVM startup costs seconds, so there is nothing to gain
 # from bundling runs — and single-core tasks let SLURM backfill any free core anywhere.
 #
+# MIROVA_CLUSTER_DIR must be exported before submitting: sbatch copies this script's
+# *content* into a spool file and runs that copy, so the script cannot locate its own
+# directory and therefore cannot find mirova_env.sh next to it.
+#
 # Submit from the workspace so that the relative log paths below land there:
 #     export MIROVA_WORKSPACE=<workspace name>
+#     export MIROVA_CLUSTER_DIR="$PWD/cluster"          # from the repository root
 #     sbatch --chdir="$(ws_find "$MIROVA_WORKSPACE")" cluster/run_mirova.sbatch
 #
 # ---------------------------------------------------------------------------------------
@@ -45,9 +50,29 @@
 set -euo pipefail
 
 # --------------------------------------------------------------------------------------
-# Workspace — all simulation I/O lives here, never in $HOME
+# Locate the cluster scripts
 # --------------------------------------------------------------------------------------
-CLUSTER_DIR="${MIROVA_CLUSTER_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+# Deliberately no self-location from ${BASH_SOURCE[0]}: sbatch copies the submitted
+# script's content into /var/spool/slurmd/job<id>/slurm_script and executes that copy, so
+# BASH_SOURCE always points at the spool directory, never at the repository. Guessing here
+# would break only under sbatch while appearing to work when the script is run directly.
+if [ -z "${MIROVA_CLUSTER_DIR:-}" ]; then
+    echo "ERROR: MIROVA_CLUSTER_DIR is not set." >&2
+    echo "       sbatch runs a copy of this script from the job spool directory, so it" >&2
+    echo "       cannot find mirova_env.sh next to itself. Export the path of the" >&2
+    echo "       repository's cluster/ directory before submitting, e.g.:" >&2
+    echo "           export MIROVA_CLUSTER_DIR=\"\$PWD/cluster\"   # from the repository root" >&2
+    echo "           sbatch --chdir=\"\$(ws_find \"\$MIROVA_WORKSPACE\")\" cluster/run_mirova.sbatch" >&2
+    exit 2
+fi
+
+CLUSTER_DIR="${MIROVA_CLUSTER_DIR}"
+
+if [ ! -f "${CLUSTER_DIR}/mirova_env.sh" ]; then
+    echo "ERROR: no mirova_env.sh in MIROVA_CLUSTER_DIR (${CLUSTER_DIR})." >&2
+    echo "       It must point at the cluster/ directory of the repository checkout." >&2
+    exit 2
+fi
 
 # shellcheck source=cluster/mirova_env.sh
 source "${CLUSTER_DIR}/mirova_env.sh"
