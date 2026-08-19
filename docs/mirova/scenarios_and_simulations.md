@@ -24,7 +24,7 @@ ots-demo/src/main/java/org/opentrafficsim/demo/mirova/
       SimpleHighwayScenario.java ← Simple 3-lane motorway scenario
       RunFreiburgNord.java      ← Single-run launcher (with GUI)
       RunFreiburgParallel.java  ← Multi-seed parallel runner
-      RunFreiburgParallel_ParameterStudy.java ← OAT parameter study runner
+      FreiburgParameterStudy.java ← OAT parameter study (StudyDefinition, cluster-capable)
       RunParallelMergeScenarios.java ← Merge scenario batch runner
 ```
 
@@ -577,7 +577,7 @@ manager.runAll(8, false);   // 8 threads, headless
 
 ### 3. Parameter Study (OAT)
 
-See [RunFreiburgParallel_ParameterStudy.java](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/ots-demo/src/main/java/org/opentrafficsim/demo/mirova/scenariomanagement/scenarios/RunFreiburgParallel_ParameterStudy.java) for the full implementation.
+See [FreiburgParameterStudy.java](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/ots-demo/src/main/java/org/opentrafficsim/demo/mirova/scenariomanagement/scenarios/FreiburgParameterStudy.java) for the full implementation. It is a `StudyDefinition`, so the same study runs locally via `ScenarioManager.runAll` or on the cluster one run per array task; see [scenariomanagement_architecture.md](scenariomanagement_architecture.md).
 
 ---
 

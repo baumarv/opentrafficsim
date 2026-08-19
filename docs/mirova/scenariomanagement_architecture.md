@@ -126,7 +126,7 @@ Adding a new study requires **no** change to this entry point or the sbatch scri
 | `mirova_env.sh` | Single source for workspace resolution (`resolve_workspace`, requires `MIROVA_WORKSPACE`, no `$HOME` fallback) and Java/Maven toolchain activation (`activate_toolchain`) — since bwUniCluster 3.0 provides no Java/Maven module, both are provisioned as tarballs into the workspace. |
 | `build_for_cluster.sh` | Builds the project (`mvn install -pl ots-demo -am -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Djacoco.skip=true`), provisions Java/Maven idempotently with download validation, writes `cp.txt` (classpath). |
 | `run_mirova.sbatch` | The SLURM job array script. One array task = two bundled individual runs (global indices `2×TaskID` and `2×TaskID+1`). Each of the two runs gets `-XX:ActiveProcessorCount=1` and its own log file; CPU affinity is read from the task's own affinity mask at runtime (`taskset -cp $$`), never assumed. Requires `MIROVA_CLUSTER_DIR` — `sbatch` runs a *copy* of the script from the job spool directory, so it cannot locate its own directory. |
-| `dates.txt` | The date list for the `dates`/`combos` studies — currently a placeholder (the 9 dates of `Run9DatesLargeStudy`, verified identical), still to be replaced with the real 32 dates. |
+| `dates.txt` | The date list for the `dates`/`combos` studies — currently a placeholder (9 dates carried over from the earlier nine-date study), still to be replaced with the real 32 dates. |
 | `generate_demand_csvs.ps1` / `.py` | Generate the full-day demand CSVs on the Windows workstation, where the detector database is reachable. Never run on the cluster. |
 | `README.md` | Operational guide: workspace allocation, build, array sizing, submission, studies, calibration. |
 | `demand/` | One full 24-hour demand CSV per date (`demand_{date}.csv`), from which each study slices its own time window. Generated, therefore **git-ignored** — not part of the repository. |
@@ -149,24 +149,32 @@ full study.
 
 ---
 
-## 7. Known cleanup candidates (not yet acted on)
+## 7. Cleanup: done
 
-These classes are likely obsolete but not yet confirmed/removed:
+Four superseded classes were removed after confirming, for each, that nothing referenced them —
+including as string literals, in case of reflective lookup by name:
 
-- **`Scenario.java`** — a parameter-holder class in `scenariomanagement/`, superseded by
-  `ScenarioParameters`. No reference anywhere in the codebase.
-- **`Run9DatesLargeStudy.java`** — `cluster/dates.txt` was taken directly from its 9 dates. No
-  references.
-- **`TestReflection.java`** — looks like a debug/scratch file with no apparent production role. No
-  references.
-- **`RunFreiburgParallel_ParameterStudy.java`** — the source `FreiburgParameterStudy` was extracted
-  from verbatim. Still referenced from that class's Javadoc and from a doc page, so removing it is
-  not free.
-- **`RunFreiburgParallelCluster.java`** — kept as a fallback for "overhead becomes relevant"; likely
-  unnecessary now given the bundling logic in `run_mirova.sbatch`. Still referenced from
-  `FreiburgStudyParameters`' Javadoc and documented in `cluster/README.md`.
+- `Scenario.java` — a parameter holder superseded by `ScenarioParameters`.
+- `Run9DatesLargeStudy.java` — superseded by `FreiburgDateStudy` plus `cluster/dates.txt`.
+- `RunFreiburgParallel_ParameterStudy.java` — superseded by `FreiburgParameterStudy`, which was
+  extracted from it and then corrected: its inline baseline had drifted from the evaluation study's.
+- `RunFreiburgParallelCluster.java` — a batched secondary cluster entry point, kept while per-run
+  overhead was still an open question. It no longer is: the two-runs-per-task bundling in
+  `run_mirova.sbatch` fills the allocation better than a batched entry point would.
 
-**Before deleting anything:** verify nothing still references it — don't remove on suspicion alone.
+One class was deliberately **kept**:
+
+- **`TestReflection.java`** — despite the name and the absence of references, this is not scratch
+  code. It walks every generated `org.opentrafficsim.xml.generated.*` class, loads it via
+  `Class.forName` and calls `getDeclaredFields()` on it and its inner classes, counting those that
+  fail with `NoClassDefFoundError`. That is precisely the failure mode of
+  [troubleshooting_and_compilation.md](troubleshooting_and_compilation.md) issues 1 and 5 — the
+  GlassFish JAXB annotation reader tripping over an inconsistent `ots-xml` artifact. It is a
+  diagnostic for a recurring problem, not a leftover. Its scan directory is hardcoded to one
+  machine's absolute path, so it needs that fixed before it is useful to anyone else.
+
+**Before deleting anything else:** verify nothing still references it — including by name as a
+string — and don't remove on suspicion alone.
 
 ---
 

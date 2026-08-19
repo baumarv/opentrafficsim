@@ -15,9 +15,10 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * The one-at-a-time (OAT) parameter study of the FreiburgNord scenario: a baseline variation plus, for every swept
  * dimension, one variation per value, each run with several replications.
  * <p>
- * This is the configuration of {@link RunFreiburgParallel_ParameterStudy} extracted into a reusable
- * {@link StudyDefinition}, so that the same study can be executed either locally through
- * {@link ScenarioManager#runAll(int, boolean, boolean)} or on the cluster as one array task per run.
+ * This is a reusable {@link StudyDefinition}, so that the same study can be executed either locally through
+ * {@link ScenarioManager#runAll(int, boolean, boolean)} or on the cluster as one array task per run. It supersedes the
+ * former standalone runner it was extracted from, whose hardcoded baseline had drifted from the multi-day evaluation
+ * study's.
  * </p>
  * <p>
  * The baseline every dimension is swept against comes from {@link FreiburgStudyParameters#baseBehaviorParams()}, the same

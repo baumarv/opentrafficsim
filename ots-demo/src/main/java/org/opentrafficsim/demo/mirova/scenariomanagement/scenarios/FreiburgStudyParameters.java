@@ -8,9 +8,9 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 /**
  * Shared parameter configuration of the Freiburg-Nord multi-day evaluation study.
  * <p>
- * Both the {@link FreiburgDateStudy} used by the single-run cluster entry point and the batched
- * {@link RunFreiburgParallelCluster} build their runs from this single definition, so that a run is configured identically
- * regardless of whether it was launched as one array task per run or as part of a batched, multi-threaded task.
+ * Every study that runs this facility builds on this single definition - {@link FreiburgDateStudy} directly, and
+ * {@link FreiburgCombinationStudy} and {@link FreiburgParameterStudy} with their swept parameters layered on top - so that
+ * a run is configured identically no matter which study or execution path produced it.
  * </p>
  * <p>
  * Copyright (c) 2026 Marvin Baumann / KIT. All rights reserved. <br>

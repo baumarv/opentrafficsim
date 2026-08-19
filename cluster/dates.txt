@@ -1,10 +1,8 @@
 # Study dates, one per line (yyyy-MM-dd). Lines starting with '#' and blank lines are ignored.
 #
-# NOTE: this is a TEMPLATE. The dates below are the 9 dates of the existing
-# Run9DatesLargeStudy; replace them with the 32 dates of the multi-day evaluation study,
-# then regenerate the batch file:
-#
-#     ./cluster/make_date_batches.sh 4
+# NOTE: this is a TEMPLATE. The dates below are the 9 dates of the earlier nine-date
+# study; replace them with the 32 dates of the multi-day evaluation study. The array size
+# follows from the run count, not from this file directly - see cluster/README.md.
 #
 2025-09-22
 2025-09-23
