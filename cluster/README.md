@@ -284,14 +284,15 @@ run dies alongside the greedy one.
 ## Studies
 
 A study is a `StudyDefinition`: it registers scenarios, parameter variations and a replication
-count into a `ScenarioManager`. Two are registered in `StudyRegistry`:
+count into a `ScenarioManager`. Three are registered in `StudyRegistry`:
 
 | Short name | Class | Shape |
 |:---|:---|:---|
 | `dates` | `FreiburgDateStudy` | One scenario per date, 1 variation each |
 | `paramgrid` | `FreiburgParameterStudy` | One scenario, 17 one-at-a-time variations |
+| `combos` | `FreiburgCombinationStudy` | Named headway combinations × every date |
 
-**Adding a third study requires no change to the batch script or the entry point** — write a
+**Adding a further study requires no change to the batch script or the entry point** — write a
 new `StudyDefinition`, then select it either by adding a short name to `StudyRegistry` or by
 passing its fully qualified class name to `--study=`.
 
@@ -310,9 +311,39 @@ passing its fully qualified class name to `--study=`.
 | Option | Default | Meaning |
 |:---|:---|:---|
 | `--demand=` | *(unset)* | When given, uses the CSV as-is and disables Python demand prep |
-| `--start=`, `--end=` | `2025-09-25 13:00:00` / `16:00:00` | Simulated period |
+| `--start=`, `--end=` | `2025-09-25 13:00:00` / `22:00:00` | Simulated period (same daily window as the other studies) |
 | `--replications=` | `6` | Replications per variation |
 | `--strict=` | `false` | Missing CSV is fatal |
+
+### `combos` options
+
+Same options as `dates` — it reuses that study's date-list reading and per-date demand
+resolution, including the up-front check that every CSV exists.
+
+| Option | Default | Meaning |
+|:---|:---|:---|
+| `--dates=` | *(required)* | Comma-separated dates, or a file with one date per line |
+| `--demand=` | *(required)* | Demand CSV file, or directory of per-date CSVs |
+| `--pattern=` | `demand_{date}.csv` | Per-date file name pattern inside the directory |
+| `--replications=` | `6` | Replications per date **and** combination |
+| `--strict=` | `false` | Missing CSV is fatal instead of falling back to synthetic demand |
+
+The combinations are defined in `FreiburgCombinationStudy.COMBINATIONS`, currently
+`("standard", 1.00, 1.30)` and `("tighter", 0.90, 1.20)` — car and truck desired headway `T`.
+Adding a third is one entry in that list; nothing else depends on its length.
+
+Every variation starts from `FreiburgStudyParameters.forDate(...)` and overrides **only** the
+two `T` values, so a combination differs from the `dates` study in exactly those parameters by
+construction. Total runs = dates × combinations × replications; with 3 dates and the default 6
+replications that is `3 × 2 × 6 = 36`.
+
+Output folders name both the date and the combination, so a result is identifiable without
+resolving an index against the source:
+
+```
+FreiburgNord_2025-09-22_13-00_to_22-00_standard/variation_0/run_seed_42/
+FreiburgNord_2025-09-22_13-00_to_22-00_tighter/variation_0/run_seed_42/
+```
 
 ## Global run index
 
