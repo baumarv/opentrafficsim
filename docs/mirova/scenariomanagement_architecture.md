@@ -13,8 +13,8 @@ Companion document: [troubleshooting_and_compilation.md](troubleshooting_and_com
 this one is *what connects to what*, that one is *what breaks and how to fix it* (JAXB ClassLoader
 issues, `.m2` sync, fast-build flags, inconsistent `ots-xml` state).
 
-Status: after the cluster migration (workspace, global run addressing, bundling) and the baseline
-unification. Update this when structural changes land (e.g. the planned facility generalization).
+Status: after the cluster migration (workspace, global run addressing, bundling), the baseline
+unification and the facility generalization. Update this when structural changes land.
 
 ---
 
@@ -47,6 +47,8 @@ StudyDefinition               ScenarioManager                    ScenarioGenerat
 | **`ScenarioOutputConfiguration`** | What and how output is recorded: samplers, loop detectors, time windows, extended-data types (the `ExtendedData*` classes in `ots-road`), CSV/ZIP output. |
 | **`StudyDefinition`** (interface) | The contract for a study: `getName()`, `getDescription()`, `register(ScenarioManager, Map<String, String>)`. Registration must be **deterministic** — a prerequisite for global-index addressing across independently started processes. |
 | **`StudyRegistry`** | Resolves a study short name (`dates`, `paramgrid`, `combos`) to its `StudyDefinition` implementation. A new study can also run by its fully qualified class name without being registered here. |
+| **`TrafficFacility`** (interface) | What a study needs to know about the facility it simulates: generator class, behavioural baseline, scenario naming, per-date parameters. See Section 8. |
+| **`FacilityRegistry`** | Resolves a facility short name (`freiburg`) to its `TrafficFacility` implementation, or accepts a fully qualified class name. Mirrors `StudyRegistry`. |
 
 There are **three** concrete `ScenarioGenerator` subclasses: `FreiburgNord` (the only one the
 cluster studies use), plus `MergeScenario` and `SimpleHighwayScenario`, which are driven by their
@@ -56,14 +58,14 @@ own local runners.
 
 ## 3. The three current studies (`scenariomanagement/scenarios/`)
 
-All three build on **`FreiburgStudyParameters.baseBehaviorParams()`** — the shared behavioral
-baseline (`T`, `vGain`, `A_MAX`, cooperation thresholds, relaxation/capacity-drop flags etc. for car
+All three obtain their behavioral baseline from the facility (Section 8), which for Freiburg is
+**`FreiburgStudyParameters.baseBehaviorParams()`** — the shared behavioral baseline (`T`, `vGain`, `A_MAX`, cooperation thresholds, relaxation/capacity-drop flags etc. for car
 and truck). That is the single place these values are defined; all three studies only override what
 they actually vary.
 
 | Study | Short name | Varies | Built on |
 |---|---|---|---|
-| **`FreiburgDateStudy`** | `dates` | One fixed parameter combination across multiple days | `FreiburgStudyParameters.forDate(...)` |
+| **`DateStudy`** | `dates` | One fixed parameter combination across multiple days; **facility-agnostic**, `--facility=` defaults to `freiburg` | `TrafficFacility.forDate(...)` |
 | **`FreiburgParameterStudy`** | `paramgrid` | Several parameter dimensions (one-at-a-time sweep) on a fixed period | `ParameterGridBuilder.buildIsolated()` |
 | **`FreiburgCombinationStudy`** | `combos` | Named parameter combinations across multiple days — currently headway pairs × safety-distance factors | Cartesian product of two fixed lists, each cell from `forDate(...)` |
 
@@ -155,7 +157,7 @@ Four superseded classes were removed after confirming, for each, that nothing re
 including as string literals, in case of reflective lookup by name:
 
 - `Scenario.java` — a parameter holder superseded by `ScenarioParameters`.
-- `Run9DatesLargeStudy.java` — superseded by `FreiburgDateStudy` plus `cluster/dates.txt`.
+- `Run9DatesLargeStudy.java` — superseded by the date study plus `cluster/dates.txt`.
 - `RunFreiburgParallel_ParameterStudy.java` — superseded by `FreiburgParameterStudy`, which was
   extracted from it and then corrected: its inline baseline had drifted from the evaluation study's.
 - `RunFreiburgParallelCluster.java` — a batched secondary cluster entry point, kept while per-run
@@ -180,16 +182,35 @@ string — and don't remove on suspicion alone.
 
 ---
 
-## 8. Planned, not yet implemented: facility generalization
+## 8. Facility generalization
 
-Currently, "Freiburg" is hard-wired into every study at exactly two points: which
-`ScenarioGenerator` class (`FreiburgNord.class`) and which baseline parameter source
-(`FreiburgStudyParameters`). Everything else in each study (date lists, demand resolution,
-replications, enumeration) is already fully generic. Planned: a small `TrafficFacility` abstraction
-(generator class + baseline parameter provider + scenario naming) plus a `FacilityRegistry` modeled
-on `StudyRegistry`, so a new traffic facility automatically gets all three study types without
-rewriting them. Freiburg becomes the first implementation of this abstraction, with no behavioral
-change from the outside.
+"Where do we simulate" is now an abstraction of its own, so a new traffic facility does not require
+rewriting the study layer.
+
+| Piece | Role |
+|---|---|
+| **`TrafficFacility`** (interface) | `getName()`, `getGeneratorClass()`, `baseBehaviorParams()`, `scenarioName(date, suffixParts...)`, `forDate(date, demandCsvPath, strict)` — everything a study needs to know about *where* it simulates. |
+| **`FacilityRegistry`** | Resolves a short name (`freiburg`) to an implementation, or a fully qualified class name for one not registered. Mirrors `StudyRegistry` exactly. |
+| **`FreiburgFacility`** | The first implementation. A deliberately thin adapter over `FreiburgStudyParameters`: the baseline values stay where they are, because an empirical dataset is being collected against them and moving numbers is how numbers change. |
+
+`DateStudy` (formerly `FreiburgDateStudy`) is now **facility-agnostic** — a date list crossed with one
+fixed parameter set is a generic concept. It takes `--facility=`, defaulting to `freiburg`, and is
+still registered under the unchanged short name `dates`.
+
+`FreiburgParameterStudy` and `FreiburgCombinationStudy` keep their Freiburg-specific *content* — which
+dimensions to sweep, which named combinations — because designing a facility-agnostic way to declare
+that, without a second real facility to validate the shape against, would be guessing. They do resolve
+their generator class and baseline through `FacilityRegistry` like `DateStudy` does, so the coupling
+point is uniform even where the content is not.
+
+Adding a facility therefore means: a `ScenarioGenerator` subclass, a `TrafficFacility` implementation,
+and optionally a short name in `FacilityRegistry`. The `dates` study then works on it immediately; a
+sweep or combination study for it is still a new class, until a second facility shows what the generic
+shape should be.
+
+The generalization was a pure refactor: all 372 runs of the three studies (54 + 102 + 216) produce
+byte-identical scenario names, variation ordering, seeds and parameter maps before and after, verified
+by diffing the manifests and one full executed run.
 
 ---
 
@@ -206,7 +227,8 @@ last task with one run) and the study-specific `--key=value` options via `MIROVA
 `FreiburgStudyParameters.baseBehaviorParams()`, registering scenarios/variations deterministically.
 Optionally add a short-name entry in `StudyRegistry`.
 
-**...add a new traffic facility:** currently — a new `ScenarioGenerator` subclass plus its own
-baseline parameter class, then a separate `StudyDefinition` class per desired study type
-(duplication). After the planned facility generalization (Section 8) — just the `ScenarioGenerator`
-subclass plus a small `TrafficFacility` implementation, all three study types usable automatically.
+**...add a new traffic facility:** a `ScenarioGenerator` subclass, a `TrafficFacility` implementation
+(generator class, baseline parameters, scenario naming, per-date parameters), and optionally a short
+name in `FacilityRegistry`. The `dates` study then runs on it via `--facility=<name>` with no code
+change. A parameter or combination study for the new facility is still a separate class — see
+Section 8 for why that content is deliberately not generalized yet.

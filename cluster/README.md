@@ -288,7 +288,7 @@ count into a `ScenarioManager`. Three are registered in `StudyRegistry`:
 
 | Short name | Class | Shape |
 |:---|:---|:---|
-| `dates` | `FreiburgDateStudy` | One scenario per date, 1 variation each |
+| `dates` | `DateStudy` | One scenario per date, 1 variation each; facility-agnostic |
 | `paramgrid` | `FreiburgParameterStudy` | One scenario, 17 one-at-a-time variations |
 | `combos` | `FreiburgCombinationStudy` | Headway combinations × safety distance factors × every date |
 
@@ -305,6 +305,7 @@ passing its fully qualified class name to `--study=`.
 | `--pattern=` | `demand_{date}.csv` | Per-date file name pattern inside the directory |
 | `--replications=` | `6` | Replications per date |
 | `--strict=` | `false` | Missing CSV is fatal instead of falling back to synthetic demand |
+| `--facility=` | `freiburg` | Traffic facility to simulate, by short name or `TrafficFacility` class name |
 
 ### `paramgrid` options
 
