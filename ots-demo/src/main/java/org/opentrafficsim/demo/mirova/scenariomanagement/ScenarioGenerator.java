@@ -318,12 +318,23 @@ public abstract class ScenarioGenerator
                         String startDateStr = params.get("demandStartDate", String.class);
                         String endDateStr = params.get("demandEndDate", String.class);
                         boolean windowDurationSet = false;
-                        if (startDateStr != null && endDateStr != null)
+                        if (startDateStr == null || endDateStr == null)
+                        {
+                            // Silent before: this branch produced no output at all, so a study that failed to set its
+                            // demand window looked exactly like one that had none, and the CSV-max fallback below was
+                            // the only visible trace.
+                            System.out.println("[INFO] No demand window configured (demandStartDate=" + startDateStr
+                                    + ", demandEndDate=" + endDateStr + "); deriving the simulation duration from the "
+                                    + "largest time value in the CSV instead.");
+                        }
+                        else
                         {
                             try
                             {
-                                java.time.format.DateTimeFormatter dtf =
-                                        java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                                // Locale.ROOT: these timestamps are machine-generated and non-localized, so they must
+                                // not be parsed with whatever format locale the executing machine happens to have.
+                                java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter
+                                        .ofPattern("yyyy-MM-dd HH:mm:ss", java.util.Locale.ROOT);
                                 java.time.LocalDateTime sdt = java.time.LocalDateTime.parse(startDateStr.trim(), dtf);
                                 java.time.LocalDateTime edt = java.time.LocalDateTime.parse(endDateStr.trim(), dtf);
                                 long diffSeconds = java.time.Duration.between(sdt, edt).getSeconds();
@@ -337,10 +348,18 @@ public abstract class ScenarioGenerator
                                     System.out.println("Set simulation duration from demand date window: " + duration + " ("
                                             + startDateStr + " to " + endDateStr + ")");
                                 }
+                                else
+                                {
+                                    System.err.println("WARNING: demand window is empty or inverted (" + startDateStr
+                                            + " to " + endDateStr + " = " + diffSeconds + " s); falling back to the "
+                                            + "CSV-max duration.");
+                                }
                             }
                             catch (Exception e)
                             {
-                                // Fallback to scanning CSV
+                                System.err.println("WARNING: could not parse demand window (" + startDateStr + " to "
+                                        + endDateStr + ") - " + e.getClass().getSimpleName() + ": " + e.getMessage()
+                                        + "; falling back to the CSV-max duration.");
                             }
                         }
 
@@ -829,9 +848,17 @@ public abstract class ScenarioGenerator
                     : (this.currentParameters != null ? this.currentParameters.get("demandEndDate", String.class) : null);
             java.time.LocalDateTime windowStart = null;
             java.time.LocalDateTime windowEnd = null;
-            java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            // Locale.ROOT: the CSV timestamps are machine-generated and non-localized, so they must not be parsed with
+            // whatever format locale the executing machine happens to have.
+            java.time.format.DateTimeFormatter dtf =
+                    java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", java.util.Locale.ROOT);
 
-            if (startStr != null && endStr != null)
+            if (startStr == null || endStr == null)
+            {
+                System.out.println("[INFO] No demand window configured (demandStartDate=" + startStr + ", demandEndDate="
+                        + endStr + "); applying the demand CSV " + csvFile.getName() + " in full.");
+            }
+            else
             {
                 try
                 {
@@ -842,11 +869,15 @@ public abstract class ScenarioGenerator
                 {
                     windowStart = null;
                     windowEnd = null;
+                    System.err.println("WARNING: could not parse demand window (" + startStr + " to " + endStr + ") - "
+                            + ex.getClass().getSimpleName() + ": " + ex.getMessage() + "; applying the demand CSV "
+                            + csvFile.getName() + " in full instead of slicing it.");
                 }
             }
 
             java.util.TreeSet<Double> uniqueTimes = new java.util.TreeSet<>();
             Map<String, Map<Double, Double>> demandMap = new HashMap<>();
+            boolean timestampWarningIssued = false;
 
             try (BufferedReader br = new BufferedReader(new java.io.FileReader(csvFile)))
             {
@@ -884,7 +915,18 @@ public abstract class ScenarioGenerator
                         }
                         catch (Exception ex)
                         {
-                            // If timestamp column is not a standard date format, keep original timeSec
+                            // Keep the original timeSec if the timestamp column is not a standard date. Reported once
+                            // per file: an unparseable timestamp column means no row can be sliced, so warning per row
+                            // would print thousands of identical lines.
+                            if (!timestampWarningIssued)
+                            {
+                                timestampWarningIssued = true;
+                                System.err.println("WARNING: timestamp column of " + csvFile.getName()
+                                        + " could not be parsed (first offending value: '" + timestampStr + "') - "
+                                        + ex.getClass().getSimpleName() + ": " + ex.getMessage()
+                                        + "; rows are kept with their original time_sec and the demand window is not "
+                                        + "applied.");
+                            }
                         }
                     }
 
