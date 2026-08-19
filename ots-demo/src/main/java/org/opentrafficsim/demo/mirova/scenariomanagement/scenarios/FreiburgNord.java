@@ -302,7 +302,7 @@ public class FreiburgNord extends ScenarioGenerator
         Category carCat = new Category(categorization, DefaultsNl.CAR);
         Category truckCat = new Category(categorization, DefaultsNl.TRUCK);
 
-        OdMatrix odMatrix = parseOdMatrixFromCsv(csvFile, this.network, categorization, carCat, truckCat);
+        OdMatrix odMatrix = parseOdMatrixFromCsv(csvFile, this.network, categorization, carCat, truckCat, params);
 
         // Strict mode (batch/validation runs): fabricated demand must never silently replace field data.
         Boolean strictParam = params.get(KEY_DEMAND_CSV_STRICT, Boolean.class);

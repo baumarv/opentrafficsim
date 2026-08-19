@@ -315,43 +315,75 @@ public abstract class ScenarioGenerator
                 {
                     try
                     {
-                        double maxTimeSec = 0.0;
-                        try (BufferedReader br = new BufferedReader(new FileReader(csvFile)))
+                        String startDateStr = params.get("demandStartDate", String.class);
+                        String endDateStr = params.get("demandEndDate", String.class);
+                        boolean windowDurationSet = false;
+                        if (startDateStr != null && endDateStr != null)
                         {
-                            String line;
-                            boolean isHeader = true;
-                            while ((line = br.readLine()) != null)
+                            try
                             {
-                                if (isHeader)
+                                java.time.format.DateTimeFormatter dtf =
+                                        java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                                java.time.LocalDateTime sdt = java.time.LocalDateTime.parse(startDateStr.trim(), dtf);
+                                java.time.LocalDateTime edt = java.time.LocalDateTime.parse(endDateStr.trim(), dtf);
+                                long diffSeconds = java.time.Duration.between(sdt, edt).getSeconds();
+                                if (diffSeconds > 0)
                                 {
-                                    isHeader = false;
-                                    continue;
+                                    org.djunits.value.vdouble.scalar.Duration duration =
+                                            new org.djunits.value.vdouble.scalar.Duration(diffSeconds,
+                                                    org.djunits.unit.DurationUnit.SI);
+                                    params.setSimulationTime(duration);
+                                    windowDurationSet = true;
+                                    System.out.println("Set simulation duration from demand date window: " + duration + " ("
+                                            + startDateStr + " to " + endDateStr + ")");
                                 }
-                                String[] parts = line.split(",");
-                                if (parts.length > 0)
+                            }
+                            catch (Exception e)
+                            {
+                                // Fallback to scanning CSV
+                            }
+                        }
+
+                        if (!windowDurationSet)
+                        {
+                            double maxTimeSec = 0.0;
+                            try (BufferedReader br = new BufferedReader(new FileReader(csvFile)))
+                            {
+                                String line;
+                                boolean isHeader = true;
+                                while ((line = br.readLine()) != null)
                                 {
-                                    try
+                                    if (isHeader)
                                     {
-                                        double timeSec = Double.parseDouble(parts[0].trim());
-                                        if (timeSec > maxTimeSec)
-                                        {
-                                            maxTimeSec = timeSec;
-                                        }
+                                        isHeader = false;
+                                        continue;
                                     }
-                                    catch (NumberFormatException e)
+                                    String[] parts = line.split(",");
+                                    if (parts.length > 0)
                                     {
-                                        // Ignore header or malformed rows
+                                        try
+                                        {
+                                            double timeSec = Double.parseDouble(parts[0].trim());
+                                            if (timeSec > maxTimeSec)
+                                            {
+                                                maxTimeSec = timeSec;
+                                            }
+                                        }
+                                        catch (NumberFormatException e)
+                                        {
+                                            // Ignore header or malformed rows
+                                        }
                                     }
                                 }
                             }
-                        }
-                        if (maxTimeSec > 0.0)
-                        {
-                            org.djunits.value.vdouble.scalar.Duration durationFromCsv =
-                                    new org.djunits.value.vdouble.scalar.Duration(maxTimeSec, org.djunits.unit.DurationUnit.SI);
-                            params.setSimulationTime(durationFromCsv);
-                            System.out.println("Dynamically set simulation duration from CSV: " + durationFromCsv + " ("
-                                    + csvFile.getName() + ")");
+                            if (maxTimeSec > 0.0)
+                            {
+                                org.djunits.value.vdouble.scalar.Duration durationFromCsv =
+                                        new org.djunits.value.vdouble.scalar.Duration(maxTimeSec, org.djunits.unit.DurationUnit.SI);
+                                params.setSimulationTime(durationFromCsv);
+                                System.out.println("Dynamically set simulation duration from CSV: " + durationFromCsv + " ("
+                                        + csvFile.getName() + ")");
+                            }
                         }
                     }
                     catch (Exception e)
@@ -755,7 +787,8 @@ public abstract class ScenarioGenerator
     }
 
     /**
-     * Helper method to parse an OD matrix from a demand CSV file.
+     * Slices and parses the OD matrix from a CSV file. If 'demandStartDate' and 'demandEndDate' are set in params, only
+     * entries within that window are parsed, and relative times are re-based to t=0 at the start of the window.
      * @param csvFile File; the CSV file to parse
      * @param network RoadNetwork; the road network
      * @param categorization Categorization; the categorization of GTU types
@@ -766,6 +799,23 @@ public abstract class ScenarioGenerator
     protected OdMatrix parseOdMatrixFromCsv(final File csvFile, final RoadNetwork network, final Categorization categorization,
             final Category carCat, final Category truckCat)
     {
+        return parseOdMatrixFromCsv(csvFile, network, categorization, carCat, truckCat, this.currentParameters);
+    }
+
+    /**
+     * Slices and parses the OD matrix from a CSV file. If 'demandStartDate' and 'demandEndDate' are set in params, only
+     * entries within that window are parsed, and relative times are re-based to t=0 at the start of the window.
+     * @param csvFile File; the CSV file to parse
+     * @param network RoadNetwork; the road network
+     * @param categorization Categorization; the categorization of GTU types
+     * @param carCat Category; category for cars
+     * @param truckCat Category; category for trucks
+     * @param params ScenarioParameters; parameters containing optional demand window bounds
+     * @return OdMatrix; the parsed OD matrix, or null if parsing fails or file does not exist
+     */
+    protected OdMatrix parseOdMatrixFromCsv(final File csvFile, final RoadNetwork network, final Categorization categorization,
+            final Category carCat, final Category truckCat, final ScenarioParameters params)
+    {
         if (csvFile == null || !csvFile.exists())
         {
             return null;
@@ -773,6 +823,28 @@ public abstract class ScenarioGenerator
 
         try
         {
+            String startStr = (params != null) ? params.get("demandStartDate", String.class)
+                    : (this.currentParameters != null ? this.currentParameters.get("demandStartDate", String.class) : null);
+            String endStr = (params != null) ? params.get("demandEndDate", String.class)
+                    : (this.currentParameters != null ? this.currentParameters.get("demandEndDate", String.class) : null);
+            java.time.LocalDateTime windowStart = null;
+            java.time.LocalDateTime windowEnd = null;
+            java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+            if (startStr != null && endStr != null)
+            {
+                try
+                {
+                    windowStart = java.time.LocalDateTime.parse(startStr.trim(), dtf);
+                    windowEnd = java.time.LocalDateTime.parse(endStr.trim(), dtf);
+                }
+                catch (Exception ex)
+                {
+                    windowStart = null;
+                    windowEnd = null;
+                }
+            }
+
             java.util.TreeSet<Double> uniqueTimes = new java.util.TreeSet<>();
             Map<String, Map<Double, Double>> demandMap = new HashMap<>();
 
@@ -793,10 +865,28 @@ public abstract class ScenarioGenerator
                         continue;
                     }
                     double timeSec = Double.parseDouble(parts[0].trim());
+                    String timestampStr = parts[1].trim();
                     String origin = parts[2].trim();
                     String destination = parts[3].trim();
                     String gtuType = parts[4].trim();
                     double demand = Double.parseDouble(parts[5].trim());
+
+                    if (windowStart != null && windowEnd != null)
+                    {
+                        try
+                        {
+                            java.time.LocalDateTime rowTime = java.time.LocalDateTime.parse(timestampStr, dtf);
+                            if (rowTime.isBefore(windowStart) || rowTime.isAfter(windowEnd))
+                            {
+                                continue;
+                            }
+                            timeSec = java.time.Duration.between(windowStart, rowTime).getSeconds();
+                        }
+                        catch (Exception ex)
+                        {
+                            // If timestamp column is not a standard date format, keep original timeSec
+                        }
+                    }
 
                     uniqueTimes.add(timeSec);
                     String key = origin + ";" + destination + ";" + gtuType;
