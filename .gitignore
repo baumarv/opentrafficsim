@@ -18,3 +18,12 @@ classpath.txt
 **/classpath.txt
 sources.txt
 **/sources.txt
+
+# MiRoVA cluster: generated demand inputs and run artifacts.
+# Demand CSVs are regenerated from field data by the offline Python pipeline and are
+# too large / too derived to track; the cluster workflow expects them under cluster/demand.
+cluster/demand/
+cluster/cp.txt
+cluster/run_list.txt
+cluster/logs/
+cluster/output/
