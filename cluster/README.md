@@ -290,7 +290,7 @@ count into a `ScenarioManager`. Three are registered in `StudyRegistry`:
 |:---|:---|:---|
 | `dates` | `FreiburgDateStudy` | One scenario per date, 1 variation each |
 | `paramgrid` | `FreiburgParameterStudy` | One scenario, 17 one-at-a-time variations |
-| `combos` | `FreiburgCombinationStudy` | Named headway combinations × every date |
+| `combos` | `FreiburgCombinationStudy` | Headway combinations × safety distance factors × every date |
 
 **Adding a further study requires no change to the batch script or the entry point** — write a
 new `StudyDefinition`, then select it either by adding a short name to `StudyRegistry` or by
@@ -328,22 +328,48 @@ resolution, including the up-front check that every CSV exists.
 | `--replications=` | `6` | Replications per date **and** combination |
 | `--strict=` | `false` | Missing CSV is fatal instead of falling back to synthetic demand |
 
-The combinations are defined in `FreiburgCombinationStudy.COMBINATIONS`, currently
-`("standard", 1.00, 1.30)` and `("tighter", 0.90, 1.20)` — car and truck desired headway `T`.
-Adding a third is one entry in that list; nothing else depends on its length.
+This study runs the **Cartesian product of two lists**, both in `FreiburgCombinationStudy`:
 
-Every variation starts from `FreiburgStudyParameters.forDate(...)` and overrides **only** the
-two `T` values, so a combination differs from the `dates` study in exactly those parameters by
-construction. Total runs = dates × combinations × replications; with 3 dates and the default 6
-replications that is `3 × 2 × 6 = 36`.
+| List | Contents | Varies |
+|:---|:---|:---|
+| `COMBINATIONS` | `("standard", 1.00, 1.30)`, `("tighter", 0.90, 1.20)` | car / truck desired headway `T` |
+| `SAFETY_DISTANCE_FACTORS` | `0.60`, `0.80` | lane-change safety distance reduction factor |
 
-Output folders name both the date and the combination, so a result is identifiable without
+giving **4 variations per date**. The safety distance factor is applied to **cars and trucks
+alike**, so a grid cell is described by two numbers rather than three. Extending either
+dimension is one entry in the respective list; nothing depends on their lengths.
+
+Every variation starts from `FreiburgStudyParameters.forDate(...)` and overrides **only** those
+values, so a cell differs from the `dates` study in exactly the swept parameters by
+construction — and `standard` × `0.60` reproduces that study's setting exactly, since `0.60` is
+`FreiburgStudyParameters.RED_FAC`.
+
+Total runs = dates × combinations × factors × replications:
+
+| Dates | Replications | Total |
+|---:|---:|---:|
+| 3 | 6 | `3 × 2 × 2 × 6 = 72` |
+| 9 | 6 | `9 × 2 × 2 × 6 = 216` |
+| 32 | 6 | `32 × 2 × 2 × 6 = 768` |
+
+Output folders name the date **and** both swept values, so a result is identifiable without
 resolving an index against the source:
 
 ```
-FreiburgNord_2025-09-22_13-00_to_22-00_standard/variation_0/run_seed_42/
-FreiburgNord_2025-09-22_13-00_to_22-00_tighter/variation_0/run_seed_42/
+FreiburgNord_2025-09-22_13-00_to_22-00_standard_sdr0.60/variation_0/run_seed_42/
+FreiburgNord_2025-09-22_13-00_to_22-00_standard_sdr0.80/variation_0/run_seed_42/
+FreiburgNord_2025-09-22_13-00_to_22-00_tighter_sdr0.60/variation_0/run_seed_42/
+FreiburgNord_2025-09-22_13-00_to_22-00_tighter_sdr0.80/variation_0/run_seed_42/
 ```
+
+The `sdr` suffix is formatted with `Locale.ROOT`, so the decimal separator is a dot on every
+node — these names are what post-processing matches on, and must not depend on the format
+locale of whichever machine ran the job. `runParams.txt` additionally records
+`headwayCombination` and `safetyDistanceFactor`.
+
+Registration order is date-major, then combination, then factor, so
+`index = (((dateIndex × 2) + comboIndex) × 2 + factorIndex) × replications + replication`.
+Use `--manifest=` to print the mapping rather than deriving it by hand.
 
 ## Global run index
 

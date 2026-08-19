@@ -2,25 +2,30 @@ package org.opentrafficsim.demo.mirova.scenariomanagement.scenarios;
 
 import java.io.File;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.opentrafficsim.base.parameters.ParameterTypes;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioManager;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioParameters;
 import org.opentrafficsim.demo.mirova.scenariomanagement.StudyDefinition;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 
 /**
- * Crosses a small list of named headway combinations with every simulated date: N combinations x M dates x R replications.
+ * Crosses named headway combinations with lane-change safety distance factors and with every simulated date: N
+ * combinations x F factors x M dates x R replications.
  * <p>
  * This is the shape neither existing study covers. {@link FreiburgDateStudy} applies one fixed parameter set per date, and
- * {@link FreiburgParameterStudy} sweeps one dimension at a time around a baseline on a single date. Here every named
- * combination is run on every date, so combinations can be compared across the same days of field data.
+ * {@link FreiburgParameterStudy} sweeps one dimension at a time around a baseline on a single date. Here the full
+ * combination x factor grid is run on every date, so cells can be compared both against each other and across the same
+ * days of field data.
  * </p>
  * <p>
  * Each variation starts from {@link FreiburgStudyParameters#forDate(String, String, boolean)} - hence from the shared
  * {@link FreiburgStudyParameters#baseBehaviorParams()} baseline plus the usual demand wiring - and overrides only the car
- * and truck desired headway {@code T}. A combination therefore differs from the multi-day evaluation study in exactly two
- * parameters, by construction rather than by convention.
+ * and truck desired headway {@code T} and the safety distance reduction factor. The factor is deliberately the same for
+ * cars and trucks, so a cell of the grid is described by two numbers rather than three, and a variation differs from the
+ * multi-day evaluation study in exactly the swept parameters, by construction rather than by convention.
  * </p>
  * <p>
  * Options honoured by {@link #register(ScenarioManager, Map)}, identical to {@link FreiburgDateStudy}'s:
@@ -54,14 +59,24 @@ public class FreiburgCombinationStudy implements StudyDefinition
     }
 
     /**
-     * The combinations run by this study, matching the pairs of the local RunFreiburgParallel runner. Adding a fourth
+     * The headway combinations run by this study, matching the pairs of the local RunFreiburgParallel runner. Adding a third
      * combination is a matter of adding one entry here; nothing else in this class depends on the list's length.
      */
     public static final List<HeadwayCombination> COMBINATIONS =
             List.of(new HeadwayCombination("standard", 1.00, 1.30), new HeadwayCombination("tighter", 0.90, 1.20));
 
-    /** Scenario parameter key recording which combination produced a variation, for downstream post-processing. */
+    /**
+     * The lane-change safety distance reduction factors crossed with every headway combination. One value per entry, applied
+     * to cars and trucks alike; 0.60 is the value {@link FreiburgStudyParameters#RED_FAC} uses, so that combination
+     * reproduces the multi-day evaluation study's setting.
+     */
+    public static final List<Double> SAFETY_DISTANCE_FACTORS = List.of(0.60, 0.80);
+
+    /** Scenario parameter key recording which headway combination produced a variation, for downstream post-processing. */
     public static final String KEY_COMBINATION = "headwayCombination";
+
+    /** Scenario parameter key recording the safety distance reduction factor of a variation. */
+    public static final String KEY_SAFETY_DISTANCE_FACTOR = "safetyDistanceFactor";
 
     @Override
     public String getName()
@@ -72,7 +87,8 @@ public class FreiburgCombinationStudy implements StudyDefinition
     @Override
     public String getDescription()
     {
-        return "Named headway combinations crossed with every date: " + COMBINATIONS.size() + " combinations x dates.";
+        return "Headway combinations x safety distance factors x dates: " + COMBINATIONS.size() + " x "
+                + SAFETY_DISTANCE_FACTORS.size() + " variations per date.";
     }
 
     @Override
@@ -98,16 +114,22 @@ public class FreiburgCombinationStudy implements StudyDefinition
         // Same up-front check as the date study: a missing CSV aborts before any simulation starts.
         Map<String, File> demandPerDate = FreiburgDateStudy.resolveDemandCsvs(dates, demandLocation, pattern, strict);
 
-        // One scenario per (date, combination), so the output folder names both. Registration order is
-        // date-major, which the global run index follows: index = ((dateIndex * combinations) + comboIndex) * replications.
+        // One scenario per (date, headway combination, safety distance factor), so the output folder names all three.
+        // Registration order is date-major, then combination, then factor, which the global run index follows:
+        // index = (((dateIndex * combinations) + comboIndex) * factors + factorIndex) * replications + replication.
         for (String date : dates)
         {
             String demandCsvPath = demandPerDate.get(date).getAbsolutePath();
             for (HeadwayCombination combination : COMBINATIONS)
             {
-                String scenarioName = FreiburgStudyParameters.scenarioName(date, combination.label());
-                manager.addScenario(scenarioName, FreiburgNord.class);
-                manager.addParameterVariation(scenarioName, forCombination(date, demandCsvPath, strict, combination));
+                for (double safetyDistanceFactor : SAFETY_DISTANCE_FACTORS)
+                {
+                    String scenarioName = FreiburgStudyParameters.scenarioName(date,
+                            variantLabel(combination, safetyDistanceFactor));
+                    manager.addScenario(scenarioName, FreiburgNord.class);
+                    manager.addParameterVariation(scenarioName,
+                            forCombination(date, demandCsvPath, strict, combination, safetyDistanceFactor));
+                }
             }
         }
 
@@ -115,22 +137,44 @@ public class FreiburgCombinationStudy implements StudyDefinition
     }
 
     /**
-     * Builds the parameters of one date and combination: the multi-day evaluation study's configuration with only the car
-     * and truck headway replaced.
+     * Builds the parameters of one date, headway combination and safety distance factor: the multi-day evaluation study's
+     * configuration with only the car and truck headway and the lane-change safety distance reduction factor replaced.
      * @param date String; the simulated date in yyyy-MM-dd form
      * @param demandCsvPath String; the absolute path of the pre-generated demand CSV for this date
      * @param strict boolean; when true, a missing or unreadable demand CSV is fatal
      * @param combination HeadwayCombination; the headway combination to apply
-     * @return ScenarioParameters; the parameter variation for this date and combination
+     * @param safetyDistanceFactor double; the lane-change safety distance reduction factor, applied to cars and trucks alike
+     * @return ScenarioParameters; the parameter variation for this date, combination and factor
      */
     public static ScenarioParameters forCombination(final String date, final String demandCsvPath, final boolean strict,
-            final HeadwayCombination combination)
+            final HeadwayCombination combination, final double safetyDistanceFactor)
     {
         ScenarioParameters params = FreiburgStudyParameters.forDate(date, demandCsvPath, strict);
         params.set("car." + ParameterTypes.T.getId(), combination.carT());
         params.set("truck." + ParameterTypes.T.getId(), combination.truckT());
-        // Recorded so runParams.txt names the combination rather than only its headway values.
+
+        // The same factor for both GTU types, so a variation differs in one value rather than in a pair of them.
+        params.set("car." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(), safetyDistanceFactor);
+        params.set("truck." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(), safetyDistanceFactor);
+
+        // Recorded so runParams.txt names the variation rather than only carrying its numeric values.
         params.set(KEY_COMBINATION, combination.label());
+        params.set(KEY_SAFETY_DISTANCE_FACTOR, safetyDistanceFactor);
         return params;
+    }
+
+    /**
+     * Returns the label identifying one cell of the combination grid, used as the suffix of the scenario name.
+     * <p>
+     * Formatted with {@link Locale#ROOT} so the decimal separator is a dot on every machine: the label ends up in directory
+     * names that post-processing matches on, and those must not depend on the format locale of whichever node ran the job.
+     * </p>
+     * @param combination HeadwayCombination; the headway combination
+     * @param safetyDistanceFactor double; the lane-change safety distance reduction factor
+     * @return String; the label, e.g. {@code standard_sdr0.60}
+     */
+    public static String variantLabel(final HeadwayCombination combination, final double safetyDistanceFactor)
+    {
+        return combination.label() + String.format(Locale.ROOT, "_sdr%.2f", safetyDistanceFactor);
     }
 }
