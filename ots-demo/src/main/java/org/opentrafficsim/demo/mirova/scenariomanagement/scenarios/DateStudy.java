@@ -10,12 +10,19 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.opentrafficsim.demo.mirova.scenariomanagement.FacilityRegistry;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioManager;
 import org.opentrafficsim.demo.mirova.scenariomanagement.StudyDefinition;
+import org.opentrafficsim.demo.mirova.scenariomanagement.TrafficFacility;
 
 /**
  * The multi-day evaluation study: one scenario per simulated date, one parameter variation each, run with several
  * replications.
+ * <p>
+ * Facility-agnostic - a date list crossed with one fixed parameter set is a generic concept, so the facility supplies the
+ * generator class, the baseline and the scenario naming via {@link TrafficFacility}. It defaults to
+ * {@value #DEFAULT_FACILITY}, so an invocation without {@code --facility} behaves exactly as before this was generalised.
+ * </p>
  * <p>
  * Options honoured by {@link #register(ScenarioManager, Map)}:
  * </p>
@@ -28,6 +35,8 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.StudyDefinition;
  * <li>{@code replications} — the number of replications per date. Defaults to {@value #DEFAULT_REPLICATIONS}.</li>
  * <li>{@code strict} — when {@code true}, a missing demand CSV is fatal instead of falling back to synthetic demand.
  * Defaults to {@code false}.</li>
+ * <li>{@code facility} — the traffic facility to simulate, by short name or class name. Defaults to
+ * {@value #DEFAULT_FACILITY}.</li>
  * </ul>
  * <p>
  * Copyright (c) 2026 Marvin Baumann / KIT. All rights reserved. <br>
@@ -35,13 +44,16 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.StudyDefinition;
  * </p>
  * @author Marvin Baumann
  */
-public class FreiburgDateStudy implements StudyDefinition
+public class DateStudy implements StudyDefinition
 {
     /** Default file name pattern used to resolve a per-date demand CSV inside a demand directory. */
     public static final String DEFAULT_CSV_PATTERN = "demand_{date}.csv";
 
     /** Default number of replications per date. */
     public static final int DEFAULT_REPLICATIONS = 6;
+
+    /** Facility simulated when no {@code facility} option is given, keeping existing invocations unchanged. */
+    public static final String DEFAULT_FACILITY = FreiburgFacility.NAME;
 
     @Override
     public String getName()
@@ -58,6 +70,8 @@ public class FreiburgDateStudy implements StudyDefinition
     @Override
     public void register(final ScenarioManager manager, final Map<String, String> options) throws Exception
     {
+        TrafficFacility facility = FacilityRegistry.resolve(options.getOrDefault("facility", DEFAULT_FACILITY));
+
         List<String> dates = resolveDates(options.get("dates"));
         if (dates.isEmpty())
         {
@@ -78,10 +92,10 @@ public class FreiburgDateStudy implements StudyDefinition
 
         for (String date : dates)
         {
-            String scenarioName = FreiburgStudyParameters.scenarioName(date);
-            manager.addScenario(scenarioName, FreiburgNord.class);
+            String scenarioName = facility.scenarioName(date);
+            manager.addScenario(scenarioName, facility.getGeneratorClass());
             manager.addParameterVariation(scenarioName,
-                    FreiburgStudyParameters.forDate(date, demandPerDate.get(date).getAbsolutePath(), strict));
+                    facility.forDate(date, demandPerDate.get(date).getAbsolutePath(), strict));
         }
 
         manager.setReplications(replications);

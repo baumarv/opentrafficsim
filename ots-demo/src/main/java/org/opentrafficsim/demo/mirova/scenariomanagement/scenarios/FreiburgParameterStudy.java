@@ -6,9 +6,11 @@ import java.util.Map;
 
 import org.opentrafficsim.demo.mirova.scenariomanagement.ParameterGridBuilder;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioGenerator;
+import org.opentrafficsim.demo.mirova.scenariomanagement.FacilityRegistry;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioManager;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioParameters;
 import org.opentrafficsim.demo.mirova.scenariomanagement.StudyDefinition;
+import org.opentrafficsim.demo.mirova.scenariomanagement.TrafficFacility;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 
 /**
@@ -33,7 +35,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * preparation is disabled and the CSV is used as-is; when absent, the historical behaviour of preparing demand from the
  * configured period is kept.</li>
  * <li>{@code pattern} — the per-date file name pattern used when {@code demand} is a directory. Defaults to
- * {@value FreiburgDateStudy#DEFAULT_CSV_PATTERN}.</li>
+ * {@value DateStudy#DEFAULT_CSV_PATTERN}.</li>
  * <li>{@code start}, {@code end} — the simulated period. Default to {@value #DEFAULT_START} and {@value #DEFAULT_END}.</li>
  * <li>{@code replications} — the number of replications per variation. Defaults to {@value #DEFAULT_REPLICATIONS}.</li>
  * <li>{@code strict} — when {@code true}, a missing demand CSV is fatal instead of falling back to synthetic demand.
@@ -76,12 +78,17 @@ public class FreiburgParameterStudy implements StudyDefinition
         boolean strict = Boolean.parseBoolean(options.getOrDefault("strict", "false"));
         int replications = Integer.parseInt(options.getOrDefault("replications", String.valueOf(DEFAULT_REPLICATIONS)));
 
-        String scenarioName = "FreiburgNord_ParameterStudy_" + formatPeriodName(startDate, endDate);
-        manager.addScenario(scenarioName, FreiburgNord.class);
+        // Content stays Freiburg-specific, but the generator class and baseline come through the same mechanism the
+        // facility-agnostic date study uses.
+        TrafficFacility facility = FacilityRegistry.resolve(FreiburgFacility.NAME);
+
+        String scenarioName =
+                facility.getGeneratorClass().getSimpleName() + "_ParameterStudy_" + formatPeriodName(startDate, endDate);
+        manager.addScenario(scenarioName, facility.getGeneratorClass());
 
         // The behavioural baseline is shared with the multi-day evaluation study, so that every swept dimension is
         // measured against exactly the configuration that study runs.
-        ScenarioParameters baseParams = FreiburgStudyParameters.baseBehaviorParams();
+        ScenarioParameters baseParams = facility.baseBehaviorParams();
         baseParams.setSeed(42L); // Base seed
 
         // Set demand date range and aggregation interval
@@ -95,8 +102,8 @@ public class FreiburgParameterStudy implements StudyDefinition
         if (demandOption != null && !demandOption.trim().isEmpty())
         {
             String datePart = startDate.trim().split(" ")[0];
-            File demandCsv = FreiburgDateStudy.resolveDemandCsv(new File(demandOption.trim()),
-                    options.getOrDefault("pattern", FreiburgDateStudy.DEFAULT_CSV_PATTERN), datePart);
+            File demandCsv = DateStudy.resolveDemandCsv(new File(demandOption.trim()),
+                    options.getOrDefault("pattern", DateStudy.DEFAULT_CSV_PATTERN), datePart);
             if (!demandCsv.isFile())
             {
                 String message = "Demand CSV not found for period starting " + datePart + ": " + demandCsv.getAbsolutePath();

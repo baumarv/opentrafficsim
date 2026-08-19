@@ -4,7 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgCombinationStudy;
-import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgDateStudy;
+import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.DateStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgParameterStudy;
 
 /**
@@ -26,7 +26,7 @@ public final class StudyRegistry
 
     static
     {
-        STUDIES.put("dates", FreiburgDateStudy.class);
+        STUDIES.put("dates", DateStudy.class);
         STUDIES.put("paramgrid", FreiburgParameterStudy.class);
         STUDIES.put("combos", FreiburgCombinationStudy.class);
     }

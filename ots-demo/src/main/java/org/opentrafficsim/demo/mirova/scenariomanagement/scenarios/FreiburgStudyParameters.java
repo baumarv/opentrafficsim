@@ -8,7 +8,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 /**
  * Shared parameter configuration of the Freiburg-Nord multi-day evaluation study.
  * <p>
- * Every study that runs this facility builds on this single definition - {@link FreiburgDateStudy} directly, and
+ * Every study that runs this facility builds on this single definition - {@link DateStudy} directly, and
  * {@link FreiburgCombinationStudy} and {@link FreiburgParameterStudy} with their swept parameters layered on top - so that
  * a run is configured identically no matter which study or execution path produced it.
  * </p>

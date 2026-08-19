@@ -6,16 +6,18 @@ import java.util.Locale;
 import java.util.Map;
 
 import org.opentrafficsim.base.parameters.ParameterTypes;
+import org.opentrafficsim.demo.mirova.scenariomanagement.FacilityRegistry;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioManager;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioParameters;
 import org.opentrafficsim.demo.mirova.scenariomanagement.StudyDefinition;
+import org.opentrafficsim.demo.mirova.scenariomanagement.TrafficFacility;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 
 /**
  * Crosses named headway combinations with lane-change safety distance factors and with every simulated date: N
  * combinations x F factors x M dates x R replications.
  * <p>
- * This is the shape neither existing study covers. {@link FreiburgDateStudy} applies one fixed parameter set per date, and
+ * This is the shape neither existing study covers. {@link DateStudy} applies one fixed parameter set per date, and
  * {@link FreiburgParameterStudy} sweeps one dimension at a time around a baseline on a single date. Here the full
  * combination x factor grid is run on every date, so cells can be compared both against each other and across the same
  * days of field data.
@@ -28,15 +30,15 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * multi-day evaluation study in exactly the swept parameters, by construction rather than by convention.
  * </p>
  * <p>
- * Options honoured by {@link #register(ScenarioManager, Map)}, identical to {@link FreiburgDateStudy}'s:
+ * Options honoured by {@link #register(ScenarioManager, Map)}, identical to {@link DateStudy}'s:
  * </p>
  * <ul>
  * <li>{@code dates} — a comma-separated list of dates, or the path of a file with one date per line. Required.</li>
  * <li>{@code demand} — the demand CSV file, or a directory holding one pre-generated CSV per date. Required.</li>
  * <li>{@code pattern} — the per-date file name pattern used when {@code demand} is a directory. Defaults to
- * {@value FreiburgDateStudy#DEFAULT_CSV_PATTERN}.</li>
+ * {@value DateStudy#DEFAULT_CSV_PATTERN}.</li>
  * <li>{@code replications} — the number of replications per date and combination. Defaults to
- * {@value FreiburgDateStudy#DEFAULT_REPLICATIONS}.</li>
+ * {@value DateStudy#DEFAULT_REPLICATIONS}.</li>
  * <li>{@code strict} — when {@code true}, a missing demand CSV is fatal instead of falling back to synthetic demand.
  * Defaults to {@code false}.</li>
  * </ul>
@@ -94,7 +96,11 @@ public class FreiburgCombinationStudy implements StudyDefinition
     @Override
     public void register(final ScenarioManager manager, final Map<String, String> options) throws Exception
     {
-        List<String> dates = FreiburgDateStudy.resolveDates(options.get("dates"));
+        // Content stays Freiburg-specific, but the generator class and baseline come through the same mechanism the
+        // facility-agnostic date study uses.
+        TrafficFacility facility = FacilityRegistry.resolve(FreiburgFacility.NAME);
+
+        List<String> dates = DateStudy.resolveDates(options.get("dates"));
         if (dates.isEmpty())
         {
             throw new IllegalArgumentException("Study 'combos' requires --dates=<comma-separated-dates|file>.");
@@ -106,13 +112,13 @@ public class FreiburgCombinationStudy implements StudyDefinition
             throw new IllegalArgumentException("Study 'combos' requires --demand=<csv file or directory>.");
         }
         File demandLocation = new File(demandOption.trim());
-        String pattern = options.getOrDefault("pattern", FreiburgDateStudy.DEFAULT_CSV_PATTERN);
+        String pattern = options.getOrDefault("pattern", DateStudy.DEFAULT_CSV_PATTERN);
         boolean strict = Boolean.parseBoolean(options.getOrDefault("strict", "false"));
         int replications = Integer.parseInt(
-                options.getOrDefault("replications", String.valueOf(FreiburgDateStudy.DEFAULT_REPLICATIONS)));
+                options.getOrDefault("replications", String.valueOf(DateStudy.DEFAULT_REPLICATIONS)));
 
         // Same up-front check as the date study: a missing CSV aborts before any simulation starts.
-        Map<String, File> demandPerDate = FreiburgDateStudy.resolveDemandCsvs(dates, demandLocation, pattern, strict);
+        Map<String, File> demandPerDate = DateStudy.resolveDemandCsvs(dates, demandLocation, pattern, strict);
 
         // One scenario per (date, headway combination, safety distance factor), so the output folder names all three.
         // Registration order is date-major, then combination, then factor, which the global run index follows:
@@ -124,11 +130,10 @@ public class FreiburgCombinationStudy implements StudyDefinition
             {
                 for (double safetyDistanceFactor : SAFETY_DISTANCE_FACTORS)
                 {
-                    String scenarioName = FreiburgStudyParameters.scenarioName(date,
-                            variantLabel(combination, safetyDistanceFactor));
-                    manager.addScenario(scenarioName, FreiburgNord.class);
+                    String scenarioName = facility.scenarioName(date, variantLabel(combination, safetyDistanceFactor));
+                    manager.addScenario(scenarioName, facility.getGeneratorClass());
                     manager.addParameterVariation(scenarioName,
-                            forCombination(date, demandCsvPath, strict, combination, safetyDistanceFactor));
+                            forCombination(facility, date, demandCsvPath, strict, combination, safetyDistanceFactor));
                 }
             }
         }
@@ -139,6 +144,7 @@ public class FreiburgCombinationStudy implements StudyDefinition
     /**
      * Builds the parameters of one date, headway combination and safety distance factor: the multi-day evaluation study's
      * configuration with only the car and truck headway and the lane-change safety distance reduction factor replaced.
+     * @param facility TrafficFacility; the facility supplying the baseline and demand wiring
      * @param date String; the simulated date in yyyy-MM-dd form
      * @param demandCsvPath String; the absolute path of the pre-generated demand CSV for this date
      * @param strict boolean; when true, a missing or unreadable demand CSV is fatal
@@ -146,10 +152,11 @@ public class FreiburgCombinationStudy implements StudyDefinition
      * @param safetyDistanceFactor double; the lane-change safety distance reduction factor, applied to cars and trucks alike
      * @return ScenarioParameters; the parameter variation for this date, combination and factor
      */
-    public static ScenarioParameters forCombination(final String date, final String demandCsvPath, final boolean strict,
-            final HeadwayCombination combination, final double safetyDistanceFactor)
+    public static ScenarioParameters forCombination(final TrafficFacility facility, final String date,
+            final String demandCsvPath, final boolean strict, final HeadwayCombination combination,
+            final double safetyDistanceFactor)
     {
-        ScenarioParameters params = FreiburgStudyParameters.forDate(date, demandCsvPath, strict);
+        ScenarioParameters params = facility.forDate(date, demandCsvPath, strict);
         params.set("car." + ParameterTypes.T.getId(), combination.carT());
         params.set("truck." + ParameterTypes.T.getId(), combination.truckT());
 
