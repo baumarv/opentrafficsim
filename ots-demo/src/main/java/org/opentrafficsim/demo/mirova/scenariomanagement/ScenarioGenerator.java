@@ -549,12 +549,49 @@ public abstract class ScenarioGenerator
     }
 
     /**
+     * Scenario parameter key that, when set to {@code Boolean.TRUE}, disables the Python-based demand preparation. Takes
+     * precedence over {@value #ENV_SKIP_DEMAND_PREP}.
+     */
+    public static final String KEY_SKIP_DEMAND_PREP = "skipDemandPrep";
+
+    /**
+     * Environment variable that, when set to "1" or "true", disables the Python-based demand preparation. Used for cluster
+     * execution, where pre-generated demand CSV files are supplied directly.
+     */
+    public static final String ENV_SKIP_DEMAND_PREP = "MIROVA_SKIP_DEMAND_PREP";
+
+    /** Environment variable overriding the path of the demand preparation script. */
+    public static final String ENV_DEMAND_SCRIPT = "MIROVA_DEMAND_SCRIPT";
+
+    /**
+     * Returns the value of an environment variable, or the given fallback when the variable is unset or blank.
+     * @param name String; the environment variable name
+     * @param fallback String; the value to use when the variable is not set
+     * @return String; the resolved value
+     */
+    private static String envOrDefault(final String name, final String fallback)
+    {
+        String value = System.getenv(name);
+        return (value == null || value.trim().isEmpty()) ? fallback : value;
+    }
+
+    /**
      * Reusable demand preparation mechanism with local file cache. Generates simulation demand files from database using
      * prepare_simulation_demand.py. If the requested demand was already prepared previously, it copies cached files in <1ms.
      * @param params ScenarioParameters; parameters for this simulation run
      */
     protected void prepareSimulationDemand(final ScenarioParameters params)
     {
+        // Cluster mode: no Python environment is available and the demand CSV is supplied pre-generated. Leaving the
+        // 'demandCsv' parameter untouched is essential here, since the regular path overwrites it with the generated file.
+        Boolean skipParam = params.get(KEY_SKIP_DEMAND_PREP, Boolean.class);
+        boolean skip = (skipParam != null) ? skipParam : ScenarioManager.isTruthy(System.getenv(ENV_SKIP_DEMAND_PREP));
+        if (skip)
+        {
+            System.out.println("[INFO] Demand preparation skipped; using the configured 'demandCsv' as-is.");
+            return;
+        }
+
         String startDate = params.get("demandStartDate", String.class);
         String endDate = params.get("demandEndDate", String.class);
         Integer aggregation = params.get("demandAggregation", Integer.class);
@@ -641,9 +678,10 @@ public abstract class ScenarioGenerator
 
                         try
                         {
-                            String pythonExe = "D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\venv\\Scripts\\python.exe";
-                            String scriptPath =
-                                    "D:\\Mitarbeitende\\gw2128\\repositories\\diss_mvb\\scripts\\evaluation\\fielddata\\detectors\\io\\prepare_simulation_demand.py";
+                            String pythonExe = envOrDefault(ScenarioManager.ENV_PYTHON_EXECUTABLE,
+                                    "D:\\Mitarbeitende\\gw2128\\repositories\\mirova\\venv\\Scripts\\python.exe");
+                            String scriptPath = envOrDefault(ENV_DEMAND_SCRIPT,
+                                    "D:\\Mitarbeitende\\gw2128\\repositories\\diss_mvb\\scripts\\evaluation\\fielddata\\detectors\\io\\prepare_simulation_demand.py");
 
                             List<String> command = new ArrayList<>();
                             command.add(pythonExe);
