@@ -22,6 +22,7 @@ This documentation is divided into modular files. Each file corresponds to a spe
 | Layer 4 | [**layer4_reactive_control.md**](layer4_reactive_control.md) | Execution, virtual headway relaxation, car-following wrappers | `MirovaCarFollowingUtil`, `RelaxationState`, `Wiedemann99`, `MirovaIdmPlus` |
 | Arb | [**arbitration.md**](arbitration.md) | 3-step plan selection, hysteresis, voting | `HybridPlanArbitrator`, `ScoredOperationalPlan` |
 | Demo | [**scenarios_and_simulations.md**](scenarios_and_simulations.md) | Scenario generation, runners, parameter studies | `ScenarioGenerator`, `ScenarioManager`, `FreiburgNord`, `MergeScenario` |
+| Cluster | [**scenariomanagement_architecture.md**](scenariomanagement_architecture.md) | Orchestration layer and cluster tooling: studies, run addressing, SLURM job arrays | `StudyDefinition`, `StudyRegistry`, `ScenarioManager`, `RunMirovaClusterStudy`, `cluster/` |
 | XML | [**ots_xml_format.md**](ots_xml_format.md) | OTS XML network format, RoadLayouts, offsets, merge/diverge patterns | `XmlParser`, `FreiburgNord.xml`, `MergeBodegraven.xml` |
 | Editor | [**ots_editor.md**](ots_editor.md) | OTS Editor desktop app, UI layout, key features, step-by-step editing | `OtsEditor`, `RunEditor`, `EditorMap` |
 | Python | [**python_pipeline.md**](python_pipeline.md) | Trajectory import, lane-matching, dashboarding | `match_lanes.py`, `dashboard_trajectories.py`, `execute_db_import.py` |

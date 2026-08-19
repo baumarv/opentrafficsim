@@ -2,6 +2,8 @@
 
 This guide documents common compilation issues, ClassLoader pitfalls, Maven execution errors, and their definitive solutions for the OpenTrafficSim (OTS) / MiRoVA framework workspace.
 
+For how the pieces fit together in the first place — studies, run addressing, the cluster tooling — see [scenariomanagement_architecture.md](scenariomanagement_architecture.md).
+
 ---
 
 ## 🚀 Quick Reference: Recommended Build & Run Commands
