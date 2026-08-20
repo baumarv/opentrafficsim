@@ -37,7 +37,14 @@ graph TD
     *   **Lane Tracker (`match_lanes.py`)**: [match_lanes.py](file:///d:/Mitarbeitende/gw2128/repositories/diss_mvb/scripts/evaluation/fielddata/trajectories/processing/match_lanes.py) maps vehicles to lanes using a rolling-window Gaussian Mixture Model (GMM), Hungarian matching, and bi-directional dead reckoning. This solves the "label-switching" problem during section-wise cluster analysis (e.g., at on-ramps and off-ramps).
     *   **Anomaly Checker (`check_trajectory_anomalies.py`)**: [check_trajectory_anomalies.py](file:///d:/Mitarbeitende/gw2128/repositories/diss_mvb/scripts/evaluation/fielddata/trajectories/processing/helpers/check_trajectory_anomalies.py) filters out teleportation spikes, physical acceleration violations, and reverse driving outliers.
 
-### 3. Simulation Verification (`simulation/ots/`)
+### 3. Performance Profiling (`simulation/ots/profiling/`)
+*   **Purpose**: Turns a Java Flight Recorder recording of an OTS/MiRoVA run into an architecture-aware performance report, mapping hotspots onto the five layers instead of listing raw method names.
+*   **Key Script**: [analyze_jfr_profile.py](file:///d:/Mitarbeitende/gw2128/repositories/diss_mvb/scripts/simulation/ots/analyze_jfr_profile.py) parses `jfr print` output, restricts it to the steady-state window (excluding JVM start-up), and writes a Markdown report.
+*   **Separate analyses**: CPU self-time by owning code base, inclusive time by architectural layer, allocation by layer and type, and a check of whether the per-tick car-following cache is effective or bypassed.
+*   **Recording** needs JVM flags only, no code changes: `-XX:StartFlightRecording=filename=run.jfr,settings=profile,dumponexit=true -XX:FlightRecorderOptions=stackdepth=128`.
+*   See [profiling/README.md](file:///d:/Mitarbeitende/gw2128/repositories/diss_mvb/scripts/simulation/ots/profiling/README.md) for the workflow and the pitfalls it guards against.
+
+### 4. Simulation Verification (`simulation/ots/`)
 *   **Purpose**: Configures the execution of OTS simulations from Python and processes the results.
 *   **Key Script**: [dashboard_trajectories.py](file:///d:/Mitarbeitende/gw2128/repositories/diss_mvb/scripts/simulation/ots/dashboard_trajectories.py) generates dynamic web-based dashboard plots (using Plotly/Streamlit) to visually inspect simulated vehicle trajectories.
 
