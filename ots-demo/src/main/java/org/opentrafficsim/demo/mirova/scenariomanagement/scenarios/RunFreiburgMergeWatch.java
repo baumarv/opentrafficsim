@@ -4,9 +4,11 @@ import java.io.File;
 
 import org.djunits.unit.DurationUnit;
 import org.djunits.value.vdouble.scalar.Duration;
+import org.opentrafficsim.base.parameters.ParameterTypes;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioGenerator;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioParameters;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioSimulationScript;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 
 /**
  * Short interactive Freiburg-Nord run for visually inspecting merge behaviour on the on-ramp.
@@ -15,21 +17,26 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioSimulationScrip
  * on the main lanes. Slow merges are legitimate when the target lane is congested -- the merger simply has nothing to
  * synchronise with. They are not legitimate when the main lanes are flowing, because a real driver accelerates on the ramp
  * towards the speed of the traffic they are joining, largely irrespective of whether a gap happens to be available early. The
- * evening peak is therefore simulated: it passes through both regimes, so both cases can be observed in one run.
+ * demand window is therefore chosen to pass through both regimes, so both cases can be observed in one run.
+ * </p>
+ * <h3>Configuration</h3>
+ * <p>
+ * Every value this run depends on is a constant in the CONFIGURATION block below: edit one, run again, watch what changes.
+ * Nothing is read from system properties or arguments.
  * </p>
  * <p>
- * The behavioural parameters are taken verbatim from {@link FreiburgStudyParameters#baseBehaviorParams()} via
- * {@code getDefaultParameters()}, so what is observed here is the same driver behaviour the studies measure.
+ * The defaults reproduce the calibration the studies use. Where {@link FreiburgStudyParameters} names a value, the constant
+ * refers to it rather than repeating the number, so those defaults cannot silently drift away from the studies; the remaining
+ * values are spelled out with the study baseline noted next to them. Bear in mind that this is a copy of the calibration made
+ * editable, not the calibration itself -- {@link FreiburgStudyParameters#baseBehaviorParams()} remains the single source of
+ * truth for what the studies actually measure, and a value changed here changes only this interactive run.
  * </p>
  * <p>
- * Configurable via system properties, so the same build can be pointed at a different part of the day without editing:
+ * Two things are deliberately absent. The truck share and the traffic volume are not configurable, because for Freiburg-Nord
+ * both come from the demand CSV via the OD matrix rather than from a parameter; setting them here would suggest an effect they
+ * do not have. And {@code cooperativeLaneChangesEnabled} is set for trucks only, exactly as the baseline does, so that cars
+ * keep the model default instead of silently acquiring an explicit setting the studies never gave them.
  * </p>
- * <ul>
- * <li>{@code -Dmerge.start} / {@code -Dmerge.end} -- demand window, {@code yyyy-MM-dd HH:mm:ss}. Changing these changes the
- * demand cache key and may trigger a fresh demand preparation, which takes noticeably longer than a cached window.</li>
- * <li>{@code -Dmerge.minutes} -- simulated duration in minutes, counted from the start of the demand window.</li>
- * <li>{@code -Dmerge.seed} -- random seed.</li>
- * </ul>
  * <p>
  * Copyright (c) 2026 Marvin Baumann / KIT. All rights reserved. <br>
  * BSD-style license. See OpenTrafficSim License.
@@ -38,50 +45,183 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioSimulationScrip
  */
 public final class RunFreiburgMergeWatch
 {
+    // =================================================================================================================
+    // CONFIGURATION -- edit anything below and re-run
+    // =================================================================================================================
+
+    // ---- Run -------------------------------------------------------------------------------------------------------
+
+    /** Start of the demand window, {@code yyyy-MM-dd HH:mm:ss}. */
+    private static final String DEMAND_START = "2025-10-13 13:00:00";
+
+    /** End of the demand window. Changing the window may trigger a fresh demand preparation, which takes a while. */
+    private static final String DEMAND_END = "2025-10-13 14:00:00";
+
+    /** Simulated duration in minutes, counted from the start of the demand window. */
+    private static final double SIMULATED_MINUTES = 45.0;
+
+    /** Random seed. */
+    private static final long SEED = 42L;
+
+    /** Whether to show the animation. Turning this off makes the run headless and much faster. */
+    private static final boolean SHOW_GUI = true;
+
+    /** Trajectory recording. Pure overhead while watching, needed only if the run is to be evaluated afterwards. */
+    private static final boolean RECORD_TRAJECTORIES = false;
+
+    /** Output directory. */
+    private static final String OUTPUT_DIR = "target/freiburg-merge-watch2";
+
+    /** Demand aggregation interval in minutes. Study baseline. */
+    private static final int DEMAND_AGGREGATION_MIN = FreiburgStudyParameters.AGGREGATION_MIN;
+
+    /** Whether the demand profile is smoothed. Study baseline: false. */
+    private static final boolean DEMAND_SMOOTH = false;
+
+    // ---- Cars ------------------------------------------------------------------------------------------------------
+
+    /** Desired time headway of cars [s]. Study baseline via FreiburgStudyParameters; the tighter sweep uses 0.90. */
+    private static final double CAR_T = FreiburgStudyParameters.CAR_T;
+
+    /** Speed gain of cars, driving the socio-speed sensitivity [km/h]. Study baseline: 15.0. */
+    private static final double CAR_V_GAIN = 15.0;
+
+    /** Maximum acceleration of cars [m/s^2]. Study baseline: 3.5. */
+    private static final double CAR_A_MAX = 3.5;
+
+    /** Deceleration a car accepts in order to cooperate with a merger [m/s^2]. Study baseline. */
+    private static final double CAR_COOPERATIVE_DECELERATION_THRESHOLD =
+            FreiburgStudyParameters.CAR_COOPERATIVE_DECELERATION_THRESHOLD;
+
+    /** Long-range anticipation for cars. Study baseline: false. */
+    private static final boolean CAR_FAR_ANTICIPATION = false;
+
+    /** Lane-change safety distance reduction factor of cars. Study baseline; the sweep also uses 0.50. */
+    private static final double CAR_SAFETY_DISTANCE_FACTOR = FreiburgStudyParameters.RED_FAC;
+
+    /** Capacity drop modelling for cars. Study baseline: false. */
+    private static final boolean CAR_CAPACITY_DROP = false;
+
+    /** Relaxation acceleration damping factor of cars. Study baseline: 0.80; the sweep also uses 0.60. */
+    private static final double CAR_RELAXATION_DAMPING_FACTOR = 0.80;
+
+    /** Whether relaxation acceleration damping is active for cars. Study baseline: true. */
+    private static final boolean CAR_RELAXATION_DAMPING_ENABLED = true;
+
+    // ---- Trucks ----------------------------------------------------------------------------------------------------
+
+    /** Desired time headway of trucks [s]. Study baseline via FreiburgStudyParameters; the tighter sweep uses 1.20. */
+    private static final double TRUCK_T = FreiburgStudyParameters.TRUCK_T;
+
+    /** Speed gain of trucks [km/h]. Study baseline: 30.0. */
+    private static final double TRUCK_V_GAIN = 30.0;
+
+    /** Maximum acceleration of trucks [m/s^2]. Study baseline: 1.3. */
+    private static final double TRUCK_A_MAX = 1.3;
+
+    /** Deceleration a truck accepts in order to cooperate with a merger [m/s^2]. Study baseline. */
+    private static final double TRUCK_COOPERATIVE_DECELERATION_THRESHOLD =
+            FreiburgStudyParameters.TRUCK_COOPERATIVE_DECELERATION_THRESHOLD;
+
+    /** Whether trucks perform cooperative lane changes at all. Study baseline: false. */
+    private static final boolean TRUCK_COOPERATIVE_LANE_CHANGES = false;
+
+    /** Long-range anticipation for trucks. Study baseline: false. */
+    private static final boolean TRUCK_FAR_ANTICIPATION = false;
+
+    /** Lane-change safety distance reduction factor of trucks. Study baseline; the sweep also uses 0.50. */
+    private static final double TRUCK_SAFETY_DISTANCE_FACTOR = FreiburgStudyParameters.RED_FAC;
+
+    /** Capacity drop modelling for trucks. Study baseline: false. */
+    private static final boolean TRUCK_CAPACITY_DROP = false;
+
+    /** Relaxation acceleration damping factor of trucks. Study baseline: 0.80; the sweep also uses 0.60. */
+    private static final double TRUCK_RELAXATION_DAMPING_FACTOR = 0.80;
+
+    /** Whether relaxation acceleration damping is active for trucks. Study baseline: true. */
+    private static final boolean TRUCK_RELAXATION_DAMPING_ENABLED = true;
+
+    // =================================================================================================================
+    // END OF CONFIGURATION
+    // =================================================================================================================
+
     /** Utility class, not instantiated. */
     private RunFreiburgMergeWatch()
     {
     }
 
     /**
-     * Starts the interactive run.
-     * @param args command line arguments, unused
+     * Starts the run.
+     * @param args command line arguments, unused -- configure via the constants above
      * @throws Exception on simulation errors
      */
     public static void main(final String[] args) throws Exception
     {
-        String demandStart = System.getProperty("merge.start", "2025-10-13 13:00:00");
-        String demandEnd = System.getProperty("merge.end", "2025-10-13 14:00:00");
-        double minutes = Double.parseDouble(System.getProperty("merge.minutes", "45"));
-        long seed = Long.parseLong(System.getProperty("merge.seed", "42"));
-
-        File outputDir = new File(System.getProperty("merge.outDir", "target/freiburg-merge-watch2"));
+        File outputDir = new File(OUTPUT_DIR);
         outputDir.mkdirs();
 
         ScenarioGenerator scenario = new FreiburgNord();
         scenario.setOutputDirectory(outputDir);
 
+        // The scenario defaults carry the demand wiring and network settings but no behaviour parameters, so every
+        // behavioural value the run uses is the one configured above.
         ScenarioParameters params = scenario.getDefaultParameters().copy();
-        params.setSeed(seed);
 
-        // Demand window. Aggregation and smoothing are kept identical to RunFreiburgNord so that an already prepared
-        // demand file for the same window is reused instead of regenerated.
-        params.set("demandStartDate", demandStart);
-        params.set("demandEndDate", demandEnd);
-        params.set("demandAggregation", 5);
-        params.set("demandSmooth", false);
+        params.set("car." + ParameterTypes.T.getId(), CAR_T);
+        params.set("car." + MirovaParameters.vGain.getId(), CAR_V_GAIN);
+        params.set("car." + MirovaParameters.A_MAX.getId(), CAR_A_MAX);
+        params.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(), CAR_COOPERATIVE_DECELERATION_THRESHOLD);
+        params.set("car." + MirovaParameters.farAnticipationEnabled.getId(), CAR_FAR_ANTICIPATION);
+        params.set("car." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(), CAR_SAFETY_DISTANCE_FACTOR);
+        params.set("car." + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), CAR_CAPACITY_DROP);
+        params.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), CAR_RELAXATION_DAMPING_FACTOR);
+        params.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_ENABLED.getId(), CAR_RELAXATION_DAMPING_ENABLED);
+
+        params.set("truck." + ParameterTypes.T.getId(), TRUCK_T);
+        params.set("truck." + MirovaParameters.vGain.getId(), TRUCK_V_GAIN);
+        params.set("truck." + MirovaParameters.A_MAX.getId(), TRUCK_A_MAX);
+        params.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(),
+                TRUCK_COOPERATIVE_DECELERATION_THRESHOLD);
+        params.set("truck." + MirovaParameters.cooperativeLaneChangesEnabled.getId(), TRUCK_COOPERATIVE_LANE_CHANGES);
+        params.set("truck." + MirovaParameters.farAnticipationEnabled.getId(), TRUCK_FAR_ANTICIPATION);
+        params.set("truck." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(), TRUCK_SAFETY_DISTANCE_FACTOR);
+        params.set("truck." + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), TRUCK_CAPACITY_DROP);
+        params.set("truck." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), TRUCK_RELAXATION_DAMPING_FACTOR);
+        params.set("truck." + MirovaParameters.RELAXATION_ACC_DAMPING_ENABLED.getId(), TRUCK_RELAXATION_DAMPING_ENABLED);
+
+        params.setSeed(SEED);
+
+        params.set("demandStartDate", DEMAND_START);
+        params.set("demandEndDate", DEMAND_END);
+        params.set("demandAggregation", DEMAND_AGGREGATION_MIN);
+        params.set("demandSmooth", DEMAND_SMOOTH);
 
         // Only a slice of the demand window is simulated -- this run is for looking, not for producing statistics.
-        params.setSimulationTime(new Duration(minutes, DurationUnit.MINUTE));
+        params.setSimulationTime(new Duration(SIMULATED_MINUTES, DurationUnit.MINUTE));
+        params.set("enableTrajectoryRecording", RECORD_TRAJECTORIES);
 
-        // Trajectory recording is pure overhead for an interactive run and slows the animation down.
-        params.set("enableTrajectoryRecording", false);
-
-        System.out.println("[MergeWatch] demand window " + demandStart + " .. " + demandEnd + ", simulating " + minutes
-                + " min, seed " + seed);
+        printConfiguration();
 
         ScenarioSimulationScript script = scenario.buildSimulationScript(params);
-        script.setGuiEnabled(true);
+        script.setGuiEnabled(SHOW_GUI);
         script.start();
+    }
+
+    /**
+     * Writes the active configuration to the console, so that a screenshot of a run can be traced back to its settings.
+     */
+    private static void printConfiguration()
+    {
+        System.out.println("[MergeWatch] window " + DEMAND_START + " .. " + DEMAND_END + ", " + SIMULATED_MINUTES
+                + " min simulated, seed " + SEED + ", gui=" + SHOW_GUI);
+        System.out.println("[MergeWatch] car:   T=" + CAR_T + "s, vGain=" + CAR_V_GAIN + ", aMax=" + CAR_A_MAX + ", coopDecel="
+                + CAR_COOPERATIVE_DECELERATION_THRESHOLD + ", safetyDist=" + CAR_SAFETY_DISTANCE_FACTOR + ", damping="
+                + CAR_RELAXATION_DAMPING_FACTOR + " (enabled=" + CAR_RELAXATION_DAMPING_ENABLED + "), farAnticipation="
+                + CAR_FAR_ANTICIPATION + ", capacityDrop=" + CAR_CAPACITY_DROP);
+        System.out.println("[MergeWatch] truck: T=" + TRUCK_T + "s, vGain=" + TRUCK_V_GAIN + ", aMax=" + TRUCK_A_MAX
+                + ", coopDecel=" + TRUCK_COOPERATIVE_DECELERATION_THRESHOLD + ", safetyDist=" + TRUCK_SAFETY_DISTANCE_FACTOR
+                + ", damping=" + TRUCK_RELAXATION_DAMPING_FACTOR + " (enabled=" + TRUCK_RELAXATION_DAMPING_ENABLED
+                + "), farAnticipation=" + TRUCK_FAR_ANTICIPATION + ", capacityDrop=" + TRUCK_CAPACITY_DROP
+                + ", cooperativeLaneChanges=" + TRUCK_COOPERATIVE_LANE_CHANGES);
     }
 }

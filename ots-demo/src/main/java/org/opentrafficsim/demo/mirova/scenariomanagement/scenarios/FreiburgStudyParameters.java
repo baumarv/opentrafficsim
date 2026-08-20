@@ -32,6 +32,12 @@ public final class FreiburgStudyParameters
     /** Desired headway T of trucks, in seconds. */
     public static final double TRUCK_T = 1.30;
 
+    /** Deceleration a car accepts in order to cooperate with a merging vehicle, in m/s^2. */
+    public static final double CAR_COOPERATIVE_DECELERATION_THRESHOLD = -3.0;
+
+    /** Deceleration a truck accepts in order to cooperate with a merging vehicle, in m/s^2. */
+    public static final double TRUCK_COOPERATIVE_DECELERATION_THRESHOLD = -1.0;
+
     /** Start time of day of every simulated date. */
     public static final String START_TIME_OF_DAY = "13:00:00";
 
@@ -124,7 +130,7 @@ public final class FreiburgStudyParameters
         params.set("car." + ParameterTypes.T.getId(), CAR_T);
         params.set("car." + MirovaParameters.vGain.getId(), 15.0);
         params.set("car." + MirovaParameters.A_MAX.getId(), 3.5);
-        params.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(), -2.0);
+        params.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(), CAR_COOPERATIVE_DECELERATION_THRESHOLD);
         params.set("car." + MirovaParameters.farAnticipationEnabled.getId(), false);
         params.set("car." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(), RED_FAC);
         params.set("car." + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), false);
@@ -135,7 +141,8 @@ public final class FreiburgStudyParameters
         params.set("truck." + ParameterTypes.T.getId(), TRUCK_T);
         params.set("truck." + MirovaParameters.vGain.getId(), 30.0);
         params.set("truck." + MirovaParameters.A_MAX.getId(), 1.3);
-        params.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(), -0.5);
+        params.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(),
+                TRUCK_COOPERATIVE_DECELERATION_THRESHOLD);
         params.set("truck." + MirovaParameters.cooperativeLaneChangesEnabled.getId(), false);
         params.set("truck." + MirovaParameters.farAnticipationEnabled.getId(), false);
         params.set("truck." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(), RED_FAC);
