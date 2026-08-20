@@ -76,7 +76,7 @@ public class MirovaCsvLogger implements Runnable
 
             if (!this.headerWritten)
             {
-                this.writer.write("time,gtuId,speed_m_s,accel_m_s2,desire,headway_s,isChangingLane,actionState\n");
+                this.writer.write("time,gtuId,speed_m_s,accel_m_s2,desire,isChangingLane,actionState\n");
                 this.headerWritten = true;
             }
 
@@ -86,9 +86,8 @@ public class MirovaCsvLogger implements Runnable
                 {
                     // Use Locale.US to ensure floats are formatted with dots (.) instead of commas (,)
                     // to prevent breaking the CSV structure on European systems.
-                    this.writer.write(String.format(Locale.US, "%.2f,%s,%.3f,%.3f,%.3f,%.3f,%s,%s%n", now.si, gtu.getId(),
+                    this.writer.write(String.format(Locale.US, "%.2f,%s,%.3f,%.3f,%.3f,%s,%s%n", now.si, gtu.getId(),
                             gtu.getSpeed().si, gtu.getAcceleration().si, planner.getDesire(),
-                            planner.getCurrentRelaxedHeadway() != null ? planner.getCurrentRelaxedHeadway().si : Double.NaN,
                             planner.getLaneChange().isChangingLane(),
                             planner.getCurrentActionState() != null ? planner.getCurrentActionState().toString() : "none"));
                 }
