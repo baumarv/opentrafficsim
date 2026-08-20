@@ -14,8 +14,9 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.TrafficFacility;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 
 /**
- * Crosses named headway combinations with lane-change safety distance factors and with every simulated date: N
- * combinations x F factors x M dates x R replications.
+ * Crosses named headway combinations with relaxation acceleration damping factors and lane-change safety distance
+ * reduction factors, on every simulated date: N combinations x D damping x S safety distance x M dates x R
+ * replications.
  * <p>
  * This is the shape neither existing study covers. {@link DateStudy} applies one fixed parameter set per date, and
  * {@link FreiburgParameterStudy} sweeps one dimension at a time around a baseline on a single date. Here the full
@@ -25,9 +26,9 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * <p>
  * Each variation starts from {@link FreiburgStudyParameters#forDate(String, String, boolean)} - hence from the shared
  * {@link FreiburgStudyParameters#baseBehaviorParams()} baseline plus the usual demand wiring - and overrides only the car
- * and truck desired headway {@code T} and the safety distance reduction factor. The factor is deliberately the same for
- * cars and trucks, so a cell of the grid is described by two numbers rather than three, and a variation differs from the
- * multi-day evaluation study in exactly the swept parameters, by construction rather than by convention.
+ * and truck desired headway {@code T}, the relaxation acceleration damping factor and the lane-change safety distance
+ * reduction factor. Both factors are deliberately the same for cars and trucks, so a cell of the grid is described by
+ * three numbers rather than six, and a variation differs from the evaluation study in exactly the swept parameters.
  * </p>
  * <p>
  * Options honoured by {@link #register(ScenarioManager, Map)}, identical to {@link DateStudy}'s:
@@ -68,16 +69,25 @@ public class FreiburgCombinationStudy implements StudyDefinition
             List.of(new HeadwayCombination("standard", 1.00, 1.30), new HeadwayCombination("tighter", 0.90, 1.20));
 
     /**
-     * The lane-change safety distance reduction factors crossed with every headway combination. One value per entry, applied
-     * to cars and trucks alike; 0.60 is the value {@link FreiburgStudyParameters#RED_FAC} uses, so that combination
-     * reproduces the multi-day evaluation study's setting.
+     * The relaxation acceleration damping factors crossed with every headway combination. One value per entry, applied to
+     * cars and trucks alike; 0.80 is the baseline value, so that combination reproduces the evaluation study's setting.
      */
-    public static final List<Double> SAFETY_DISTANCE_FACTORS = List.of(0.60, 0.80);
+    public static final List<Double> ACC_DAMPING_FACTORS = List.of(0.60, 0.80);
+
+    /**
+     * The lane-change safety distance reduction factors crossed with the other two dimensions, applied to cars and
+     * trucks alike. These are the two values the study has actually used historically: 0.50 until 2026-07-31 and 0.60
+     * since 2026-08-06, the latter being the facility baseline {@link FreiburgStudyParameters#RED_FAC}.
+     */
+    public static final List<Double> SAFETY_DISTANCE_FACTORS = List.of(0.50, 0.60);
 
     /** Scenario parameter key recording which headway combination produced a variation, for downstream post-processing. */
     public static final String KEY_COMBINATION = "headwayCombination";
 
-    /** Scenario parameter key recording the safety distance reduction factor of a variation. */
+    /** Scenario parameter key recording the relaxation acceleration damping factor of a variation. */
+    public static final String KEY_ACC_DAMPING_FACTOR = "accDampingFactor";
+
+    /** Scenario parameter key recording the lane-change safety distance reduction factor of a variation. */
     public static final String KEY_SAFETY_DISTANCE_FACTOR = "safetyDistanceFactor";
 
     @Override
@@ -89,8 +99,9 @@ public class FreiburgCombinationStudy implements StudyDefinition
     @Override
     public String getDescription()
     {
-        return "Headway combinations x safety distance factors x dates: " + COMBINATIONS.size() + " x "
-                + SAFETY_DISTANCE_FACTORS.size() + " variations per date.";
+        return "Headway combinations x damping factors x safety distance factors x dates: " + COMBINATIONS.size()
+                + " x " + ACC_DAMPING_FACTORS.size() + " x " + SAFETY_DISTANCE_FACTORS.size()
+                + " variations per date.";
     }
 
     @Override
@@ -120,20 +131,24 @@ public class FreiburgCombinationStudy implements StudyDefinition
         // Same up-front check as the date study: a missing CSV aborts before any simulation starts.
         Map<String, File> demandPerDate = DateStudy.resolveDemandCsvs(dates, demandLocation, pattern, strict);
 
-        // One scenario per (date, headway combination, safety distance factor), so the output folder names all three.
-        // Registration order is date-major, then combination, then factor, which the global run index follows:
-        // index = (((dateIndex * combinations) + comboIndex) * factors + factorIndex) * replications + replication.
+        // One scenario per (date, headway combination, damping factor, safety distance factor), so the output folder
+        // names all four. Registration order is date-major, then combination, then damping, then safety distance,
+        // which the global run index follows.
         for (String date : dates)
         {
             String demandCsvPath = demandPerDate.get(date).getAbsolutePath();
             for (HeadwayCombination combination : COMBINATIONS)
             {
-                for (double safetyDistanceFactor : SAFETY_DISTANCE_FACTORS)
+                for (double accDampingFactor : ACC_DAMPING_FACTORS)
                 {
-                    String scenarioName = facility.scenarioName(date, variantLabel(combination, safetyDistanceFactor));
-                    manager.addScenario(scenarioName, facility.getGeneratorClass());
-                    manager.addParameterVariation(scenarioName,
-                            forCombination(facility, date, demandCsvPath, strict, combination, safetyDistanceFactor));
+                    for (double safetyDistanceFactor : SAFETY_DISTANCE_FACTORS)
+                    {
+                        String scenarioName = facility.scenarioName(date,
+                                variantLabel(combination, accDampingFactor, safetyDistanceFactor));
+                        manager.addScenario(scenarioName, facility.getGeneratorClass());
+                        manager.addParameterVariation(scenarioName, forCombination(facility, date, demandCsvPath,
+                                strict, combination, accDampingFactor, safetyDistanceFactor));
+                    }
                 }
             }
         }
@@ -142,30 +157,35 @@ public class FreiburgCombinationStudy implements StudyDefinition
     }
 
     /**
-     * Builds the parameters of one date, headway combination and safety distance factor: the multi-day evaluation study's
-     * configuration with only the car and truck headway and the lane-change safety distance reduction factor replaced.
+     * Builds the parameters of one grid cell: the multi-day evaluation study's configuration with only the car and truck
+     * headway, the relaxation acceleration damping factor and the lane-change safety distance reduction factor replaced.
      * @param facility TrafficFacility; the facility supplying the baseline and demand wiring
      * @param date String; the simulated date in yyyy-MM-dd form
      * @param demandCsvPath String; the absolute path of the pre-generated demand CSV for this date
      * @param strict boolean; when true, a missing or unreadable demand CSV is fatal
      * @param combination HeadwayCombination; the headway combination to apply
-     * @param safetyDistanceFactor double; the lane-change safety distance reduction factor, applied to cars and trucks alike
-     * @return ScenarioParameters; the parameter variation for this date, combination and factor
+     * @param accDampingFactor double; the relaxation acceleration damping factor, applied to cars and trucks alike
+     * @param safetyDistanceFactor double; the safety distance reduction factor, applied to cars and trucks alike
+     * @return ScenarioParameters; the parameter variation for this grid cell
      */
     public static ScenarioParameters forCombination(final TrafficFacility facility, final String date,
             final String demandCsvPath, final boolean strict, final HeadwayCombination combination,
-            final double safetyDistanceFactor)
+            final double accDampingFactor, final double safetyDistanceFactor)
     {
         ScenarioParameters params = facility.forDate(date, demandCsvPath, strict);
         params.set("car." + ParameterTypes.T.getId(), combination.carT());
         params.set("truck." + ParameterTypes.T.getId(), combination.truckT());
 
-        // The same factor for both GTU types, so a variation differs in one value rather than in a pair of them.
+        // Both swept factors apply to cars and trucks alike, so a grid cell is described by three numbers rather
+        // than six.
+        params.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), accDampingFactor);
+        params.set("truck." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), accDampingFactor);
         params.set("car." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(), safetyDistanceFactor);
         params.set("truck." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(), safetyDistanceFactor);
 
         // Recorded so runParams.txt names the variation rather than only carrying its numeric values.
         params.set(KEY_COMBINATION, combination.label());
+        params.set(KEY_ACC_DAMPING_FACTOR, accDampingFactor);
         params.set(KEY_SAFETY_DISTANCE_FACTOR, safetyDistanceFactor);
         return params;
     }
@@ -177,11 +197,14 @@ public class FreiburgCombinationStudy implements StudyDefinition
      * names that post-processing matches on, and those must not depend on the format locale of whichever node ran the job.
      * </p>
      * @param combination HeadwayCombination; the headway combination
+     * @param accDampingFactor double; the relaxation acceleration damping factor
      * @param safetyDistanceFactor double; the lane-change safety distance reduction factor
-     * @return String; the label, e.g. {@code standard_sdr0.60}
+     * @return String; the label, e.g. {@code standard_adamp0.60_sdr0.50}
      */
-    public static String variantLabel(final HeadwayCombination combination, final double safetyDistanceFactor)
+    public static String variantLabel(final HeadwayCombination combination, final double accDampingFactor,
+            final double safetyDistanceFactor)
     {
-        return combination.label() + String.format(Locale.ROOT, "_sdr%.2f", safetyDistanceFactor);
+        return combination.label() + String.format(Locale.ROOT, "_adamp%.2f_sdr%.2f", accDampingFactor,
+                safetyDistanceFactor);
     }
 }

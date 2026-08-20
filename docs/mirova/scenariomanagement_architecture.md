@@ -67,7 +67,7 @@ they actually vary.
 |---|---|---|---|
 | **`DateStudy`** | `dates` | One fixed parameter combination across multiple days; **facility-agnostic**, `--facility=` defaults to `freiburg` | `TrafficFacility.forDate(...)` |
 | **`FreiburgParameterStudy`** | `paramgrid` | Several parameter dimensions (one-at-a-time sweep) on a fixed period | `ParameterGridBuilder.buildIsolated()` |
-| **`FreiburgCombinationStudy`** | `combos` | Named parameter combinations across multiple days — currently headway pairs × safety-distance factors | Cartesian product of two fixed lists, each cell from `forDate(...)` |
+| **`FreiburgCombinationStudy`** | `combos` | Named parameter combinations across multiple days — currently headway pairs × damping factors × safety-distance factors | Cartesian product of three fixed lists, each cell from `forDate(...)` |
 
 **When to use which?** `dates` for the plain multi-day validation study (one parameter set, many
 days, many replications). `paramgrid` for "how does the model react to changes in individual
