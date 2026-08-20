@@ -65,13 +65,9 @@ public class GapSearchPattern extends ManeuverPattern
      */
     public GapSearchPattern(final MirovaTacticalPlanner vehicle)
     {
-        super(PatternType.EXCLUSIVE, vehicle);
+        super(vehicle);
         this.initialActionState = () -> new MatchTargetLaneSpeedState(this);
         this.targetDirection = this.vehicle.getLaneChangeDesire().dominantDirection();
-        this.requiredContextKeys.add("Ego");
-        this.requiredContextKeys.add("Neighbors");
-        this.requiredContextKeys.add("Infrastructure");
-        this.requiredContextKeys.add("MacroTraffic");
     }
 
     /**

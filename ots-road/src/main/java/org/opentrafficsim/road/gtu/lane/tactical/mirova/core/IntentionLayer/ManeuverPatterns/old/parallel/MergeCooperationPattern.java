@@ -80,11 +80,8 @@ public class MergeCooperationPattern extends ManeuverPattern
      */
     public MergeCooperationPattern(final MirovaTacticalPlanner vehicle)
     {
-        super(PatternType.PARALLEL, vehicle);
+        super(vehicle);
         this.initialActionState = () -> new PreemptiveDecelerationState(this);
-        this.requiredContextKeys.add("Ego");
-        this.requiredContextKeys.add("Neighbors");
-        this.requiredContextKeys.add("Infrastructure");
     }
 
     /**

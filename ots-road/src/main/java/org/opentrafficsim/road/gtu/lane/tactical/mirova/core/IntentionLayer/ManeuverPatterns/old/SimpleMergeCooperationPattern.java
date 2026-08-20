@@ -81,12 +81,8 @@ public class SimpleMergeCooperationPattern extends ManeuverPattern implements Se
      */
     public SimpleMergeCooperationPattern(final MirovaTacticalPlanner vehicle)
     {
-        super(PatternType.PARALLEL, vehicle);
+        super(vehicle);
         this.initialActionState = () -> new AnticipationState(this);
-        this.requiredContextKeys.add("Ego");
-        this.requiredContextKeys.add("Neighbors");
-        this.requiredContextKeys.add("Infrastructure");
-        this.requiredContextKeys.add("MacroTraffic");
     }
 
     /**

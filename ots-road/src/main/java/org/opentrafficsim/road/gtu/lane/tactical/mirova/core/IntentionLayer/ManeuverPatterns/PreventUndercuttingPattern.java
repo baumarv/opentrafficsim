@@ -55,7 +55,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
      */
     public PreventUndercuttingPattern(final MirovaTacticalPlanner vehicle) throws ParameterException
     {
-        super(PatternType.PARALLEL, vehicle);
+        super(vehicle);
         this.initialActionState = () -> new ShadowingState(this);
     }
 

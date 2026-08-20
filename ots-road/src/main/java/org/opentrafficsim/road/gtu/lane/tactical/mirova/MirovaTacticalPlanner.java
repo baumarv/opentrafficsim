@@ -32,7 +32,6 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.Desire;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.DesireIncentive;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ActionState;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern.PatternType;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaCarFollowingUtil;
 import org.opentrafficsim.road.gtu.lane.tactical.util.ConflictUtil;
 import org.opentrafficsim.road.gtu.lane.tactical.util.SpeedLimitUtil;
@@ -121,11 +120,8 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     /** Declarative knowledge base for this vehicle. */
     protected final List<DesireIncentive> knowledgeChunks = new ArrayList<>();
 
-    /** Procedural knowledge: available exclusive maneuver patterns. */
-    protected final List<ManeuverPattern> exclusiveManeuverPatterns = new ArrayList<>();
-
-    /** Procedural knowledge: available parallel maneuver patterns. */
-    protected final List<ManeuverPattern> parallelManeuverPatterns = new ArrayList<>();
+    /** Procedural knowledge: the maneuver patterns available to this vehicle. */
+    protected final List<ManeuverPattern> maneuverPatterns = new ArrayList<>();
 
     /**
      * * The ActionState that currently locks the tactical planner. This is ONLY set during physical points of no return (e.g.,
@@ -409,10 +405,8 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         this.operationalPlan = null;
 
         // 6. Determine operational plan using the hybrid three-step arbitration scheme.
-        ArrayList<ManeuverPattern> allPatterns = new ArrayList<>();
-        allPatterns.addAll(this.exclusiveManeuverPatterns);
-        allPatterns.addAll(this.parallelManeuverPatterns);
-        ArrayList<ManeuverPattern> relevantPatterns = PatternSelector.getAllRelevantPatterns(allPatterns);
+        ArrayList<ManeuverPattern> relevantPatterns =
+                PatternSelector.getAllRelevantPatterns(new ArrayList<>(this.maneuverPatterns));
 
         SimpleOperationalPlan arbitratedPlan = this.hybridArbitrator.arbitrate(relevantPatterns);
 
@@ -517,17 +511,6 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     }
 
     /**
-     * Selects a maneuver pattern of the specified type using the {@link PatternSelector}.
-     * @param patterns the list of candidate maneuver patterns
-     * @return the selected maneuver pattern, or null if none is applicable
-     * @throws ParameterException if pattern selection fails due to parameter issues
-     */
-    protected ManeuverPattern selectPatternByType(final ArrayList<ManeuverPattern> patterns) throws ParameterException
-    {
-        return PatternSelector.select(patterns);
-    }
-
-    /**
      * Returns all {@link DesireIncentive}s currently assigned to this vehicle. These represent the declarative knowledge
      * influencing tactical reasoning.
      * @return list of all knowledge chunks
@@ -551,46 +534,24 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     }
 
     /**
-     * Registers a new exclusive {@link ManeuverPattern} to this vehicle. Exclusive patterns represent maneuvers that cannot be
-     * combined with others. This method is typically called in the constructor of the concrete vehicle class.
-     * @param pattern the exclusive maneuver pattern to add
+     * Registers a {@link ManeuverPattern} with this vehicle. Typically called when the planner is assembled.
+     * @param pattern the maneuver pattern to add
      */
-    public void addExclusiveManeuverPattern(final ManeuverPattern pattern)
+    public void addManeuverPattern(final ManeuverPattern pattern)
     {
-        if (pattern != null && !this.exclusiveManeuverPatterns.contains(pattern))
+        if (pattern != null && !this.maneuverPatterns.contains(pattern))
         {
-            this.exclusiveManeuverPatterns.add(pattern);
+            this.maneuverPatterns.add(pattern);
         }
     }
 
     /**
-     * Registers a new parallel {@link ManeuverPattern} to this vehicle. Parallel patterns represent maneuvers that can be
-     * combined with others. This method is typically called in the constructor of the concrete vehicle class.
-     * @param pattern the parallel maneuver pattern to add
+     * Returns all {@link ManeuverPattern}s registered with this vehicle.
+     * @return list of maneuver patterns
      */
-    public void addParallelManeuverPattern(final ManeuverPattern pattern)
+    public ArrayList<ManeuverPattern> getManeuverPatterns()
     {
-        if (pattern != null && !this.parallelManeuverPatterns.contains(pattern))
-        {
-            this.parallelManeuverPatterns.add(pattern);
-        }
-    }
-
-    /**
-     * Returns all registered parallel {@link ManeuverPattern}s for this vehicle.
-     * @return list of parallel maneuver patterns
-     */
-    public ArrayList<ManeuverPattern> getParallelManeuverPatterns()
-    {
-        return new ArrayList<>(this.parallelManeuverPatterns);
-    }
-
-    /**
-     * Returns all registered exclusive {@link ManeuverPattern}s for this vehicle. * @return list of exclusive maneuver patterns
-     */
-    public ArrayList<ManeuverPattern> getExclusiveManeuverPatterns()
-    {
-        return new ArrayList<>(this.exclusiveManeuverPatterns);
+        return new ArrayList<>(this.maneuverPatterns);
     }
 
     // ----------------------------------------------------------------------

@@ -42,13 +42,10 @@ public class AnticipatingUpstreamMergingSpeedPattern extends ManeuverPattern
      */
     public AnticipatingUpstreamMergingSpeedPattern(final MirovaTacticalPlanner vehicle)
     {
-        super(PatternType.PARALLEL, vehicle);
+        super(vehicle);
         this.initialActionState = () -> new AnticipatingSpeedState(this);
 
         // Register required context categories
-        this.requiredContextKeys.add("Ego");
-        this.requiredContextKeys.add("Infrastructure");
-        this.requiredContextKeys.add("Neighbors");
     }
 
     /**

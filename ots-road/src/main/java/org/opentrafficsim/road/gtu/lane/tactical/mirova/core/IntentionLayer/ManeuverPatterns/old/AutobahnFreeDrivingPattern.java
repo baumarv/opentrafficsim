@@ -46,7 +46,7 @@ package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Man
 //
 //
 // public AutobahnFreeDrivingPattern(final KnowledgeChunk kc) throws ParameterException {
-// super(PatternType.COOPERATIVE, kc);
+// super(kc);
 // this.initialActionState = new FreeDrivingState(this);
 //
 // }

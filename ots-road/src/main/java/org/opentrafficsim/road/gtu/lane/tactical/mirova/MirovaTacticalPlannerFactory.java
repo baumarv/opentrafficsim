@@ -158,15 +158,15 @@ public class MirovaTacticalPlannerFactory extends AbstractLaneBasedTacticalPlann
     protected void setIntentionLayer(final MirovaTacticalPlanner planner) throws ParameterException
     {
         // Exclusive maneuvers (one at a time)
-        // planner.addExclusiveManeuverPattern(new GapSearchPattern(planner));
-        planner.addExclusiveManeuverPattern(new SimpleLaneChangePattern(planner));
+        // planner.addManeuverPattern(new GapSearchPattern(planner));
+        planner.addManeuverPattern(new SimpleLaneChangePattern(planner));
 
         // Parallel maneuvers (can run simultaneously alongside standard car-following)
-        planner.addParallelManeuverPattern(new PreventUndercuttingPattern(planner));
-        planner.addParallelManeuverPattern(new MandatoryLaneChangePattern(planner));
-        planner.addParallelManeuverPattern(new GapOpenerPattern(planner));
-        planner.addParallelManeuverPattern(new AnticipateDownstreamMergePattern(planner));
-        // planner.addParallelManeuverPattern(new AnticipateAdjacentCongestionPattern(planner));
+        planner.addManeuverPattern(new PreventUndercuttingPattern(planner));
+        planner.addManeuverPattern(new MandatoryLaneChangePattern(planner));
+        planner.addManeuverPattern(new GapOpenerPattern(planner));
+        planner.addManeuverPattern(new AnticipateDownstreamMergePattern(planner));
+        // planner.addManeuverPattern(new AnticipateAdjacentCongestionPattern(planner));
     }
 
 }

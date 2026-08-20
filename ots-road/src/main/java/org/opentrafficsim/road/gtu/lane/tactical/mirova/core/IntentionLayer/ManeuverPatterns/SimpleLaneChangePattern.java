@@ -45,12 +45,9 @@ public class SimpleLaneChangePattern extends ManeuverPattern
      */
     public SimpleLaneChangePattern(final MirovaTacticalPlanner vehicle)
     {
-        super(PatternType.EXCLUSIVE, vehicle);
+        super(vehicle);
         this.targetDirection = this.vehicle.getLaneChangeDesire().dominantDirection();
         this.initialActionState = () -> new PerformLaneChangeState(this);
-        this.requiredContextKeys.add("Ego");
-        this.requiredContextKeys.add("Neighbors");
-        this.requiredContextKeys.add("Infrastructure");
     }
 
     /**

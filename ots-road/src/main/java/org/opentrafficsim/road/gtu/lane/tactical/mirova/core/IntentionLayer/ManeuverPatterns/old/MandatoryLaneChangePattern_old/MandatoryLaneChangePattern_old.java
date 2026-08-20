@@ -108,13 +108,10 @@ package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Man
 // * @param targetDirection direction of the mandatory lane change (e.g. LEFT for a right-hand on-ramp)
 // */
 // public MandatoryLaneChangePattern_old(final KnowledgeChunk knowledgeChunk, final LateralDirectionality targetDirection) {
-// super(PatternType.COOPERATIVE, knowledgeChunk);
+// super(knowledgeChunk);
 // this.targetDirection = targetDirection;
 // this.initialActionState = new MatchTargetLaneSpeedState(this);
-// this.requiredContextKeys.add("Ego");
-// this.requiredContextKeys.add("Neighbors");
-// this.requiredContextKeys.add("Infrastructure");
-// }
+//////// }
 //
 // /** Returns the direction in which the merge must happen. */
 // public LateralDirectionality getTargetDirection() {

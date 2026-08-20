@@ -7,16 +7,15 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.*;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern;
 
 /**
- * Central facade for selecting {@link ManeuverPattern}s.
+ * Determines which {@link ManeuverPattern}s are eligible for arbitration in the current tick.
  * <p>
- * Forms the core of <b>Layer 3 (Decision / Strategy)</b> in the MiRoVA architecture. It acts as the arbitrator that evaluates
- * active and physically feasible maneuver patterns from Layer 4 and selects the most appropriate one to execute based on the
- * current strategy.
+ * Part of <b>Layer 3 (Decision)</b> in the MiRoVA architecture. A pattern qualifies either because it is already running --
+ * a running pattern keeps its turn until it finishes, so that a manoeuvre in progress is never dropped halfway -- or because
+ * it is both contextually applicable and physically feasible right now.
  * </p>
  * <p>
- * This class delegates the actual selection logic to a configurable {@link PatternSelectionStrategy}. The strategy can be
- * swapped dynamically, allowing different selection mechanisms (e.g., deterministic, probabilistic, learning-based) to be
- * plugged in at runtime. By default, the {@link DeterministicSpecificityStrategy} is used.
+ * Choosing between the eligible patterns is not done here. That is the job of the arbitrator, which scores the plans they
+ * produce rather than ranking the patterns themselves.
  * </p>
  * <p>
  * Copyright (c) 2025 Marvin Baumann / KIT. All rights reserved. <br>
@@ -27,26 +26,12 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Mane
 public final class PatternSelector
 {
 
-    /** Active selection strategy instance. */
-    private static PatternSelectionStrategy strategy = new DeterministicSpecificityStrategy();
-
     /**
      * * Private constructor to prevent instantiation of this utility class.
      */
     private PatternSelector()
     {
         // Utility class
-    }
-
-    /**
-     * Selects the most suitable pattern from a given list using the current strategy.
-     * @param patterns the list of available maneuver patterns to evaluate
-     * @return the best-fitting pattern, or {@code null} if none match
-     * @throws ParameterException if context or parameter lookup fails during selection
-     */
-    public static ManeuverPattern select(final ArrayList<ManeuverPattern> patterns) throws ParameterException
-    {
-        return strategy.select(patterns);
     }
 
     /**
@@ -74,32 +59,4 @@ public final class PatternSelector
         return listRelevantPatterns;
     }
 
-    /**
-     * Replaces the active selection strategy.
-     * <p>
-     * This allows injecting custom strategies at runtime, e.g.:
-     * 
-     * <pre>{@code
-     * PatternSelector.setStrategy(new ProbabilisticPatternSelectionStrategy());
-     * }</pre>
-     * </p>
-     * @param newStrategy the new {@link PatternSelectionStrategy} to use
-     * @throws IllegalArgumentException if the provided strategy is null
-     */
-    public static void setStrategy(final PatternSelectionStrategy newStrategy)
-    {
-        if (newStrategy == null)
-        {
-            throw new IllegalArgumentException("PatternSelectionStrategy cannot be null.");
-        }
-        strategy = newStrategy;
-    }
-
-    /**
-     * Returns the currently active selection strategy. * @return the active {@link PatternSelectionStrategy} instance
-     */
-    public static PatternSelectionStrategy getStrategy()
-    {
-        return strategy;
-    }
 }
