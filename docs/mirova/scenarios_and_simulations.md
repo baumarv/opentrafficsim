@@ -382,6 +382,11 @@ LoopDetector detector = new LoopDetector(
 
 ### Road Samplers (Trajectory Recording)
 
+**Sampler coverage in FreiburgNord**: link `L4a` only (`FreiburgNord.SAMPLED_LINK_ID`) - the merge section
+downstream of node `N3_4`, covering both mainline lanes and the `Ramp` acceleration lane. The upstream mainline
+(`L1a`-`L3a`) is deliberately not recorded: it multiplied the trajectory volume without contributing to the merge
+analysis.
+
 `RoadSampler` records full vehicle trajectories including extended data types. 
 
 **Opt-Out Parameter**: Trajectory recording can be dynamically disabled for performance optimization (e.g. in parallel batch sweeps) by setting the `"enableTrajectoryRecording"` parameter to `false` in the `ScenarioParameters`. When disabled, the samplers are not registered or scheduled.
