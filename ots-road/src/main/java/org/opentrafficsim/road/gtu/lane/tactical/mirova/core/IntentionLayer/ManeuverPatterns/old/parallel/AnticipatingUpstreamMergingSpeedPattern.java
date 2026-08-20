@@ -137,7 +137,9 @@ public class AnticipatingUpstreamMergingSpeedPattern extends ManeuverPattern
                     CarFollowingUtil.approachTargetSpeed(vehicle.getCarFollowingModel(), vehicle.getParameters(), egoSpeed,
                             infraCtx.getCurrentSpeedLimit(), Length.instantiateSI(20.0), targetSpeed);
 
-            Acceleration maxDecel = vehicle.getParameters().getParameter(MirovaParameters.egoDecelerationThreshold);
+            // The standalone egoDecelerationThreshold parameter is gone; its default was the minimum threshold, which
+            // is what this archived pattern effectively used. The live code derives the value from desire per direction.
+            Acceleration maxDecel = vehicle.getParameters().getParameter(MirovaParameters.minEgoDecelerationThreshold);
             targetAcceleration = Acceleration.max(targetAcceleration, maxDecel);
 
             return new SimpleOperationalPlan(targetAcceleration, this.maneuverPattern.getPatternSpecificTimestep());

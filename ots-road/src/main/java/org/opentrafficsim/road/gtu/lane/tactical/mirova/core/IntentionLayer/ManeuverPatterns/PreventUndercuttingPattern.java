@@ -199,11 +199,9 @@ public class PreventUndercuttingPattern extends ManeuverPattern
                 }
 
                 // Limit deceleration to a comfortable level for the lane maneuver
-                Acceleration comfortableEgoDecel =
-                        this.vehicle.getParameters().getParameter(MirovaParameters.egoDecelerationThreshold);
-                aShadowLeft = Acceleration.max(aShadowLeft, comfortableEgoDecel);
-
                 EgoContext egoCtx = this.vehicle.getContext(EgoContext.class);
+                Acceleration comfortableEgoDecel = egoCtx.getEgoDecelerationThreshold(LateralDirectionality.LEFT);
+                aShadowLeft = Acceleration.max(aShadowLeft, comfortableEgoDecel);
                 Acceleration aTarget = Acceleration.min(aShadowLeft, egoCtx.getCurrentCarFollowingAcceleration());
 
                 return new SimpleOperationalPlan(aTarget,

@@ -59,8 +59,8 @@ public final class MirovaParameters implements ConstraintInterface
                         Length.instantiateSI(5.0), POSITIVE);
 
         /** Time threshold after which a stopped/deadlocked vehicle is removed to prevent gridlock. */
-        public static final ParameterTypeDuration vehicleDiffusionTime = new ParameterTypeDuration(
-                        "VEHICLE_DIFFUSION_TIME", "Time threshold after which a stopped/deadlocked vehicle is removed to prevent gridlock",
+        public static final ParameterTypeDuration vehicleDiffusionTime = new ParameterTypeDuration("VEHICLE_DIFFUSION_TIME",
+                        "Time threshold after which a stopped/deadlocked vehicle is removed to prevent gridlock",
                         Duration.instantiateSI(60.0), POSITIVE);
 
         /** Look-ahead distance to check for mandatory lane changes. */
@@ -130,25 +130,15 @@ public final class MirovaParameters implements ConstraintInterface
                         new ParameterTypeDouble("SAFETY_DISTANCE_REDUCTION_FACTOR_LANE_CHANGE",
                                         "Factor to reduce safety distance during lane change", 0.5, POSITIVE);
 
-        /** Deceleration threshold for follower vehicles in lane change maneuvers. */
-        public static final ParameterTypeAcceleration followerDecelerationThreshold = new ParameterTypeAcceleration(
-                        "FOLLOWER_DECELERATION_THRESHOLD", "Deceleration threshold for follower vehicles in lc maneuvers",
-                        Acceleration.instantiateSI(-1.5), NEGATIVE);
-
         /** Minimum deceleration for follower vehicles in lane change maneuvers. */
         public static final ParameterTypeAcceleration minFollowerDecelerationThreshold = new ParameterTypeAcceleration(
                         "MIN_FOLLOWER_DECELERATION_THRESHOLD", "Minimum deceleration for follower vehicles in lc maneuvers",
-                        Acceleration.instantiateSI(-1.5), NEGATIVE);
+                        Acceleration.instantiateSI(-2.0), NEGATIVE);
 
         /** Maximum deceleration for follower vehicles in lane change maneuvers. */
         public static final ParameterTypeAcceleration maxFollowerDecelerationThreshold = new ParameterTypeAcceleration(
                         "MAX_FOLLOWER_DECELERATION_THRESHOLD", "Maximum deceleration for follower vehicles in lc maneuvers",
-                        Acceleration.instantiateSI(-3.0), NEGATIVE);
-
-        /** Deceleration threshold for ego vehicle in lane change maneuvers. */
-        public static final ParameterTypeAcceleration egoDecelerationThreshold = new ParameterTypeAcceleration(
-                        "EGO_DECELERATION_THRESHOLD", "Deceleration threshold for ego vehicle in lc maneuvers",
-                        Acceleration.instantiateSI(-2.0), NEGATIVE);
+                        Acceleration.instantiateSI(-4.0), NEGATIVE);
 
         /** Minimum deceleration for ego vehicle in lane change maneuvers. */
         public static final ParameterTypeAcceleration minEgoDecelerationThreshold = new ParameterTypeAcceleration(
@@ -258,9 +248,9 @@ public final class MirovaParameters implements ConstraintInterface
          * vCrit it vanishes smoothly.
          * </p>
          */
-        public static final ParameterTypeDuration T_DISCHARGE_ADDON = new ParameterTypeDuration("tDischargeAddon",
-                        "Additional time headway during congested discharge", Duration.instantiateSI(0.5),
-                        ConstraintInterface.POSITIVE);
+        public static final ParameterTypeDuration T_DISCHARGE_ADDON =
+                        new ParameterTypeDuration("tDischargeAddon", "Additional time headway during congested discharge",
+                                        Duration.instantiateSI(0.5), ConstraintInterface.POSITIVE);
 
         /**
          * Critical speed threshold [km/h] for the capacity drop ramp.
@@ -279,14 +269,15 @@ public final class MirovaParameters implements ConstraintInterface
         /**
          * Acceleration scaling factor during active headway relaxation (aRelaxDamping).
          * <p>
-         * Minimum scaling factor (e.g. 0.40 = 40%) applied to positive acceleration when headway relaxation is 100% active.
-         * As the relaxation buffer decays exponentially over time, the acceleration capability recovers towards 1.0 (100%).
+         * Minimum scaling factor (e.g. 0.40 = 40%) applied to positive acceleration when headway relaxation is 100% active. As
+         * the relaxation buffer decays exponentially over time, the acceleration capability recovers towards 1.0 (100%).
          * </p>
          */
         public static final ParameterTypeDouble RELAXATION_ACC_DAMPING_FACTOR = new ParameterTypeDouble("aRelaxDamping",
                         "Acceleration scaling factor during active headway relaxation", 0.40, POSITIVE);
 
         /** Whether acceleration damping during active headway relaxation is enabled. */
-        public static final ParameterTypeBoolean RELAXATION_ACC_DAMPING_ENABLED = new ParameterTypeBoolean("aRelaxDampingEnabled",
-                        "Whether acceleration damping during active headway relaxation is enabled", true);
+        public static final ParameterTypeBoolean RELAXATION_ACC_DAMPING_ENABLED =
+                        new ParameterTypeBoolean("aRelaxDampingEnabled",
+                                        "Whether acceleration damping during active headway relaxation is enabled", true);
 }

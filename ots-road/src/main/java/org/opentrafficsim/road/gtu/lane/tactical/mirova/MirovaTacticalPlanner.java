@@ -242,9 +242,6 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         // 3. Derive a single scalar desire magnitude for car-following adjustments
         this.absoluteDesire = this.laneChangeDesire.magnitude();
 
-        // 4. Scale the deceleration thresholds with the current desire
-        updateDecelerationThresholds();
-
         // 5. Reset operational plan for this time step
         this.operationalPlan = null;
 
@@ -490,38 +487,12 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     }
 
     /**
-     * Retrieves the lane change model. * @return the lane change instance
+     * Retrieves the lane change model.
+     * @return the lane change instance
      */
     public LaneChange getLaneChange()
     {
         return this.laneChange;
-    }
-
-    private void updateDecelerationThresholds() throws ParameterException
-    {
-        final Parameters parameters = this.getGtu().getParameters();
-        Acceleration maxEgo = parameters.getParameter(MirovaParameters.maxEgoDecelerationThreshold);
-        Acceleration minEgo = parameters.getParameter(MirovaParameters.minEgoDecelerationThreshold);
-        Acceleration maxFollower = parameters.getParameter(MirovaParameters.maxFollowerDecelerationThreshold);
-        Acceleration minFollower = parameters.getParameter(MirovaParameters.minFollowerDecelerationThreshold);
-
-        Double currentLaneChangeDesire =
-                this.laneChangeDesire.magnitude() > getDFree() ? this.laneChangeDesire.magnitude() : getDFree(); // binary
-                                                                                                                 // desire for
-                                                                                                                 // simplicity,
-                                                                                                                 // can be
-                                                                                                                 // refined to
-                                                                                                                 // use actual
-                                                                                                                 // magnitude
-        Double desireFactor = Math.min(currentLaneChangeDesire - getDFree(), 1.0);
-
-        // interpolate linear based on desire (between DFREE and 1.0)
-        Acceleration newEgo = Acceleration.instantiateSI(minEgo.si + (maxEgo.si - minEgo.si) * desireFactor);
-        Acceleration newFollower =
-                Acceleration.instantiateSI(minFollower.si + (maxFollower.si - minFollower.si) * desireFactor);
-
-        parameters.setParameterResettable(MirovaParameters.egoDecelerationThreshold, newEgo);
-        parameters.setParameterResettable(MirovaParameters.followerDecelerationThreshold, newFollower);
     }
 
     /**
