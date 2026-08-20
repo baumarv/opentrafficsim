@@ -170,11 +170,11 @@ reports was local — and the cluster is not reachable from this workstation. Th
 section 3 is local, on a machine that happened to become idle. That is a genuine improvement over the
 contended runs behind the earlier reports, but it is not the cluster.
 
-If it is worth repeating there, the natural bundle for one reservation is: stock vs patched djunits,
-plus `LaneBasedGtu.CACHING` true/false, on the same node in one session. Note that the two interact:
-this patch removes most of the hashing cost that made the position cache expensive in the first
-place, so with the patch applied, `CACHING=false` may no longer be a win at all. Measuring them
-separately would invite the wrong conclusion about either.
+That bundle — stock vs patched djunits crossed with `LaneBasedGtu.CACHING` on and off — is now
+prepared as a single script; see section 6. The two interact, which is why they belong in one
+matrix: this patch removes most of the hashing cost that made the position cache expensive in the
+first place, so with the patch applied `CACHING=false` may no longer be a win at all. Measuring
+them separately would invite the wrong conclusion about either.
 
 ## State afterwards
 
@@ -185,3 +185,46 @@ separately would invite the wrong conclusion about either.
 - `5.2.1-mirova-patched` remains installed in the **local** `.m2` only. It is inert — nothing resolves
   it unless `djunits.version` is changed — and it is *not* on the cluster.
 - The next build on any branch resolves stock `5.2.1`.
+
+## 6. The 2x2 matrix, prepared for one cluster session
+
+`cluster/profile_matrix.sh` runs all four combinations unattended, submitted through
+`cluster/profile_matrix.sbatch` (non-array, `--exclusive`, one node):
+
+```
+                  CACHING=true          CACHING=false
+stock djunits     (A) baseline          (B) position cache alone
+patched djunits   (C) patch alone       (D) both combined
+```
+
+Three things about it are worth knowing.
+
+**Two builds, not four.** djunits is a build-time choice and `CACHING` a runtime one, so the
+matrix is one build per djunits version crossed with two runs each. The "which jar actually got
+resolved" check therefore runs once per classpath rather than once per cell, and each build's
+`cp.txt` is copied aside immediately, since the second build would otherwise overwrite the first.
+The script refuses to profile if a build resolved anything other than the version it asked for --
+four plausible-looking recordings that silently measure two identical configurations would be
+worse than a failure.
+
+**`LaneBasedGtu.CACHING` had no switch, so one had to be made.** It is a plain
+`public static boolean` with no property binding. `RunProfileMatrix` sets it before the simulation
+is built -- hence before any GTU exists -- which keeps the switch on a profiling entry point
+instead of patching OTS to add a property. That class also calls `System.exit(0)`: the simulation
+finishes but the JVM does not terminate by itself, and four of them accumulating would compete for
+the CPU being measured. Every earlier run in this series left its JVM alive for exactly that
+reason.
+
+**The restore is an `EXIT` trap, not a final step.** It fires on failure and on interrupt as well
+as on the clean path, and it refuses to finish quietly if `cp.txt` still resolves the patched jar
+afterwards.
+
+Correctness is checked by the script itself: all four cells must produce output identical to cell
+A. Cell B was additionally verified locally in advance -- with `CACHING=false`, `detector_periodic.csv`
+carries the same SHA-256 (`c9abd263...`) as every other run in this series, confirming that the OTS
+position cache is pure memoisation and that a difference between cells would be a bug rather than a
+trade-off.
+
+Prerequisites, both checked by the script before it builds anything: the patched artifact installed
+in the node's `.m2` (section 4), and `cluster/build_for_cluster.sh` having been run once so the
+toolchain is provisioned and the local `.m2` is warm.
