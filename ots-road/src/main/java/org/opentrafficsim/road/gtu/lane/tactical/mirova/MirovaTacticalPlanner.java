@@ -42,7 +42,7 @@ import org.opentrafficsim.road.network.*;
 import org.opentrafficsim.road.network.lane.Lane;
 import org.opentrafficsim.road.network.speed.*;
 
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.VehicleDiffusionLogger;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.DeadlockDiffusionWatchdog;
 
 import java.util.*;
 
@@ -139,8 +139,8 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     /** Simulation time at which the vehicle was created. */
     private Duration createTime;
 
-    /** Simulation time at which the vehicle became stopped/deadlocked at route end or during a lane change. */
-    private Duration stoppageStartTime = null;
+    /** Safeguard that removes this vehicle if it becomes permanently stuck. */
+    private final DeadlockDiffusionWatchdog diffusionWatchdog = new DeadlockDiffusionWatchdog(this);
 
     // ----------------------------------------------------------------------
     // Construction
@@ -216,113 +216,6 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     }
 
     /**
-     * Checks if the GTU is stopped due to an off-ramp / route-end deadlock or blocked lane change,
-     * and diffuses (destroys) the GTU if the stoppage duration exceeds vehicleDiffusionTime.
-     * @return true if the vehicle was diffused (destroyed), false otherwise
-     */
-    protected boolean checkAndHandleVehicleDiffusion()
-    {
-        try
-        {
-            if (getGtu() == null || getGtu().isDestroyed())
-            {
-                return true;
-            }
-
-            Speed speed = getGtu().getSpeed();
-            boolean isStopped = speed != null && speed.si <= 0.1;
-
-            if (!isStopped)
-            {
-                this.stoppageStartTime = null;
-                return false;
-            }
-
-            // Condition 1: Vehicle is currently executing an active lane change while stopped
-            boolean activeLaneChange = this.laneChange != null && this.laneChange.isChangingLane();
-
-            // Condition 2: Vehicle is standing VERY close to the emergency stopping position / route lane end
-            boolean nearEmergencyStoppingPosition = false;
-            boolean nearCriticalLaneEnd = false;
-            InfrastructureContext infraContext = this.contextManager.getCategory("Infrastructure", InfrastructureContext.class);
-            if (infraContext != null)
-            {
-                Length routeDistToLaneEnd = infraContext.getRouteDistanceToLaneEnd();
-                Length emergencyStoppingDist = getGtu().getParameters().getParameter(MirovaParameters.emergencyStoppingDistance);
-                if (routeDistToLaneEnd != null && emergencyStoppingDist != null)
-                {
-                    if (routeDistToLaneEnd.si < 2.0 * emergencyStoppingDist.si)
-                    {
-                        nearEmergencyStoppingPosition = true;
-                    }
-                    if (routeDistToLaneEnd.si < 100.0)
-                    {
-                        nearCriticalLaneEnd = true;
-                    }
-                }
-            }
-
-            // A stopped vehicle mid-lane-change is only deadlocked if it is near a critical lane end or emergency stop position.
-            // Stopped vehicles in normal mainline traffic queues (away from lane ends) are not deadlocked.
-            if ((activeLaneChange && (nearCriticalLaneEnd || nearEmergencyStoppingPosition)) || nearEmergencyStoppingPosition)
-            {
-                Duration currentTime = getGtu().getSimulator().getSimulatorTime();
-                if (this.stoppageStartTime == null)
-                {
-                    this.stoppageStartTime = currentTime;
-                }
-
-                Duration stoppageDuration = currentTime.minus(this.stoppageStartTime);
-                Duration maxDiffusionTime = getGtu().getParameters().getParameter(MirovaParameters.vehicleDiffusionTime);
-
-                if (stoppageDuration.gt(maxDiffusionTime))
-                {
-                    double distM = (infraContext != null && infraContext.getRouteDistanceToLaneEnd() != null) ? infraContext.getRouteDistanceToLaneEnd().si : -1.0;
-                    String laneIdStr = "UNKNOWN";
-                    try {
-                        if (getGtu().getReferencePosition() != null && getGtu().getReferencePosition().lane() != null) {
-                            laneIdStr = getGtu().getReferencePosition().lane().getId();
-                        }
-                    } catch (Exception ex) {}
-
-                    String reasonStr = activeLaneChange ? "BLOCKED_LANE_CHANGE_DEADLOCK" : "ROUTE_LANE_END_EMERGENCY_STOP";
-
-                    System.out.printf(
-                        "[DIFFUSION] GTU %s deadlocked for %.1fs (activeLaneChange=%b, distToLaneEnd=%.1fm, lane=%s). Removing vehicle from simulation.%n",
-                        getGtu().getId(),
-                        stoppageDuration.si,
-                        activeLaneChange,
-                        distM,
-                        laneIdStr
-                    );
-
-                    VehicleDiffusionLogger.logDiffusion(
-                        getGtu().getId(),
-                        currentTime.si,
-                        laneIdStr,
-                        distM,
-                        activeLaneChange,
-                        reasonStr
-                    );
-
-                    getGtu().destroy();
-                    return true;
-                }
-            }
-            else
-            {
-                // Stopped in a normal traffic queue, not at route end/active lane change -> reset timer
-                this.stoppageStartTime = null;
-            }
-        }
-        catch (Exception e)
-        {
-            // Fail-safe
-        }
-        return false;
-    }
-
-    /**
      * Executes one full tactical decision cycle for the MIROVA vehicle.
      * <p>
      * This method represents the central update routine that governs the vehicle’s tactical behavior on a microscopic level.
@@ -351,7 +244,7 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         this.updateContext();
 
         // 1b. Check for deadlock diffusion (VISSIM-style vehicle removal)
-        if (checkAndHandleVehicleDiffusion())
+        if (this.diffusionWatchdog.check())
         {
             Duration dt = this.getGtu().getParameters().getParameter(ParameterTypes.DT);
             return new SimpleOperationalPlan(Acceleration.ZERO, dt, LateralDirectionality.NONE);
