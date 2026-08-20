@@ -337,3 +337,99 @@ the maneuver-pattern state machines (3.19 %). Whatever is slow, it is not the de
   distribution before analysing.
 - 4 952 CPU samples give good confidence for the large buckets and poor confidence below ~1 %.
   Nothing in the candidate list rests on a sub-1 % figure.
+
+---
+
+# Follow-up 2026-08-20: candidates 1 and 5 investigated
+
+## Candidate 1 (tick-scoped position cache) — not implemented, and why
+
+The proposal was a MiRoVA-owned cache in front of `LaneBasedGtu.position(...)`, mirroring
+`EgoContext.tickAccelerationCache`. Attributing every sample with `position` on the stack to its
+*immediate* caller shows the idea cannot reach the cost:
+
+```
+A) called directly from MiRoVA :   47 samples  (0.9% of CPU)   <- interceptable
+       2.5%  InfrastructureContext.computePhysicalDistanceToLaneEnd
+
+B) called from inside OTS      : 1847 samples (36.7% of CPU)   <- not interceptable
+      81.4%  LaneStructure.lambda$position$30   (perception iterables)
+       4.5%  LaneBasedGtu.scheduleLeaveEvent
+       3.6%  LaneBasedGtu.scheduleEnterEvent
+       3.0%  LaneBasedGtu.fractionalPosition
+       2.8%  LaneBasedGtu.getReferencePosition
+       2.0%  LaneBasedGtu.scheduleTriggers
+```
+
+MiRoVA has exactly four direct call sites, all in `InfrastructureContext` (lines 635, 813, 829,
+886). Everything else is OTS positioning GTUs while MiRoVA walks a perception iterable, plus OTS's
+own movement bookkeeping, which is not perception at all. A wrapper would reach **0.9 points, not
+25**. No `MirovaPositionUtil` was added and `CLAUDE.md` was left unchanged: a project-wide
+mandatory-wrapper rule is not justified by an unmeasurable gain.
+
+Two supporting checks: `AbstractPerceptionReiterable` already memoises ("all elements are only
+looked up and created once"), and `NeighborsContext.getLeaders` caches the iterable per tick, so
+repeated iteration is not the problem either.
+
+### Phase 0 answers
+
+**Is `position(...)` always queried for "now"?** From MiRoVA, yes, without exception — all four
+call sites use the two-argument overload, which delegates with
+`getSimulator().getSimulatorAbsTime()`. Two of them query *other* GTUs, so any key would have
+needed the GTU id.
+
+**Is a position stable for a whole tick?** **No, not on time alone.** OTS invalidates on two
+conditions, `when.si == cachePositionsTime && plan == cacheOperationalPlan`: a rebuilt operational
+plan at unchanged time invalidates. `tickAccelerationCache` keys only on the tick counter, so
+copying that mechanism verbatim would have been unsound for positions.
+
+**Where should the cache live?** Moot, given the above.
+
+## The real finding: OTS's own position cache costs more than it saves
+
+OTS already implements the proposed cache. Splitting the time spent *inside* `position()`:
+
+```
+  MultiKeyMap.put  (cache MISS, storing the value) : 53.9%   -> 20.3 points of total CPU
+  MultiKeyMap.get  (cache lookup)                  : 20.3%   ->  7.6 points
+  the actual position computation (geometry)       : 25.8%   ->  9.7 points
+```
+
+**Twice as much CPU goes into populating the cache as into computing the positions it caches.** A
+put:get ratio of 2.7:1 means most entries are stored and never read back. The cause is the key:
+`RelativePosition` carries three DJUnits `Length` scalars, and hashing it walks
+`Unit` → `Quantity` → `SIDimensions`.
+
+`LaneBasedGtu.CACHING` is a `public static boolean` (line 155). Disabling it is a one-line change
+in a runner, must be bit-identical by construction (the cache is pure memoisation), and would
+remove 27.9 points while growing the computation by whatever the hits were worth. Even if the
+computation doubled, the net would be roughly **18 points**. **This is the experiment worth
+running next** — it touches OTS core behaviour globally, so it should be a deliberate decision
+rather than a side effect of a MiRoVA change.
+
+## Candidate 5 (context cache keys) — implemented, no measurable gain
+
+Implemented and verified byte-identical. Measured on the same scenario:
+
+```
+BEFORE   n=4901 | map/hash total: 58.46% | ContextCategory share: 2.65% | StringBuilder frames: 0.22%
+AFTER    n=3382 | map/hash total: 57.69% | ContextCategory share: 2.51% | StringBuilder frames: 0.06%
+```
+
+A difference of 0.14 points against roughly 0.35 points of sampling noise: **not measurable**. The
+original report listed 2.6% as the cost of the whole `ContextCategory` cache, and this follow-up
+wrongly carried that number over as the available saving. Key *construction* is only a small part
+of it; the rest is the map traversal, which pre-built keys do not remove. The change is still
+worth keeping — one less allocation per access, and each key's hash computed once for the JVM's
+lifetime — but it is a tidiness win, not a performance one.
+
+No new hotspot was introduced by the `StringBuilder` key.
+
+## Memory note found along the way
+
+`ContextCategory.invalidateCache()` clears `this.cache` every tick, so the tick cache is properly
+bounded. But `cacheValue(key, value, true)` *also* writes into `this.values` (line 39), which is
+**never cleared**. The key space is bounded in practice (lanes × a few fixed window shapes, and
+vehicles are destroyed on leaving the network), so this is not a leak — but it does mean the
+`values` map grows for the lifetime of each vehicle, and anything added there with a
+high-cardinality key would become one.
