@@ -21,6 +21,7 @@ import org.opentrafficsim.road.gtu.lane.perception.headway.HeadwayGtu;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.DynamicHeadwayProvider;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.LongitudinalControl;
 
 /**
  * Context category representing ego-vehicle-related state variables.
@@ -425,7 +426,7 @@ public class EgoContext extends ContextCategory implements UpdatableContext
             return cached;
         }
 
-        Acceleration result = this.vehicle.computeLongitudinalAcceleration();
+        Acceleration result = LongitudinalControl.computeAcceleration(this.vehicle);
         cacheValue(CURRENT_CF_ACCELERATION, result, true);
         return result;
     }

@@ -1,9 +1,6 @@
 package org.opentrafficsim.road.gtu.lane.tactical.mirova;
 
-import org.djunits.unit.AccelerationUnit;
 import org.djunits.unit.DurationUnit;
-import org.djunits.unit.LengthUnit;
-import org.djunits.unit.SpeedUnit;
 import org.djunits.value.vdouble.scalar.*;
 import org.djutils.draw.point.DirectedPoint2d;
 import org.djutils.exceptions.Try;
@@ -11,15 +8,11 @@ import org.opentrafficsim.base.parameters.*;
 import org.opentrafficsim.core.gtu.*;
 import org.opentrafficsim.core.gtu.perception.*;
 import org.opentrafficsim.core.gtu.plan.operational.OperationalPlan;
-import org.opentrafficsim.core.gtu.plan.operational.OperationalPlanException;
 import org.opentrafficsim.core.network.LateralDirectionality;
-import org.opentrafficsim.core.network.Link;
 import org.opentrafficsim.core.network.NetworkException;
 import org.opentrafficsim.road.gtu.lane.*;
 import org.opentrafficsim.road.gtu.lane.perception.*;
 import org.opentrafficsim.road.gtu.lane.perception.categories.*;
-import org.opentrafficsim.road.gtu.lane.perception.categories.neighbors.DirectNeighborsPerception;
-import org.opentrafficsim.road.gtu.lane.perception.categories.neighbors.NeighborsPerception;
 import org.opentrafficsim.road.gtu.lane.perception.headway.*;
 import org.opentrafficsim.road.gtu.lane.plan.operational.*;
 import org.opentrafficsim.road.gtu.lane.tactical.AbstractLaneBasedTacticalPlanner;
@@ -32,14 +25,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.Desire;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.DesireIncentive;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ActionState;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaCarFollowingUtil;
-import org.opentrafficsim.road.gtu.lane.tactical.util.ConflictUtil;
-import org.opentrafficsim.road.gtu.lane.tactical.util.SpeedLimitUtil;
-import org.opentrafficsim.road.gtu.lane.tactical.util.TrafficLightUtil;
-import org.opentrafficsim.road.gtu.lane.tactical.util.lmrs.LmrsParameters;
-import org.opentrafficsim.road.gtu.lane.tactical.util.lmrs.LmrsUtil;
 import org.opentrafficsim.road.network.*;
-import org.opentrafficsim.road.network.lane.Lane;
 import org.opentrafficsim.road.network.speed.*;
 
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.DeadlockDiffusionWatchdog;
@@ -536,108 +522,6 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
 
         parameters.setParameterResettable(MirovaParameters.egoDecelerationThreshold, newEgo);
         parameters.setParameterResettable(MirovaParameters.followerDecelerationThreshold, newFollower);
-    }
-
-    /**
-     * Computes the longitudinal acceleration for the current time step, considering all tactical and environmental influences
-     * provided via the vehicle’s {@link VehicleContextManager}.
-     * <p>
-     * The following control components are considered:
-     * <ul>
-     * <li><b>Leader-following behavior:</b> based on perceived headway, automatically applying Keane and Gao (2021)
-     * relaxation.</li>
-     * <li><b>Speed-limit adaptation:</b> handling of upcoming lower speed limits.</li>
-     * <li><b>Transition effects:</b> optional curvature or bump-based deceleration.</li>
-     * </ul>
-     * The resulting acceleration is the minimum (most restrictive) value among all components.
-     * </p>
-     * <p>
-     * Copyright (c) 2026 Marvin Baumann / KIT. All rights reserved. <br>
-     * BSD-style license. See <a href="https://opentrafficsim.org/docs/license.html">OpenTrafficSim License</a>.
-     * </p>
-     * @return final longitudinal acceleration [m/s²]
-     * @throws ParameterException if parameter retrieval fails
-     * @throws NetworkException if the network structure cannot be queried
-     * @throws GtuException if GTU state errors occur
-     */
-    public Acceleration computeLongitudinalAcceleration() throws ParameterException, GtuException, NetworkException
-    {
-        // 1. Retrieve tightly coupled contexts and parameters
-        EgoContext ego = this.getContext(EgoContext.class);
-        InfrastructureContext infra = this.getContext(InfrastructureContext.class);
-        NeighborsContext neighbors = this.getContext(NeighborsContext.class);
-        Parameters parameters = this.getParameters();
-
-        // List of candidate accelerations
-        List<Acceleration> candidates = new ArrayList<>();
-
-        // =========================================================================================
-        // SCHRITT 3: ZEITLÜCKEN-HACK WURDE HIER GELÖSCHT!
-        // parameters.setParameterResettable(ParameterTypes.T, this.getCurrentRelaxedHeadway());
-        // Das Basis-Modell bleibt ab sofort unangetastet.
-        // =========================================================================================
-
-        // 2. Leader-following (incorporating automatic 2-parameter relaxation via our Utility)
-        // We do not need that when the current LC has already entered the traget lane
-        if (!getLaneChange().isChangingLane() || getLaneChange().getFraction() <= 0.5)
-        {
-
-            Iterable<HeadwayGtu> currentLeaders = neighbors.getLeaders(LateralDirectionality.NONE);
-            double maxLeadersToConsider = getParameters().getParameter(MirovaParameters.CF_MAX_LEADERS);
-            List<HeadwayGtu> limitedLeaders = new ArrayList<>();
-            int leaderCount = 0;
-            for (HeadwayGtu leader : currentLeaders)
-            {
-                if (leaderCount >= maxLeadersToConsider)
-                {
-                    break;
-                }
-                limitedLeaders.add(leader);
-                leaderCount++;
-            }
-            currentLeaders = limitedLeaders;
-            Acceleration aCf = MirovaCarFollowingUtil.followMultipleLeaders(this, currentLeaders);
-            candidates.add(aCf);
-        }
-
-        // 3. Transition deceleration (e.g., curvature or bumps)
-        Acceleration aTrans = SpeedLimitUtil.considerSpeedLimitTransitions(parameters, ego.getEgoSpeed(), getPerception()
-                .getPerceptionCategory(InfrastructurePerception.class).getSpeedLimitProspect(RelativeLane.CURRENT),
-                this.getCarFollowingModel());
-
-        if (aTrans != null && aTrans.lt(Acceleration.POSITIVE_INFINITY))
-        {
-            candidates.add(aTrans);
-        }
-
-        // 4. Upcoming lower speed limit ahead
-        SpeedLimitInfo nextLimit = infra.getNextSpeedLimit();
-        Speed currentLegalLimit = infra.getLegalSpeedLimit();
-
-        // Null-Safety: Prüfe, ob sowohl das nächste als auch das aktuelle SpeedLimit bekannt sind
-        if (nextLimit != null && currentLegalLimit != null)
-        {
-            Speed nextLegal = SpeedLimitUtil.getLegalSpeedLimit(nextLimit);
-
-            if (nextLegal.lt(currentLegalLimit))
-            {
-                // Nutze den OTS-Parameter anstelle der harten 200 Meter
-                Length distanceToLimit = parameters.getParameter(ParameterTypes.LOOKAHEAD);
-                Acceleration aLimit = MirovaCarFollowingUtil.approachTargetSpeed(this, distanceToLimit, nextLegal);
-
-                if (aLimit != null)
-                {
-                    candidates.add(aLimit);
-                }
-            }
-        }
-
-        // 5. Compute most restrictive acceleration safely
-        Acceleration fallbackAcc = (getLaneChange().isChangingLane() && getLaneChange().getFraction() > 0.5)
-                ? MirovaCarFollowingUtil.freeAcceleration(this)
-                : MirovaCarFollowingUtil.followSingleLeader(this, neighbors.getLeader(LateralDirectionality.NONE));
-        return candidates.stream().filter(java.util.Objects::nonNull).min(Acceleration::compareTo)
-                .orElse(fallbackAcc);
     }
 
     /**
