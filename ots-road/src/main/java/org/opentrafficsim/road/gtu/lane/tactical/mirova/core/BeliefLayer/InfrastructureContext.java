@@ -93,6 +93,21 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
     /** Cache key prefix for downstream adjacent lanes. */
     private static final String DOWNSTREAM_ADJACENT_LANE_PREFIX = "downstreamAdjacentLane_";
 
+    /** Pre-built cache keys, so no key is concatenated on the hot path. See ContextCategory#directionKeys. */
+    private static final String[] ROUTE_DIST_KEYS = relativeLaneKeys(ROUTE_DIST_TO_LANE_END_PREFIX);
+
+    /** Pre-built cache keys for the physical distance to the lane end. */
+    private static final String[] PHYS_DIST_KEYS = relativeLaneKeys(PHYS_DIST_TO_LANE_END_PREFIX);
+
+    /** Pre-built cache keys for the anticipated speed. */
+    private static final String[] ANTICIPATED_SPEED_KEYS = relativeLaneKeys(ANTICIPATED_SPEED_PREFIX);
+
+    /** Pre-built cache keys for the anticipated lane drop, indexed by direction ordinal. */
+    private static final String[] ANTICIPATED_LANE_DROP_KEYS = directionKeys(ANTICIPATED_LANE_DROP_PREFIX);
+
+    /** Pre-built cache keys for the downstream adjacent lane, indexed by direction ordinal. */
+    private static final String[] DOWNSTREAM_ADJACENT_LANE_KEYS = directionKeys(DOWNSTREAM_ADJACENT_LANE_PREFIX);
+
     /** Cache key for parallel merge detection on the left. */
     private static final String MERGE_CACHE_KEY_LEFT = "PARALLEL_MERGE_LEFT";
 
@@ -140,7 +155,7 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
      */
     public Length getRouteDistanceToLaneEnd(final RelativeLane lane)
     {
-        String key = ROUTE_DIST_TO_LANE_END_PREFIX + lane.toString();
+        String key = relativeLaneKey(ROUTE_DIST_KEYS, ROUTE_DIST_TO_LANE_END_PREFIX, lane);
         Length cached = getCachedValue(key, Length.class);
         if (cached != null)
         {
@@ -170,7 +185,7 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
      */
     public Length getPhysicalDistanceToLaneEnd(final RelativeLane lane)
     {
-        String key = PHYS_DIST_TO_LANE_END_PREFIX + lane.toString();
+        String key = relativeLaneKey(PHYS_DIST_KEYS, PHYS_DIST_TO_LANE_END_PREFIX, lane);
         Length cached = getCachedValue(key, Length.class);
         if (cached != null)
         {
@@ -318,7 +333,7 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
      */
     public Lane getDownstreamAdjacentLane(final LateralDirectionality direction)
     {
-        String key = DOWNSTREAM_ADJACENT_LANE_PREFIX + direction.name();
+        String key = DOWNSTREAM_ADJACENT_LANE_KEYS[direction.ordinal()];
         DownstreamLaneInfo cached = getCachedValue(key, DownstreamLaneInfo.class);
 
         if (cached != null)
@@ -347,7 +362,7 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
      */
     public LaneDropInfo getAnticipatedLaneDropInfo(final LateralDirectionality direction)
     {
-        String key = ANTICIPATED_LANE_DROP_PREFIX + direction.name();
+        String key = ANTICIPATED_LANE_DROP_KEYS[direction.ordinal()];
         LaneDropInfo cached = getCachedValue(key, LaneDropInfo.class);
 
         if (cached != null)
@@ -398,7 +413,7 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
      */
     public Speed getAnticipatedSpeed(final RelativeLane lane)
     {
-        String key = ANTICIPATED_SPEED_PREFIX + lane.toString();
+        String key = relativeLaneKey(ANTICIPATED_SPEED_KEYS, ANTICIPATED_SPEED_PREFIX, lane);
         Speed cached = getCachedValue(key, Speed.class);
         if (cached != null)
         {
@@ -780,7 +795,12 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
     public Speed getLaneAverageSpeed(final Lane lane, final Length startPosition, final Length endPosition,
             final int maxVehicles, final ScanDirection scanDirection)
     {
-        String key = "laneAverageSpeed_" + lane.getId() + "_" + startPosition.si + "_" + endPosition.si + "_" + maxVehicles + "_" + scanDirection.name();
+        // Built with a sized StringBuilder and centimetre integers rather than by concatenating two
+        // doubles: Double.toString is far more expensive than appending an int, and the scan windows
+        // are metre-scale, so centimetre resolution cannot collide between distinct requests.
+        String key = new StringBuilder(64).append("laneAverageSpeed_").append(lane.getId()).append('_')
+                .append(Math.round(startPosition.si * 100.0)).append('_').append(Math.round(endPosition.si * 100.0))
+                .append('_').append(maxVehicles).append('_').append(scanDirection.ordinal()).toString();
         Speed cached = getCachedValue(key, Speed.class);
         if (cached != null)
         {
@@ -1275,7 +1295,7 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
     public String toString()
     {
         return "InfrastructureContext[" + "routeDistToLaneEnd="
-                + getCachedValue(ROUTE_DIST_TO_LANE_END_PREFIX + RelativeLane.CURRENT, Length.class) + ", legalSpeedLimit="
+                + getCachedValue(ROUTE_DIST_KEYS[0], Length.class) + ", legalSpeedLimit="
                 + getCachedValue(LEGAL_SPEED_LIMIT, Speed.class) + "]";
     }
 }

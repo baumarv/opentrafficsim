@@ -19,6 +19,7 @@ import org.opentrafficsim.road.gtu.lane.perception.headway.HeadwayGtu;
 import org.opentrafficsim.road.gtu.lane.plan.operational.SimpleOperationalPlan;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.ContextCategory;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.MacroTrafficContext;
@@ -141,8 +142,12 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     /** Length of the segment scanned on the target lane when it is not yet physically adjacent. */
     private static final Length REFERENCE_SPEED_SCAN_LENGTH = Length.instantiateSI(150.0);
 
-    /** Cache key prefix under which the merge reference speed is stored for the duration of one simulation tick. */
-    private static final String REFERENCE_SPEED_CACHE_KEY = "mergeReferenceSpeed_";
+    /**
+     * Cache keys under which the merge reference speed is stored for the duration of one simulation tick,
+     * indexed by {@code LateralDirectionality.ordinal()} so that no key is concatenated per access.
+     */
+    private static final String[] REFERENCE_SPEED_CACHE_KEYS =
+            ContextCategory.directionKeys("mergeReferenceSpeed_");
 
     /**
      * Determines the speed the ego vehicle has to synchronise with in order to merge into the target lane.
@@ -181,7 +186,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         // every tick, and the cascade below iterates perceived neighbours and may scan a whole lane. The cache is
         // cleared by the context update, so the value can never outlive the perception it was derived from.
         EgoContext cache = null;
-        String cacheKey = REFERENCE_SPEED_CACHE_KEY + dir;
+        String cacheKey = REFERENCE_SPEED_CACHE_KEYS[dir.ordinal()];
         try
         {
             cache = vehicle.getContext(EgoContext.class);
