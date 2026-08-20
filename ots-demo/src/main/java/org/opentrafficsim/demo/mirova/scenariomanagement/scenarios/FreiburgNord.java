@@ -103,6 +103,9 @@ import nl.tudelft.simulation.jstats.streams.StreamInterface;
 public class FreiburgNord extends ScenarioGenerator
 {
 
+    /** Link whose lanes are recorded by the road sampler: the merge section downstream of node N3_4. */
+    public static final String SAMPLED_LINK_ID = "L4a";
+
     /**
      * Constructor for FreiburgNord.
      */
@@ -561,8 +564,10 @@ public class FreiburgNord extends ScenarioGenerator
                     this.listLoopDetectors.add(detector);
                 }
 
-                // Record trajectory paths starting at link L2a
-                if (enableSamplers && (linkId.equals("L1a") || linkId.equals("L2a") || linkId.equals("L3a") || linkId.equals("L4a")))
+                // Record trajectories on the merge section L4a only: it is the segment downstream of the merge
+                // node N3_4, where the interaction being evaluated happens. Sampling the upstream mainline as well
+                // multiplied the trajectory output without adding to that analysis.
+                if (enableSamplers && linkId.equals(SAMPLED_LINK_ID))
                 {
                     GraphPath<LaneDataRoad> path = GraphLaneUtil.createPath("path", lane);
                     sampler.scheduleStartRecording(Time.instantiateSI(0), path.get(0).getSource(0));
