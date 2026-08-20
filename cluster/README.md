@@ -290,7 +290,7 @@ count into a `ScenarioManager`. Three are registered in `StudyRegistry`:
 |:---|:---|:---|
 | `dates` | `DateStudy` | One scenario per date, 1 variation each; facility-agnostic |
 | `paramgrid` | `FreiburgParameterStudy` | One scenario, 17 one-at-a-time variations |
-| `combos` | `FreiburgCombinationStudy` | Headway combinations × safety distance factors × every date |
+| `combos` | `FreiburgCombinationStudy` | Headway combinations × damping factors × safety distance factors × every date |
 
 **Adding a further study requires no change to the batch script or the entry point** — write a
 new `StudyDefinition`, then select it either by adding a short name to `StudyRegistry` or by
@@ -329,48 +329,57 @@ resolution, including the up-front check that every CSV exists.
 | `--replications=` | `6` | Replications per date **and** combination |
 | `--strict=` | `false` | Missing CSV is fatal instead of falling back to synthetic demand |
 
-This study runs the **Cartesian product of two lists**, both in `FreiburgCombinationStudy`:
+This study runs the **Cartesian product of three lists**, all in `FreiburgCombinationStudy`:
 
 | List | Contents | Varies |
 |:---|:---|:---|
 | `COMBINATIONS` | `("standard", 1.00, 1.30)`, `("tighter", 0.90, 1.20)` | car / truck desired headway `T` |
-| `SAFETY_DISTANCE_FACTORS` | `0.60`, `0.80` | lane-change safety distance reduction factor |
+| `ACC_DAMPING_FACTORS` | `0.60`, `0.80` | relaxation acceleration damping factor |
+| `SAFETY_DISTANCE_FACTORS` | `0.50`, `0.60` | lane-change safety distance reduction factor |
 
-giving **4 variations per date**. The safety distance factor is applied to **cars and trucks
-alike**, so a grid cell is described by two numbers rather than three. Extending either
-dimension is one entry in the respective list; nothing depends on their lengths.
+giving **8 variations per date**. Both factors are applied to **cars and trucks alike**, so a
+grid cell is described by three numbers rather than six. Extending any dimension is one entry in
+the respective list; nothing depends on their lengths.
+
+The safety distance values are the two the study has actually used: `0.50` until 2026-07-31 and
+`0.60` since 2026-08-06, the latter being the baseline `FreiburgStudyParameters.RED_FAC`. The
+damping baseline is `0.80`, so the cell `standard × adamp0.80 × sdr0.60` reproduces the
+evaluation study's setting exactly.
 
 Every variation starts from `FreiburgStudyParameters.forDate(...)` and overrides **only** those
 values, so a cell differs from the `dates` study in exactly the swept parameters by
 construction — and `standard` × `0.60` reproduces that study's setting exactly, since `0.60` is
 `FreiburgStudyParameters.RED_FAC`.
 
-Total runs = dates × combinations × factors × replications:
+Total runs = dates × combinations × damping × safety distance × replications:
 
-| Dates | Replications | Total |
-|---:|---:|---:|
-| 3 | 6 | `3 × 2 × 2 × 6 = 72` |
-| 9 | 6 | `9 × 2 × 2 × 6 = 216` |
-| 32 | 6 | `32 × 2 × 2 × 6 = 768` |
+| Dates | Replications | Total | Array (2 runs/task) |
+|---:|---:|---:|:---|
+| 3 | 6 | `3 × 8 × 6 = 144` | `0-71` |
+| 9 | 6 | `9 × 8 × 6 = 432` | `0-215` |
+| 32 | 6 | `32 × 8 × 6 = 1536` | `0-767` |
+
+⚠️ At 90–120 min per run, the full 32-date grid is roughly **2300–3100 core-hours**. Consider
+running the grid on a subset of dates and the full date list only for the baseline cell.
 
 Output folders name the date **and** both swept values, so a result is identifiable without
 resolving an index against the source:
 
 ```
-FreiburgNord_2025-09-22_13-00_to_22-00_standard_sdr0.60/variation_0/run_seed_42/
-FreiburgNord_2025-09-22_13-00_to_22-00_standard_sdr0.80/variation_0/run_seed_42/
-FreiburgNord_2025-09-22_13-00_to_22-00_tighter_sdr0.60/variation_0/run_seed_42/
-FreiburgNord_2025-09-22_13-00_to_22-00_tighter_sdr0.80/variation_0/run_seed_42/
+FreiburgNord_2025-09-22_13-00_to_22-00_standard_adamp0.60_sdr0.50/variation_0/run_seed_42/
+FreiburgNord_2025-09-22_13-00_to_22-00_standard_adamp0.60_sdr0.60/variation_0/run_seed_42/
+FreiburgNord_2025-09-22_13-00_to_22-00_standard_adamp0.80_sdr0.50/variation_0/run_seed_42/
+...                                                            (8 per date)
+FreiburgNord_2025-09-22_13-00_to_22-00_tighter_adamp0.80_sdr0.60/variation_0/run_seed_42/
 ```
 
-The `sdr` suffix is formatted with `Locale.ROOT`, so the decimal separator is a dot on every
-node — these names are what post-processing matches on, and must not depend on the format
+The `adamp`/`sdr` suffixes are formatted with `Locale.ROOT`, so the decimal separator is a dot on
+every node — these names are what post-processing matches on, and must not depend on the format
 locale of whichever machine ran the job. `runParams.txt` additionally records
-`headwayCombination` and `safetyDistanceFactor`.
+`headwayCombination`, `accDampingFactor` and `safetyDistanceFactor`.
 
-Registration order is date-major, then combination, then factor, so
-`index = (((dateIndex × 2) + comboIndex) × 2 + factorIndex) × replications + replication`.
-Use `--manifest=` to print the mapping rather than deriving it by hand.
+Registration order is date-major, then combination, then damping factor, then safety distance
+factor. Use `--manifest=` to print the index-to-run mapping rather than deriving it by hand.
 
 ## Global run index
 
