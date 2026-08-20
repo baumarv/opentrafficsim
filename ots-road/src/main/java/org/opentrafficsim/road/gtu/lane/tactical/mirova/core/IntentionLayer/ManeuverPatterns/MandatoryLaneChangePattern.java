@@ -1772,7 +1772,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             HeadwayGtu putativeLeader = neigh.getLeader(dir);
             Acceleration aLeader = putativeLeader != null
                     ? Acceleration.max(MirovaCarFollowingUtil.followSingleLeader(this.vehicle, putativeLeader),
-                            this.vehicle.getParameters().getParameter(MirovaParameters.egoDecelerationThreshold))
+                            ego.getEgoDecelerationThreshold(dir))
                     : Acceleration.POSITIVE_INFINITY;
 
             // Detect if we are blocked by a parallel vehicle
