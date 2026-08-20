@@ -136,34 +136,6 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     /** Central contextual model for this vehicle. */
     private final VehicleContextManager contextManager;
 
-    // ----------------------------------------------------------------------
-    // Headway Relaxation: Episode-based implementation (Schakel et al. 2012, 2023)
-    // ----------------------------------------------------------------------
-
-    /**
-     * Relaxation time constant τ (seconds) controlling the adaptation speed when the desired headway increases after a decrease
-     * in desire.
-     * <p>
-     * Typical LMRS range: 20–30 s.
-     * </p>
-     */
-    private Duration tauHeadway = new Duration(25.0, DurationUnit.SI);
-
-    /** Current relaxed headway T(t) used by the car-following model. */
-    private Duration currentRelaxedHeadway = null;
-
-    /** Instantaneous target headway derived from the current lane-change desire. */
-    private Duration targetDesiredHeadway = null;
-
-    /** Headway value at the start of the current relaxation episode. */
-    private Duration headwayAtRelaxStart = null;
-
-    /** Target headway fixed at the start of the current relaxation episode. */
-    private Duration targetAtRelaxStart = null;
-
-    /** Normalized relaxation progress from 0 (start) to 1 (completed). */
-    private double relaxProgress = 0.0;
-
     /** Simulation time at which the vehicle was created. */
     private Duration createTime;
 
@@ -373,11 +345,6 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     public SimpleOperationalPlan update()
             throws ParameterException, NullPointerException, IllegalArgumentException, GtuException, NetworkException
     {
-        if (this.currentRelaxedHeadway == null)
-        {
-            this.currentRelaxedHeadway = this.getGtu().getParameters().getParameter(ParameterTypes.T);
-        }
-
         // 1. Update perception and contextual information
         this.contextManager.advanceTick();
         updateTimeSinceLastLaneChange();
@@ -396,9 +363,7 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         // 3. Derive a single scalar desire magnitude for car-following adjustments
         this.absoluteDesire = this.laneChangeDesire.magnitude();
 
-        // 4. Apply temporal relaxation (gradual decay of short-term motivation and headway adaptation)
-        // updateTargetDesiredHeadway();
-        // updateCurrentRelaxedHeadway();
+        // 4. Scale the deceleration thresholds with the current desire
         updateDecelerationThresholds();
 
         // 5. Reset operational plan for this time step
@@ -455,58 +420,6 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
             getGtu().setTurnIndicatorStatus(TurnIndicatorStatus.NONE);
         }
 
-        // Debug output for critical accelerations
-        // Acceleration planAcc = this.operationalPlan.getAcceleration();
-        // if (planAcc.si < -8.0 || planAcc.eq(Acceleration.NEGATIVE_INFINITY) || planAcc.le(Acceleration.NEG_MAXVALUE))
-        // {
-        // // EgoContext egoContext = getContextManager().getCategory("Ego", EgoContext.class);
-        // System.out.printf(
-        // "GTU: %s @simsec: %s -> Plan acceleration: %s, ActionState: %s, Desire: %s, LaneChangeFraction: %s%n",
-        // getGtu().getId(), getGtu().getSimulator().getSimulatorTime().toDisplayString(), planAcc.toDisplayString(),
-        // (this.currentActionState != null) ? this.currentActionState.toString() : "none",
-        // getLaneChangeDesire().toString(),
-        // this.laneChange.isChangingLane() ? this.laneChange.getFraction() : "not changing");
-        // // System.out.printf(" -> Active Relaxations: %s, Acc Cache: %s%n", egoContext.getActiveRelaxations().toString(),
-        // // egoContext.getCurrentTickAccelerationCache().toString());
-        // }
-
-        // if (getGtu().getLane().getId().equals("FORWARD4"))
-        // {
-        // System.out.printf("GTU: %s @simsec: %s -> State: %s, Desire: %s, Plan Acc: %s%n", getGtu().getId(),
-        // getGtu().getSimulator().getSimulatorTime().toDisplayString(),
-        // (this.currentActionState != null) ? this.currentActionState.toString() : "none",
-        // getLaneChangeDesire().toString(), planAcc.toDisplayString());
-        // // }
-        // if ((getGtu().getLane().getLink().getId().equals("BC") || getGtu().getLane().getLink().getId().equals("F2B"))
-        // // && (getGtu().getId().equals("343") || getGtu().getId().equals("646")))
-        // // if (getGtu().getId().equals("4") || getGtu().getId().equals("14") || getGtu().getId().equals("37"))
-        // && (getGtu().getId().equals("85") || getGtu().getId().equals("2168")))
-        // {
-        // EgoContext egoContext = getContextManager().getCategory("Ego", EgoContext.class);
-        // InfrastructureContext infra = getContextManager().getCategory("Infrastructure", InfrastructureContext.class);
-        // System.out.printf("GTU: %s @simsec: %s -> State: %s, Desire: %s, Plan Acc: %s%n", getGtu().getId(),
-        // getGtu().getSimulator().getSimulatorTime().toDisplayString(),
-        // (this.currentActionState != null) ? this.currentActionState.toString() : "none",
-        // getLaneChangeDesire().toString(), planAcc.toDisplayString());
-        // System.out.printf(" -> Current Speed: %s%n", egoContext.getEgoSpeed().toDisplayString());
-        // System.out.printf(" -> Active Relaxations: %s, Acc Cache: %s%n", egoContext.getActiveRelaxations().toString(),
-        // egoContext.getCurrentTickAccelerationCache().toString());
-        // System.out.printf(" -> Distance to End of Lane right: %s%n", infra.getRouteDistanceToLaneEnd(RelativeLane.CURRENT));
-        // System.out.printf(" -> Desired Headway: %s%n", getParameters().getParameter(ParameterTypes.T).toDisplayString());
-        // }
-
-        // if (getGtu().getLane().getLink().getId().equals("BC") && getGtu().getLane().getId().equals("FORWARD3")
-        // && this.currentActionState.toString().equals("DownstreamMergeAnticipationState"))
-        // {
-        // EgoContext egoContext = getContextManager().getCategory("Ego", EgoContext.class);
-        // InfrastructureContext infra = getContextManager().getCategory("Infrastructure", InfrastructureContext.class);
-        // System.out.printf(
-        // "GTU: %s @simsec: %s -> State: %s, Desire: %s, Plan Acc: %s, Speed: %s, Distance to End of Lane: %s%n",
-        // getGtu().getId(), getGtu().getSimulator().getSimulatorTime().toDisplayString(),
-        // (this.currentActionState != null) ? this.currentActionState.toString() : "none",
-        // getLaneChangeDesire().toString(), planAcc.toDisplayString(), egoContext.getEgoSpeed().toDisplayString(),
-        // infra.getRouteDistanceToLaneEnd(RelativeLane.RIGHT).toDisplayString());
-        // }
         return this.operationalPlan;
     }
 
@@ -656,33 +569,6 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     }
 
     /**
-     * Returns the free driving time in the specified lane change direction. This method iterates through all leaders in the
-     * specified direction and calculates the minimum free driving time based on their speed and distance. * @param
-     * laneChangeDirection The direction of the lane change (LEFT or RIGHT).
-     * @return The free driving time available for a lane change.
-     * @throws ParameterException if a required parameter is missing
-     * @throws OperationalPlanException if operational plan errors occur
-     */
-    public Duration getFreeDrivingTime(final LateralDirectionality laneChangeDirection)
-            throws ParameterException, OperationalPlanException
-    {
-        Duration freeDrivingTime = new Duration(Double.POSITIVE_INFINITY, DurationUnit.SI);
-        for (HeadwayGtu leader : getPerception().getPerceptionCategory(NeighborsPerception.class)
-                .getFirstLeaders(LateralDirectionality.RIGHT))
-        {
-            Speed speedDeltaLeader = getGtu().getDesiredSpeed().minus(leader.getSpeed());
-            Length distanceLeader = leader.getDistance();
-
-            if (speedDeltaLeader.gt0())
-            {
-                Duration freeDrivingTimeIterary = new Duration(distanceLeader.si / speedDeltaLeader.si, DurationUnit.SI);
-                freeDrivingTime = Duration.min(freeDrivingTime, freeDrivingTimeIterary);
-            }
-        }
-        return freeDrivingTime;
-    }
-
-    /**
      * Returns the currently locked action state, or {@code null} if no lock is active.
      * @return the locked {@link ActionState}, or {@code null}
      */
@@ -732,123 +618,6 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         return this.laneChange;
     }
 
-    // ----------------------------------------------------------------------
-    // Headway Relaxation Methods
-    // ----------------------------------------------------------------------
-
-    /**
-     * Initializes or restarts a headway relaxation episode toward a new target.
-     * <p>
-     * This method fixes the starting and target headways and resets the progress accumulator. It should be called whenever a
-     * significant change in the target headway occurs (e.g., due to a large change in lane-change desire).
-     * </p>
-     * @param newTarget the new target headway that should be reached after τ seconds
-     */
-    private void startHeadwayRelaxation(final Duration newTarget)
-    {
-        if (this.currentRelaxedHeadway == null)
-        {
-            this.currentRelaxedHeadway = newTarget;
-        }
-        this.headwayAtRelaxStart = this.currentRelaxedHeadway;
-        this.targetAtRelaxStart = newTarget;
-        this.relaxProgress = 0.0;
-    }
-
-    /**
-     * Updates the instantaneous target headway from the current lane-change desire.
-     * <p>
-     * If the target headway differs significantly from the previous value, a new relaxation episode is started to ensure a
-     * smooth transition.
-     * </p>
-     * @throws ParameterException if parameter access fails
-     */
-    protected void updateTargetDesiredHeadway() throws ParameterException
-    {
-        final Parameters parameters = this.getGtu().getParameters();
-        final double limitedDesire = Math.max(0.0, Math.min(1.0, getSocioSpeedPressure()));
-
-        final double tMin = parameters.getParameter(ParameterTypes.TMIN).si;
-        final double tMax = parameters.getParameter(ParameterTypes.TMAX).si;
-        final Duration newTarget = Duration.instantiateSI(limitedDesire * tMin + (1.0 - limitedDesire) * tMax);
-
-        // Start a new relaxation episode only if the target changes significantly
-        final double EPS = 0.05; // 50 ms tolerance to avoid jitter
-        if (this.targetDesiredHeadway == null || Math.abs(newTarget.si - this.targetDesiredHeadway.si) > EPS)
-        {
-            this.targetDesiredHeadway = newTarget;
-            startHeadwayRelaxation(newTarget);
-        }
-        else
-        {
-            this.targetDesiredHeadway = newTarget;
-        }
-    }
-
-    /**
-     * Sets a new target desired headway if it is smaller than the current target. * @param newTargetDesiredHeadway the new
-     * target desired headway
-     * @throws ParameterException if parameter resolution fails
-     */
-    public void setTargetDesiredHeadway(final Duration newTargetDesiredHeadway) throws ParameterException
-    {
-        if (newTargetDesiredHeadway.le(this.targetDesiredHeadway))
-        {
-            this.targetDesiredHeadway = newTargetDesiredHeadway;
-            updateCurrentRelaxedHeadway();
-        }
-    }
-
-    /**
-     * Progresses the relaxed headway T(t) toward the episode’s target using a normalized progress accumulator. The adaptation
-     * follows a linear schedule that reaches the target exactly after τ seconds.
-     * <p>
-     * When the target headway is smaller than the current one (i.e., higher desire), adaptation occurs immediately without
-     * relaxation.
-     * </p>
-     * @throws ParameterException if parameter access fails
-     */
-    protected void updateCurrentRelaxedHeadway() throws ParameterException
-    {
-        // Initialize if not yet set
-        if (this.currentRelaxedHeadway == null)
-        {
-            if (this.targetDesiredHeadway == null)
-            {
-                updateTargetDesiredHeadway();
-            }
-            this.currentRelaxedHeadway = this.targetDesiredHeadway;
-            this.headwayAtRelaxStart = this.currentRelaxedHeadway;
-            this.targetAtRelaxStart = this.targetDesiredHeadway;
-            this.relaxProgress = 1.0;
-            return;
-        }
-
-        final Duration dt = this.getGtu().getParameters().getParameter(ParameterTypes.DT);
-
-        // Immediate change for decreasing headway or τ = 0
-        if (this.tauHeadway.si == 0.0 || this.targetDesiredHeadway.si <= this.currentRelaxedHeadway.si)
-        {
-            this.currentRelaxedHeadway = this.targetDesiredHeadway;
-            this.headwayAtRelaxStart = this.currentRelaxedHeadway;
-            this.targetAtRelaxStart = this.targetDesiredHeadway;
-            this.relaxProgress = 1.0;
-        }
-        else
-        {
-            // Linear progression: reach target exactly after τ seconds
-            this.relaxProgress = Math.min(1.0, this.relaxProgress + dt.si / this.tauHeadway.si);
-            final double startT = this.headwayAtRelaxStart.si;
-            final double deltaT = this.targetAtRelaxStart.si - startT;
-            final double newT = startT + this.relaxProgress * deltaT;
-            this.currentRelaxedHeadway = Duration.instantiateSI(newT);
-        }
-
-        // Update GTU parameters for use by the car-following model
-        final Parameters parameters = this.getGtu().getParameters();
-        parameters.setParameterResettable(ParameterTypes.T, this.currentRelaxedHeadway);
-    }
-
     private void updateDecelerationThresholds() throws ParameterException
     {
         final Parameters parameters = this.getGtu().getParameters();
@@ -874,43 +643,6 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
 
         parameters.setParameterResettable(MirovaParameters.egoDecelerationThreshold, newEgo);
         parameters.setParameterResettable(MirovaParameters.followerDecelerationThreshold, newFollower);
-    }
-
-    /**
-     * Sets a new headway relaxation time constant τ (seconds). A value of zero disables relaxation and applies all headway
-     * changes immediately.
-     * @param tauSeconds the new relaxation time constant in seconds
-     */
-    public void setHeadwayRelaxationTime(final double tauSeconds)
-    {
-        this.tauHeadway = Duration.instantiateSI(Math.max(0.0, tauSeconds));
-    }
-
-    /**
-     * Returns the current headway relaxation time constant τ.
-     * @return the relaxation time constant
-     */
-    public Duration getHeadwayRelaxationTime()
-    {
-        return this.tauHeadway;
-    }
-
-    /**
-     * Returns the currently active relaxed headway used by the car-following model.
-     * @return the relaxed headway T(t)
-     */
-    public Duration getCurrentRelaxedHeadway()
-    {
-        return this.currentRelaxedHeadway;
-    }
-
-    /**
-     * Returns the most recent target headway value derived from the current desire.
-     * @return the target headway T<sub>target</sub>
-     */
-    public Duration getTargetDesiredHeadway()
-    {
-        return this.targetDesiredHeadway;
     }
 
     /**
@@ -1092,38 +824,6 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     public Double getSocioSpeedSensitivity() throws ParameterException
     {
         return getParameters().getParameter(MirovaParameters.socioSpeedSensitivity);
-    }
-
-    /**
-     * Returns a map containing all relevant properties and states of the tactical planner. * @return key-value map of system
-     * properties
-     */
-    public Map<String, Object> getProperties()
-    {
-        Map<String, Object> props = new LinkedHashMap<>();
-        props.put("Speed [km/h]", getGtu().getSpeed());
-        props.put("Acceleration [m/s²]", getGtu().getAcceleration());
-        props.put("Current Desire", String.format("%.3f", this.absoluteDesire));
-        props.put("Headway (relaxed)", getCurrentRelaxedHeadway());
-        props.put("Lane Change Active", this.getLaneChange().isChangingLane());
-        props.put("Active ActionState", this.currentActionState != null ? this.currentActionState.toString() : "none");
-        return props;
-    }
-
-    /**
-     * Gets the relaxation progress of the headway adaptation. * @return normalized relaxation progress [0,1]
-     */
-    public Double getRelaxProgress()
-    {
-        return this.relaxProgress;
-    }
-
-    /**
-     * Gets the target desired headway duration. * @return the target desire duration
-     */
-    public Duration getTargetDesire()
-    {
-        return this.targetDesiredHeadway;
     }
 
     /**

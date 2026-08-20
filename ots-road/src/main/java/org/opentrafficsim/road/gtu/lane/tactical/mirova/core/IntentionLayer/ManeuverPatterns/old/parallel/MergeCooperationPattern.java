@@ -679,9 +679,9 @@ public class MergeCooperationPattern extends ManeuverPattern
 
             if (this.mergeCandidate.equals(neighbors.getLeader(LateralDirectionality.NONE)))
             {
-                Duration laneChangeDesiredHeadDuration = this.vehicle.getParameters().getParameter(ParameterTypes.T).times(
-                        this.vehicle.getParameters().getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange));
-                this.vehicle.setTargetDesiredHeadway(laneChangeDesiredHeadDuration);
+                // Retired: the episode-based headway relaxation this called into no longer exists. Headway
+                // relaxation is now handled by RelaxationState via MirovaCarFollowingUtil.
+                // this.vehicle.setTargetDesiredHeadway(...);
                 this.vehicle.getParameters().setParameterResettable(ParameterTypes.S0, Length.instantiateSI(0.5));
             }
 

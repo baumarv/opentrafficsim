@@ -44,7 +44,6 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddat
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataLaneChangeDesireRight;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataLaneChangePlan;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataLaneChangePlanDirection;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataRelaxedHeadway;
 import org.opentrafficsim.road.network.RoadNetwork;
 import org.opentrafficsim.road.network.lane.Lane;
 import org.opentrafficsim.road.network.sampling.LaneDataRoad;
@@ -334,7 +333,6 @@ public class CircularRoadSwing extends OtsSimulationApplication<CircularRoadMode
         }
         RoadSampler sampler = new RoadSampler(getModel().getNetwork());
         RoadSampler samplerExtended = RoadSampler.build(getModel().getNetwork())
-                .registerExtendedDataType(new ExtendedDataRelaxedHeadway())
 //                .registerExtendedDataType(new ExtendedDataActionState())
 //                .registerExtendedDataType(new ExtendedDataLaneChangeDesireLeft())
 //                .registerExtendedDataType(new ExtendedDataLaneChangeDesireRight())

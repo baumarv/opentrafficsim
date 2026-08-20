@@ -636,8 +636,9 @@ public class GapSearchPattern extends ManeuverPattern
             NeighborsContext neighborsCtx = this.vehicle.getContext(NeighborsContext.class);
             EgoContext egoCtx = this.vehicle.getContext(EgoContext.class);
 
-            this.vehicle.setTargetDesiredHeadway(this.vehicle.getParameters().getParameter(ParameterTypes.T).times(
-                    this.vehicle.getParameters().getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange)));
+            // Retired: the episode-based headway relaxation this called into no longer exists. Headway
+            // relaxation is now handled by RelaxationState via MirovaCarFollowingUtil.
+            // this.vehicle.setTargetDesiredHeadway(...);
 
             Acceleration minAcc = egoCtx.getCurrentCarFollowingAcceleration();
 
