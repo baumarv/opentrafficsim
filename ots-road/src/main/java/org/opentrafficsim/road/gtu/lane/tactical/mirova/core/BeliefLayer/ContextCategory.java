@@ -1,5 +1,7 @@
 package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer;
 
+import org.opentrafficsim.road.gtu.lane.perception.RelativeLane;
+import org.opentrafficsim.core.network.LateralDirectionality;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -101,6 +103,69 @@ public abstract class ContextCategory
      * @param value the actual value to cache
      * @param storeInValues {@code true} to also persist the value in the regular value map, {@code false} for cache only
      */
+    /**
+     * Builds a table of cache keys, one per {@link LateralDirectionality}, indexed by ordinal.
+     * <p>
+     * Cache keys used to be concatenated on every access ({@code PREFIX + direction.name()}). That
+     * allocates a fresh {@code String} each time, and because {@code String} memoises its hash in the
+     * instance, a fresh instance means the hash is recomputed from scratch on every lookup. Building
+     * the handful of possible keys once and indexing them by ordinal removes both costs: no
+     * allocation, and the hash of each key is computed once for the lifetime of the JVM.
+     * </p>
+     * @param prefix the key prefix
+     * @return keys indexed by {@code LateralDirectionality.ordinal()}
+     */
+    public static String[] directionKeys(final String prefix)
+    {
+        LateralDirectionality[] values = LateralDirectionality.values();
+        String[] keys = new String[values.length];
+        for (LateralDirectionality direction : values)
+        {
+            keys[direction.ordinal()] = prefix + direction.name();
+        }
+        return keys;
+    }
+
+    /**
+     * Returns a cache key for a relative lane, avoiding concatenation for the three lanes that carry
+     * essentially all traffic in this model.
+     * <p>
+     * Same reasoning as {@link #directionKeys(String)}: {@code RelativeLane} is not an enum, so the
+     * common cases are pre-built and anything else falls back to concatenation rather than being
+     * silently unsupported.
+     * </p>
+     * @param prebuilt keys for CURRENT, LEFT and RIGHT, in that order, from {@link #relativeLaneKeys}
+     * @param prefix the key prefix, used for the fallback
+     * @param lane the lane to build a key for
+     * @return the cache key
+     */
+    public static String relativeLaneKey(final String[] prebuilt, final String prefix, final RelativeLane lane)
+    {
+        if (RelativeLane.CURRENT.equals(lane))
+        {
+            return prebuilt[0];
+        }
+        if (RelativeLane.LEFT.equals(lane))
+        {
+            return prebuilt[1];
+        }
+        if (RelativeLane.RIGHT.equals(lane))
+        {
+            return prebuilt[2];
+        }
+        return prefix + lane.toString();
+    }
+
+    /**
+     * Pre-builds the CURRENT/LEFT/RIGHT keys consumed by {@link #relativeLaneKey}.
+     * @param prefix the key prefix
+     * @return keys for CURRENT, LEFT and RIGHT, in that order
+     */
+    public static String[] relativeLaneKeys(final String prefix)
+    {
+        return new String[] {prefix + RelativeLane.CURRENT, prefix + RelativeLane.LEFT, prefix + RelativeLane.RIGHT};
+    }
+
     public <T> void cacheValue(final String key, final T value, final boolean storeInValues)
     {
         this.cache.put(key, value);
