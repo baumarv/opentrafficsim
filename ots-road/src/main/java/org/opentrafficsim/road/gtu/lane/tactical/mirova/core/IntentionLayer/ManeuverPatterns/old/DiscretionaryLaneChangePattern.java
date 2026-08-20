@@ -59,7 +59,7 @@ package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Man
 // */
 // public DiscretionaryLaneChangePattern(final KnowledgeChunk kc) throws ParameterException
 // {
-// super(PatternType.FREE_LC, kc);
+// super(kc);
 // this.targetDirection = this.vehicle.getLaneChangeDesire().dominantDirection();
 // this.initialActionState = new PerformLaneChangeState(this, this.targetDirection);
 // }

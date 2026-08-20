@@ -42,7 +42,7 @@ package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Man
 // */
 // public DiscretionaryLaneChangePattern(final KnowledgeChunk knowledgeChunk,
 // final LateralDirectionality direction) {
-// super(PatternType.FREE_LC, knowledgeChunk);
+// super(knowledgeChunk);
 // this.direction = direction;
 // }
 //

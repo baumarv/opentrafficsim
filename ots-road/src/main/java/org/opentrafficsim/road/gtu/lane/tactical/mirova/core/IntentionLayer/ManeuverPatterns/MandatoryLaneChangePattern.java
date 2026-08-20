@@ -407,14 +407,10 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
      */
     public MandatoryLaneChangePattern(final MirovaTacticalPlanner vehicle)
     {
-        super(PatternType.EXCLUSIVE, vehicle);
+        super(vehicle);
         // Start in the early anticipation state
         this.initialActionState = () -> new AnticipateMergeState(this);
         this.targetDirection = this.vehicle.getLaneChangeDesire().dominantDirection();
-        this.requiredContextKeys.add("Ego");
-        this.requiredContextKeys.add("Neighbors");
-        this.requiredContextKeys.add("Infrastructure");
-        this.requiredContextKeys.add("MacroTraffic");
     }
 
     /**

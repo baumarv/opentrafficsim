@@ -59,10 +59,8 @@ public class AnticipateAdjacentCongestionPattern extends ManeuverPattern impleme
      */
     public AnticipateAdjacentCongestionPattern(final MirovaTacticalPlanner vehicle)
     {
-        super(PatternType.PARALLEL, vehicle);
+        super(vehicle);
         this.initialActionState = () -> new AdjacentCongestionState(this);
-        this.requiredContextKeys.add("Ego");
-        this.requiredContextKeys.add("MacroTraffic");
     }
 
     /**

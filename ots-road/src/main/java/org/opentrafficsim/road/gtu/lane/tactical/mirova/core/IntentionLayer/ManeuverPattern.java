@@ -1,7 +1,5 @@
 package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.function.Supplier;
 
 import org.djunits.value.vdouble.scalar.Duration;
@@ -36,32 +34,11 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 public abstract class ManeuverPattern
 {
 
-    /** Classification of maneuver type used in the hierarchical selection logic. */
-    public enum PatternType
-    {
-        /** Immediately executable lane change. */
-        FREE_LC,
-        /** Lane change requiring tactical preparation. */
-        TACTICAL_LC,
-        /** Cooperative or yielding maneuver. */
-        COOPERATIVE,
-        /** Exclusive maneuvers that must run in isolation. */
-        EXCLUSIVE,
-        /** Parallel maneuvers that can execute alongside standard car-following. */
-        PARALLEL
-    }
-
     /** The initial action state that starts the state machine of this maneuver. */
     protected Supplier<ActionState> initialActionState;
 
     /** The current action state of this maneuver pattern. */
     protected ActionState currentActionState;
-
-    /** Context categories required for this pattern to be applicable. */
-    protected final Set<String> requiredContextKeys = new HashSet<>();
-
-    /** The high-level category of this maneuver pattern. */
-    protected final PatternType type;
 
     /** Reference to the ego vehicle executing this maneuver. */
     protected MirovaTacticalPlanner vehicle;
@@ -77,13 +54,11 @@ public abstract class ManeuverPattern
     // ----------------------------------------------------------------------
 
     /**
-     * Initializes the maneuver pattern with a specific type and links it to the executing vehicle.
-     * @param type the classification of this maneuver pattern
+     * Initializes the maneuver pattern and links it to the executing vehicle.
      * @param vehicle the MiRoVA tactical planner (ego vehicle) executing this pattern
      */
-    protected ManeuverPattern(final PatternType type, final MirovaTacticalPlanner vehicle)
+    protected ManeuverPattern(final MirovaTacticalPlanner vehicle)
     {
-        this.type = type;
         this.vehicle = vehicle;
         try
         {
@@ -141,15 +116,6 @@ public abstract class ManeuverPattern
     // ----------------------------------------------------------------------
     // Accessors
     // ----------------------------------------------------------------------
-
-    /**
-     * * Returns the set of context categories required by this pattern.
-     * @return the set of required context keys
-     */
-    public Set<String> getRequiredContextKeys()
-    {
-        return this.requiredContextKeys;
-    }
 
     /**
      * Returns the initial action state for this maneuver pattern. This state is used by the tactical planner to start the
@@ -222,15 +188,6 @@ public abstract class ManeuverPattern
     public MirovaTacticalPlanner getMirovaTacticalPlanner()
     {
         return this.vehicle;
-    }
-
-    /**
-     * Returns the type classification of this maneuver pattern.
-     * @return the {@link PatternType}
-     */
-    public PatternType getType()
-    {
-        return this.type;
     }
 
     /**

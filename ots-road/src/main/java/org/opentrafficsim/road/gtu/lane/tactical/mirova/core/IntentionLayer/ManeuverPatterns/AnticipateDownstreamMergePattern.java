@@ -71,7 +71,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
      */
     public AnticipateDownstreamMergePattern(final MirovaTacticalPlanner vehicle)
     {
-        super(PatternType.PARALLEL, vehicle);
+        super(vehicle);
         // Context-aware factory: FarAnticipationState calls setRunning(false) each tick so this lambda
         // is re-invoked every tick for the far phase. At that point listLanesWithCooperationNeeds is
         // already populated by checkContext(), so we can decide which state to create.
@@ -101,10 +101,6 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
             }
             return new FarAnticipationState(this);
         };
-        this.requiredContextKeys.add("Ego");
-        this.requiredContextKeys.add("Infrastructure");
-        this.requiredContextKeys.add("MacroTraffic");
-        this.requiredContextKeys.add("Neighbors");
     }
 
     /**

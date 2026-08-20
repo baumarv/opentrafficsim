@@ -77,12 +77,8 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
      */
     public GapOpenerPattern(final MirovaTacticalPlanner vehicle)
     {
-        super(PatternType.PARALLEL, vehicle);
+        super(vehicle);
         this.initialActionState = () -> new OpenGapState(this);
-        this.requiredContextKeys.add("Ego");
-        this.requiredContextKeys.add("Neighbors");
-        this.requiredContextKeys.add("Infrastructure");
-        this.requiredContextKeys.add("MacroTraffic");
     }
 
     /**
