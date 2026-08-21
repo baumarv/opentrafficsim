@@ -347,9 +347,7 @@ damping baseline is `0.80`, so the cell `standard × adamp0.80 × sdr0.60` repro
 evaluation study's setting exactly.
 
 Every variation starts from `FreiburgStudyParameters.forDate(...)` and overrides **only** those
-values, so a cell differs from the `dates` study in exactly the swept parameters by
-construction — and `standard` × `0.60` reproduces that study's setting exactly, since `0.60` is
-`FreiburgStudyParameters.RED_FAC`.
+values, so a cell differs from the `dates` study in exactly the swept parameters by construction.
 
 Total runs = dates × combinations × damping × safety distance × replications:
 
@@ -357,12 +355,26 @@ Total runs = dates × combinations × damping × safety distance × replications
 |---:|---:|---:|:---|
 | 3 | 6 | `3 × 8 × 6 = 144` | `0-71` |
 | 9 | 6 | `9 × 8 × 6 = 432` | `0-215` |
+| **9** | **10** | **`9 × 8 × 10 = 720`** | **`0-359`** |
 | 32 | 6 | `32 × 8 × 6 = 1536` | `0-767` |
 
-⚠️ At 90–120 min per run, the full 32-date grid is roughly **2300–3100 core-hours**. Consider
-running the grid on a subset of dates and the full date list only for the baseline cell.
+The bold row is the weekend campaign: the nine dates of `cluster/dates.txt`, both headway
+combinations, both damping factors, both safety distance factors, ten replications. Verified with
+`--count`, not derived by hand:
 
-Output folders name the date **and** both swept values, so a result is identifiable without
+```
+--study=combos --dates=cluster/dates.txt --demand=<dir> --strict=true --replications=10 --count
+720
+```
+
+⚠️ At 90–120 min per run, the full 32-date grid is roughly **2300–3100 core-hours**. Consider
+running the grid on a subset of dates and the full date list only for the baseline cell. The
+720-run campaign is **1100–1400 core-hours**; at two runs per task that is 360 tasks, so roughly
+**13 tasks running concurrently** finish it inside a weekend, and anything more is headroom against
+requeues. Both figures predate `LaneBasedGtu.CACHING=false`, which cut measured CPU to 84.3 % of
+the previous baseline — they are therefore conservative rather than wrong.
+
+Output folders name the date **and** all three swept values, so a result is identifiable without
 resolving an index against the source:
 
 ```
