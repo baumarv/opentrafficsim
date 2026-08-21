@@ -31,6 +31,15 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * three numbers rather than six, and a variation differs from the evaluation study in exactly the swept parameters.
  * </p>
  * <p>
+ * The grid is three nested loops over three constant lists. A fourth dimension would be a fourth list, a fourth loop and
+ * a fourth suffix in {@link #variantLabel(HeadwayCombination, double, double)} — cheap, but the third one in a week is
+ * the point at which the shape is worth naming. The generalisation is a {@code List<Dimension>} of (parameter id, label
+ * prefix, values) walked by a generic cartesian product, which would also let the manifest describe cells without this
+ * class knowing their names. Deliberately <b>not</b> done here: it buys nothing for the runs already planned and would
+ * put a refactor between a working grid and a 720-run campaign. Do it when a study needs a dimension that is not simply
+ * "one parameter, same value for car and truck".
+ * </p>
+ * <p>
  * Options honoured by {@link #register(ScenarioManager, Map)}, identical to {@link DateStudy}'s:
  * </p>
  * <ul>
