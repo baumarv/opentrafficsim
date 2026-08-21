@@ -1,0 +1,279 @@
+# MiRoVA Performance Profile — 2026-08-21, full production day
+
+Re-analysis of the 2×2 matrix recordings. Follows up on
+[`performance_profile_2026-08-20.md`](performance_profile_2026-08-20.md) and should be read
+against it; this report deliberately reuses its section structure so the two can be compared line
+by line.
+
+Primary subject is **cell A** — stock djunits, `LaneBasedGtu.CACHING=true` — the closest thing to
+today's unpatched production behaviour. **Cell D** (patched djunits, `CACHING=false`, the best
+case) is used as a cross-check wherever a finding might be an artefact of unpatched OTS.
+
+## What's new, what's confirmed, what changed
+
+**New — the trajectory sampler is not a cost.** The 2026-08-20 report ran with recording off and
+listed that as a limitation: "Study runs enable it, and the sampler adds cost that is not
+represented here." Now measured with it on, the sampler is **0.51 % of CPU inclusive, 0.06 %
+self-time, 0.02 % of allocation**. It is noise. That open question is closed, and the earlier
+report's numbers do not need a correction factor for it.
+
+**New — a djutils hotspot the short recording never showed.**
+`org.djutils.immutablecollections.ImmutableAbstractMap.get` accounts for **12.3 % of all map/hash
+time in cell A** (≈ 5 % of CPU) and **14.5 % in cell D**, where it becomes the second-largest
+single cause. It does not appear anywhere in the 2026-08-20 report.
+
+**New — DJUnits costs money outside `hashCode` too.** `ValueUtil.expressAsUnit` is **7.17 % of
+CPU in self-time** (3.01 % before) and `Duration.instantiateSI` **3.29 %** — unit conversion and
+scalar construction, not hashing. The hash-caching patch does not touch either: in cell D they are
+still 6.83 % and 4.58 %. DJUnits self-time is **12.55 % in A and 12.36 % in D** — essentially
+unchanged by the patch.
+
+**Changed — DJUnits hashing is far less dominant over a full day.** `DoubleScalar.hashCode` is
+**12.06 % of CPU**, against 40.5 % in the earlier report. And the split between its two consumers
+inverts: **8.92 % via `RelativePosition`** (the position cache) against **2.99 % via
+`ParameterType`**. Earlier recordings gave 61.7 %/36.5 % and then 2.69 %/25.17 %. Section 3 shows
+why: the split tracks the traffic regime, and both earlier recordings were short enough to sit
+inside one.
+
+**Changed — the overall gain from patch + `CACHING=false` is ~15 %, not ~45 %.** Cell D uses
+**84.8 %** of cell A's CPU samples (451 568 vs 532 367; wall clock 5 833 s vs 6 637 s). The 45 %
+measured on a 25-minute window was regime-specific and should not be quoted.
+
+**Confirmed, at ~100× the confidence.** MiRoVA's own code owns **2.44 %** of self-time (1.70 %
+before). Layer 1 still dominates inclusive time and Layers 2–5 remain cheap. The car-following
+tick cache still works: **75.0 %** of model evaluations enter through the one cached entry point
+(76.4 % before, on 4 952 samples).
+
+## What was profiled
+
+| | 2026-08-20 | **this report** |
+|---|---|---|
+| Window | 13:00–14:00, 20–60 min slices | **13:00–22:00, full 9 h** |
+| Date | 2025-10-13 | 2025-10-07 |
+| Trajectory recording | **off** | **on** (as production studies run it) |
+| CPU samples analysed | 4 952 | **532 367** (A), 451 568 (D) |
+| Allocation samples | 11 752 | **105 149** (A), 98 319 (D) |
+| Wall clock | ~2 min | **6 637 s** (A), 5 833 s (D) |
+| Machine | contended, then idle workstation | cluster, **non-exclusive** node |
+| Noise threshold | ~1 % | **~0.1 %** |
+
+Parameters are the study baseline composed exactly as `ScenarioManager.prepareRun` composes a real
+run. The node was **not** exclusive: neighbour noise leaves attribution within a cell intact
+(sampling is proportional to CPU actually received) but makes wall-clock and sample counts between
+cells only indicative.
+
+## CPU hotspots mapped to the architecture
+
+### Who owns the innermost frame (self time)
+
+```
+                        cell A          cell D        2026-08-20
+   JDK                  56.75%          47.90%          71.47%
+   generic OTS          21.15%          30.68%          14.32%
+   DJUnits              12.55%          12.36%           8.02%
+   djutils               7.02%           5.18%           4.36%
+   MiRoVA own code       2.44%           3.68%           1.70%
+   trajectory sampler    0.06%           0.06%           (not present)
+   DSOL                  0.03%           0.14%           0.14%
+```
+
+The conclusion of the original report survives its own sample size increasing a hundredfold:
+**MiRoVA's own code is not where the time goes.** What shifted is the balance between the JDK and
+OTS — with recording on and a full day, more time sits in OTS's own geometry and perception code
+and proportionally less in raw collection work.
+
+### Which layer the stack is under (inclusive), cell A
+
+```
+   32.85%  L1 Perception/Belief: InfrastructureContext
+   27.32%  L1 Perception/Belief: NeighborsContext
+   10.24%  L2 Cognition: DesireLayer
+    7.18%  MiRoVA other
+    6.57%  MirovaTacticalPlanner (loop)
+    3.81%  L5 Reactive: car-following
+    3.40%  L4 Intention: ManeuverPatterns
+    3.03%  L1 Perception/Belief: ContextCategory
+    1.91%  L1 Perception/Belief: VehicleContextManager
+    1.57%  L1 Perception/Belief: EgoContext
+    1.35%  L1 Perception/Belief: MacroTrafficContext
+    0.44%  Trajectory sampler (measurement, not model)
+    0.34%  L3 Decision: ArbitrationLayer
+```
+
+Layer 1 is **68 %** of inclusive time, up from 60 %. Arbitration is 0.34 %, and at this sample size
+that is a real number rather than a rounding artefact: the decision logic genuinely costs nothing.
+Read together with the ownership table — Layer 1 dominates while MiRoVA owns 2.44 % of self-time —
+the reading is unchanged and now well beyond doubt: **Layer 1 is expensive because of what it asks
+OTS for, not because of what it computes.**
+
+### Top self frames, cell A
+
+```
+   25.76%  java.util.HashMap.getNode
+    7.17%  org.djunits.value.util.ValueUtil.expressAsUnit
+    6.82%  org.opentrafficsim.road.gtu.lane.LaneBasedGtu.position
+    5.58%  java.util.AbstractSet.hashCode
+    5.13%  java.lang.String.hashCode
+    4.95%  org.djutils.multikeymap.MultiKeyMap.getFinalMap
+    3.72%  java.util.HashMap.putVal
+    3.29%  org.djunits.value.vdouble.scalar.Duration.instantiateSI
+    2.86%  java.util.HashMap.put
+    2.56%  org.opentrafficsim.core.gtu.perception.AbstractPerceptionCategory.computeIfAbsent
+    2.10%  java.util.HashMap.computeIfAbsent
+    2.07%  org.opentrafficsim.base.geometry.OtsLine2d.projectFractional
+    0.98%  org.djunits.value.vdouble.scalar.base.DoubleScalar.hashCode
+```
+
+Map and hash operations total **41.12 %** of self-time (57.9 % in the earlier contended profile).
+Attributing each such sample to its nearest non-JDK caller is where the picture has genuinely
+changed:
+
+```
+   13.77%  org.opentrafficsim.base.parameters.ParameterSet.getParameter
+   12.84%  org.djutils.multikeymap.MultiKeyMap.getSubMap
+   12.32%  org.djutils.immutablecollections.ImmutableAbstractMap.get     <- new
+    9.85%  org.djunits.quantity.Quantity.hashCode
+    8.85%  org.djutils.multikeymap.MultiKeyMap.getValue
+    5.91%  …mirova…BeliefLayer.ContextCategory.cacheValue
+    4.88%  org.opentrafficsim.core.gtu.perception.AbstractPerceptionCategory.contextualKey
+    4.25%  org.opentrafficsim.core.gtu.perception.AbstractPerceptionCategory.computeIfAbsent
+    2.44%  org.djunits.unit.Unit.hashCode
+```
+
+In the earlier report `Quantity.hashCode` alone accounted for 56.5 % of this traffic. Here it is
+9.85 %, and the load is spread across four mechanisms: OTS parameter lookup, djutils `MultiKeyMap`,
+djutils `ImmutableAbstractMap`, and OTS's own perception cache keying (`contextualKey` +
+`computeIfAbsent` ≈ 9 %). **The single-cause story from the short recording does not survive a
+full day.**
+
+### What remains after the patch — cell D
+
+```
+   24.22%  java.util.HashMap.getNode
+    7.39%  org.opentrafficsim.core.gtu.plan.operational.OperationalPlan.getLocation
+    6.83%  org.djunits.value.util.ValueUtil.expressAsUnit
+    4.58%  org.djunits.value.vdouble.scalar.Duration.instantiateSI
+    3.45%  org.opentrafficsim.base.geometry.OtsLine2d.projectFractional
+```
+
+`DoubleScalar.hashCode` collapses to **0.71 %**, and its `RelativePosition` half to **0.00 %** —
+expected, since `CACHING=false` removes the position cache entirely and the patch handles the rest.
+But map/hash is still **35.53 %** of CPU, now led by `ParameterSet.getParameter` (19.2 %) and
+`ImmutableAbstractMap.get` (14.5 %). **Neither the patch nor disabling the position cache addresses
+most of the map traffic in a production run.**
+
+## Allocation
+
+Kept separate from CPU, as before. Cell A: **1.33 TB sampled** over 6 637 s.
+
+```
+   -- by owner --                    -- top types --
+   57.54%  JDK                       11.01%  java.lang.Object[]
+   23.02%  generic OTS               10.30%  java.util.LinkedHashMap$LinkedKeyIterator
+   12.01%  DJUnits                    7.55%  java.util.LinkedHashMap
+    6.47%  djutils                    6.50%  java.util.LinkedHashMap$Entry
+    0.94%  MiRoVA own code            6.43%  java.util.AbstractList$RandomAccessSubList
+    0.02%  trajectory sampler         6.39%  java.util.HashMap$Node[]
+                                      5.56%  org.djunits.value.vdouble.scalar.Length
+                                      4.37%  org.djutils.draw.point.Point2d
+```
+
+By layer: `InfrastructureContext` 35.07 %, `NeighborsContext` 28.68 %, `DesireLayer` 9.56 %,
+sampler 0.02 %.
+
+`LinkedKeyIterator` — the iterator allocated inside `Quantity.hashCode` — is **10.30 % in A and
+4.81 % in D**, a 53 % reduction from the patch. That matches what
+[`djunits_patch_experiment.md`](djunits_patch_experiment.md) measured on the short window (56 %) and
+confirms its correction of the original prediction: the patch removes about half of that churn, not
+most of it, because `Unit.hashCode` is deliberately left uncached.
+
+## The picture over the course of the day
+
+Split into six equal **wall-clock** slices. These are *not* equal slices of simulated time: a
+congested period simulates far more slowly, so a late slice covers less of the day than an early
+one. The congested phase is identified from the model side, by the share of samples executing
+congestion-handling states (`CongestedMergeState`, `CongestedCreepState`,
+`CongestedFollowLeaderState`, `EmergencyStopState`).
+
+| slice | samples | sampler | `DoubleScalar.hashCode` | map/hash | congestion states |
+|---|---|---|---|---|---|
+| #0 | 79 944 | 0.56 % | 9.04 % | 40.98 % | 0.103 % |
+| #1 | 88 061 | 0.58 % | 9.57 % | 39.69 % | 0.193 % |
+| #2 | 91 191 | 0.32 % | 10.59 % | 37.47 % | 0.166 % |
+| **#3** | 90 808 | 0.43 % | **16.43 %** | 42.84 % | **0.399 %** |
+| **#4** | 91 109 | 0.38 % | **15.82 %** | 42.68 % | 0.166 % |
+| #5 | 91 254 | 0.77 % | 10.47 % | 42.99 % | 0.110 % |
+
+**The DJUnits hashing share is regime-dependent: ~9–10 % in free flow, ~16 % under congestion — a
+70 % increase.** The congestion indicator peaks in the same slice where it starts. That is the
+mechanism one would expect: denser traffic means more perceived neighbours per vehicle, hence more
+position lookups, hence more hashing.
+
+This explains the variation the earlier work could not account for. The 61.7 % and 2.69 % figures
+from two short recordings were not contradictory measurements of one quantity — they were samples
+of a quantity that genuinely moves with the traffic state, taken from different parts of it. **A
+recording shorter than the congestion cycle cannot produce a representative figure for this
+hotspot**, which is the strongest methodological argument in this report for profiling full-length
+runs.
+
+The sampler share stays within 0.32–0.77 % throughout: it does not become expensive under load
+either.
+
+## Caching-effectiveness check
+
+**Car-following tick cache — effective, now beyond doubt.** Samples inside a car-following model:
+18 277, **3.43 % of CPU**. Entry points:
+
+```
+   74.99%  …BeliefLayer.EgoContext.getCurrentCarFollowingAcceleration   <- the cached path
+   11.46%  …BeliefLayer.InfrastructureContext.computeAnticipatedSpeed
+    4.19%  …DesireLayer.RouteIncentive.computeDesire
+    2.45%  …MandatoryLaneChangePattern$AnticipateMergeState.next
+    1.51%  MirovaTacticalPlanner.generateOperationalPlan
+```
+
+75.0 % against 76.4 % on 4 952 samples — the earlier finding was right, and it now rests on 18 277
+model evaluations rather than 390. The remainder are genuinely different queries (anticipated
+speed, hypothetical leaders), not repeats. No bypass.
+
+**`ContextCategory` cache — 3.03 % of CPU** (2.65 % before, and 3.74 % in cell D, where it is a
+larger share of a smaller total). Still real, still an order of magnitude below the map traffic
+around it. The key-shortening change measured as unmeasurable on the short window; at this sample
+size it would be resolvable, but cells A and D were both recorded *after* that change, so this run
+cannot separate it.
+
+## Tuning candidates, revised
+
+Ordered by what a full production day actually shows. Percentages are cell A unless stated.
+
+1. **`ParameterSet.getParameter` — 13.8 % of map/hash in A, 19.2 % in D.** Now the largest single
+   cause, and the one the djunits patch leaves almost untouched. This is candidate 2 from the
+   original report and it has only become more clearly the priority.
+2. **`djutils ImmutableAbstractMap.get` — 12.3 % of map/hash in A, 14.5 % in D (≈ 5 % of CPU).**
+   Entirely new; invisible in the short recording. Worth finding out what is being looked up in an
+   immutable map often enough to cost this.
+3. **OTS perception cache keying — `contextualKey` + `computeIfAbsent` ≈ 9 % of map/hash.** OTS
+   core, not MiRoVA.
+4. **DJUnits unit conversion and construction — `expressAsUnit` 7.17 %, `Duration.instantiateSI`
+   3.29 %.** Separate from the hashing question and unaffected by the patch. Worth raising at Delft
+   alongside the `hashCode` finding, since it is the same library and the same shape of problem.
+5. **The position cache — 8.92 % of CPU via `RelativePosition` in A, 0.00 % in D.** Confirms that
+   disabling it works, but see `djunits_patch_experiment.md`: the two interact, and the ~15 %
+   overall gain here is the *combined* effect, not the position cache's alone.
+
+Not worth pursuing: the trajectory sampler (0.51 %), arbitration (0.34 %), MiRoVA's own code
+(2.44 % of self-time across the entire architecture).
+
+## Limitations
+
+- **Non-exclusive node.** Within-cell attribution holds; the A-vs-D wall-clock and sample-count
+  comparison is indicative only, since the neighbours may have differed between the two runs.
+- **Cells B and C were not analysed** — only `A.jfr` and `D.jfr` were available here. B (stock,
+  `CACHING=false`) would separate the position cache's own contribution from the patch's.
+- **The day-phase split is by wall clock, not simulated time.** Mapping samples onto simulated time
+  needs a timestamped progress signal that the runs did not emit; the slices are labelled and
+  interpreted accordingly, and the congestion phase is identified from model-side behaviour rather
+  than from detector data. Adding `[Progress] <wall> t=<sim>` output to `RunProfileMatrix` would let
+  a future run be split on detector-derived regime boundaries directly.
+- One run per cell, so the A-vs-D difference has no error bar. The composition figures, resting on
+  hundreds of thousands of samples each, are a different matter.
