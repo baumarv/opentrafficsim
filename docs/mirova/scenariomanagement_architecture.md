@@ -56,6 +56,22 @@ own local runners.
 
 ---
 
+### `ScenarioGenerator` and OTS's GTU position cache
+
+`buildSimulationScript` sets `LaneBasedGtu.CACHING = false` before anything builds a GTU. That flag
+is OTS's memoisation of `LaneBasedGtu.position()`, keyed by a `RelativePosition` whose `hashCode`
+walks the DJUnits scalars it holds; for MiRoVA the bookkeeping costs more than the recomputation it
+saves. Measured over a full production day: **84.3 %** of the cache-on run's CPU, with byte-identical
+detector and trajectory output — it is pure memoisation, so results cannot change.
+
+It is set here rather than as a JVM-wide default because the flag belongs to OTS: only scenarios
+built through `ScenarioGenerator` are switched, and other users of the library keep OTS's own
+behaviour. `-Dmirova.gtuPositionCaching=true` restores the cache for re-measurement.
+
+The DJUnits hash-caching patch measured alongside it was **not** adopted, and `djunits.version`
+stays stock `5.2.1`. Both decisions, their measurements and the open items are in
+[performance_investigation_synthesis.md](performance_investigation_synthesis.md).
+
 ## 3. The three current studies (`scenariomanagement/scenarios/`)
 
 All three obtain their behavioral baseline from the facility (Section 8), which for Freiburg is
@@ -148,6 +164,12 @@ overshooting OOM-kills the healthy run along with the greedy one. See `cluster/R
 same node can noticeably slow down your own run (observed: ~5–6× on one specific node). Not a
 concern for a retry on a different node, but worth accounting for in walltime calculations for the
 full study.
+
+**Runs are ~16 % cheaper since the position cache was switched off.** `ScenarioGenerator
+.buildSimulationScript` now sets `LaneBasedGtu.CACHING = false` explicitly for every MiRoVA
+scenario — see [§ 2](#2-the-engine-classes-scenariomanagement-excluding-scenarios). Walltime
+estimates carried over from before 2026-08-21 are therefore conservative rather than wrong; the
+memory constraint above is unaffected.
 
 ---
 

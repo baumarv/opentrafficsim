@@ -27,3 +27,9 @@ cluster/cp.txt
 cluster/run_list.txt
 cluster/logs/
 cluster/output/
+
+# Profiling artefacts: JFR recordings, raw jfr-print exports and profiling matrix run output.
+# Individual files run past a gigabyte and every one of them is reproducible from a run, so
+# none of it belongs in the repository. The findings live in docs/mirova/ instead.
+profiling/
+*.jfr

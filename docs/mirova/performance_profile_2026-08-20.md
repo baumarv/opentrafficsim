@@ -1,5 +1,7 @@
 # MiRoVA Performance Profile — 2026-08-20
 
+> Part of the performance investigation of 2026-08-20/21. The one-page summary, the decision it led to and the open items are in [`performance_investigation_synthesis.md`](performance_investigation_synthesis.md).
+
 Diagnosis only. No performance changes were made; the tuning candidates at the end are
 proposals awaiting review.
 
