@@ -360,9 +360,7 @@ public class SimpleHighwayScenario extends ScenarioGenerator
             return;
         }
 
-        RoadSampler sampler = RoadSampler.build(this.network).registerExtendedDataType(new ExtendedDataRelaxedHeadway())
-                .registerExtendedDataType(new ExtendedDataHeadwayRelaxationProgress())
-                .registerExtendedDataType(new ExtendedDataRelaxationTargetHeadway())
+        RoadSampler sampler = RoadSampler.build(this.network)
                 .registerExtendedDataType(new ExtendedDataActionState())
                 .registerExtendedDataType(new ExtendedDataLaneChangeDesireLeft())
                 .registerExtendedDataType(new ExtendedDataLaneChangeDesireRight())
