@@ -39,6 +39,11 @@ inside one.
 **84.8 %** of cell A's CPU samples (451 568 vs 532 367; wall clock 5 833 s vs 6 637 s). The 45 %
 measured on a 25-minute window was regime-specific and should not be quoted.
 
+**New — the profile is now joined to the traffic that produced it.** Pairing the recording with
+the trajectory sampler of the same run gives cost per simulated vehicle-tick: states differ by a
+factor of **120** per invocation, and the congestion question is settled — it is volume, not
+per-vehicle cost. See [Cost per simulated vehicle-tick](#cost-per-simulated-vehicle-tick).
+
 **New — the manoeuvre state machine is not where the time goes.** Attributing each sample to the state that triggered it (see [Which State or Pattern triggers the cost](#which-state-or-pattern-triggers-the-cost)) puts the entire pattern/state machinery at **11.4 % of CPU**, and a single Layer 2 incentive, `CruisingSpeedIncentive.computeDesire`, at **41 %**.
 
 **Confirmed, at ~100× the confidence.** MiRoVA's own code owns **2.44 %** of self-time (1.70 %
@@ -272,11 +277,13 @@ Not worth pursuing: the trajectory sampler (0.51 %), arbitration (0.34 %), MiRoV
   comparison is indicative only, since the neighbours may have differed between the two runs.
 - **Cells B and C were not analysed** — only `A.jfr` and `D.jfr` were available here. B (stock,
   `CACHING=false`) would separate the position cache's own contribution from the patch's.
-- **The day-phase split is by wall clock, not simulated time.** Mapping samples onto simulated time
-  needs a timestamped progress signal that the runs did not emit; the slices are labelled and
-  interpreted accordingly, and the congestion phase is identified from model-side behaviour rather
-  than from detector data. Adding `[Progress] <wall> t=<sim>` output to `RunProfileMatrix` would let
-  a future run be split on detector-derived regime boundaries directly.
+- **The day-phase split is by wall clock, not simulated time.** No timestamped progress signal was
+  emitted, so the slices in this part of the report are wall-clock sixths and the congestion phase
+  is identified from model-side behaviour. [Cost per simulated vehicle-tick]
+  (#cost-per-simulated-vehicle-tick) removes this limitation for the questions it answers, by
+  reconstructing the mapping from the trajectory sampler's vehicle-tick counts. Emitting
+  `[Progress] <wall> t=<sim>` from `RunProfileMatrix` would still be worth doing: it would make the
+  mapping measured rather than reconstructed.
 - One run per cell, so the A-vs-D difference has no error bar. The composition figures, resting on
   hundreds of thousands of samples each, are a different matter.
 
@@ -476,7 +483,7 @@ So the explicit manoeuvre planning does concentrate its effort where a reactive 
 struggle. It simply does so at a total cost of a few percent, against 41 % for one speed-desire
 computation.
 
-### Is congestion more expensive per vehicle, or just more vehicles?
+### Does the cost mix move over the run?
 
 The composition of the tactical layer barely moves across the day:
 
@@ -496,12 +503,9 @@ selection climbs steadily, execution falls. More vehicles on the network means m
 check per tick, and each check has more neighbours to look at — but no single manoeuvre becomes
 dramatically more expensive to run.
 
-The honest limitation: **JFR cannot answer the throughput half of this question.** Every slice is
-equal in wall-clock time, so a congested slice covers fewer simulated seconds and fewer
-vehicle-ticks are invisible in these numbers. What the profile does show is that the *cost mix*
-per unit of CPU is nearly constant, which is the signature of volume-driven growth rather than of
-a per-vehicle cost explosion. Confirming it properly means pairing the recording with the
-simulated-time progress and the vehicle count from the same run — the detector output has both.
+JFR alone cannot finish the argument: every slice is equal in wall-clock time, so a congested
+slice covers fewer simulated seconds and the vehicle-ticks behind it are invisible. The next
+section pairs the recording with the trajectory output of the same run and settles it.
 
 ## What each state was triggering
 
@@ -530,7 +534,149 @@ rather than in the pattern's own logic.
   patch removes the hashing underneath it. The mechanism shares would certainly change; the
   ordering probably would not, since it is driven by perception volume rather than by hashing.
 - The regime split inherits the wall-clock caveat from the full-day report: slices are equal in wall
-  time, not in simulated time.
+  time, not in simulated time. The section that follows resolves this, at the price of assuming
+  constant cost per vehicle-tick — an assumption it then tests.
 - Attribution charges the whole sample to the outermost state. That is the intended semantics — "who
   was in control" — but it means a state is credited with cost it did not itself write, including
   cache population it happened to trigger first.
+
+---
+
+# Cost per simulated vehicle-tick
+
+Everything above measures how CPU is *distributed*. It cannot distinguish an expensive state from
+a frequent one, and it cannot separate "congestion costs more per vehicle" from "congestion has
+more vehicles". The trajectory sampler of the same run supplies what is missing: one row per
+vehicle per tick, in simulated time, carrying the active `ActionState`. That is precisely the unit
+of work the CPU was spent on.
+
+| | |
+|---|---|
+| CPU samples | 532 367 |
+| JVM CPU time, integrated from `jdk.CPULoad` | **6 544 s** → 12.29 ms per sample |
+| Vehicle-ticks recorded | 1 825 644, dt = **0.20 s** |
+| Links covered by the sampler | `L4a` only (the merge link) |
+| Ticks with any state active | **45.5 %** |
+
+Two measurement notes. CPU time is integrated from `jdk.CPULoad` rather than assumed from the
+nominal 10 ms sampling period — the JFR sampler falls behind under load, and the real figure is
+12.29 ms per sample, so assuming 10 would understate every cost below by a fifth. And the sampler
+covers only `L4a`, while the profile covers the whole network: absolute `ms/tick` figures are
+therefore upper bounds. That caveat scales every row by the same factor and leaves the ordering
+intact.
+
+## Which states are slow, and which are merely frequent
+
+Execution-phase CPU only, which is the like-for-like counterpart of occupancy — the sampler
+records a state as active when it *runs*, not when it is being checked for admission.
+
+| state | CPU | vehicle-ticks | ms per tick |
+|---|---|---|---|
+| `PreventUndercutting:Shadowing` ⚠ | 0.104 % | 0.033 % | 11.140 |
+| `NearAnticipationState` | 2.523 % | 1.880 % | **4.811** |
+| `PreventUndercutting:PrepareLaneChange` ⚠ | 0.097 % | 0.142 % | 2.451 |
+| `AnticipateMergeState` | 1.304 % | 2.027 % | **2.305** |
+| `MatchLeaderSpeedState` | 0.031 % | 0.479 % | 0.235 |
+| `PerformLaneChangeState` | 0.080 % | 1.732 % | 0.165 |
+| `SynchroniseMergeSpeedState` | 0.036 % | 1.030 % | 0.127 |
+| `OpenGapState` | 0.277 % | 14.592 % | **0.068** |
+| `SolveParallelVehicleState` | 0.031 % | 2.099 % | 0.053 |
+| `ExecuteLaneChange` | 0.072 % | 5.025 % | 0.051 |
+| `CongestedFollowLeaderState` | 0.077 % | 6.427 % | 0.043 |
+| `CongestedCreepState` | 0.103 % | 9.156 % | **0.040** |
+| `EmergencyStopState` | 0.009 % | 0.910 % | 0.036 |
+| _every vehicle-tick, all CPU included_ | 100 % | 100 % | 3.585 |
+
+⚠ fewer than 2 000 ticks observed; the figure is noise.
+
+**Per invocation the states differ by a factor of 120.** The two anticipation states are the
+expensive ones — `NearAnticipationState` at 4.8 ms costs *more than an entire average
+vehicle-tick* (3.6 ms) on top of it, and `AnticipateMergeState` adds 2.3 ms. Everything else is
+between 0.04 and 0.24 ms, i.e. free by comparison.
+
+This inverts the reading of the ranking further up. `OpenGapState` looked like a mid-table entry
+at 0.28 % of CPU; it is in fact **the most frequently active state in the entire model** — 14.6 %
+of all vehicle-ticks — and it is cheap. The congestion states are the same story: `CongestedCreep`
+and `CongestedFollowLeader` together occupy **15.6 % of vehicle-ticks** and cost 0.18 % of CPU
+between them.
+
+That the anticipation states are the expensive ones is not a surprise once stated: they are the
+ones that look far ahead. `NearAnticipationState`'s mechanism profile is 43 % `LaneBasedGtu
+.position`, and the long-range anticipation deliberately extends the lookahead to sample speeds at
+a downstream bottleneck. It is paying for distance.
+
+## Is congestion more expensive per vehicle, or just more vehicles?
+
+The wall-clock slices are mapped onto simulated time by giving each an equal share of
+vehicle-ticks — which *is* the constant-cost hypothesis. If it holds, the congestion in the
+simulated window and the CPU carrying a congestion state rise and fall together and their ratio
+stays flat. A ratio climbing with occupancy would mean congestion genuinely costs more per
+vehicle.
+
+| slice | simulated window [h] | congestion occupancy | CPU with a congestion state | ratio |
+|---|---|---|---|---|
+| #0 | 0.00 – 1.13 | 7.34 % | 0.117 % | 0.0159 |
+| #1 | 1.13 – 2.05 | 10.60 % | 0.090 % | 0.0085 |
+| #2 | 2.05 – 2.63 | 15.77 % | 0.201 % | 0.0127 |
+| #3 | 2.63 – 2.92 | 14.64 % | 0.186 % | 0.0127 |
+| #4 | 2.92 – 3.20 | 22.46 % | 0.169 % | 0.0075 |
+| #5 | 3.20 – 3.53 | 17.00 % | 0.162 % | 0.0096 |
+| #6 | 3.53 – 3.78 | 35.90 % | 0.357 % | 0.0100 |
+| #7 | 3.78 – 4.17 | 20.10 % | 0.440 % | 0.0219 |
+| #8 | 4.17 – 4.48 | 24.27 % | 0.222 % | 0.0092 |
+| #9 | 4.48 – 4.82 | 16.62 % | 0.110 % | 0.0066 |
+| #10 | 4.82 – 5.73 | 9.21 % | 0.170 % | 0.0184 |
+| #11 | 5.73 – 8.98 | 2.75 % | 0.050 % | 0.0183 |
+
+The ratio scatters between 0.007 and 0.022 with **no trend against occupancy** — the two most
+congested windows (#6 at 35.9 %, #8 at 24.3 %) sit at 0.010 and 0.009, below the free-flowing #11
+at 0.018. The scatter is sampling noise: the congestion-state CPU counts are 20–200 samples per
+slice. What matters is that the mapping, built on the assumption of a constant cost per tick,
+places the CPU congestion peak (#6–#7) inside the simulated congestion peak. Had per-vehicle cost
+exploded under congestion, the mapping would be stretched and the peaks displaced.
+
+**So the answer is volume.** The load itself swings by an order of magnitude:
+
+```
+   hour     ticks   mean concurrent vehicles   mean speed [km/h]
+     0     132561                    7.4              65.4
+     1     148606                    8.3              59.9
+     2     368443                   20.5              28.4
+     3     502630                   27.9              22.5     <- peak
+     4     418203                   23.2              28.4
+     5     120639                    6.7              63.2
+     6      58675                    3.3              92.3
+     7      44841                    2.5              98.2
+     8      31046                    1.7              99.2     <- 16x fewer than the peak
+```
+
+Hour 3 carries **16 times** the vehicle-ticks of hour 8 on the same stretch of road, at a quarter
+of the speed. That, and not a per-vehicle cost explosion, is where the CPU goes. If anything the
+mix shifts *towards* the cheap end under congestion: the states that dominate a jam are the
+cheapest ones in the model, and the expensive anticipation states are the ones that run in free
+flow.
+
+## What this means for optimisation
+
+- **Do not optimise the congestion states.** They occupy 15.6 % of vehicle-ticks and 0.18 % of
+  CPU. There is nothing there.
+- **`NearAnticipationState` and `AnticipateMergeState` are the only states worth touching**, and
+  the reason they cost is lookahead distance, not the FSM. Shortening the horizon, or sampling it
+  less often than every tick, is the lever.
+- **The real target is still not a state.** 88 % of CPU runs with no state active at all, and
+  6.8 % is admission checking. A vehicle-tick costs ~3.6 ms of which the manoeuvre being executed
+  accounts for a few hundredths, except during anticipation.
+
+## Limitations of the vehicle-tick analysis
+
+- **The sampler covers `L4a` only.** Occupancy is merge-link occupancy while CPU is network-wide,
+  so every `ms/tick` figure is an upper bound. The factor is common to all rows, so the ordering
+  and the ratios between states survive; the absolute values do not. Registering more space-time
+  regions with the sampler would fix this, at the price of a larger trajectory file.
+- **Names are matched between two vocabularies.** The sampler writes `PerformLaneChangeState`, the
+  profiler `SimpleLaneChangePattern$PerformLaneChangeState`; the join matches on the bare name. A
+  state name reused by two patterns would be merged silently.
+- **The congestion consistency check rests on 20–200 samples per slice.** It is strong enough to
+  exclude a large per-vehicle cost increase under congestion, not to measure a small one.
+- **One run.** Cells B, C and D were not analysed this way, though all four produced byte-identical
+  trajectory output, so the occupancy side would be unchanged by construction.
