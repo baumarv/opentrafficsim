@@ -16,6 +16,16 @@
 # matrix is one build per djunits version crossed with two runs each. That also means the
 # "which jar is actually resolved" check runs once per classpath rather than once per cell.
 #
+# The two CACHING variants of a build run CONCURRENTLY, one per allocated core, following the
+# same bundling pattern as run_mirova.sbatch: a run is single-threaded, the task holds two
+# cores either way, so running them in sequence would leave one core idle for the whole matrix.
+# Wall clock is therefore roughly two runs long, not four.
+#
+# Each cell is a full production-length run: the 13:00-22:00 window of the real 'dates' study,
+# taken from FreiburgStudyParameters rather than configured here. That covers free flow, the
+# build-up into congestion and its dissipation, instead of a one-hour snapshot of whichever
+# regime happened to be in it.
+#
 # Usage (login node, or via cluster/profile_matrix.sbatch):
 #
 #     export MIROVA_WORKSPACE=<workspace name>
@@ -43,6 +53,9 @@ PATCHED_VERSION="${MIROVA_DJUNITS_PATCHED:-5.2.1-mirova-patched}"
 RESULT_DIR="${MIROVA_PROFILE_DIR:-${WORKSPACE}/profiling/matrix_$(date +%Y%m%d_%H%M%S)}"
 MAIN_CLASS="org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunProfileMatrix"
 JAVA_HEAP="${MIROVA_JAVA_HEAP:-6g}"
+
+# Where demand_<date>.csv lives. Same default as run_mirova.sbatch uses for the studies.
+DEMAND_DIR="${MIROVA_DEMAND_DIR:-${WORKSPACE}/demand}"
 
 # One core's worth of JVM parallelism, matching run_mirova.sbatch: the simulation is
 # single-threaded, and letting GC and JIT threads spread across an exclusive node would add
@@ -141,6 +154,17 @@ if [ ! -f "${PATCHED_JAR}" ]; then
 fi
 echo "  patched artifact: ${PATCHED_JAR}"
 
+PROFILE_DATE="${MIROVA_PROFILE_DATE:-2025-10-13}"
+DEMAND_CSV="${DEMAND_DIR}/demand_${PROFILE_DATE}.csv"
+if [ ! -f "${DEMAND_CSV}" ]; then
+    echo "ERROR: no demand CSV for the profiled date." >&2
+    echo "       Expected: ${DEMAND_CSV}" >&2
+    echo "       The runs use the study's full 13:00-22:00 window, so the CSV must cover it." >&2
+    echo "       Copy the pre-generated per-date CSVs into ${DEMAND_DIR} first." >&2
+    exit 2
+fi
+echo "  demand CSV: ${DEMAND_CSV}"
+
 cd "${REPO_ROOT}"
 if ! grep -q "<djunits.version>" pom.xml; then
     echo "ERROR: no <djunits.version> property in ${REPO_ROOT}/pom.xml." >&2
@@ -201,46 +225,97 @@ build_variant "${PATCHED_VERSION}" "patched" "${CP_PATCHED}"
 # --------------------------------------------------------------------------------------
 # The four runs
 # --------------------------------------------------------------------------------------
-run_cell() {
-    local cell="$1" cp_file="$2" caching="$3" description="$4"
+# Which physical CPUs this process actually holds, read from its own affinity mask rather than
+# assumed to be 0 and 1: under SLURM the task lives in a cgroup that may hold any two CPUs, and
+# pinning to the wrong ones would put both runs on one core. Same approach as run_mirova.sbatch.
+CPU_LIST=()
+if command -v taskset >/dev/null 2>&1; then
+    affinity="$(taskset -cp $$ 2>/dev/null | awk -F': ' '{print $2}')"
+    IFS=',' read -ra affinity_parts <<< "${affinity}"
+    for part in "${affinity_parts[@]}"; do
+        if [[ "${part}" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+            for ((c = BASH_REMATCH[1]; c <= BASH_REMATCH[2]; c++)); do CPU_LIST+=("${c}"); done
+        elif [[ "${part}" =~ ^[0-9]+$ ]]; then
+            CPU_LIST+=("${part}")
+        fi
+    done
+fi
+echo
+echo "[2/3] Runs — CPU affinity: ${CPU_LIST[*]:-unknown (leaving placement to the OS)}"
+
+# Launches one cell in the background and echoes its PID.
+launch_cell() {
+    local cell="$1" cp_file="$2" caching="$3" slot="$4"
 
     local out_dir="${RESULT_DIR}/${cell}"
     local jfr_file="${RESULT_DIR}/${cell}.jfr"
     mkdir -p "${out_dir}"
 
-    echo
-    echo "----------------------------------------------------------"
-    echo "[2/3] Cell ${cell}: ${description}"
-    echo "----------------------------------------------------------"
+    local -a pin=()
+    if [ "${#CPU_LIST[@]}" -gt "${slot}" ]; then
+        pin=(taskset -c "${CPU_LIST[${slot}]}")
+    fi
 
     # shellcheck disable=SC2086  # JAVA_OPTS is intentionally word-split
-    java -Xmx"${JAVA_HEAP}" ${JAVA_OPTS} \
+    "${pin[@]}" java -Xmx"${JAVA_HEAP}" ${JAVA_OPTS} \
         "-XX:StartFlightRecording=filename=${jfr_file},${JFR_SETTINGS},dumponexit=true" \
         "-XX:FlightRecorderOptions=stackdepth=${JFR_STACKDEPTH}" \
         -Dmirova.profileOut="${out_dir}" \
         -Dmirova.gtuPositionCaching="${caching}" \
+        -Dmirova.demandDir="${DEMAND_DIR}" \
+        -Dmirova.profileDate="${PROFILE_DATE}" \
         -cp "$(cat "${cp_file}")" "${MAIN_CLASS}" \
-        > "${RESULT_DIR}/${cell}.log" 2>&1
-
-    if [ ! -s "${jfr_file}" ]; then
-        echo "  ERROR: no recording was written for cell ${cell}." >&2
-        return 1
-    fi
-    echo "  recording: ${jfr_file} ($(wc -c < "${jfr_file}") bytes)"
-
-    # Text dumps alongside the recording, so the results are readable without the jfr tool
-    # being available wherever they are eventually analysed.
-    jfr print --stack-depth "${JFR_STACKDEPTH}" --events jdk.ExecutionSample "${jfr_file}" \
-        > "${RESULT_DIR}/${cell}_exec.txt" 2>/dev/null || true
-    jfr print --stack-depth "${JFR_STACKDEPTH}" --events jdk.ObjectAllocationSample "${jfr_file}" \
-        > "${RESULT_DIR}/${cell}_alloc.txt" 2>/dev/null || true
-    echo "  samples: $(grep -c '^jdk.ExecutionSample' "${RESULT_DIR}/${cell}_exec.txt" 2>/dev/null || echo 0) CPU, $(grep -c '^jdk.ObjectAllocationSample' "${RESULT_DIR}/${cell}_alloc.txt" 2>/dev/null || echo 0) allocation"
+        > "${RESULT_DIR}/${cell}.log" 2>&1 &
+    echo $!
 }
 
-run_cell A "${CP_STOCK}"   true  "stock djunits, position cache ON  (baseline)"
-run_cell B "${CP_STOCK}"   false "stock djunits, position cache OFF"
-run_cell C "${CP_PATCHED}" true  "patched djunits, position cache ON"
-run_cell D "${CP_PATCHED}" false "patched djunits, position cache OFF"
+# Runs the two CACHING variants of one djunits build concurrently, one per core.
+pair_runs() {
+    local cp_file="$1" cell_on="$2" cell_off="$3" description="$4"
+
+    echo
+    echo "----------------------------------------------------------"
+    echo "Cells ${cell_on} and ${cell_off}: ${description}"
+    echo "  own log per run; two JVMs on one stream interleave unreadably"
+    echo "----------------------------------------------------------"
+
+    local pid_on pid_off
+    pid_on="$(launch_cell "${cell_on}" "${cp_file}" true 0)"
+    pid_off="$(launch_cell "${cell_off}" "${cp_file}" false 1)"
+    echo "  ${cell_on} (CACHING=true)  pid ${pid_on}${CPU_LIST[0]:+, cpu ${CPU_LIST[0]}}"
+    echo "  ${cell_off} (CACHING=false) pid ${pid_off}${CPU_LIST[1]:+, cpu ${CPU_LIST[1]}}"
+
+    # Reap both before judging either: one failing must not mask the other, and both logs are
+    # wanted regardless. 'wait' is called unconditionally so a failure cannot leave an orphan.
+    local status_on=0 status_off=0
+    wait "${pid_on}"  || status_on=$?
+    wait "${pid_off}" || status_off=$?
+
+    local failed=0
+    for pair in "${cell_on}:${status_on}" "${cell_off}:${status_off}"; do
+        local cell="${pair%%:*}" status="${pair##*:}"
+        if [ "${status}" -ne 0 ]; then
+            echo "  ERROR: cell ${cell} exited ${status} (log: ${RESULT_DIR}/${cell}.log)" >&2
+            tail -5 "${RESULT_DIR}/${cell}.log" >&2 || true
+            failed=1
+            continue
+        fi
+        if [ ! -s "${RESULT_DIR}/${cell}.jfr" ]; then
+            echo "  ERROR: cell ${cell} wrote no recording." >&2
+            failed=1
+            continue
+        fi
+        jfr print --stack-depth "${JFR_STACKDEPTH}" --events jdk.ExecutionSample \
+            "${RESULT_DIR}/${cell}.jfr" > "${RESULT_DIR}/${cell}_exec.txt" 2>/dev/null || true
+        jfr print --stack-depth "${JFR_STACKDEPTH}" --events jdk.ObjectAllocationSample \
+            "${RESULT_DIR}/${cell}.jfr" > "${RESULT_DIR}/${cell}_alloc.txt" 2>/dev/null || true
+        echo "  ${cell}: $(wc -c < "${RESULT_DIR}/${cell}.jfr") bytes, $(grep -c '^jdk.ExecutionSample' "${RESULT_DIR}/${cell}_exec.txt" 2>/dev/null || echo 0) CPU samples"
+    done
+    return "${failed}"
+}
+
+pair_runs "${CP_STOCK}"   A B "stock djunits ${STOCK_VERSION}"
+pair_runs "${CP_PATCHED}" C D "patched djunits ${PATCHED_VERSION}"
 
 # --------------------------------------------------------------------------------------
 # Correctness across all four cells
