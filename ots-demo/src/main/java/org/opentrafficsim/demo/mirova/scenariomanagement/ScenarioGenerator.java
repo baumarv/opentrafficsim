@@ -47,6 +47,7 @@ import org.opentrafficsim.road.gtu.strategical.LaneBasedStrategicalPlannerFactor
 import org.opentrafficsim.road.gtu.strategical.LaneBasedStrategicalRoutePlannerFactory;
 import org.opentrafficsim.road.gtu.generator.characteristics.LaneBasedGtuCharacteristicsGeneratorOd;
 import org.opentrafficsim.road.gtu.generator.characteristics.LaneBasedGtuCharacteristics;
+import org.opentrafficsim.road.gtu.lane.LaneBasedGtu;
 import org.opentrafficsim.road.gtu.lane.VehicleModel;
 import org.opentrafficsim.core.gtu.GtuCharacteristics;
 import org.opentrafficsim.core.gtu.GtuException;
@@ -112,6 +113,15 @@ public abstract class ScenarioGenerator
 
     /** Lock object for synchronizing parallel demand preparation. */
     private static final Object DEMAND_LOCK = new Object();
+
+    /**
+     * System property overriding MiRoVA's default for {@link LaneBasedGtu#CACHING}; {@code true} restores OTS's own
+     * default. Only the profiling matrix has a reason to set it.
+     */
+    public static final String PROPERTY_GTU_POSITION_CACHING = "mirova.gtuPositionCaching";
+
+    /** Guards the one-off log line; the flag itself is idempotent and may be written by every run. */
+    private static boolean gtuPositionCachingLogged = false;
 
     /**
      * Constructor.
@@ -303,6 +313,7 @@ public abstract class ScenarioGenerator
      */
     public ScenarioSimulationScript buildSimulationScript(final ScenarioParameters params)
     {
+        applyGtuPositionCaching();
         prepareSimulationDemand(params);
 
         String demandCsv = params.get("demandCsv", String.class);
@@ -476,6 +487,44 @@ public abstract class ScenarioGenerator
     // ----------------------------------------------------------------------
     // Helpers
     // ----------------------------------------------------------------------
+
+    /**
+     * Turns OTS's GTU position cache off for MiRoVA scenarios, before anything builds a GTU.
+     * <p>
+     * {@link LaneBasedGtu#CACHING} memoises {@code position()} in a {@link org.djutils.multikeymap.MultiKeyMap} keyed by
+     * the GTU's {@link org.opentrafficsim.core.gtu.RelativePosition}, whose {@code hashCode} walks the DJUnits scalars it
+     * holds. For MiRoVA the bookkeeping costs more than the recomputation it avoids: profiling a full production day
+     * measured the cache-off run at <b>84.3 %</b> of the cache-on run's CPU, with the position hash alone accounting for
+     * 8.9 % of CPU with the cache on and 0.0 % with it off. The results are unaffected -- the cache is pure memoisation,
+     * and cache-on and cache-off runs produce byte-identical detector and trajectory output.
+     * </p>
+     * <p>
+     * Set here rather than as a JVM-wide default because the flag belongs to OTS, not to MiRoVA: other users of the
+     * library keep OTS's own default, and only scenarios built through this class are switched.
+     * {@link #PROPERTY_GTU_POSITION_CACHING} restores the cache for anyone who wants to measure the difference again.
+     * </p>
+     * <p>
+     * The flag is a JVM-global {@code public static}, so a process that runs MiRoVA scenarios alongside non-MiRoVA OTS
+     * scenarios switches the cache off for both. Every MiRoVA entry point funnels through this class and all of them
+     * want the same value, so within MiRoVA the write is idempotent and parallel replications cannot race to different
+     * values.
+     * </p>
+     * <p>
+     * See {@code docs/mirova/performance_investigation_synthesis.md} for the measurements and the decision.
+     * </p>
+     */
+    protected static void applyGtuPositionCaching()
+    {
+        boolean caching = Boolean.parseBoolean(System.getProperty(PROPERTY_GTU_POSITION_CACHING, "false"));
+        LaneBasedGtu.CACHING = caching;
+        if (!gtuPositionCachingLogged)
+        {
+            gtuPositionCachingLogged = true;
+            System.out.println("[INFO] LaneBasedGtu.CACHING = " + caching
+                    + (caching ? " (OTS default, restored via -D" + PROPERTY_GTU_POSITION_CACHING + "=true)"
+                            : " (MiRoVA default: the position cache costs more than it saves)"));
+        }
+    }
 
     /** Cached map of all known ParameterType instances from standard OTS and Mirova. */
     protected static final Map<String, ParameterType<?>> PARAMETER_TYPES = new HashMap<>();
