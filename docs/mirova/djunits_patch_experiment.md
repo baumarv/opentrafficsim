@@ -260,5 +260,5 @@ confirmed for the window it will actually report on.
 
 - the patched artifact installed in the node's `.m2` (section 4)
 - `cluster/build_for_cluster.sh` run once, so the toolchain is provisioned and the local `.m2` warm
-- the per-date demand CSVs in `<workspace>/demand`; `demand_2025-10-13.csv` covers the full day
-  (00:00-23:55, 288 intervals — verified), so the 13:00-22:00 window fits inside it
+- the per-date demand CSVs in `<workspace>/demand`; `demand_2025-10-07.csv` covers the full day
+  (00:00-23:55, 288 intervals — verified), with demand in the window running to a median of 2 808 and a peak of 4 596 veh/h, so the 13:00-22:00 window fits inside it

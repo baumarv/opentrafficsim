@@ -154,7 +154,7 @@ if [ ! -f "${PATCHED_JAR}" ]; then
 fi
 echo "  patched artifact: ${PATCHED_JAR}"
 
-PROFILE_DATE="${MIROVA_PROFILE_DATE:-2025-10-13}"
+PROFILE_DATE="${MIROVA_PROFILE_DATE:-2025-10-07}"
 DEMAND_CSV="${DEMAND_DIR}/demand_${PROFILE_DATE}.csv"
 if [ ! -f "${DEMAND_CSV}" ]; then
     echo "ERROR: no demand CSV for the profiled date." >&2

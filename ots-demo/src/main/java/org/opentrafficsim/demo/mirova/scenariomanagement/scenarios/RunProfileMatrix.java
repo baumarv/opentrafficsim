@@ -67,7 +67,7 @@ public final class RunProfileMatrix
      * Overridable via {@code -Dmirova.profileDate}: the driving script also needs to know which CSV to
      * check for before it spends two builds finding out, and the two must not be able to disagree.
      */
-    private static final String DEFAULT_DATE = "2025-10-13";
+    private static final String DEFAULT_DATE = "2025-10-07";
 
     /** Utility class, not instantiated. */
     private RunProfileMatrix()
