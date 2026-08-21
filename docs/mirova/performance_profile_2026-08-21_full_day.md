@@ -345,6 +345,46 @@ tie-break decides a small enough minority not to affect the ranking. **Dispatch-
 merge FSM that most of this project's engineering effort has gone into — all nine states of
 `MandatoryLaneChangePattern` together — triggers **2.5 %**.
 
+## Selection versus execution
+
+A pattern costs something even when none of its states is running: `PatternSelector`
+`.getAllRelevantPatterns` calls `isRunning`, `checkContext` and `checkAbility` on **every**
+pattern for **every** vehicle in **every** tick. Those frames are attributed like any other — a
+bare pattern name in the ranking above, with no `$State` suffix, is selection cost, not execution.
+Splitting the same samples by which phase of `MirovaTacticalPlanner.update` they sit in:
+
+```
+   88.24%  no pattern frame at all
+    6.77%  selection        (PatternSelector.getAllRelevantPatterns on the stack)
+    4.98%  arbitration / execution (HybridPlanArbitrator.arbitrate on the stack)
+    0.01%  pattern frame in neither phase
+```
+
+**Selection is the larger half of the machinery: 6.8 % against 5.0 % for actually running the
+manoeuvres.** Broken down, it is almost purely the two checks — the *of which* column below is the
+share sitting inside `isRunning`/`checkContext`/`checkAbility` themselves:
+
+| pattern | selection cost | of which inside the checks |
+|---|---|---|
+| `GapOpenerPattern` | 2.43 % | 2.43 % |
+| `SimpleLaneChangePattern` | 1.60 % | 1.60 % |
+| `PreventUndercuttingPattern` | 1.08 % | 1.08 % |
+| `MandatoryLaneChangePattern` | 0.75 % | 0.74 % |
+| `AnticipateDownstreamMergePattern` | 0.73 % | 0.73 % |
+| `PatternSelector` itself (loop, list building) | 0.18 % | — |
+
+So `GapOpenerPattern`'s 2.43 % in the ranking is **not** the pattern opening gaps; it is
+`GapOpenerPattern.checkContext` deciding whether it should. The same holds for
+`SimpleLaneChangePattern` and `PreventUndercuttingPattern`. Only 4.98 % of total CPU is a state
+machine actually executing, and `NearAnticipationState` (2.52 %) plus `AnticipateMergeState`
+(1.30 %) are three quarters of that.
+
+This is the cheapest thing in the whole profile to improve, because it is pure overhead per
+vehicle-tick and independent of what the vehicle is doing. The mechanism table below shows what
+the checks spend their time on: perception iteration, `LaneBasedGtu.position`, parameter lookup
+and DJUnits hashing — in other words, they are expensive for exactly the same reasons everything
+else is, and the fix is the same one: ask perception for less, and ask for it once.
+
 ## What the other 88.6 % is
 
 The unattributed block is not background noise. Taking, for each such sample, the outermost frame
@@ -436,6 +476,33 @@ So the explicit manoeuvre planning does concentrate its effort where a reactive 
 struggle. It simply does so at a total cost of a few percent, against 41 % for one speed-desire
 computation.
 
+### Is congestion more expensive per vehicle, or just more vehicles?
+
+The composition of the tactical layer barely moves across the day:
+
+```
+   slice      samples   selection   arbitration   any pattern frame
+     #0        79 944      5.64%        6.52%           11.75%
+     #1        88 061      5.95%        5.27%           10.84%
+     #2        91 191      6.63%        3.93%           10.29%
+     #3        90 808      7.48%        4.57%           11.70%   <- congested
+     #4        91 109      8.11%        4.78%           12.53%
+     #5        91 254      6.65%        5.03%           11.25%
+```
+
+The share of CPU spent inside the pattern machinery stays within 10.3–12.5 % everywhere, and the
+congested slice is not the maximum of either column. What shifts is the balance *within* it:
+selection climbs steadily, execution falls. More vehicles on the network means more patterns to
+check per tick, and each check has more neighbours to look at — but no single manoeuvre becomes
+dramatically more expensive to run.
+
+The honest limitation: **JFR cannot answer the throughput half of this question.** Every slice is
+equal in wall-clock time, so a congested slice covers fewer simulated seconds and fewer
+vehicle-ticks are invisible in these numbers. What the profile does show is that the *cost mix*
+per unit of CPU is nearly constant, which is the signature of volume-driven growth rather than of
+a per-vehicle cost explosion. Confirming it properly means pairing the recording with the
+simulated-time progress and the vehicle count from the same run — the detector output has both.
+
 ## What each state was triggering
 
 Share of that state's own samples containing the mechanism; they overlap, since one stack can pass
@@ -448,14 +515,14 @@ through several.
 | `SimpleLaneChangePattern` (1.60 %) | perception iterables 38.8 %, `position` 30.2 %, `ContextCategory` cache 22.6 %, `getParameter` 19.0 % |
 | `MandatoryLaneChangePattern$AnticipateMergeState` (1.30 %) | perception iterables 32.0 %, `position` 23.2 %, `DoubleScalar.hashCode` 18.4 % |
 | `PreventUndercuttingPattern` (1.08 %) | `ContextCategory` cache 25.3 %, `getParameter` 24.3 %, perception iterables 14.0 % |
-| `MandatoryLaneChangePattern` (0.76 %, selection only) | `DoubleScalar.hashCode` 34.3 %, `getParameter` 30.6 % |
+| `MandatoryLaneChangePattern` (0.76 %, selection) | `DoubleScalar.hashCode` 34.3 %, `getParameter` 30.6 % |
 
-Two things worth naming. `GapOpenerPattern` is over half perception iteration — it is the most
-perception-hungry pattern in the model, which fits what it does. And `MandatoryLaneChangePattern`'s
-*selection* cost (`checkContext`/`checkAbility`, before any state runs) is almost entirely DJUnits
-hashing and parameter lookup: 65 % of it is the two library mechanisms, not the pattern's own
-logic. Selection is evaluated for every pattern for every vehicle every tick, so that is a cheap
-thing to make cheaper.
+Read the bare pattern rows as selection cost, per *Selection versus execution* above.
+`GapOpenerPattern.checkContext` is over half perception iteration — it is the most
+perception-hungry admission check in the model, and it runs on every vehicle in every tick
+whether or not a gap is ever opened. `MandatoryLaneChangePattern`'s check is the opposite shape:
+almost entirely DJUnits hashing and parameter lookup, 65 % of it in the two library mechanisms
+rather than in the pattern's own logic.
 
 ## Limitations
 
