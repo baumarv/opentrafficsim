@@ -1,5 +1,7 @@
 # DJUnits 5.2.1 — `hashCode()` cost, source verification and patch proposal
 
+> Part of the performance investigation of 2026-08-20/21. The one-page summary, the decision it led to and the open items are in [`performance_investigation_synthesis.md`](performance_investigation_synthesis.md).
+
 Verification and proposal only. **No patch was applied, no dependency version was changed, no
 `pom.xml` was touched.** Prepared as evidence for the in-person conversation with the DJUnits/OTS
 authors; no upstream issue or PR was drafted.

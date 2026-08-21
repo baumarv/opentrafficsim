@@ -24,6 +24,7 @@ To save context window token usage and avoid parsing raw codebase files, refer d
 - **Scenario Management**: [docs/mirova/scenarios_and_simulations.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/scenarios_and_simulations.md)
 - **OTS XML Format**: [docs/mirova/ots_xml_format.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/ots_xml_format.md)
 - **OTS Editor Reference**: [docs/mirova/ots_editor.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/ots_editor.md)
+- **Performance: where the CPU goes, and why** (incl. the `LaneBasedGtu.CACHING=false` decision): [docs/mirova/performance_investigation_synthesis.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/performance_investigation_synthesis.md)
 - **Python Pipeline (diss_mvb)**: [docs/mirova/python_pipeline.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/python_pipeline.md)
 
 
