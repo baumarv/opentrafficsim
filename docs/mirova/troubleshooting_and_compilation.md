@@ -166,3 +166,50 @@ Leave off `-o` here: the JAXB plugin and its dependencies must be resolvable.
 - Never trust an incremental `BUILD SUCCESS` after an `ots-xml` failure — verify with a clean build before drawing conclusions from a run.
 
 ---
+
+### 6. Dangling Source References Surviving Incremental Builds
+
+#### 🚩 Symptoms
+A clean build fails on files nobody has touched recently, naming classes that no longer exist:
+```text
+[ERROR] cannot find symbol: class ExtendedDataRelaxedHeadway
+[ERROR] cannot find symbol: class ExtendedDataHeadwayRelaxationProgress
+[ERROR] cannot find symbol: class ExtendedDataRelaxationTargetHeadway
+```
+Incremental builds keep succeeding, sometimes for days. The failure only appears when something forces a full recompile — `mvn clean install`, a CI release build, or a script that cleans (for instance `cluster/profile_matrix.sh`).
+
+#### 🔍 Root Cause
+When a class is deleted, javac only reports the break in files it actually recompiles. A referencing file that has not changed keeps its cached bytecode in `target/classes` and is never re-read, so the dangling reference stays invisible.
+
+This is related to issue 5 but not the same thing: there the *artifact* was inconsistent while the sources were fine; here the **sources are genuinely broken** and the stale artifact is merely hiding it. Rebuilding does not fix it — it reveals it.
+
+Two forms, both fatal to a clean build:
+- an actual **usage** (`new ExtendedDataRelaxedHeadway()`), and
+- a bare **import** of the deleted class with no usage at all — easy to miss, because searching for usages finds nothing.
+
+#### ✅ Solution
+Remove the references. If a whole call was chained onto a builder, keep the chain's receiver intact:
+```java
+// broken: the first call was chained directly onto build(...)
+RoadSampler.build(this.network).registerExtendedDataType(new ExtendedDataRelaxedHeadway())
+        .registerExtendedDataType(new ExtendedDataActionState())
+
+// fixed
+RoadSampler.build(this.network)
+        .registerExtendedDataType(new ExtendedDataActionState())
+```
+
+#### 🛡️ Prevention
+When deleting a class, search for its **name**, not for the way you expect it to be used:
+```bash
+grep -rn "ClassName" --include=*.java . | grep -v "/target/"
+```
+Grepping for `registerExtendedDataType` would have found the usages but missed the import-only file; grepping for the class name finds both. Then confirm with a clean build of the affected module chain:
+```bash
+mvn clean install -pl ots-demo -am -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Djacoco.skip=true
+```
+An incremental `BUILD SUCCESS` after a deletion proves nothing.
+
+Note that `ots-demo/src/test/.../doc/tutorials/SimpleSimulation.java` is a tutorial source file with no `@Test` methods, so the test phase does not exercise these scenarios. The GitHub release workflow does run `mvn clean package`, which would catch it — but only on release, which is far too late to be a useful signal.
+
+---

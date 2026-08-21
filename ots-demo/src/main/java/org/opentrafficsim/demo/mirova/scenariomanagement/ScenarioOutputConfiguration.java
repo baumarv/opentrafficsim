@@ -67,7 +67,7 @@ public class ScenarioOutputConfiguration
     // ----------------------------------------------------------------------
 
     /**
-     * Register an extended data type (e.g. ExtendedDataRelaxedHeadway).
+     * Register an extended data type (e.g. ExtendedDataActionState).
      * @param extendedData instance of the extended data type to register
      * @return this ScenarioOutputConfiguration for chaining
      */
