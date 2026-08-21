@@ -189,7 +189,7 @@ them separately would invite the wrong conclusion about either.
 ## 6. The 2x2 matrix, prepared for one cluster session
 
 `cluster/profile_matrix.sh` runs all four combinations unattended, submitted through
-`cluster/profile_matrix.sbatch` (non-array, `--exclusive`, one node):
+`cluster/profile_matrix.sbatch`:
 
 ```
                   CACHING=true          CACHING=false
@@ -197,34 +197,68 @@ stock djunits     (A) baseline          (B) position cache alone
 patched djunits   (C) patch alone       (D) both combined
 ```
 
-Three things about it are worth knowing.
+**Production-length cells.** Each cell runs the real `dates` study window, 13:00-22:00, taken from
+`FreiburgStudyParameters.forDate` rather than configured in the runner. That covers free flow, the
+build-up into congestion and its dissipation, instead of a one-hour snapshot of whichever regime
+happened to fall inside it — and it is what the 32-date campaign will actually spend its time on.
+The simulated duration follows the demand window automatically (32 400 s, confirmed), so the runner
+cannot drift out of step with the study by hardcoding a duration of its own.
 
-**Two builds, not four.** djunits is a build-time choice and `CACHING` a runtime one, so the
-matrix is one build per djunits version crossed with two runs each. The "which jar actually got
-resolved" check therefore runs once per classpath rather than once per cell, and each build's
-`cp.txt` is copied aside immediately, since the second build would otherwise overwrite the first.
-The script refuses to profile if a build resolved anything other than the version it asked for --
-four plausible-looking recordings that silently measure two identical configurations would be
-worse than a failure.
+The parameters are composed exactly as `ScenarioManager.prepareRun` composes a real run:
+`getDefaultParameters().copy().applyOverridesFrom(forDate(...))`. `forDate()` alone is not enough —
+it carries the behaviour baseline and the demand wiring but not the scenario defaults such as
+`mergeShare`, and `FreiburgNord.buildGtuTemplates` fails outright on a null one. Demand is loaded in
+strict mode: a cell quietly falling back to synthetic demand would make the cells incomparable while
+still producing four plausible recordings.
+
+**Two builds, two run pairs.** djunits is a build-time choice and `CACHING` a runtime one, so the
+matrix is one build per djunits version crossed with two runs each. The two `CACHING` variants of a
+build run concurrently, one per allocated core, following `run_mirova.sbatch`'s bundling pattern —
+background processes, `wait` on both before judging either, one log per run, affinity read from the
+task's own mask rather than assumed to be CPUs 0 and 1. Wall clock is therefore two runs plus two
+builds, not four runs. The "which jar actually got resolved" check runs once per classpath, and the
+script refuses to profile on a mismatch: four plausible recordings that silently measure two
+identical configurations would be worse than a failed build.
+
+**Non-exclusive allocation, deliberately.** `--exclusive` was dropped to avoid the queue wait, so
+the job takes a standard two-core share of a node and accepts neighbour noise — which on this
+cluster has been seen to slow a run five- to sixfold. The consequence is specific rather than fatal:
+relative attribution *within* a cell still holds, because JFR samples in proportion to the CPU the
+thread actually received, but wall-clock and CPU-sample counts become incomparable *between* cells
+if the neighbours change while the matrix runs. Lean on the composition percentages, treat the
+sample-count ratios as indicative, and **state in any write-up that the run was non-exclusive**.
+
+`--time` is 6 hours: 90-120 minutes per run from `run_mirova.sbatch`'s calibration, two runs'
+worth of wall clock because the pairs are concurrent, two Maven builds, and roughly 50 % headroom.
+A matrix that dies at the wall clock loses all four cells, since the comparison is only meaningful
+complete.
 
 **`LaneBasedGtu.CACHING` had no switch, so one had to be made.** It is a plain
 `public static boolean` with no property binding. `RunProfileMatrix` sets it before the simulation
-is built -- hence before any GTU exists -- which keeps the switch on a profiling entry point
-instead of patching OTS to add a property. That class also calls `System.exit(0)`: the simulation
-finishes but the JVM does not terminate by itself, and four of them accumulating would compete for
-the CPU being measured. Every earlier run in this series left its JVM alive for exactly that
-reason.
+is built — hence before any GTU exists — which keeps the switch on a profiling entry point instead
+of patching OTS to add a property. That class also calls `System.exit(0)`: the simulation finishes
+but the JVM does not terminate by itself, and accumulating JVMs would compete for the CPU being
+measured. Every earlier run in this series left one alive.
 
-**The restore is an `EXIT` trap, not a final step.** It fires on failure and on interrupt as well
-as on the clean path, and it refuses to finish quietly if `cp.txt` still resolves the patched jar
+**The restore is an `EXIT` trap, not a final step.** It fires on failure and on interrupt as well as
+on the clean path, and it refuses to finish quietly if `cp.txt` still resolves the patched jar
 afterwards.
 
-Correctness is checked by the script itself: all four cells must produce output identical to cell
-A. Cell B was additionally verified locally in advance -- with `CACHING=false`, `detector_periodic.csv`
-carries the same SHA-256 (`c9abd263...`) as every other run in this series, confirming that the OTS
-position cache is pure memoisation and that a difference between cells would be a bug rather than a
-trade-off.
+### Correctness
 
-Prerequisites, both checked by the script before it builds anything: the patched artifact installed
-in the node's `.m2` (section 4), and `cluster/build_for_cluster.sh` having been run once so the
-toolchain is provisioned and the local `.m2` is warm.
+Checked by the script itself: all four cells must produce output identical to cell A, compared by
+SHA-256 over the zip contents rather than the zip bytes, since the archives carry a timestamp.
+
+Note the scope of what has been verified so far, because it is not the same window. The
+stock-vs-patched comparison in section 2 and the `CACHING=false` check were both done on the short
+one-hour window. **The 9-hour window has not been correctness-verified yet** — that happens in the
+matrix run itself, which is the first thing to read in its output. Pure memoisation should not
+behave differently over a longer run, but that is a "should", and the matrix is where it gets
+confirmed for the window it will actually report on.
+
+### Prerequisites, all checked before anything is built
+
+- the patched artifact installed in the node's `.m2` (section 4)
+- `cluster/build_for_cluster.sh` run once, so the toolchain is provisioned and the local `.m2` warm
+- the per-date demand CSVs in `<workspace>/demand`; `demand_2025-10-13.csv` covers the full day
+  (00:00-23:55, 288 intervals — verified), so the 13:00-22:00 window fits inside it
