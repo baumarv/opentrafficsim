@@ -243,7 +243,19 @@ fi
 echo
 echo "[2/3] Runs — CPU affinity: ${CPU_LIST[*]:-unknown (leaving placement to the OS)}"
 
-# Launches one cell in the background and echoes its PID.
+# Launches one cell in the background and reports its PID in LAUNCHED_PID.
+#
+# The PID is returned through a variable rather than echoed, and this function must be called
+# plainly -- never as pid=$(launch_cell ...). Command substitution runs the function in a
+# SUBSHELL, so the backgrounded java would be a child of that subshell and disappear with it.
+# The parent would then hold a PID it never fathered, and 'wait' on it fails with
+#
+#     wait: pid <n> is not a child of this shell
+#
+# returning 127, which the caller would report as the cell having exited 127 -- a
+# "command not found" code that invites a hunt for a missing java or a broken PATH, when in
+# fact nothing was ever wrong with either. A plain function call runs in the current shell, so
+# java becomes a direct child and $! is the parent's own.
 launch_cell() {
     local cell="$1" cp_file="$2" caching="$3" slot="$4"
 
@@ -266,7 +278,7 @@ launch_cell() {
         -Dmirova.profileDate="${PROFILE_DATE}" \
         -cp "$(cat "${cp_file}")" "${MAIN_CLASS}" \
         > "${RESULT_DIR}/${cell}.log" 2>&1 &
-    echo $!
+    LAUNCHED_PID=$!
 }
 
 # Runs the two CACHING variants of one djunits build concurrently, one per core.
@@ -279,11 +291,23 @@ pair_runs() {
     echo "  own log per run; two JVMs on one stream interleave unreadably"
     echo "----------------------------------------------------------"
 
+    # Plain calls, not command substitution -- see launch_cell for why that distinction matters.
     local pid_on pid_off
-    pid_on="$(launch_cell "${cell_on}" "${cp_file}" true 0)"
-    pid_off="$(launch_cell "${cell_off}" "${cp_file}" false 1)"
+    launch_cell "${cell_on}" "${cp_file}" true 0
+    pid_on="${LAUNCHED_PID}"
+    launch_cell "${cell_off}" "${cp_file}" false 1
+    pid_off="${LAUNCHED_PID}"
     echo "  ${cell_on} (CACHING=true)  pid ${pid_on}${CPU_LIST[0]:+, cpu ${CPU_LIST[0]}}"
     echo "  ${cell_off} (CACHING=false) pid ${pid_off}${CPU_LIST[1]:+, cpu ${CPU_LIST[1]}}"
+
+    # Both must be real children now; if they are not, say so plainly instead of letting a
+    # wait status of 127 be misread as the run itself having failed.
+    for pid in "${pid_on}" "${pid_off}"; do
+        if ! kill -0 "${pid}" 2>/dev/null; then
+            echo "  WARNING: pid ${pid} is not running as a child of this shell; the exit status" >&2
+            echo "           reported below may be wait's, not the simulation's." >&2
+        fi
+    done
 
     # Reap both before judging either: one failing must not mask the other, and both logs are
     # wanted regardless. 'wait' is called unconditionally so a failure cannot leave an orphan.
