@@ -39,6 +39,8 @@ inside one.
 **84.8 %** of cell A's CPU samples (451 568 vs 532 367; wall clock 5 833 s vs 6 637 s). The 45 %
 measured on a 25-minute window was regime-specific and should not be quoted.
 
+**New — the manoeuvre state machine is not where the time goes.** Attributing each sample to the state that triggered it (see [Which State or Pattern triggers the cost](#which-state-or-pattern-triggers-the-cost)) puts the entire pattern/state machinery at **11.4 % of CPU**, and a single Layer 2 incentive, `CruisingSpeedIncentive.computeDesire`, at **41 %**.
+
 **Confirmed, at ~100× the confidence.** MiRoVA's own code owns **2.44 %** of self-time (1.70 %
 before). Layer 1 still dominates inclusive time and Layers 2–5 remain cheap. The car-following
 tick cache still works: **75.0 %** of model evaluations enter through the one cached entry point
@@ -277,3 +279,191 @@ Not worth pursuing: the trajectory sampler (0.51 %), arbitration (0.34 %), MiRoV
   a future run be split on detector-derived regime boundaries directly.
 - One run per cell, so the A-vs-D difference has no error bar. The composition figures, resting on
   hundreds of thousands of samples each, are a different matter.
+
+---
+
+# Which State or Pattern triggers the cost
+
+Every breakdown so far grouped cost either by architecture layer or by the immediate caller of one
+hotspot. Neither answers "which manoeuvre state was in control when this time was spent". This
+section attributes each sample to the state that triggered it, counting the whole sample against
+that state regardless of how far down the stack the work actually happened.
+
+Cell A, 532 367 samples. Cell D was not re-analysed this way; the findings below are structural
+rather than patch-dependent, but that is an assumption, not a measurement.
+
+## The attribution rule
+
+Fixed before running, and reproducible:
+
+> A frame is a **state frame** when its class lies under
+> `org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.` and not under `.old.`.
+>
+> The two abstract base classes of that package, `ManeuverPattern` and `ActionState`, are
+> recognised but never used as an attribution target. They are dispatch scaffolding —
+> `ManeuverPattern.update` calls the current state's `update` — so attributing to them would say
+> "some pattern was running" rather than which one. Samples whose only state frames are those
+> bases are counted separately as **dispatch only**.
+>
+> A sample is attributed to the **outermost** concrete state frame, the one closest to the
+> simulation loop. Samples with no state frame at all are bucketed as **no active state**.
+
+Nested action states appear in stacks as `Outer$Inner`, so
+`MandatoryLaneChangePattern$AnticipateMergeState` is distinguished from its siblings.
+
+Two checks on the rule itself: **2.33 %** of samples had more than one distinct concrete state on
+the stack (a pattern reaching into another, or a mid-transition frame), so the outermost-wins
+tie-break decides a small enough minority not to affect the ranking. **Dispatch-only** samples are
+**0.02 %** — the base classes almost never appear without a concrete state above them.
+
+## The headline: the state machinery is not where the time goes
+
+```
+   88.61%  (no active state)
+    2.52%  AnticipateDownstreamMergePattern$NearAnticipationState
+    2.43%  GapOpenerPattern
+    1.60%  SimpleLaneChangePattern
+    1.30%  MandatoryLaneChangePattern$AnticipateMergeState
+    1.08%  PreventUndercuttingPattern
+    0.76%  MandatoryLaneChangePattern            (checkContext / checkAbility during selection)
+    0.73%  AnticipateDownstreamMergePattern      (same)
+    0.28%  GapOpenerPattern$OpenGapState
+    0.10%  PreventUndercuttingPattern$ShadowingState
+    0.10%  MandatoryLaneChangePattern$CongestedCreepState
+    0.10%  PreventUndercuttingPattern$PrepareLaneChangeState
+    0.08%  SimpleLaneChangePattern$PerformLaneChangeState
+    0.08%  MandatoryLaneChangePattern$CongestedFollowLeaderState
+    0.07%  MandatoryLaneChangePattern$ExecuteLaneChangeState
+    0.04%  MandatoryLaneChangePattern$SynchroniseMergeSpeedState
+    0.03%  MandatoryLaneChangePattern$MatchLeaderSpeedState
+    0.03%  MandatoryLaneChangePattern$SolveParallelVehicleState
+    0.02%  (dispatch only)
+    0.01%  MandatoryLaneChangePattern$EmergencyStopState
+```
+
+**Everything the pattern and state machinery triggers adds up to about 11.4 % of CPU.** The
+merge FSM that most of this project's engineering effort has gone into — all nine states of
+`MandatoryLaneChangePattern` together — triggers **2.5 %**.
+
+## What the other 88.6 % is
+
+The unattributed block is not background noise. Taking, for each such sample, the outermost frame
+below `MirovaTacticalPlanner` (the first thing the planner reached for that tick):
+
+| first call of the tactical planner | of the block | **of total CPU** |
+|---|---|---|
+| `DesireLayer.CruisingSpeedIncentive.computeDesire` | 46.45 % | **41.16 %** |
+| `BeliefLayer.VehicleContextManager.updateFromPerception` | 28.81 % | **25.53 %** |
+| (outside MiRoVA — OTS plan building, sampler I/O, network) | 14.12 % | 12.52 % |
+| `DesireLayer.RouteIncentive.computeDesire` | 5.58 % | 4.95 % |
+| `DesireLayer.KeepRightIncentive.computeDesire` | 1.62 % | 1.44 % |
+| `BeliefLayer.VehicleContextManager.advanceTick` | 1.08 % | 0.96 % |
+| `DesireLayer.ProhibitDeadEndIncentive.isApplicable` | 1.01 % | 0.89 % |
+| `util.DeadlockDiffusionWatchdog.check` | 0.43 % | 0.38 % |
+| `ArbitrationLayer.HybridPlanArbitrator.arbitrate` | 0.22 % | 0.20 % |
+| `ArbitrationLayer.PatternSelector.getAllRelevantPatterns` | 0.21 % | 0.18 % |
+
+**One incentive — `CruisingSpeedIncentive.computeDesire` — triggers 41 % of the entire
+simulation's CPU.** It is the single largest consumer in the model by a wide margin, and it is a
+Layer 2 desire computation, not a manoeuvre.
+
+The mechanism is visible in its source: it calls `infrastructureContext.getAnticipatedSpeed()` for
+`CURRENT`, `LEFT` and `RIGHT`, and `computeAnticipatedSpeed` iterates the full leader iterable
+returned by `NeighborsContext.getLeaders(dir)` — the expensive OTS lane-structure walk that
+positions every GTU it passes. It also queries `getLegalLaneChangePossibility` twice. Three
+perception directions, every vehicle, every tick.
+
+### An important caveat before anyone tunes this
+
+The per-tick context caches mean **whoever touches perception first pays for populating them**, and
+everyone afterwards reads cheaply. `CruisingSpeedIncentive` runs early in `update()`, so a large
+part of its 41 % is cache-population cost that the patterns and the other incentives would
+otherwise have paid themselves. Making this incentive cheaper would therefore move most of the cost
+to the next consumer rather than remove it. What *would* remove it is asking perception for less —
+fewer directions, a shorter horizon, or not recomputing anticipated speed for lanes whose desire
+contribution is then discarded.
+
+This also reconciles the two views that look contradictory at first glance. The layer breakdown puts
+`InfrastructureContext` at 32.85 % and `NeighborsContext` at 27.32 % — that is *where the work
+happens*. This table says `CruisingSpeedIncentive` at 41 % — that is *who asked for it*. Both are
+inclusive attributions; they differ only in whether the innermost or the outermost frame decides.
+
+## Free flow versus congestion
+
+The congested part of the recording is identified from the profile itself: the share of samples
+with a congestion-handling state anywhere on the stack, per wall-clock sixth. Only slice #3 stands
+out — it carries more than twice the share of any other, while #1, #2 and #4 are indistinguishable
+from each other.
+
+```
+  slice #0 :  79944 samples, 0.103% congestion-handling
+  slice #1 :  88061 samples, 0.193% congestion-handling
+  slice #2 :  91191 samples, 0.166% congestion-handling
+  slice #3 :  90808 samples, 0.399% congestion-handling  <-- congested
+  slice #4 :  91109 samples, 0.166% congestion-handling
+  slice #5 :  91254 samples, 0.110% congestion-handling
+```
+
+Slice #3 is therefore the congested side and the other five the free-flowing one.
+
+| State / Pattern | free flow | congested | factor |
+|---|---|---|---|
+| `AnticipateDownstreamMergePattern$NearAnticipationState` | 2.710 % | 1.617 % | **0.6×** |
+| `GapOpenerPattern` | 2.302 % | 3.071 % | **1.3×** |
+| `SimpleLaneChangePattern` | 1.514 % | 2.015 % | 1.3× |
+| `MandatoryLaneChangePattern$AnticipateMergeState` | 1.240 % | 1.613 % | **1.3×** |
+| `PreventUndercuttingPattern` | 1.148 % | 0.769 % | 0.7× |
+| `MandatoryLaneChangePattern` (selection) | 0.748 % | 0.792 % | 1.1× |
+| `AnticipateDownstreamMergePattern` (selection) | 0.742 % | 0.687 % | 0.9× |
+| `GapOpenerPattern$OpenGapState` | 0.269 % | 0.333 % | 1.2× |
+| `(no active state)` | 88.678 % | 88.303 % | 1.0× |
+
+Below this the per-regime counts fall under a few hundred samples and the ratios stop being
+meaningful. Reported for completeness but **not to be relied on**:
+`MandatoryLaneChangePattern$CongestedCreepState` (4.3×), `$CongestedFollowLeaderState` (1.6×),
+`$ExecuteLaneChangeState` (1.2×), `$SynchroniseMergeSpeedState` (0.8×), `$MatchLeaderSpeedState`
+(0.4×), `$EmergencyStopState` (0.3×), `PreventUndercuttingPattern$ShadowingState` (0.9×),
+`$PrepareLaneChangeState` (0.4×), `SimpleLaneChangePattern$PerformLaneChangeState` (0.7×).
+
+**The architecture's premise shows up in the data.** The states that cost more under congestion
+are exactly the ones that are supposed to: `GapOpenerPattern`, `AnticipateMergeState` and
+`SimpleLaneChangePattern` at 1.3× each, `CongestedCreepState` far higher but on too few samples to
+quote. The states that cost *less* are the anticipatory ones — `NearAnticipationState` (0.6×) and
+`PreventUndercuttingPattern` (0.7×) — which is consistent with them being about *avoiding* a
+situation that has, by then, already arrived.
+
+So the explicit manoeuvre planning does concentrate its effort where a reactive model would
+struggle. It simply does so at a total cost of a few percent, against 41 % for one speed-desire
+computation.
+
+## What each state was triggering
+
+Share of that state's own samples containing the mechanism; they overlap, since one stack can pass
+through several.
+
+| State | dominant mechanisms |
+|---|---|
+| `AnticipateDownstreamMergePattern$NearAnticipationState` (2.52 %) | `LaneBasedGtu.position` 43.1 %, perception iterables 12.6 %, `getParameter` 11.9 % |
+| `GapOpenerPattern` (2.43 %) | perception iterables 55.6 %, `LaneBasedGtu.position` 36.7 %, `DoubleScalar.hashCode` 14.9 % |
+| `SimpleLaneChangePattern` (1.60 %) | perception iterables 38.8 %, `position` 30.2 %, `ContextCategory` cache 22.6 %, `getParameter` 19.0 % |
+| `MandatoryLaneChangePattern$AnticipateMergeState` (1.30 %) | perception iterables 32.0 %, `position` 23.2 %, `DoubleScalar.hashCode` 18.4 % |
+| `PreventUndercuttingPattern` (1.08 %) | `ContextCategory` cache 25.3 %, `getParameter` 24.3 %, perception iterables 14.0 % |
+| `MandatoryLaneChangePattern` (0.76 %, selection only) | `DoubleScalar.hashCode` 34.3 %, `getParameter` 30.6 % |
+
+Two things worth naming. `GapOpenerPattern` is over half perception iteration — it is the most
+perception-hungry pattern in the model, which fits what it does. And `MandatoryLaneChangePattern`'s
+*selection* cost (`checkContext`/`checkAbility`, before any state runs) is almost entirely DJUnits
+hashing and parameter lookup: 65 % of it is the two library mechanisms, not the pattern's own
+logic. Selection is evaluated for every pattern for every vehicle every tick, so that is a cheap
+thing to make cheaper.
+
+## Limitations
+
+- Cell D was not analysed this way, so it is unconfirmed whether the ranking shifts once the DJUnits
+  patch removes the hashing underneath it. The mechanism shares would certainly change; the
+  ordering probably would not, since it is driven by perception volume rather than by hashing.
+- The regime split inherits the wall-clock caveat from the full-day report: slices are equal in wall
+  time, not in simulated time.
+- Attribution charges the whole sample to the outermost state. That is the intended semantics — "who
+  was in control" — but it means a state is credited with cost it did not itself write, including
+  cache population it happened to trigger first.
