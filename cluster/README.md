@@ -185,6 +185,7 @@ This prints a single integer N and runs nothing. Since each task runs **two** ru
 | dates, 32 dates × 6 replications | 192 | 96 | `0-95` |
 | dates, 9 placeholder dates × 6 | 54 | 27 | `0-26` |
 | paramgrid, 17 variations × 6 | 102 | 51 | `0-50` |
+| damping, 9 dates × 2 variations × 10 | 180 | 90 | `0-89` |
 | paramgrid, 17 variations × 1 | 17 | 9 | `0-8` |
 
 An **odd** N is fine, as in the last row: the final task finds that its second index
@@ -244,6 +245,21 @@ export MIROVA_STUDY_OPTS="--demand=$(ws_find mirova)/demand --strict=true"
 sbatch --chdir="$(ws_find mirova)" --array=0-50 cluster/run_mirova.sbatch   # 102 runs -> 51 tasks
 ```
 
+Example — the damping bound study (`aRelaxDamping` 0.90 and 1.00 on the best cell of the
+combination campaign, nine dates, ten replications):
+
+```bash
+export MIROVA_CLUSTER_DIR="$PWD/cluster"
+export MIROVA_STUDY=damping
+export MIROVA_STUDY_OPTS="--dates=cluster/dates.txt --demand=$(ws_find mirova)/demand --replications=10 --strict=true"
+sbatch --chdir="$(ws_find mirova)" --array=0-89 cluster/run_mirova.sbatch   # 180 runs -> 90 tasks
+```
+
+Ten replications rather than the default six, so the cells are directly comparable with the
+`combos` campaign's ten seeds (42–51) at damping 0.60 and 0.80. Its output folders carry the
+same `<combination>_adamp<d>_sdr<s>` names, so the Python evaluation reads both campaigns with
+one `--output-dir` each, or with a single one if the results are collected side by side.
+
 ## 6. Resources per task
 
 Each run is single-threaded: `AbstractSimulationScriptBase.runHeadless()` drives
@@ -284,13 +300,14 @@ run dies alongside the greedy one.
 ## Studies
 
 A study is a `StudyDefinition`: it registers scenarios, parameter variations and a replication
-count into a `ScenarioManager`. Three are registered in `StudyRegistry`:
+count into a `ScenarioManager`. Four are registered in `StudyRegistry`:
 
 | Short name | Class | Shape |
 |:---|:---|:---|
 | `dates` | `DateStudy` | One scenario per date, 1 variation each; facility-agnostic |
 | `paramgrid` | `FreiburgParameterStudy` | One scenario, 17 one-at-a-time variations |
 | `combos` | `FreiburgCombinationStudy` | Headway combinations × damping factors × safety distance factors × every date |
+| `damping` | `FreiburgDampingStudy` | Damping 0.90 and 1.00 on the best `combos` cell (`tighter`, sdr 0.50) × every date |
 
 **Adding a further study requires no change to the batch script or the entry point** — write a
 new `StudyDefinition`, then select it either by adding a short name to `StudyRegistry` or by
@@ -392,6 +409,34 @@ locale of whichever machine ran the job. `runParams.txt` additionally records
 
 Registration order is date-major, then combination, then damping factor, then safety distance
 factor. Use `--manifest=` to print the index-to-run mapping rather than deriving it by hand.
+
+### `damping` — bounding the relaxation damping axis
+
+`combos` measured damping at 0.60 and 0.80 and found every calibration metric improving
+monotonically towards 0.80, with no sign of flattening. `aRelaxDamping` is the **minimum**
+factor applied to positive acceleration while headway relaxation is active
+(`f = 1 - (1 - aRelaxDamping) * ratio` in `EgoContext.getRelaxationAccelerationFactor`), so a
+larger value means *weaker* damping: the trend says the damping currently applied is too strong.
+
+This study adds 0.90 and 1.00 on the single best cell — `tighter` (T = 0.90 / 1.20) with safety
+distance reduction 0.50 — rather than re-running the whole grid. Its purpose is a bound, not a
+search: it answers how much of the ~312 veh/h capacity deficit weaker damping can close **at
+all**. If 1.00 recovers only a fraction, the remainder is elsewhere and no finer search along
+this axis is worth its core-hours.
+
+**1.00 is the "damping off" case.** With `aRelaxDamping = 1.00` the factor is 1.00 for every
+ratio, which is exactly what `aRelaxDampingEnabled = false` produces — so the boolean needs no
+cell of its own.
+
+| Constant | Value | Meaning |
+|:---|:---|:---|
+| `HEADWAY_LABEL` | `tighter` | Looked up in `FreiburgCombinationStudy.COMBINATIONS`, so the two studies cannot drift apart |
+| `SAFETY_DISTANCE_FACTOR` | `0.50` | Fixed; outperformed 0.60 on every `combos` cell |
+| `ACC_DAMPING_FACTORS` | `0.90`, `1.00` | The two new points of the axis |
+
+Total runs = dates × 2 × replications, i.e. 9 × 2 × 10 = **180** for the campaign above.
+Combined with `combos`, the damping axis on that cell is four points long: 0.60, 0.80, 0.90,
+1.00.
 
 ## Global run index
 
