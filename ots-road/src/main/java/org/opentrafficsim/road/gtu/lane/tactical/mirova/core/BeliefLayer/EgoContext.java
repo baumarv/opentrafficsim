@@ -494,6 +494,22 @@ public class EgoContext extends ContextCategory implements UpdatableContext
     }
 
     /**
+     * Returns the physical length of the ego vehicle.
+     * @return Length; the ego vehicle's length, or 4.5 m when the GTU cannot be queried
+     */
+    public Length getEgoLength()
+    {
+        try
+        {
+            return this.vehicle.getGtu().getLength();
+        }
+        catch (Exception e)
+        {
+            return Length.instantiateSI(4.5);
+        }
+    }
+
+    /**
      * Calculates the desired front headway distance for a given direction.
      * @param dir the lateral direction (NONE for current lane)
      * @return the desired front headway distance
