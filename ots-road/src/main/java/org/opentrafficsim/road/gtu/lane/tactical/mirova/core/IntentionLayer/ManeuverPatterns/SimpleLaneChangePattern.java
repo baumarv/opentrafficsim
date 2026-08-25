@@ -64,8 +64,11 @@ public class SimpleLaneChangePattern extends ManeuverPattern
     {
         try
         {
-            // Trigger if discretionary desire exceeds the threshold
-            return this.vehicle.getLaneChangeDesire().magnitude() >= this.vehicle.getParameters()
+            // Trigger on the discretionary desire only. Using the combined desire made this
+            // pattern declare itself relevant because of a *mandatory* desire it does not own,
+            // so wherever a mandatory lane change is pending - on-ramp, off-ramp, any forced
+            // change - the discretionary pattern competed for the manoeuvre as well.
+            return this.vehicle.getDiscretionaryLaneChangeDesire().magnitude() >= this.vehicle.getParameters()
                     .getParameter(MirovaParameters.DFREE);
         }
         catch (ParameterException exception)
@@ -288,7 +291,12 @@ public class SimpleLaneChangePattern extends ManeuverPattern
                 return 0.0;
             }
 
-            Desire desire = this.maneuverPattern.getMirovaTacticalPlanner().getLaneChangeDesire();
+            // Scored on the discretionary desire for the same reason checkContext() is: the
+            // combined desire contains the mandatory component, which made this state's utility
+            // structurally greater than or equal to that of MandatoryLaneChangeState in the same
+            // direction. The arbitration is winner-takes-all on utility, so the discretionary
+            // pattern won the merge by construction rather than on its own merit.
+            Desire desire = this.maneuverPattern.getMirovaTacticalPlanner().getDiscretionaryLaneChangeDesire();
             double baseUtility = desire.getDirectionalDesire(this.direction);
 
             if (this.isCooperative)

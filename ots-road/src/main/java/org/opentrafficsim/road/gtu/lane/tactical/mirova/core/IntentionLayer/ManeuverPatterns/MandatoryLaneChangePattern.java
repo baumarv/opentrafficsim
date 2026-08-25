@@ -117,14 +117,27 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     /** Reference speed below which the target lane counts as congested, so that speed synchronisation is meaningless. */
     private static final double CONGESTED_TARGET_SPEED = 11.11;
 
-    /** Outer boundary of the active merge zone, from which the required speed fraction starts to relax. */
-    private static final double RAMP_GATE_START_DISTANCE = 120.0;
+    /**
+     * Speed difference tolerated once the ego has run out of time to close it [m/s].
+     * <p>
+     * {@link #MAX_SPEED_DELTA} applies while there is still time to build up speed; this is the value it widens to as
+     * that time runs out. A constant bound is what produced the vicious cycle the measurements showed: a vehicle that
+     * had braked for a parallel blocker lost some 15 km/h, and the unchanged 20 km/h bound then refused it the merge
+     * for the rest of the ramp - 68 % of the samples between 100 and 150 m were blocked by the speed criterion alone,
+     * at a median speed of 46 km/h against a 75 km/h main stream, until they reached the end and stopped.
+     * </p>
+     */
+    private static final double MAX_SPEED_DELTA_OUT_OF_TIME = 40.0 / 3.6;
 
-    /** Required fraction of the reference speed while still far from the ramp end. */
-    private static final double MIN_MERGE_SPEED_FRACTION = 0.66;
-
-    /** Required fraction of the reference speed at the ramp end. */
-    private static final double MIN_SPEED_FRACTION_FLOOR = 0.50;
+    /**
+     * Time still available on the ramp below which the speed tolerance starts widening [s].
+     * <p>
+     * Expressed as time rather than distance so the criterion does not encode the length of one particular weaving
+     * section, and set to the order of a lane change duration: once what remains is no more than the manoeuvre itself
+     * takes, insisting on further speed build-up asks for something that can no longer happen.
+     * </p>
+     */
+    private static final double SPEED_GATE_TIME_HORIZON = 6.0;
 
     /** Maximum accepted speed difference to the reference speed while the ego can still close it [m/s]. */
     private static final double MAX_SPEED_DELTA = 20.0 / 3.6;
@@ -135,6 +148,16 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
      * traffic at an arbitrary speed difference.
      */
     private static final double MAX_OBSTRUCTED_DELTA = 30.0 / 3.6;
+
+    /**
+     * Share of its free acceleration that the car-following model must still be returning for the ramp boost to apply.
+     * <p>
+     * Below this the model is reacting to the vehicle ahead rather than to the desired speed, and overriding it would
+     * close that gap. Above it the leader is far enough that the only thing holding the ego back is the comfort
+     * parameter {@code a}, which is not a safety constraint.
+     * </p>
+     */
+    private static final double UNRESTRICTED_CAR_FOLLOWING_SHARE = 0.80;
 
     /** Distance to the ramp end within which merging takes precedence over merging comfortably [m]. */
     private static final double RAMP_FINAL_APPROACH_DISTANCE = 20.0;
@@ -337,9 +360,9 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
      * <ul>
      * <li><b>It has run out of acceleration lane.</b> Within the final approach distance the question is no longer whether
      * merging is comfortable but whether it happens at all.</li>
-     * <li><b>It is synchronised with the target lane.</b> It has reached a distance-relaxed fraction of the reference
-     * speed and -- as long as it still has the room and the ability to close the remaining gap -- is within
-     * {@code MAX_SPEED_DELTA} of it.</li>
+     * <li><b>It is synchronised with the target lane.</b> It is within the tolerated difference of the speed the
+     * remaining lane length still allows it to reach. The tolerance is {@link #MAX_SPEED_DELTA} while there is time to
+     * build up speed and widens towards {@link #MAX_SPEED_DELTA_OUT_OF_TIME} as that time runs out.</li>
      * <li><b>It cannot accelerate any further.</b> Held back by a vehicle ahead on the ramp, the ego will not become
      * faster by waiting, so a wider speed difference is accepted.</li>
      * <li><b>The target lane is congested.</b> There is no speed to synchronise with, so speed criteria are meaningless.</li>
@@ -367,36 +390,38 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         // Congested target lane: there is no flow speed to synchronise with, so the speed criteria do not apply.
         boolean isCongestedTarget = effectiveTargetSpeedSI < CONGESTED_TARGET_SPEED;
 
-        // Distance-relaxed speed fraction. Rather than a hard switch at the gate distance, the required fraction
-        // shrinks linearly as the ramp runs out, which avoids the spatial clustering artefact a binary threshold
-        // produced (a dense scatter cloud of merges at one particular ramp position).
-        double relaxedFraction;
-        if (dist >= RAMP_GATE_START_DISTANCE)
-        {
-            relaxedFraction = MIN_MERGE_SPEED_FRACTION;
-        }
-        else
-        {
-            double t = Math.max(0.0, dist / RAMP_GATE_START_DISTANCE);
-            relaxedFraction = MIN_SPEED_FRACTION_FLOOR + t * (MIN_MERGE_SPEED_FRACTION - MIN_SPEED_FRACTION_FLOOR);
-        }
-
-        // The delta bound expresses "keep accelerating, you can still close this gap". It is therefore only meaningful
-        // while the ego actually can: it needs both the room and the ability to build up the missing speed. When either
-        // is missing the bound describes an unreachable state, and enforcing it does not make the ego faster -- it only
-        // keeps it waiting until it runs out of ramp and has to merge from a standstill.
         double speedDeficitSI = effectiveTargetSpeedSI - egoSpeed.si;
         boolean canAccelerate = ego.getCurrentCarFollowingAcceleration().si > OBSTRUCTION_ACCELERATION_THRESHOLD;
         double achievableAcceleration = Math.max(ego.getMaxPhysicalAcceleration().si, MIN_ASSUMED_ACCELERATION);
-        double distanceToBuildUpSpeed = (speedDeficitSI > 0.0)
-                ? (effectiveTargetSpeedSI * effectiveTargetSpeedSI - egoSpeed.si * egoSpeed.si)
-                        / (2.0 * achievableAcceleration)
-                : 0.0;
-        boolean speedDeltaBinding = canAccelerate && distanceToBuildUpSpeed <= dist;
 
-        boolean isSpeedSynchronized = effectiveTargetSpeedSI > 0.0
-                && egoSpeed.si >= relaxedFraction * effectiveTargetSpeedSI
-                && (isCongestedTarget || !speedDeltaBinding || speedDeficitSI <= MAX_SPEED_DELTA);
+        // Speed the ego can still reach before the change has to be complete, from the remaining lane length less the
+        // stretch the manoeuvre itself needs, capped at the speed of the traffic being joined. This is the quantity the
+        // readiness question is actually about: a driver builds up speed while doing so still buys something, and
+        // merges once it no longer does.
+        //
+        // Formulating it kinematically rather than as a fixed fraction of the target speed is what keeps the criterion
+        // usable on any geometry. The predecessor demanded 66 % of the target speed and dropped its own delta bound as
+        // soon as the remaining lane was too short to close the gap - on a 184 m weaving section that happened within
+        // the first few metres, after which nothing but the 66 % remained and vehicles merged some 40 km/h below the
+        // stream they joined. It also means a stricter gate cannot create ramp queueing: the demand shrinks with the
+        // distance left, so the ego is never held for a speed the lane cannot deliver.
+        double usableDistance = Math.max(0.0, dist - RAMP_FINAL_APPROACH_DISTANCE);
+        double achievableSpeedSI = Math.min(effectiveTargetSpeedSI,
+                Math.sqrt(egoSpeed.si * egoSpeed.si + 2.0 * achievableAcceleration * usableDistance));
+
+        // The ego is judged against the speed it can still reach, not against the speed of the target lane, and the
+        // tolerance around it widens as the time left on the ramp runs out. Both halves matter: measuring against the
+        // achievable speed keeps the criterion honest on a short acceleration lane, and widening the tolerance is what
+        // lets a vehicle that has already lost speed get back in instead of being refused until the ramp ends.
+        //
+        // A fraction of the achievable speed was tried first and turned out to decide nothing: every sample it
+        // admitted was already admitted by the 20 km/h bound, so the bound was the only criterion actually in force.
+        double timeLeft = usableDistance / Math.max(egoSpeed.si, 1.0);
+        double outOfTime = Math.min(1.0, Math.max(0.0, 1.0 - timeLeft / SPEED_GATE_TIME_HORIZON));
+        double allowedDelta = MAX_SPEED_DELTA + outOfTime * (MAX_SPEED_DELTA_OUT_OF_TIME - MAX_SPEED_DELTA);
+
+        boolean isSpeedSynchronized =
+                effectiveTargetSpeedSI > 0.0 && egoSpeed.si >= achievableSpeedSI - allowedDelta;
 
         boolean isObstructedOnRamp = !canAccelerate
                 && (isCongestedTarget || (effectiveTargetSpeedSI > 0.0 && speedDeficitSI <= MAX_OBSTRUCTED_DELTA));
@@ -404,6 +429,56 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         boolean isAtRampEnd = dist <= RAMP_FINAL_APPROACH_DISTANCE;
 
         return isAtRampEnd || isSpeedSynchronized || isObstructedOnRamp || isCongestedTarget;
+    }
+
+
+    /**
+     * Acceleration for building up speed on the ramp, using the vehicle's physical capability rather than the
+     * car-following comfort parameter, while leaving the car-following model its veto.
+     * <p>
+     * The states of this pattern accelerated through {@link MirovaCarFollowingUtil#approachTargetSpeed}, which
+     * evaluates the car-following model and is therefore bounded by {@link ParameterTypes#A} - 1.25 m/s by default,
+     * and the same value for cars and trucks. That is a comfort parameter for following a leader, not a limit on what
+     * a vehicle can do when the road ahead is clear, and on a short acceleration lane it is the difference between
+     * reaching the speed of the traffic being joined and not reaching it: measured over a full run, no vehicle ever
+     * exceeded 1.25 m/s while {@code aMaxMirova} was set to 3.5.
+     * </p>
+     * <p>
+     * The boost applies only while the car-following model is <i>not</i> the binding constraint. Once it returns less
+     * than {@link #UNRESTRICTED_CAR_FOLLOWING_SHARE} of its free acceleration it is responding to the vehicle ahead,
+     * and its value is returned unchanged - so a closing gap still brakes the ego and a rear-end conflict is not
+     * traded away for merge speed. The boost also tapers with the fourth power of the speed ratio, the same shape the
+     * IDM free term uses, so it fades out at the target speed instead of overshooting it.
+     * </p>
+     * @param vehicle MirovaTacticalPlanner; the ego vehicle
+     * @param targetSpeed Speed; the speed being built up to
+     * @param approachDistance Length; the distance over which the target speed is approached
+     * @return Acceleration; the acceleration to command
+     * @throws ParameterException if a parameter lookup fails
+     * @throws GtuException if GTU state cannot be accessed
+     * @throws NetworkException if a network query fails
+     */
+    private static Acceleration rampAcceleration(final MirovaTacticalPlanner vehicle, final Speed targetSpeed,
+            final Length approachDistance) throws ParameterException, GtuException, NetworkException
+    {
+        EgoContext ego = vehicle.getContext(EgoContext.class);
+        Acceleration aApproach = MirovaCarFollowingUtil.approachTargetSpeed(vehicle, approachDistance, targetSpeed);
+
+        Speed vEgo = ego.getEgoSpeed();
+        if (targetSpeed == null || targetSpeed.si <= 0.0 || vEgo.ge(targetSpeed))
+        {
+            return aApproach;
+        }
+
+        double aFree = vehicle.getParameters().getParameter(ParameterTypes.A).si;
+        if (aFree <= 0.0 || ego.getCurrentCarFollowingAcceleration().si < UNRESTRICTED_CAR_FOLLOWING_SHARE * aFree)
+        {
+            return aApproach;
+        }
+
+        double ratio = Math.min(1.0, vEgo.si / targetSpeed.si);
+        double boost = ego.getMaxPhysicalAcceleration().si * (1.0 - Math.pow(ratio, 4.0));
+        return Acceleration.instantiateSI(Math.max(aApproach.si, boost));
     }
 
     /**
@@ -930,6 +1005,11 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
 
                         return new SimpleOperationalPlan(aToTarget, this.pattern.getPatternSpecificTimestep());
                     }
+
+                    // Below the reference speed the ego should already be gaining speed on the ramp rather than
+                    // waiting for the acceleration lane to begin, so the same boost applies here.
+                    return new SimpleOperationalPlan(rampAcceleration(this.vehicle, targetSpeed,
+                            Length.instantiateSI(10.0)), this.pattern.getPatternSpecificTimestep());
                 }
             }
 
@@ -1061,8 +1141,9 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                     Speed targetLaneSpeed = getMergeReferenceSpeed(this.vehicle, this.pattern.getTargetDirection());
 
                     Speed targetSpeed = Speed.min(targetLaneSpeed, speedLimit);
-                    Acceleration aToTarget =
-                            MirovaCarFollowingUtil.approachTargetSpeed(this.vehicle, Length.instantiateSI(10.0), targetSpeed);
+                    // This is the phase whose entire purpose is to build up merge speed, so it uses the physical
+                    // capability rather than the car-following comfort acceleration; see rampAcceleration.
+                    Acceleration aToTarget = rampAcceleration(this.vehicle, targetSpeed, Length.instantiateSI(10.0));
                     plan = new SimpleOperationalPlan(aToTarget, this.pattern.getPatternSpecificTimestep());
 
                 }
