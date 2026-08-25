@@ -186,6 +186,7 @@ This prints a single integer N and runs nothing. Since each task runs **two** ru
 | dates, 9 placeholder dates × 6 | 54 | 27 | `0-26` |
 | paramgrid, 17 variations × 6 | 102 | 51 | `0-50` |
 | damping, 9 dates × 2 variations × 10 | 180 | 90 | `0-89` |
+| mergegrid, 3 dates × 9 variations × 10 | 270 | 135 | `0-134` |
 | paramgrid, 17 variations × 1 | 17 | 9 | `0-8` |
 
 An **odd** N is fine, as in the last row: the final task finds that its second index
@@ -260,6 +261,16 @@ Ten replications rather than the default six, so the cells are directly comparab
 same `<combination>_adamp<d>_sdr<s>` names, so the Python evaluation reads both campaigns with
 one `--output-dir` each, or with a single one if the results are collected side by side.
 
+Example — the fine merge parameter grid (damping × safety distance on three calibration
+dates):
+
+```bash
+export MIROVA_CLUSTER_DIR="$PWD/cluster"
+export MIROVA_STUDY=mergegrid
+export MIROVA_STUDY_OPTS="--dates=cluster/dates_calibration.txt --demand=$(ws_find mirova)/demand --replications=10 --strict=true"
+sbatch --chdir="$(ws_find mirova)" --array=0-134 cluster/run_mirova.sbatch   # 270 runs -> 135 tasks
+```
+
 ## 6. Resources per task
 
 Each run is single-threaded: `AbstractSimulationScriptBase.runHeadless()` drives
@@ -300,7 +311,7 @@ run dies alongside the greedy one.
 ## Studies
 
 A study is a `StudyDefinition`: it registers scenarios, parameter variations and a replication
-count into a `ScenarioManager`. Four are registered in `StudyRegistry`:
+count into a `ScenarioManager`. Five are registered in `StudyRegistry`:
 
 | Short name | Class | Shape |
 |:---|:---|:---|
@@ -308,6 +319,7 @@ count into a `ScenarioManager`. Four are registered in `StudyRegistry`:
 | `paramgrid` | `FreiburgParameterStudy` | One scenario, 17 one-at-a-time variations |
 | `combos` | `FreiburgCombinationStudy` | Headway combinations × damping factors × safety distance factors × every date |
 | `damping` | `FreiburgDampingStudy` | Damping 0.90 and 1.00 on the best `combos` cell (`tighter`, sdr 0.50) × every date |
+| `mergegrid` | `FreiburgMergeGridStudy` | Damping × safety distance, 3 × 3, on the `tighter` combination × a few calibration dates |
 
 **Adding a further study requires no change to the batch script or the entry point** — write a
 new `StudyDefinition`, then select it either by adding a short name to `StudyRegistry` or by
@@ -437,6 +449,52 @@ cell of its own.
 Total runs = dates × 2 × replications, i.e. 9 × 2 × 10 = **180** for the campaign above.
 Combined with `combos`, the damping axis on that cell is four points long: 0.60, 0.80, 0.90,
 1.00.
+
+### `mergegrid` — the fine damping × safety distance grid
+
+What the two earlier campaigns established, measured on the **bottleneck** flow (mainline
+plus ramp — the merge serves both, so the mainline detector alone reports only the
+mainline's share of the discharge):
+
+| | q_pre [veh/h] | capacity drop |
+|:---|---:|---:|
+| damping 0.60, sdr 0.50 | 2684 | 10.1 % |
+| damping 0.80, sdr 0.50 | 2811 | 2.3 % |
+| damping 0.90, sdr 0.50 | 2766 | −0.6 % |
+| damping 1.00, sdr 0.50 | 2787 | −1.9 % |
+| **empirical** | **3456** | **9.8 %** |
+
+Capacity saturates on the damping axis above 0.80 — that axis is spent. The capacity drop
+runs the other way and is reproduced at 0.60, turning negative from 0.90 upwards, which
+would mean the bottleneck discharges more after breaking down than before. Safety distance
+is the steeper lever and moves both quantities the same way: 0.60 → 0.50 gained 151 veh/h
+at damping 0.60 and 216 veh/h at 0.80, raising the capacity drop in both cases.
+
+The grid therefore spans damping from the value that reproduces the drop to the value that
+maximises capacity, crossed with safety distances below the best one measured so far:
+
+| Constant | Value |
+|:---|:---|
+| `HEADWAY_LABEL` | `tighter` (T = 0.90 / 1.20) |
+| `ACC_DAMPING_FACTORS` | `0.60`, `0.70`, `0.80` |
+| `SAFETY_DISTANCE_FACTORS` | `0.40`, `0.45`, `0.50` |
+
+Values below 0.40 are deliberately excluded: accepting gaps under 40 % of the safe distance
+buys capacity with implausible behaviour rather than with better modelling, and that trade
+should be a decision rather than a side effect of a sweep.
+
+Two cells — damping 0.60 and 0.80 at safety distance 0.50 — are already simulated by
+`combos` on all nine dates and are re-run here on purpose. If they reproduce on these three
+dates, the rest of the grid can be read against the earlier campaign.
+
+**On the three dates.** `cluster/dates_calibration.txt` holds them, chosen for an identified
+empirical breakdown and a spread of demand — explicitly *not* for fitting well already.
+Calibrating on the days a model happens to reproduce improves the metric without improving
+the model. 2025-09-23 and 2025-10-08 are excluded because they have no empirical breakdown
+at all (drop −0.7 % and −7.8 %), so capacity is not estimable there; the remaining six dates
+stay untouched as validation.
+
+Total runs = dates × 9 × replications, i.e. 3 × 9 × 10 = **270**.
 
 ## Global run index
 

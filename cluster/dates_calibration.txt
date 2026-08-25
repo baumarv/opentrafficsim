@@ -1,0 +1,18 @@
+# Calibration subset for the fine-grained merge parameter grid (study 'mergegrid').
+#
+# Three of the nine study dates, chosen for two reasons and NOT for fitting well:
+#   - each has an identified empirical breakdown, so capacity and capacity drop are
+#     estimable at all (2025-09-23 and 2025-10-08 have none and are excluded);
+#   - together they span the observed bottleneck capacity range, low to high.
+#
+# Empirical pre-breakdown flow (mainline + ramp) and capacity drop:
+#   2025-10-27   3300 veh/h   12.8 %   lower end
+#   2025-09-22   3456 veh/h   14.9 %   middle
+#   2025-10-07   4044 veh/h   21.3 %   upper end, hardest case
+#
+# The remaining six dates stay untouched as validation. Calibrating on the days a model
+# already reproduces improves the metric without improving the model.
+#
+2025-10-27
+2025-09-22
+2025-10-07
