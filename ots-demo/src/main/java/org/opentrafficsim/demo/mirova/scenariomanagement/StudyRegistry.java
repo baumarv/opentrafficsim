@@ -6,6 +6,7 @@ import java.util.Map;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.DateStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgCombinationStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgDampingStudy;
+import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgMergeGridStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgParameterStudy;
 
 /**
@@ -31,6 +32,7 @@ public final class StudyRegistry
         STUDIES.put("paramgrid", FreiburgParameterStudy.class);
         STUDIES.put("combos", FreiburgCombinationStudy.class);
         STUDIES.put("damping", FreiburgDampingStudy.class);
+        STUDIES.put("mergegrid", FreiburgMergeGridStudy.class);
     }
 
     /** Utility class; not to be instantiated. */
