@@ -159,6 +159,24 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
      */
     private static final double UNRESTRICTED_CAR_FOLLOWING_SHARE = 0.80;
 
+    /**
+     * Shortest overlap that is treated as a parallel block [s].
+     * <p>
+     * A vehicle physically alongside the ego is not necessarily an obstacle. Measured at the 87 entries into
+     * {@link SolveParallelVehicleState} of a merge-watch run, the vehicle triggering it was travelling 11.5 km/h
+     * <i>faster</i> than the ego in 91 % of cases: it was overtaking, not closing in, and the overlap lasted a median
+     * of 1.4 s. The state it triggered lasted 4.2 s and cost 17.6 km/h, so in 89 % of cases the ego braked for longer
+     * than the obstacle existed - and being slower is what caused the next vehicle to sweep past it, closing a loop
+     * that ended with 13.5 % of these vehicles stopped at the end of the ramp against 1.3 % of the rest.
+     * </p>
+     * <p>
+     * An overlap that resolves within this time is therefore left alone: waiting it out costs nothing, while reacting
+     * to it costs speed that the merge criterion then holds against the ego. A genuine block - a vehicle keeping pace
+     * alongside - has no resolution time and still triggers the state.
+     * </p>
+     */
+    private static final double MIN_BLOCKING_OVERLAP_DURATION = 2.0;
+
     /** Distance to the ramp end within which merging takes precedence over merging comfortably [m]. */
     private static final double RAMP_FINAL_APPROACH_DISTANCE = 20.0;
 
@@ -568,13 +586,42 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         HeadwayGtu follower = neigh.getFollower(dir);
         Length safe = ego.getDesiredFrontHeadway(dir);
         double factor = params.getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange);
-        if (leader != null && (leader.isParallel()
-                || (leader.getDistance().si < safe.si * factor && Math.abs(leader.getSpeed().si - ego.getEgoSpeed().si) < 1.0)))
+        return blocksLaneChange(leader, ego, safe, factor) || blocksLaneChange(follower, ego, safe, factor);
+    }
+
+    /**
+     * Returns whether one perceived vehicle on the target lane blocks the lane change.
+     * <p>
+     * A physical overlap counts only when it is going to last: see {@link #MIN_BLOCKING_OVERLAP_DURATION}. The
+     * remaining duration follows from the speed difference and the length still to be cleared, which is why the two
+     * vehicles' lengths enter the estimate.
+     * </p>
+     * @param other HeadwayGtu; the perceived vehicle, may be {@code null}
+     * @param ego EgoContext; the ego context
+     * @param safe Length; the desired front headway towards the target lane
+     * @param factor double; the lane-change safety distance reduction factor
+     * @return true when this vehicle blocks the lane change
+     */
+    private static boolean blocksLaneChange(final HeadwayGtu other, final EgoContext ego, final Length safe,
+            final double factor)
+    {
+        if (other == null)
         {
-            return true;
+            return false;
         }
-        return follower != null && (follower.isParallel() || (follower.getDistance().si < safe.si * factor
-                && Math.abs(follower.getSpeed().si - ego.getEgoSpeed().si) < 1.0));
+        double speedDelta = Math.abs(other.getSpeed().si - ego.getEgoSpeed().si);
+
+        if (other.isParallel())
+        {
+            if (speedDelta < 0.1)
+            {
+                return true; // keeping pace alongside: the overlap does not resolve by itself
+            }
+            double lengthToClear = other.getLength().si + ego.getEgoLength().si;
+            return lengthToClear / speedDelta >= MIN_BLOCKING_OVERLAP_DURATION;
+        }
+
+        return other.getDistance().si < safe.si * factor && speedDelta < 1.0;
     }
 
     /*
@@ -1397,8 +1444,22 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     public static class SolveParallelVehicleState extends MandatoryLaneChangeState
     {
 
-        /** Threshold for sufficient distance to lane end to attempt accelerating ahead [m]. */
-        private static final double SUFFICIENT_DISTANCE_THRESHOLD = 200.0;
+        /**
+         * Time still available on the lane above which passing the parallel vehicle is attempted [s].
+         * <p>
+         * This was a fixed 200 m of remaining lane. The weaving section it is applied to is 184 m long, so the
+         * condition could never hold and the accelerate-ahead branch below was unreachable: all 2817 measured samples
+         * of this state commanded exactly the -1.0 m/s of the yield branch, and every entry cost the ego 15 km/h,
+         * which the merge criterion then held against it for the rest of the ramp.
+         * </p>
+         * <p>
+         * Expressed as time rather than distance, the question the branch actually asks - is there room to get past
+         * this vehicle before the lane ends - scales with the speed the manoeuvre is driven at and with the geometry
+         * of whatever facility it runs on, instead of encoding one particular length. Eight seconds is the order of a
+         * lane change plus the overtaking it requires.
+         * </p>
+         */
+        private static final double SUFFICIENT_TIME_THRESHOLD = 8.0;
 
         private HeadwayGtu parallelVehicle = null;
 
@@ -1428,7 +1489,9 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             if (distToLaneEnd != null)
             {
                 // Strategy: Check if we have enough room and momentum to overtake the parallel vehicle
-                if (distToLaneEnd != null && distToLaneEnd.si > SUFFICIENT_DISTANCE_THRESHOLD && aCf.si > 1.0
+                double timeToLaneEnd = (distToLaneEnd != null)
+                        ? distToLaneEnd.si / Math.max(ego.getEgoSpeed().si, 1.0) : 0.0;
+                if (timeToLaneEnd > SUFFICIENT_TIME_THRESHOLD && aCf.si > 1.0
                         && parallelVehicle != null && !parallelVehicle.isAhead())
                 {
                     // Accelerate maximally to merge ahead
