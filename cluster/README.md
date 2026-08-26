@@ -496,6 +496,60 @@ stay untouched as validation.
 
 Total runs = dates × 9 × replications, i.e. 3 × 9 × 10 = **270**.
 
+#### The third run: after the discharge section stopped throttling itself
+
+The second `mergegrid` campaign was read against a bottleneck discharge of 2368-2569 veh/h
+against an empirical 3095 +/- 118, and that reading does not survive what came after it.
+The cross-section the discharge is measured at, det_L5a, was being held at exactly
+`VCONG` = 60 km/h by `AnticipateDownstreamMergePattern`: its activation could not tell a
+lane drop from the end of the modelled network, and on the last link every lane ends. With
+the pattern deactivated the same detector runs at 89 and 107 km/h.
+
+**The standing capacity deficit is therefore an open question, not a finding.** It was
+measured on a section that throttled itself, and re-establishing it - or not - is the main
+purpose of this run.
+
+Three model changes separate this campaign from the previous one:
+
+| | change | measured effect |
+|:---|:---|:---|
+| merge FSM | kinematic gate, discretionary desire, ramp acceleration | merge speed deficit 40 -> 4 km/h, +18 merges/h |
+| `AnticipateDownstreamMergePattern` | deactivated | det_L5a +29 and +47 km/h, nothing else moved |
+| `MirovaIdmPlus` | braking bounds corrected, physical net moved to the utility | no deceleration below B_MAX, standstills 33.7 -> 26.5 per seed |
+
+Same grid, same three dates, same seeds as `mergegrid_v2`, so the cells compare directly:
+
+```bash
+export MIROVA_CLUSTER_DIR="$PWD/cluster"
+export MIROVA_STUDY=mergegrid
+export MIROVA_OUTPUT_ROOT="$(ws_find mirova)/output/mergegrid_v3"
+export MIROVA_STUDY_OPTS="--dates=cluster/dates_calibration.txt --demand=$(ws_find mirova)/demand --replications=10 --strict=true"
+sbatch --chdir="$(ws_find mirova)" --array=0-134 cluster/run_mirova.sbatch   # 270 runs -> 135 tasks
+```
+
+What to read first, in this order:
+
+1. **Speed at det_L5a.** It must no longer sit at 60 km/h. If it does, something still
+   reaches for `VCONG` on the final link and every capacity figure from this campaign is
+   as unusable as the last one's.
+2. **Queue discharge against the empirical reference.** The reference comes from all nine
+   field days, not the three simulated ones - one breakdown per day is one observation, and
+   three of them put the empirical discharge at 3001 +/- 401 veh/h where nine put it at
+   3095 +/- 118. Only the wider set resolves a deficit of the size at issue.
+3. **Capacity drop, jam duration, onset.** All three were already inside the empirical
+   intervals in `v2`; they should stay there. A regression here would mean the merge work
+   was undone by one of the later changes.
+4. **Jam speed**, which was the one merge metric still clearly short at 29-38 km/h against
+   47 +/- 7. If it is still short once the discharge section runs free, the congested
+   branch of the fundamental diagram is the next thing to look at, not the merge.
+
+Two operational checks, both earned by earlier campaigns: empty run directories always
+came in task-sized pairs on the highest-demand date, which `sacct -j <jobid>
+--format=JobID,State,ExitCode,MaxRSS,Elapsed` separates into `TIMEOUT` and
+`OUT_OF_MEMORY` in one look; and `ParameterTypes.A` is still at the OTS default of
+1.25 m/s for cars and trucks alike, so if the discharge is still short after this run,
+that is the first thing to set rather than another sweep of this grid.
+
 #### Re-running it after the merge FSM changes
 
 The first `mergegrid` campaign ran before the on-ramp merging behaviour itself was
