@@ -13,6 +13,45 @@ Instead, all longitudinal control requests must route through the utility class 
 ### Why?
 1.  **Relaxation Injection**: It intercepts the true distance and speed of the leader vehicle and adds virtual buffer values. This implements the 2-parameter relaxation phenomenon (Keane & Gao 2021).
 2.  **Tick-Based Caching**: It automatically caches calculated accelerations for a given leader ID in a single tick. This avoids executing the car-following calculations multiple times per tick if multiple patterns analyze the same leader, saving computing resources.
+3.  **Physical safety net**: it is the only place that holds both the real perception and the relaxed one, so it is where the result is checked against the gap that actually exists.
+
+---
+
+## 🔗 How the pieces compose
+
+Four mechanisms act on one acceleration request, in a fixed order. The order is not
+incidental — each one operates on the output of the one before, and reading them in
+isolation gives a misleading picture of what any of them does.
+
+```mermaid
+graph LR
+    A["Real perception<br/>s, v_leader"] --> B["1 Relaxation<br/>adds virtual buffers"]
+    B --> C["2 Car-following model<br/>+ kinematic bounding"]
+    C --> D["3 Acceleration damping<br/>positive accelerations only"]
+    D --> E["4 Physical net<br/>on the REAL gap"]
+    E --> F["Tick cache"]
+```
+
+1.  **Relaxation** enlarges the perceived gap and shrinks the perceived speed difference, so
+    the model sees a milder situation than the physical one.
+2.  **The car-following model** answers that milder question. Its kinematic bounding therefore
+    reasons about a gap that may not exist — which is why it is a comfort filter, not a safety
+    device.
+3.  **Damping** scales positive accelerations while a relaxation is active.
+4.  **The physical net** re-imposes reality: the result may never be milder than the real gap and
+    the real closing speed require. This is one-way — it only ever tightens.
+
+> [!IMPORTANT]
+> The relaxation is **discarded outright** when the leader brakes harder than −1.0 m/s² or drops
+> below 10 km/h. The perceived gap then snaps back to the real one within a single tick, which is
+> a genuine discontinuity in the input to the model. Steps 2 and 4 exist largely to keep that
+> discontinuity from turning into an emergency stop.
+
+> [!NOTE]
+> The relaxation is model-agnostic. It lives entirely in `MirovaCarFollowingUtil` and
+> `EgoContext`, and works with any `CarFollowingModel` — a paired 10-seed comparison of
+> `MirovaIdmPlus` against stock `IdmPlus` produced statistically identical results, with the
+> relaxation active throughout.
 
 ---
 
@@ -44,18 +83,51 @@ Where:
 
 ## 🏎️ Car-Following Models
 
-MiRoVA interfaces with standard OTS car-following structures but relies heavily on the calibrated Wiedemann model for highway merging studies:
+MiRoVA interfaces with standard OTS car-following structures. **The Freiburg-Nord studies run on
+`MirovaIdmPlus`** — it is what `ScenarioGenerator` hands to `MirovaTacticalPlannerFactory`.
+Wiedemann 99 is implemented and calibrated but is currently only instantiated by
+`SimpleHighwayScenario`; in `MergeScenario` its factory is commented out.
 
 ### 1. Wiedemann 99 Model (`Wiedemann99`)
 *   **Location**: [Wiedemann99.java](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/Wiedemann99.java)
 *   **Description**: A physiological-psychological car-following model. It determines the driver's acceleration based on perception thresholds (action points) in the relative-speed vs. distance plane.
 *   **Calibration Parameters**: Calibrated via [W99ParameterTypes](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/W99ParameterTypes.java) using German freeway data (e.g. Duisburg A59, Cologne A4).
 
-### 2. IDM Plus Model (`MirovaIdmPlus`)
+### 2. IDM Plus Model (`MirovaIdmPlus`) — the model in use
 *   **Location**: [MirovaIdmPlus.java](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/MirovaIdmPlus.java)
-*   **Description**: An extension of the Intelligent Driver Model (IDM) that optimizes the acceleration and deceleration behaviors, adapted to work seamlessly with the MiRoVA parameter sets.
+*   **Description**: `IdmPlus` plus two additions — a kinematic bounding of the interaction term
+    (below) and a desired-headway model carrying an optional capacity-drop addon.
+*   **Capacity-drop addon**: adds `alpha(v) * T_DISCHARGE_ADDON` to the desired headway, ramping
+    linearly from full at standstill to zero at `V_CRIT_DISCHARGE`. Governed by
+    `CAPACITY_DROP_ENABLED`, which is **`false` by default** — with it off the headway model is
+    identical to the standard one.
 
 ---
+
+## ⚖️ Kinematic bounding of the interaction term
+
+`MirovaIdmPlus.combineInteractionTerm` filters the deceleration spike that a cut-in produces. It
+is a **comfort filter**, and deliberately not a safety device — see the ordering above for why it
+cannot be one.
+
+```
+aIdm = min(a * (1 - (s_desired/s)^2), aFree)          // raw IDM+
+if aIdm >= B_CRIT            -> aIdm                   // comfortable: accept
+d_kin = -dv^2 / (2 * (s - s0))                         // what the perceived gap demands
+if d_kin >= B_CRIT           -> B_CRIT                  // physics allow the comfort brake
+else                         -> max(d_kin, B_MAX)       // give the physics what they demand
+```
+
+`B_CRIT` = −3.5 m/s², `B_MAX` = −6.0 m/s². Measured over ten seeds, the bounding touches about
+**0.4 % of all time steps** — invisible in capacity or throughput, and clearly visible in
+individual trajectories: of the hard decelerations under stock `IdmPlus`, 8.9 % come from plain
+car-following with no manoeuvre pattern active, against none with the bounding.
+
+> [!WARNING]
+> The `s` in that kinematic check is the **relaxed** distance, not the real one. When a relaxation
+> is active the check runs on an enlarged gap and can conclude that a comfortable brake suffices
+> where the physical gap says otherwise. That is what the physical net in
+> `MirovaCarFollowingUtil` is for; do not re-add a safety argument to this method.
 
 ---
 
@@ -75,10 +147,34 @@ $$a_{\text{effective}}(t) = a_{\text{calculated}}(t) \cdot f_{\text{relax\_acc}}
 - **Effect**: The follower vehicle refrains from aggressive acceleration while the leader pulls ahead, restoring the desired equilibrium gap naturally without active braking.
 
 > [!IMPORTANT]
-> Damping applies **strictly to positive accelerations** ($a > 0$). Decelerations and emergency braking ($a \le 0$) are completely unconstrained for safety.
+> Damping applies **strictly to positive accelerations** ($a > 0$). Decelerations are never damped.
+> The only thing that acts on a deceleration afterwards is the physical net, and it acts one way —
+> it can make a deceleration stronger, never weaker.
 
 ### Parameters
 *   `RELAXATION_ACC_DAMPING_FACTOR` (`aRelaxDamping`): Acceleration scaling factor when headway relaxation is 100% active (default $0.40 = 40\%$).
 *   `RELAXATION_ACC_DAMPING_ENABLED` (`aRelaxDampingEnabled`): Boolean flag to enable or disable acceleration damping during active headway relaxation (default `true`). When set to `false` or when `aRelaxDamping = 1.0`, acceleration damping is completely bypassed, producing numerically identical results.
 
+---
 
+## ⚠️ Two accelerations with similar names
+
+`MirovaParameters.A_MAX` (`aMaxMirova`, 3.5 m/s² for cars, 1.3 for trucks) and
+`ParameterTypes.A` (`a`, OTS default 1.25 m/s²) are not the same quantity and are not
+interchangeable:
+
+| | drives the vehicle | used by |
+|:---|:---|:---|
+| `ParameterTypes.A` | **yes** — the car-following model's acceleration term | every acceleration that goes through a car-following call |
+| `MirovaParameters.A_MAX` | no | `EgoContext.getMaxPhysicalAcceleration()`, i.e. capability estimates, ceilings, and `MandatoryLaneChangePattern.rampAcceleration` |
+
+`ParameterTypes.A` is **not set anywhere in the MiRoVA setup**, so it sits at the OTS default of
+1.25 m/s² for cars and trucks alike, while a runner that reports `aMax=3.5` is describing
+`aMaxMirova`. Measured over a full run of 2295 vehicles, no vehicle ever exceeded 1.25 m/s²
+except on the ramp, where `rampAcceleration` commands the physical capability directly and
+reaches 3.0 m/s².
+
+The ceilings that use `A_MAX` therefore cannot bind for cars — 2.25 m/s² at 50 km/h against a
+model that never asks for more than 1.25 — while for trucks the same ceiling sits *below* what
+the model asks for, and only binds in the states that apply it. Setting `ParameterTypes.A` per
+vehicle class is the open item; queue discharge and jam speed both depend on it.
