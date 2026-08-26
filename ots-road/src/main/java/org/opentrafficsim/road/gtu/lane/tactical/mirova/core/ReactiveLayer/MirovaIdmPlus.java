@@ -135,8 +135,16 @@ public class MirovaIdmPlus extends AbstractIdm implements DynamicHeadwayProvider
      * {@inheritDoc}
      * <p>
      * Obtains the raw IDM+ interaction acceleration and applies stateless kinematic bounding. If the IDM+ demands a
-     * deceleration stronger than {@code BCRIT}, the physically required deceleration is calculated. If the physics tolerate it,
-     * the deceleration is capped at {@code BCRIT}. Otherwise, emergency braking at {@code B_MAX} is applied.
+     * deceleration stronger than {@code B_CRIT}, the physically required deceleration is computed: when the physics
+     * tolerate it the deceleration is capped at {@code B_CRIT}, otherwise the requirement itself is applied, bounded
+     * by {@code B_MAX}.
+     * </p>
+     * <p>
+     * <b>The distance this sees may not be the real one.</b> {@code MirovaCarFollowingUtil} hands the model a synthetic
+     * leader carrying the relaxation's virtual buffers, so the kinematic check runs on an enlarged gap and a reduced
+     * speed difference while a relaxation is active - it can conclude that {@code B_CRIT} suffices where the physical
+     * gap says otherwise. The physical net therefore sits in that utility, on the unmodified perception; what remains
+     * here is the comfort filter this method was written to be.
      * </p>
      * @param aFree Acceleration; the acceleration calculated for free-flow conditions.
      * @param parameters Parameters; the parameter set of the GTU.
@@ -191,15 +199,14 @@ public class MirovaIdmPlus extends AbstractIdm implements DynamicHeadwayProvider
             // Physics allow us to handle this with a comfortable critical brake (filters cut-in shock)
             return bCrit;
         }
-        else if (dKinSi > parameters.getParameter(MirovaParameters.B_MAX).si)
-        {
-            // Physics demand severe action, fall back to max deceleration
-            return parameters.getParameter(MirovaParameters.B_MAX);
-        }
-        else
-        {
-            // Physics demand more than critical braking, but not beyond max deceleration. Apply kinematic bound.
-            return new Acceleration(-9.0, AccelerationUnit.SI);
-        }
+
+        // Physics demand more than the critical brake: give them exactly what they demand, bounded by B_MAX.
+        //
+        // The two branches this replaces both misstated that. One returned B_MAX for any requirement between B_CRIT
+        // and B_MAX, so a situation calling for -4.0 m/s was braked at -6.0; the other returned a hard-coded
+        // -9.0 m/s for anything beyond B_MAX, which made "maximum deceleration" not a maximum at all and left a
+        // value in the model that no parameter could reach or explain.
+        Acceleration bMax = parameters.getParameter(MirovaParameters.B_MAX);
+        return Acceleration.instantiateSI(Math.max(dKinSi, bMax.si));
     }
 }
