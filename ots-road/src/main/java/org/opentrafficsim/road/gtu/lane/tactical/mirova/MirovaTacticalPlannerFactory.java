@@ -165,7 +165,24 @@ public class MirovaTacticalPlannerFactory extends AbstractLaneBasedTacticalPlann
         planner.addManeuverPattern(new PreventUndercuttingPattern(planner));
         planner.addManeuverPattern(new MandatoryLaneChangePattern(planner));
         planner.addManeuverPattern(new GapOpenerPattern(planner));
-        planner.addManeuverPattern(new AnticipateDownstreamMergePattern(planner));
+        // Deactivated: on this facility it produced no measurable cooperation and one large artefact.
+        // Its activation cannot tell a lane drop from the end of the modelled network - it asks
+        // InfrastructureContext for the distance to the end of an adjacent lane, which is finite on the
+        // last link because no lane there has a successor, and any vehicle in that lane counts as ramp
+        // traffic. NearAnticipationState then decelerates while the ego is above VCONG (60 km/h), so every
+        // vehicle on the final link was held at exactly that speed: 83-95 % of all intervals at det_L5a
+        // sat between 59 and 62 km/h with a hard floor at 58.9, while det_L3a ran at 119.
+        //
+        // A paired comparison over 10 seeds, with and without: speed at det_L5a +29 and +47 km/h
+        // (t = 314 and 91), and nothing else moved - merges -2.5 (t = -0.55), merge speed +6.1
+        // (t = 1.07), flow +27 veh/h (t = 0.45), standstills -24 (t = -0.84). It also carried a tail
+        // risk: on one seed of ten the facility collapsed to a merge speed of 8 km/h with 344 vehicles
+        // stopped on the ramp, against 66 km/h and 69 without the pattern.
+        //
+        // Re-enabling it requires the activation to establish that a lane actually drops - the ego's own
+        // lane continuing past the point where the adjacent one ends - and the running state to re-check
+        // that, since PatternSelector only calls checkContext() while the pattern is not running.
+        // planner.addManeuverPattern(new AnticipateDownstreamMergePattern(planner));
         // planner.addManeuverPattern(new AnticipateAdjacentCongestionPattern(planner));
     }
 
