@@ -120,6 +120,19 @@ public final class MirovaCarFollowingUtil
             }
         }
 
+        // Physical net, evaluated on the unmodified perception.
+        //
+        // Everything above this line may have been computed from an enlarged gap and a reduced speed difference: the
+        // relaxation adds its virtual buffers before the car-following model is called, and the acceleration damping
+        // scales the answer afterwards. That is the point of both mechanisms - a driver who has just accepted a short
+        // headway tolerates it rather than braking hard - but tolerating a headway must not extend to ignoring the
+        // physics of the gap that is actually there.
+        //
+        // The kinematic bounding inside MirovaIdmPlus cannot do this: it only ever sees the synthetic leader carrying
+        // the buffers, so it reasons about a gap that does not exist. Here both are available, and the rule is one
+        // way only - the result may never be milder than what the real gap and the real speed difference require.
+        result = Acceleration.min(result, requiredDeceleration(vehicle, leader));
+
         // 4. Store the result in the cache for subsequent calls in this tick
         if (leaderId != null)
         {
@@ -127,6 +140,47 @@ public final class MirovaCarFollowingUtil
         }
 
         return result;
+    }
+
+
+    /**
+     * Returns the deceleration the real gap demands, or {@link Acceleration#POSITIVE_INFINITY} when it demands nothing.
+     * <p>
+     * Uses the perceived leader as it is, without the relaxation's virtual buffers, and answers a single question: at
+     * the present closing speed, what deceleration is needed to avoid running into the leader before the gap is used
+     * up. Below {@code B_CRIT} the answer is not binding - a driver may brake harder than physics require, and often
+     * does - so the bound only ever tightens a result that would leave the ego short.
+     * </p>
+     * @param vehicle MirovaTacticalPlanner; the ego vehicle
+     * @param leader HeadwayGtu; the perceived leader, unmodified
+     * @return Acceleration; the required deceleration, bounded by {@code B_MAX}, or positive infinity when none is
+     *         required
+     * @throws ParameterException if a required parameter is missing
+     */
+    private static Acceleration requiredDeceleration(final MirovaTacticalPlanner vehicle, final HeadwayGtu leader)
+            throws ParameterException
+    {
+        EgoContext ego = vehicle.getContext(EgoContext.class);
+        Length distance = leader.getDistance();
+        if (distance == null)
+        {
+            return Acceleration.POSITIVE_INFINITY;
+        }
+        double deltaV = ego.getEgoSpeed().si - leader.getSpeed().si;
+        if (deltaV <= 0.0)
+        {
+            return Acceleration.POSITIVE_INFINITY; // not closing in
+        }
+
+        Length s0 = vehicle.getParameters().getParameter(ParameterTypes.S0);
+        Acceleration bMax = vehicle.getParameters().getParameter(MirovaParameters.B_MAX);
+        double usable = distance.si - s0.si;
+        if (usable <= 0.0)
+        {
+            return bMax; // already inside the standstill distance and still closing
+        }
+        double required = -(deltaV * deltaV) / (2.0 * usable);
+        return Acceleration.instantiateSI(Math.max(required, bMax.si));
     }
 
     /**
