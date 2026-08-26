@@ -496,6 +496,57 @@ stay untouched as validation.
 
 Total runs = dates × 9 × replications, i.e. 3 × 9 × 10 = **270**.
 
+#### Re-running it after the merge FSM changes
+
+The first `mergegrid` campaign ran before the on-ramp merging behaviour itself was
+corrected, so its cells describe a model that merged some 40 km/h below the stream it was
+joining. Re-running the identical grid on the identical three dates is what makes the two
+comparable: same design, same seeds, only the model changed.
+
+What changed in between, and what a 10-seed paired comparison on
+`RunFreiburgMergeWatch` measured for it (2025-10-13 13:00, seeds 42–51, |t| > 2.26 would
+be significant at n = 10):
+
+| | effect | t |
+|:---|---:|---:|
+| completed merges | **+18 per hour** | +2.5 |
+| merge position p90 | **−11 m**, i.e. fewer vehicles running to the ramp end | −3.0 |
+| standstills on the ramp | +22 vehicles, not distinguishable from noise | +0.7 |
+| max ramp acceleration | 1.25 → 3.0 m/s² | — |
+
+The standstill mean is dominated by one seed of ten in which the facility collapsed to
+5 km/h and never recovered, where the previous code recovered from the same disturbance.
+Without it the fixes come out ahead on that metric too. **That tail is the thing to watch
+in the campaign results**: a jam the model cannot dissolve shows up as an outlier in jam
+duration, not in the averages.
+
+Write the results somewhere other than the first campaign's output root, or the evaluation
+will mix the two:
+
+```bash
+export MIROVA_CLUSTER_DIR="$PWD/cluster"
+export MIROVA_STUDY=mergegrid
+export MIROVA_OUTPUT_ROOT="$(ws_find mirova)/output/mergegrid_v2"
+export MIROVA_STUDY_OPTS="--dates=cluster/dates_calibration.txt --demand=$(ws_find mirova)/demand --replications=10 --strict=true"
+sbatch --chdir="$(ws_find mirova)" --array=0-134 cluster/run_mirova.sbatch   # 270 runs -> 135 tasks
+```
+
+Two things to check on the first tasks that come back, both seen in the previous
+campaigns:
+
+- **Empty run directories.** 10 of 180 runs of the `damping` campaign and 16 of 270 of the
+  first `mergegrid` campaign produced no files at all, always both runs of a task and
+  concentrated on the highest-demand date at low damping. `sacct -j <jobid>
+  --format=JobID,State,ExitCode,MaxRSS,Elapsed` separates `TIMEOUT` from
+  `OUT_OF_MEMORY` in one look; the former argues for `--time=04:00:00`, the latter for a
+  higher `--mem-per-cpu`.
+- **Whether tasks report `COMPLETED` at all.** The local merge-watch runner leaves its JVM
+  alive after finishing, because AWT threads are not daemons. `run_mirova.sbatch` waits on
+  the run PIDs, so if `RunMirovaClusterStudy` shared that behaviour every task would burn
+  its full three hours regardless of when the simulation ended. It does not - a local run
+  of it exits cleanly - but a campaign whose tasks all report `TIMEOUT` while their output
+  is complete would be the symptom, and `System.exit(0)` at the end of `main` the fix.
+
 ## Global run index
 
 A run is addressed by its index into the study's enumeration:
