@@ -8,12 +8,12 @@ The **Decision & Intention Layer** (Layer 3) governs **Procedural Knowledge** in
 
 A [ManeuverPattern](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/IntentionLayer/ManeuverPattern.java) is a structured driving behavior schema. It acts as the shell of an FSM, managing the lifecycle of its internal `ActionState`s.
 
-### Pattern Classification (`PatternType`)
+### No pattern classification any more
 
-| Type | Description | Example |
-|:--|:--|:--|
-| `EXCLUSIVE` | Only one may execute at a time; locks the planner during execution | `SimpleLaneChangePattern`, `MandatoryLaneChangePattern` |
-| `PARALLEL` | Can execute alongside standard car-following; multiple may be active | `PreventUndercuttingPattern`, `GapOpenerPattern`, `AnticipateDownstreamMergePattern` |
+Patterns used to be tagged `EXCLUSIVE` or `PARALLEL`, and to declare the perception contexts they
+needed. Both were removed in `4d5c3ea`: arbitration ranks patterns by utility and the lateral
+action lock is what actually serialises the manoeuvres that must not overlap, so the tag decided
+nothing. A pattern that performs a lateral movement says so through `isLaneChangePattern()`.
 
 ### Core Interface
 
@@ -56,7 +56,7 @@ graph TD
 
 ---
 
-### 1. `SimpleLaneChangePattern` (EXCLUSIVE)
+### 1. `SimpleLaneChangePattern`
 
 **Source**: [SimpleLaneChangePattern.java](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/IntentionLayer/ManeuverPatterns/SimpleLaneChangePattern.java)
 
@@ -79,67 +79,54 @@ graph TD
 
 ---
 
-### 2. `MandatoryLaneChangePattern` (EXCLUSIVE)
+### 2. `MandatoryLaneChangePattern`
 
 **Source**: [MandatoryLaneChangePattern.java](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/IntentionLayer/ManeuverPatterns/MandatoryLaneChangePattern.java)
 
-**Purpose**: Handles mandatory lane changes for route following and ramp exits/entries. This is the most complex pattern with a full 9-state FSM.
+> 📖 **Full reference: [mandatory_lane_change_pattern.md](mandatory_lane_change_pattern.md)** — the
+> state machine, the four cross-cutting mechanisms, every parameter, the measured design decisions
+> and the open points. The summary below is the short version.
 
-**Trigger Conditions**:
-- `checkContext()`: Mandatory desire magnitude > 0 (RouteIncentive is signaling a required change)
-- `checkAbility()`: Desire ≥ `DFREE`; target direction is defined
+**Purpose**: Mandatory lane changes for route following — ramp entries and exits. The largest
+pattern in the model, with a nine-state machine.
 
-**Full State Machine**:
+**Trigger** (`checkContext`): lane-change desire ≥ `DMAND`, **or** the merge point is within
+`extendedLookAheadDistance` (1 000 m). `checkAbility()` is constantly `true`.
 
-```mermaid
-stateDiagram-v2
-    [*] --> AnticipateMergeState : mandatory desire detected
-    AnticipateMergeState --> EvaluateTargetGapState : within ANTICIPATION_THRESHOLD (400m)
-    EvaluateTargetGapState --> MatchLeaderSpeedState : target leader is slower (decel scenario)
-    EvaluateTargetGapState --> SolveParallelVehicleState : parallel blocker detected
-    EvaluateTargetGapState --> CongestedMergeState : speed < 15 km/h
-    EvaluateTargetGapState --> ExecuteLaneChangeState : gap is open
-    MatchLeaderSpeedState --> EvaluateTargetGapState : gap reachable
-    MatchLeaderSpeedState --> SolveParallelVehicleState : parallel block
-    SolveParallelVehicleState --> EvaluateTargetGapState : block resolved
-    CongestedMergeState --> CongestedCreepState : parallel block
-    CongestedMergeState --> CongestedFollowLeaderState : leader visible, no block
-    CongestedMergeState --> EvaluateTargetGapState : speed recovery > 30 km/h
-    CongestedCreepState --> CongestedMergeState : block cleared
-    CongestedFollowLeaderState --> CongestedMergeState : new block appears
-    EvaluateTargetGapState --> EmergencyStopState : ramp end imminent, no gap
-    EmergencyStopState --> ExecuteLaneChangeState : last-minute gap opens
-    ExecuteLaneChangeState --> [*] : lane change physically complete
-```
+**The nine states**:
 
-**State Descriptions**:
-
-| State | Behavior |
+| State | Behaviour |
 |:--|:--|
-| `AnticipateMergeState` | Long-range speed sampling (up to 1000 m) with EMA filter. Adjusts speed smoothly. No active gap search. |
-| `EvaluateTargetGapState` | Scans available gap candidates. Evaluates required decel for follower and ego. Dispatches to sub-states. |
-| `MatchLeaderSpeedState` | Active braking to drop behind a slower target lane leader. Kinematic check that gap is reachable. |
-| `SolveParallelVehicleState` | Resolves a parallel blocker. If enough room (>200m) and space ahead: overtake. Otherwise: yield behind. |
-| `CongestedMergeState` | Dispatcher in congestion. Routes to creep or follow sub-state. Transitions back to free-flow state if speed recovers. |
-| `CongestedCreepState` | Creeps at 3 km/h, max 0.3 m/s², alongside a blocking vehicle. No acceleration competition. |
-| `CongestedFollowLeaderState` | Follows target lane leader at speed scaled from 15→5 km/h as ramp end approaches. |
-| `EmergencyStopState` | Decelerates to a stop before the lane-end buffer. Continuously checks for last-minute overtake. |
-| `ExecuteLaneChangeState` | Executes the physical lateral movement. Applies relaxation for target leaders and followers. |
+| `AnticipateMergeState` | Before the acceleration lane: steer towards the (EMA-smoothed) speed of the traffic to be joined, floor 20 km/h |
+| `SynchroniseMergeSpeedState` | On the acceleration lane: build up speed towards the merge reference speed |
+| `MatchLeaderSpeedState` | Brake to drop in behind the target-lane leader |
+| `SolveParallelVehicleState` | A vehicle alongside: pass it if 8 s of lane remain, otherwise drop back |
+| `CongestedMergeState` | Dispatcher below 15 km/h; emits plain car-following |
+| `CongestedCreepState` | Creep at 3 km/h, ≤ 0.3 m/s², to fall behind the blocker |
+| `CongestedFollowLeaderState` | Follow the target-lane leader at 15 → 5 km/h as the ramp end nears |
+| `EmergencyStopState` | Stop before the lane end, unless a last-minute overtake still fits |
+| `ExecuteLaneChangeState` | The lateral movement, with cooperative relaxation for the target-lane leaders |
 
-**Key Implementation Details**:
-- **Speed Synchronization Phase (`AnticipateMergeState`)**: Gating transition into active gap evaluation. All speed-based criteria are evaluated against `effectiveTargetSpeed = min(v_targetLane, v_wunsch)` so that vehicles whose desired speed is below the target lane flow (e.g. trucks) are never permanently blocked:
-  - **Congested early-exit**: if `v_targetLane < 40 km/h` AND `dist ≤ 120 m` → directly to `CongestedMergeState` (bypasses speed sync entirely, avoids emergency-stop cascade)
-  - **Speed sync** (`isSpeedSynchronized`): `v_ego ≥ relaxedFraction · effectiveTargetSpeed` AND `(effectiveTargetSpeed − v_ego) ≤ 20 km/h`. `relaxedFraction` decreases linearly from `0.66` at `dist = 120 m` to `0.50` at `dist = 0 m` (soft threshold, eliminates spatial clustering artefact at ≈ 80 m)
-  - **Platoon obstruction** (`isObstructedOnRamp`): `a_cf ≤ 0.2 m/s²` AND `(effectiveTargetSpeed − v_ego) ≤ 30 km/h`. The delta guard prevents false positives when ego simply reached its ramp desired speed (a_cf ≈ 0 with no genuine blocker ahead)
-  - **Hard ramp-end fallback**: `dist ≤ 0 m` → unconditional transition
-- Uses `GapCandidate` helper class to score and rank available gaps on the target lane
-- Pattern-specific timestep: `0.1 s` (higher resolution during critical merge maneuvers)
-- Pre-registers a `RelaxationState` for the future leader before the lane change begins
-- `RAMP_END_BUFFER = 10 m` (safety buffer before absolute lane end)
+**What carries the behaviour** — mostly not the states:
+
+- `getMergeReferenceSpeed()` — one reference speed for the whole pattern, from a four-step cascade
+  (perceived followers → macroscopic perception → upstream lane scan → speed limit), capped at the
+  ego's own desired speed and cached per tick.
+- `mayExecuteLaneChange()` — permission to merge as a property of the *vehicle*, enforced on every
+  path into `ExecuteLaneChangeState`: out of lane, or synchronised against the kinematically
+  achievable speed with a tolerance widening from 20 to 40 km/h, or unable to accelerate, or a
+  congested target lane.
+- `rampAcceleration()` — accelerates with the physical capability instead of the car-following
+  comfort parameter `A`, but only while the car-following model is not the binding constraint.
+- `checkCommonTransitions()` in the shared base class — which is why `ExecuteLaneChangeState` and
+  `EmergencyStopState` are reachable from every state.
+
+**Timestep**: `ParameterTypes.DT` (0.2 s for MiRoVA vehicles). The pattern no longer shadows this
+with a value of its own.
 
 ---
 
-### 3. `GapOpenerPattern` (PARALLEL)
+### 3. `GapOpenerPattern`
 
 **Source**: [GapOpenerPattern.java](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/IntentionLayer/ManeuverPatterns/GapOpenerPattern.java)
 
@@ -173,7 +160,7 @@ stateDiagram-v2
 
 ---
 
-### 4. `PreventUndercuttingPattern` (PARALLEL)
+### 4. `PreventUndercuttingPattern`
 
 **Source**: [PreventUndercuttingPattern.java](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/IntentionLayer/ManeuverPatterns/PreventUndercuttingPattern.java)
 
@@ -199,7 +186,7 @@ stateDiagram-v2
 
 ---
 
-### 5. `AnticipateDownstreamMergePattern` (PARALLEL)
+### 5. `AnticipateDownstreamMergePattern`
 
 **Source**: [AnticipateDownstreamMergePattern.java](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/IntentionLayer/ManeuverPatterns/AnticipateDownstreamMergePattern.java)
 
