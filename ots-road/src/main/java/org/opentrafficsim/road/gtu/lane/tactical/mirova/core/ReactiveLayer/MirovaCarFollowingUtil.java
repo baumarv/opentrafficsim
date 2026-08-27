@@ -90,6 +90,7 @@ public final class MirovaCarFollowingUtil
         // getKinematicEmergencyBrake(vehicle, leader.getSpeed(), leader.getDistance(), leader.getAcceleration());
 
         // 2. Check for and apply ID-based relaxation buffers
+        boolean perceptionRelaxed = false;
         RelaxationState activeRelaxation = ego.getActiveRelaxationForLeader(leaderId);
         if (activeRelaxation != null)
         {
@@ -98,6 +99,7 @@ public final class MirovaCarFollowingUtil
             {
                 perceivedDistance = perceivedDistance.plus(activeRelaxation.getVirtualSpaceBuffer(now));
                 perceivedLeaderSpeed = perceivedLeaderSpeed.plus(activeRelaxation.getVirtualSpeedBuffer(now));
+                perceptionRelaxed = true;
             }
             else
             {
@@ -131,7 +133,15 @@ public final class MirovaCarFollowingUtil
         // The kinematic bounding inside MirovaIdmPlus cannot do this: it only ever sees the synthetic leader carrying
         // the buffers, so it reasons about a gap that does not exist. Here both are available, and the rule is one
         // way only - the result may never be milder than what the real gap and the real speed difference require.
-        result = Acceleration.min(result, requiredDeceleration(vehicle, leader));
+        // Only vehicles whose perception was actually enlarged need it. For everyone else the model already reasoned
+        // about the real gap, so re-imposing the real gap on top adds nothing - except that the kinematic form yields a
+        // small negative value for any vehicle closing on a leader at all, however distant, which then acts as a ceiling
+        // on free acceleration. Scoped this way the net guards the discontinuity it was written for and leaves
+        // unrelaxed traffic to the car-following model.
+        if (perceptionRelaxed)
+        {
+            result = Acceleration.min(result, requiredDeceleration(vehicle, leader));
+        }
 
         // 4. Store the result in the cache for subsequent calls in this tick
         if (leaderId != null)
