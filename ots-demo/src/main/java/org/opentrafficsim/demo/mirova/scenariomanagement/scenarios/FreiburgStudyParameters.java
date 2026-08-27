@@ -32,6 +32,61 @@ public final class FreiburgStudyParameters
     /** Desired headway T of trucks, in seconds. */
     public static final double TRUCK_T = 1.30;
 
+    /**
+     * Car-following acceleration of cars [m/s^2], after Kesting et al. for motorway traffic.
+     * <p>
+     * OTS defaults {@link ParameterTypes#A} to 1.25 m/s^2 for every vehicle class. That single value is both too slow
+     * for cars and too brisk for trucks, and because nothing in the MiRoVA setup ever set it, both classes ran on it.
+     * </p>
+     */
+    public static final double CAR_A = 1.4;
+
+    /** Car-following acceleration of trucks [m/s^2], after Kesting et al. */
+    public static final double TRUCK_A = 0.7;
+
+    /** Comfortable car-following deceleration [m/s^2], after Kesting et al.; identical for both classes. */
+    public static final double COMFORTABLE_DECELERATION = 2.0;
+
+    /**
+     * Stopping distance of cars [m], after Kesting et al.
+     * <p>
+     * Interacts with {@link MirovaParameters#safetyDistanceReductionFactorLaneChange}, which scales the target headway
+     * when a relaxation is triggered: a smaller {@code s0} therefore acts multiplicatively in the merge situation, not
+     * additively. Values of the {@code sdr} grid axis are not comparable across a change of this constant.
+     * </p>
+     */
+    public static final double CAR_S0 = 2.0;
+
+    /** Stopping distance of trucks [m], after Kesting et al. */
+    public static final double TRUCK_S0 = 4.0;
+
+    /**
+     * Deceleration a merging car expects the follower on the target lane to accept at the lowest mandatory desire
+     * [m/s^2].
+     * <p>
+     * {@code EgoContext.computeFollowerDecelerationThreshold} interpolates linearly between this value and
+     * {@link #CAR_FOLLOWER_DECELERATION_MAX} over the lane-change desire above {@code DMAND}, so both ends bound the
+     * same ramp and neither can be moved on its own.
+     * </p>
+     * <p>
+     * A local sweep over six settings found this pair to be the single effective lever against ramp standstills once
+     * the physical net no longer slowed the mainline: standstills fell from 37.4 to 29.9 per run, and the run that had
+     * been collapsing came back from 84 to 28. Strengthening the cooperative deceleration instead made matters clearly
+     * worse - a gap opener braking harder holds up the column behind it and creates the very disturbance that blocks
+     * the merge.
+     * </p>
+     * <p>
+     * The threshold is an admissibility criterion in the gap assessment, not a commanded deceleration. Measured over
+     * the followers within 150 m of a merge, the median deceleration is 1.7 m/s^2 and the 5 % quantile sits at 3.5
+     * regardless of this setting; the share braking harder than 5 m/s^2 rises from 0.75 % to 1.06 %. The effect comes
+     * from usable gaps no longer being discarded, not from anyone actually braking that hard.
+     * </p>
+     */
+    public static final double CAR_FOLLOWER_DECELERATION_MIN = -2.5;
+
+    /** Deceleration a merging car expects the follower to accept at full desire [m/s^2]. See the minimum for context. */
+    public static final double CAR_FOLLOWER_DECELERATION_MAX = -5.0;
+
     /** Deceleration a car accepts in order to cooperate with a merging vehicle, in m/s^2. */
     public static final double CAR_COOPERATIVE_DECELERATION_THRESHOLD = -3.0;
 
@@ -128,17 +183,25 @@ public final class FreiburgStudyParameters
 
         // Car parameters
         params.set("car." + ParameterTypes.T.getId(), CAR_T);
+        params.set("car." + ParameterTypes.A.getId(), CAR_A);
+        params.set("car." + ParameterTypes.B.getId(), COMFORTABLE_DECELERATION);
+        params.set("car." + ParameterTypes.S0.getId(), CAR_S0);
         params.set("car." + MirovaParameters.vGain.getId(), 15.0);
         params.set("car." + MirovaParameters.A_MAX.getId(), 3.5);
         params.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(), CAR_COOPERATIVE_DECELERATION_THRESHOLD);
         params.set("car." + MirovaParameters.farAnticipationEnabled.getId(), false);
         params.set("car." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(), RED_FAC);
+        params.set("car." + MirovaParameters.minFollowerDecelerationThreshold.getId(), CAR_FOLLOWER_DECELERATION_MIN);
+        params.set("car." + MirovaParameters.maxFollowerDecelerationThreshold.getId(), CAR_FOLLOWER_DECELERATION_MAX);
         params.set("car." + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), false);
         params.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), 0.8);
         params.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_ENABLED.getId(), true);
 
         // Truck parameters
         params.set("truck." + ParameterTypes.T.getId(), TRUCK_T);
+        params.set("truck." + ParameterTypes.A.getId(), TRUCK_A);
+        params.set("truck." + ParameterTypes.B.getId(), COMFORTABLE_DECELERATION);
+        params.set("truck." + ParameterTypes.S0.getId(), TRUCK_S0);
         params.set("truck." + MirovaParameters.vGain.getId(), 30.0);
         params.set("truck." + MirovaParameters.A_MAX.getId(), 1.3);
         params.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(),
