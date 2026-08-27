@@ -97,8 +97,34 @@ public final class RunFreiburgMergeWatch
         private static final double CAR_A_MAX = 3.5;
 
         /** Deceleration a car accepts in order to cooperate with a merger [m/s^2]. Study baseline. */
-        private static final double CAR_COOPERATIVE_DECELERATION_THRESHOLD =
-                        FreiburgStudyParameters.CAR_COOPERATIVE_DECELERATION_THRESHOLD;
+        private static final double CAR_COOPERATIVE_DECELERATION_THRESHOLD = Double.parseDouble(System.getProperty(
+                        "mirova.coopNear", Double.toString(FreiburgStudyParameters.CAR_COOPERATIVE_DECELERATION_THRESHOLD)));
+
+        /**
+         * Deceleration a car accepts in order to cooperate while the merger is still far from the lane end [m/s^2].
+         * <p>
+         * {@code GapOpenerPattern.getDynamicCooperativeDecelerationThreshold} interpolates linearly between this value,
+         * which applies from {@code LOOKAHEAD} onwards, and {@link #CAR_COOPERATIVE_DECELERATION_THRESHOLD}, which
+         * applies within 100 m of the lane end. Changing only one of the two moves the whole ramp, so a sweep has to
+         * vary both. Override with {@code -Dmirova.coopFar=<value>}.
+         * </p>
+         */
+        private static final double COOP_DECEL_FAR = Double.parseDouble(System.getProperty("mirova.coopFar", "-1.0"));
+
+        /**
+         * Deceleration a follower on the target lane is expected to accept at the lowest mandatory desire [m/s^2].
+         * <p>
+         * {@code EgoContext.computeFollowerDecelerationThreshold} interpolates between this value and
+         * {@link #FOLLOWER_DECEL_MAX} over the lane-change desire above {@code DMAND}, so both ends bound the same ramp.
+         * Override with {@code -Dmirova.folMin=<value>}.
+         * </p>
+         */
+        private static final double FOLLOWER_DECEL_MIN = Double.parseDouble(System.getProperty("mirova.folMin",
+                        Double.toString(FreiburgStudyParameters.CAR_FOLLOWER_DECELERATION_MIN)));
+
+        /** Deceleration a follower is expected to accept at full desire [m/s^2]. Override {@code -Dmirova.folMax}. */
+        private static final double FOLLOWER_DECEL_MAX = Double.parseDouble(System.getProperty("mirova.folMax",
+                        Double.toString(FreiburgStudyParameters.CAR_FOLLOWER_DECELERATION_MAX)));
 
         /** Long-range anticipation for cars. Study baseline: false. */
         private static final boolean CAR_FAR_ANTICIPATION = false;
@@ -172,7 +198,11 @@ public final class RunFreiburgMergeWatch
 
                 // The scenario defaults carry the demand wiring and network settings but no behaviour parameters, so every
                 // behavioural value the run uses is the one configured above.
+                // Start from the study baseline so that every behavioural value it defines - including ones added
+                // later - reaches this run, then apply the watch-specific deviations below. Before this, the block
+                // below was a second, independent copy of the baseline and the two had already drifted apart.
                 ScenarioParameters params = scenario.getDefaultParameters().copy();
+                params.applyOverridesFrom(FreiburgStudyParameters.baseBehaviorParams());
 
                 params.set("car." + ParameterTypes.T.getId(), CAR_T);
                 params.set("car." + MirovaParameters.vGain.getId(), CAR_V_GAIN);
@@ -185,6 +215,9 @@ public final class RunFreiburgMergeWatch
                 params.set("car." + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), CAR_CAPACITY_DROP);
                 params.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), CAR_RELAXATION_DAMPING_FACTOR);
                 params.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_ENABLED.getId(), CAR_RELAXATION_DAMPING_ENABLED);
+                params.set("car." + MirovaParameters.preemptiveCooperativeDeceleration.getId(), COOP_DECEL_FAR);
+                params.set("car." + MirovaParameters.minFollowerDecelerationThreshold.getId(), FOLLOWER_DECEL_MIN);
+                params.set("car." + MirovaParameters.maxFollowerDecelerationThreshold.getId(), FOLLOWER_DECEL_MAX);
 
                 params.set("truck." + ParameterTypes.T.getId(), TRUCK_T);
                 params.set("truck." + MirovaParameters.vGain.getId(), TRUCK_V_GAIN);
@@ -225,6 +258,8 @@ public final class RunFreiburgMergeWatch
         {
                 System.out.println("[MergeWatch] window " + DEMAND_START + " .. " + DEMAND_END + ", " + SIMULATED_MINUTES
                                 + " min simulated, seed " + SEED + ", gui=" + SHOW_GUI);
+                System.out.println("[MergeWatch] cooperation: near=" + CAR_COOPERATIVE_DECELERATION_THRESHOLD + ", far="
+                                + COOP_DECEL_FAR + " | follower: min=" + FOLLOWER_DECEL_MIN + ", max=" + FOLLOWER_DECEL_MAX);
                 System.out.println("[MergeWatch] car:   T=" + CAR_T + "s, vGain=" + CAR_V_GAIN + ", aMax=" + CAR_A_MAX
                                 + ", coopDecel=" + CAR_COOPERATIVE_DECELERATION_THRESHOLD + ", safetyDist="
                                 + CAR_SAFETY_DISTANCE_FACTOR + ", damping=" + CAR_RELAXATION_DAMPING_FACTOR + " (enabled="
