@@ -550,6 +550,73 @@ came in task-sized pairs on the highest-demand date, which `sacct -j <jobid>
 1.25 m/s for cars and trucks alike, so if the discharge is still short after this run,
 that is the first thing to set rather than another sweep of this grid.
 
+#### The fourth run: after the free branch stopped being held back
+
+`mergegrid_v3` was read twice and only the second reading counts. The first went through
+an evaluation that kept the per-GTU-type rows alongside the cross-class total in every
+detector interval, so station flows read roughly double and the campaign appeared to miss
+the empirical discharge by 8 %. Corrected, four of the nine cells sit inside the field
+interval of 3095 +/- 118 veh/h. **The capacity deficit that drove the last three campaigns
+was largely a counting error in the evaluation, not a property of the model.**
+
+Two things remained after that correction, and both point the same way: the pre-breakdown
+flow was still 10-19 % short, and the capacity drop came out negative - the simulation
+discharged faster than it had flowed before breaking down, which is not a breakdown. Taken
+together they say the model broke down too early rather than discharging too slowly.
+
+The cause was found in the reactive layer. The physical net in `MirovaCarFollowingUtil`
+applied to every car-following call rather than to the relaxation discontinuity it was
+written for, and its kinematic form produces a small negative value for any vehicle closing
+on a leader at all. Free acceleration was therefore capped for anyone catching up with a
+slower vehicle, costing 7-8 km/h across the whole free branch at every flow level. Since
+breakdown is detected against a shared critical speed, a free branch held 7 km/h low crosses
+that speed at a lower flow - which is the pre-breakdown deficit.
+
+Three changes separate this campaign from `v3`, each measured over 10 paired seeds:
+
+| | change | measured effect |
+|:---|:---|:---|
+| physical net | scoped to relaxed perception | free branch +4.5 km/h, merges +42, standstills 26.5 -> 36.7 |
+| `a`, `b`, `s0` | Kesting values per vehicle class | standstills back to 33.5 median, merge speed restored |
+| follower thresholds | -2.5 / -5.0 instead of -2.0 / -4.0 | standstills 37.4 -> 29.9, the collapsing seed 84 -> 28 |
+
+The net change is a free branch 3.8 km/h faster, 36 more merges per run, and 3.4 more ramp
+standstills than before any of it - with a mechanism that is physically defensible rather
+than one that worked by slowing everything down.
+
+Same grid, same three dates, same seeds as `v3`, so the cells compare directly:
+
+```bash
+export MIROVA_CLUSTER_DIR="$PWD/cluster"
+export MIROVA_STUDY=mergegrid
+export MIROVA_OUTPUT_ROOT="$(ws_find mirova)/output/mergegrid_v4"
+export MIROVA_STUDY_OPTS="--dates=cluster/dates_calibration.txt --demand=$(ws_find mirova)/demand --replications=10 --strict=true"
+sbatch --chdir="$(ws_find mirova)" --array=0-134 cluster/run_mirova.sbatch   # 270 runs -> 135 tasks
+```
+
+What to read first, in this order:
+
+1. **Pre-breakdown flow.** This is the campaign's purpose. If the free branch now runs at
+   its proper speed, the flow at which the model breaks down should rise towards the
+   empirical 3397 +/- 146 veh/h. If it does not, the early breakdown has a second cause
+   and the free-branch speed was not it.
+2. **Capacity drop.** It must approach the empirical +8.7 %. A discharge that still exceeds
+   the pre-breakdown flow means what the pipeline calls a breakdown is not one, and the
+   event definition itself needs revisiting before any further calibration.
+3. **Queue discharge**, which four `v3` cells already matched. It should stay inside
+   3095 +/- 118 rather than climb with the faster free branch. Damping 0.80 already
+   overshot at 3305 in `v3`, so the optimum on that axis now sits inside the grid - the
+   earlier reading that it lay at the upper edge came from the contaminated evaluation.
+4. **Ramp standstills**, from the trajectories. Expect roughly 3 more per run than the
+   `v3` code produced. More than that on the cluster's higher-demand dates would mean the
+   follower thresholds do not carry over from the single watched day they were tuned on.
+
+Two evaluation notes. Delete `detector_runs_cache.csv` under each variation before reading
+any campaign parsed before the counting fix, or the corrected loader will read the old
+cache. And `s0` interacts multiplicatively with `safetyDistanceReductionFactorLaneChange`
+in the relaxation trigger, so the `sdr` axis is not comparable across campaigns either side
+of this change - within `v4` it is, against `v3` it is not.
+
 #### Re-running it after the merge FSM changes
 
 The first `mergegrid` campaign ran before the on-ramp merging behaviour itself was
