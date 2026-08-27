@@ -52,13 +52,16 @@ public final class RunFreiburgMergeWatch
         // ---- Run -------------------------------------------------------------------------------------------------------
 
         /** Start of the demand window, {@code yyyy-MM-dd HH:mm:ss}. */
-        private static final String DEMAND_START = "2025-10-13 13:00:00";
+        private static final String DEMAND_START =
+                        System.getProperty("mirova.demandStart", "2025-10-13 13:00:00");
 
         /** End of the demand window. Changing the window may trigger a fresh demand preparation, which takes a while. */
-        private static final String DEMAND_END = "2025-10-13 16:00:00";
+        private static final String DEMAND_END =
+                        System.getProperty("mirova.demandEnd", "2025-10-13 16:00:00");
 
         /** Simulated duration in minutes, counted from the start of the demand window. */
-        private static final double SIMULATED_MINUTES = 60.0;
+        private static final double SIMULATED_MINUTES =
+                        Double.parseDouble(System.getProperty("mirova.minutes", "60.0"));
 
         /** Random seed. Override with {@code -Dmirova.seed=<n>} to run several seeds in parallel. */
         private static final long SEED = Long.getLong("mirova.seed", 42L);
@@ -144,7 +147,24 @@ public final class RunFreiburgMergeWatch
         // ---- Trucks ----------------------------------------------------------------------------------------------------
 
         /** Desired time headway of trucks [s]. Study baseline via FreiburgStudyParameters; the tighter sweep uses 1.20. */
-        private static final double TRUCK_T = FreiburgStudyParameters.TRUCK_T;
+        private static final double TRUCK_T = Double.parseDouble(
+                        System.getProperty("mirova.truckT", Double.toString(FreiburgStudyParameters.TRUCK_T)));
+
+        /**
+         * Car-following acceleration of trucks [m/s^2]. Override with {@code -Dmirova.truckA}.
+         * <p>
+         * IDM treats this as a ceiling, not as the acceleration a vehicle shows: the free term scales it down with
+         * speed and the interaction term reduces it further while following. Field medians of 0.60 to 0.87 m/s^2 are
+         * therefore not directly comparable - they average a process that starts higher - and they were measured
+         * pulling away from a ramp meter, which is not this site.
+         * </p>
+         */
+        private static final double TRUCK_A = Double.parseDouble(
+                        System.getProperty("mirova.truckA", Double.toString(FreiburgStudyParameters.TRUCK_A)));
+
+        /** Stopping distance of trucks [m]. Override with {@code -Dmirova.truckS0}. */
+        private static final double TRUCK_S0 = Double.parseDouble(
+                        System.getProperty("mirova.truckS0", Double.toString(FreiburgStudyParameters.TRUCK_S0)));
 
         /** Speed gain of trucks [km/h]. Study baseline: 30.0. */
         private static final double TRUCK_V_GAIN = 30.0;
@@ -220,6 +240,8 @@ public final class RunFreiburgMergeWatch
                 params.set("car." + MirovaParameters.maxFollowerDecelerationThreshold.getId(), FOLLOWER_DECEL_MAX);
 
                 params.set("truck." + ParameterTypes.T.getId(), TRUCK_T);
+                params.set("truck." + ParameterTypes.A.getId(), TRUCK_A);
+                params.set("truck." + ParameterTypes.S0.getId(), TRUCK_S0);
                 params.set("truck." + MirovaParameters.vGain.getId(), TRUCK_V_GAIN);
                 params.set("truck." + MirovaParameters.A_MAX.getId(), TRUCK_A_MAX);
                 params.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(),
@@ -260,6 +282,7 @@ public final class RunFreiburgMergeWatch
                                 + " min simulated, seed " + SEED + ", gui=" + SHOW_GUI);
                 System.out.println("[MergeWatch] cooperation: near=" + CAR_COOPERATIVE_DECELERATION_THRESHOLD + ", far="
                                 + COOP_DECEL_FAR + " | follower: min=" + FOLLOWER_DECEL_MIN + ", max=" + FOLLOWER_DECEL_MAX);
+                System.out.println("[MergeWatch] truck: a=" + TRUCK_A + ", T=" + TRUCK_T + ", s0=" + TRUCK_S0);
                 System.out.println("[MergeWatch] car:   T=" + CAR_T + "s, vGain=" + CAR_V_GAIN + ", aMax=" + CAR_A_MAX
                                 + ", coopDecel=" + CAR_COOPERATIVE_DECELERATION_THRESHOLD + ", safetyDist="
                                 + CAR_SAFETY_DISTANCE_FACTOR + ", damping=" + CAR_RELAXATION_DAMPING_FACTOR + " (enabled="
