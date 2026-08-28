@@ -617,6 +617,61 @@ cache. And `s0` interacts multiplicatively with `safetyDistanceReductionFactorLa
 in the relaxation trigger, so the `sdr` axis is not comparable across campaigns either side
 of this change - within `v4` it is, against `v3` it is not.
 
+#### The fifth run: the car side, which was never tested
+
+Three car parameters moved at once when the Kesting values were adopted - acceleration 1.25 to
+1.40, comfortable deceleration 2.09 to 2.00, stopping distance 3.0 to 2.0 m - and none of them
+was ever varied on its own. The truck side has since been settled by a factorial on one date,
+but cars carry 80 % of the traffic here, so the larger gap stayed open. This campaign closes it.
+
+What that factorial settled, and what this run therefore holds fixed:
+
+| parameter | value | measured over |
+|:---|:---|:---|
+| `a` trucks | 1.25 | 359 runs; strongest axis of all, monotone over 0.7/1.0/1.3 - standstills 340 -> 244 per run, right lane +11.9 km/h, jam -11.7 min |
+| `s0` trucks | 4.0 m | 108 runs; 19 % fewer standstills than 3.0 |
+| `T` trucks | 1.20 s | no effect on standstills, weak on speeds - not worth breaking comparability |
+| follower | -2.0 / -4.0 | -2.5 raised standstills by 29 %, which is most of their near-doubling from v3 to v4 |
+
+The truck acceleration is the one worth dwelling on. It had been set to the field median of
+0.7 m/s2, which looks right until one measures what the trucks then do: a median of 0.28 m/s2
+while accelerating, and 0.51 below 10 km/h. IDM reads the parameter as a ceiling that the free
+and interaction terms cut into, and the field figure is itself an average over a process that
+starts higher - so setting the parameter to the observed mean guarantees accelerations below it.
+The trajectory output now records the GTU type, which is what made that measurable at all;
+classifying by speed had put 54 % of the fleet in the truck class where the demand holds 20 %.
+
+The grid:
+
+```bash
+export MIROVA_CLUSTER_DIR="$PWD/cluster"
+export MIROVA_STUDY=carparams
+export MIROVA_OUTPUT_ROOT="$(ws_find mirova)/output/carparams_v1"
+export MIROVA_STUDY_OPTS="--dates=cluster/dates_calibration.txt --demand=$(ws_find mirova)/demand --replications=10 --strict=true"
+sbatch --chdir="$(ws_find mirova)" --array=0-89 cluster/run_mirova.sbatch   # 180 runs -> 90 tasks
+```
+
+Car acceleration at 1.25, 1.40 and 1.70, car stopping distance at 2.0 and 3.0 m: six cells per
+date, three dates, ten seeds. The third acceleration level is not a bracket around Kesting's
+1.40 but an opening upwards, for the same ceiling reason the truck result exposed.
+
+What to read first:
+
+1. **The control cell.** Acceleration 1.25 with stopping distance 3.0 restores what both
+   carried before the Kesting set, so this campaign answers on its own whether everything else
+   changed since `v3` was worth it - without the confounding that made the last three
+   comparisons so hard to read.
+2. **Jam speed and jam duration**, which are the metrics that regressed in `v4`: 28-36 km/h
+   against an empirical 47 +/- 7, and 72-159 min against 48-94. If the car stopping distance
+   carries that, the 3.0 m cells will show it plainly.
+3. **Pre-breakdown flow**, still 10-19 % short and unmoved by the free-branch repair. The car
+   acceleration is the remaining untested candidate for it.
+4. **Capacity**, but read it from the corrected evaluation. The figures the earlier campaigns
+   were judged by were wrong twice over - a congestion threshold refitted per run, and a
+   capacity taken from the first of several breakdown episodes - and the corrected reading puts
+   the simulation on top of the field rather than far below it. Anything concluded about
+   capacity before that correction needs re-reading, not extending.
+
 #### Re-running it after the merge FSM changes
 
 The first `mergegrid` campaign ran before the on-ramp merging behaviour itself was
