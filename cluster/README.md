@@ -672,6 +672,55 @@ What to read first:
    the simulation on top of the field rather than far below it. Anything concluded about
    capacity before that correction needs re-reading, not extending.
 
+#### The sixth run: validation on all nine dates
+
+The car sweep settled the last open parameter, and with it the model reaches a state worth
+validating rather than tuning further. Held fixed here: damping 0.80 and safety distance 0.40,
+truck acceleration 1.25 and stopping distance 4.0 m, follower thresholds -2.0 / -4.0, car
+acceleration 1.40 and stopping distance 2.0 m.
+
+Where that set stands, read against the corrected capacity evaluation:
+
+| metric | simulation | field | |
+|:---|:---|:---|:---|
+| queue discharge | 3048-3255 | 2977-3214 | four of six cells inside |
+| breakdown onset | 174-189 min | 170-212 | every cell inside |
+| jam duration | 45-63 min | 48-94 | inside at car s0 = 2.0 |
+| pre-breakdown flow | 3008-3164 | 3251-3543 | 4-11 % short, was 10-19 % |
+| jam speed | 30-42 km/h | 40-54 | inside only at car s0 = 3.0 |
+| capacity drop | -7.5 to +3.3 % | 5-13 % | right sign only at car s0 = 2.0 |
+
+The car stopping distance is the trade-off that remains: 3.0 m buys jam speed at the cost of jam
+duration and the sign of the capacity drop, 2.0 m the reverse. 2.0 wins on the count of intervals
+hit, which is why it is the value carried forward - not because the conflict is resolved.
+
+Two questions, and the design answers both:
+
+```bash
+export MIROVA_CLUSTER_DIR="$PWD/cluster"
+export MIROVA_STUDY=validation
+export MIROVA_OUTPUT_ROOT="$(ws_find mirova)/output/validation_v1"
+export MIROVA_STUDY_OPTS="--dates=cluster/dates.txt --demand=$(ws_find mirova)/demand --replications=10 --strict=true"
+sbatch --chdir="$(ws_find mirova)" --array=0-134 cluster/run_mirova.sbatch   # 270 runs -> 135 tasks
+```
+
+**Does it generalise?** Six of the nine dates have never been calibrated on, and three of them
+have no empirical breakdown at all. Those three are the sharper test: a model tuned to break down
+at the right flow must also manage *not* to break down on a day the site did not, and a
+calibration measured only on days that do break down cannot see that failure mode. Read the
+false-breakdown rate on those three before anything else.
+
+**Does the headway close the rest?** The desired headway is the parameter with the strongest
+reported influence on bottleneck discharge, well ahead of the acceleration, so it is the natural
+candidate for a pre-breakdown flow that is still 4 to 11 % short. Three combinations - the
+standard 1.00 / 1.30, the tighter 0.90 / 1.20 the campaigns have used, and a tightest 0.80 / 1.10
+extending the axis where the gap points.
+
+One caveat carried into the reading: the empirical reference now rests on eight days rather than
+nine. The persistence rule that a breakdown must last fifteen minutes discarded one day's event,
+which is the intended behaviour but changes the reference the simulation is scored against.
+Check which day that is before treating the interval as unchanged.
+
 #### Re-running it after the merge FSM changes
 
 The first `mergegrid` campaign ran before the on-ramp merging behaviour itself was
