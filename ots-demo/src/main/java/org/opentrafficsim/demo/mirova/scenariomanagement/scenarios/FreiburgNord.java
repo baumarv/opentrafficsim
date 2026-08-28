@@ -63,6 +63,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlannerFac
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaIdmPlusFactory;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataActionState;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataGtuType;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataLaneChangeDesireLeft;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataLaneChangeDesireRight;
 import org.opentrafficsim.road.gtu.strategical.LaneBasedStrategicalPlannerFactory;
@@ -533,7 +534,8 @@ public class FreiburgNord extends ScenarioGenerator
             sampler = RoadSampler.build(this.network).registerExtendedDataType(new ExtendedDataActionState())
                     .registerExtendedDataType(new ExtendedDataLaneChangeDesireLeft())
                     .registerExtendedDataType(new ExtendedDataLaneChangeDesireRight())
-                    .registerExtendedDataType(new ExtendedDataAccelerationDamping()).create();
+                    .registerExtendedDataType(new ExtendedDataAccelerationDamping())
+                    .registerExtendedDataType(new ExtendedDataGtuType()).create();
         }
         else
         {
