@@ -70,6 +70,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.W99Pa
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.Wiedemann99;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.Wiedemann99Factory;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataActionState;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataGtuType;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataCurrentCFAcceleration;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataCurrentDesiredSpeed;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataEgoDecelLeft;
@@ -523,6 +524,7 @@ public class MergeScenario extends ScenarioGenerator
                     .registerExtendedDataType(new ExtendedDataActionState())
                     .registerExtendedDataType(new ExtendedDataLaneChangeDesireLeft())
                     .registerExtendedDataType(new ExtendedDataLaneChangeDesireRight())
+                    .registerExtendedDataType(new ExtendedDataGtuType())
                     .create();
         }
         else
