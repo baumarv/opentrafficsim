@@ -41,8 +41,22 @@ public final class FreiburgStudyParameters
      */
     public static final double CAR_A = 1.4;
 
-    /** Car-following acceleration of trucks [m/s^2], after Kesting et al. */
-    public static final double TRUCK_A = 0.7;
+    /**
+     * Car-following acceleration of trucks [m/s^2].
+     * <p>
+     * Not the field median of 0.60 to 0.87, although that is what this held. IDM reads the parameter as a ceiling: the
+     * free term scales it down with speed and the interaction term reduces it further, so at 0.7 the trucks actually
+     * accelerated at a median of 0.28 m/s^2, and 0.51 below 10 km/h. The field figures also average a process that
+     * starts higher, and were measured pulling away from a ramp meter rather than at an interchange.
+     * </p>
+     * <p>
+     * A factorial over 0.7, 1.0 and 1.3 found this the strongest of every axis tested and monotone across all three:
+     * ramp standstills fell from 340 to 244 per run, the right-hand mainline lane gained 11.9 km/h in congestion and
+     * the jam shortened by 11.7 minutes. Notably the queue discharge barely moved, which is what published sweeps of
+     * this parameter also report - it governs the speed level and the duration, not the throughput.
+     * </p>
+     */
+    public static final double TRUCK_A = 1.25;
 
     /** Comfortable car-following deceleration [m/s^2], after Kesting et al.; identical for both classes. */
     public static final double COMFORTABLE_DECELERATION = 2.0;
@@ -69,11 +83,18 @@ public final class FreiburgStudyParameters
      * same ramp and neither can be moved on its own.
      * </p>
      * <p>
-     * A local sweep over six settings found this pair to be the single effective lever against ramp standstills once
-     * the physical net no longer slowed the mainline: standstills fell from 37.4 to 29.9 per run, and the run that had
-     * been collapsing came back from 84 to 28. Strengthening the cooperative deceleration instead made matters clearly
-     * worse - a gap opener braking harder holds up the column behind it and creates the very disturbance that blocks
-     * the merge.
+     * This pair depends on the operating point, and the two tests of it disagree. On a heavily congested hour - damping
+     * 0.70, safety distance 0.45, jams of two to three hours - loosening it to -2.5 / -5.0 was the single effective
+     * lever against ramp standstills, which fell from 37.4 to 29.9 per run while the one run that had been collapsing
+     * came back from 84 to 28. On a full day at the calibrated operating point, where jams last ten to twenty minutes,
+     * a factorial over 108 runs found the opposite: -2.5 raised standstills by 29 % against -2.0, from 265 to 340 per
+     * run, and it accounts for much of the near-doubling seen between the third and the fourth campaign.
+     * </p>
+     * <p>
+     * The calibration targets ordinary days, where the light regime dominates, so the value stays at the tighter pair.
+     * Should heavy congestion become the target, this is the first parameter to revisit rather than a settled one.
+     * Strengthening the cooperative deceleration was tried alongside in both tests and is clearly worse in each - a gap
+     * opener braking harder holds up the column behind it and creates the very disturbance that blocks the merge.
      * </p>
      * <p>
      * The threshold is an admissibility criterion in the gap assessment, not a commanded deceleration. Measured over
@@ -82,10 +103,10 @@ public final class FreiburgStudyParameters
      * from usable gaps no longer being discarded, not from anyone actually braking that hard.
      * </p>
      */
-    public static final double CAR_FOLLOWER_DECELERATION_MIN = -2.5;
+    public static final double CAR_FOLLOWER_DECELERATION_MIN = -2.0;
 
     /** Deceleration a merging car expects the follower to accept at full desire [m/s^2]. See the minimum for context. */
-    public static final double CAR_FOLLOWER_DECELERATION_MAX = -5.0;
+    public static final double CAR_FOLLOWER_DECELERATION_MAX = -4.0;
 
     /** Deceleration a car accepts in order to cooperate with a merging vehicle, in m/s^2. */
     public static final double CAR_COOPERATIVE_DECELERATION_THRESHOLD = -3.0;
