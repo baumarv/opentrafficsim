@@ -60,16 +60,28 @@ The post-run evaluation script [plot_scenario_results.py](file:///d:/Mitarbeiten
 * **Coefficient Correction**: The $c_2$ coefficient is computed from physical parameters ($v_f$ free flow speed, $v_c$ critical speed, $q_c$ capacity, $k_j$ jam density):
   $$c_2 = \frac{1}{q_c} - \frac{c_1}{v_c} - \frac{c_3}{v_c (v_f - v_c)}$$
   *(Note: A division by $v_c$ in the third term was corrected to ensure robust orthogonal fitting of the curves without optimization degeneracy).*
-* **Orthogonal Fitting**: Uses scipy's `minimize` with `L-BFGS-B` to minimize orthogonal distance of points to the curve, with strict penalty values ($10^6$) for invalid parameter spaces where the denominator $\le 0$.
+* **Orthogonal Fitting**: Uses scipy's `minimize` with `L-BFGS-B` to minimize the distance of each point to the nearest point of the discretised curve, with strict penalty values ($10^6$) for invalid parameter spaces where the denominator $\le 0$.
+  * The loss formerly measured the residual in $q$ alone although both coordinates carry error, which made the estimate follow the scatter in $q$ — and that scatter grows as the aggregation interval shrinks. Fitting the same runs at $60\text{ s}$ instead of $300\text{ s}$ moved $v_f$ by $+12.6\,\%$ and $v_c$ by $-14.5\,\%$ purely through the aggregation; against the nearest point of the curve the same comparison gives $+1.5\,\%$ and $-1.0\,\%$.
+  * What remains is $+7\,\%$ in $q_c$ between the two aggregations, and that one is real rather than an artefact: a one-minute interval reaches higher peak flows than a five-minute mean. **Capacity figures therefore stay on five-minute intervals**, while $v_f$, $v_c$ and $k_j$ are now robust to the choice.
+* **Jam Density Bound**: The upper bound on $k_j$ was $150\text{ veh/km}$, a per-lane figure applied to cross-section totals over two lanes. Both the third and the fourth campaign came back sitting exactly on it, so the reported value was a boundary artefact that no amount of extra data in the congested branch could have moved. At a cross-section bound it estimates $265$–$299\text{ veh/km}$, i.e. $133$–$150$ per lane.
 
-### 2. GMM Critical Speed & Breakdown Capacity
-* **Dynamic Critical Speed ($v_{\text{crit}}$)**: Fits a 2-component Gaussian Mixture Model (GMM) on speed distributions to find the intersection of the free-flow and congested speed components.
-* **Breakdown Identification**:
-  * Excludes the first **45 minutes** of the simulation run to discard initialization warm-up transients.
-  * Checks for a persistent breakdown event where the speed drops below $v_{\text{crit}}$ with a speed drop $dv \ge dv_{\text{min}}$ (iterating $dv_{\text{min}}$ from $10.0$ down to $5.0\text{ km/h}$).
-  * **Persistence Criteria**: The previous interval must be in free flow ($v_{\text{prev}} \ge v_{\text{crit}}$) and the next interval must remain congested ($v_{\text{after}} < v_{\text{crit}}$) to filter out transient single-interval drops.
-* **Capacity Extraction**: The breakdown capacity is defined as the total mainline flow in the 5-minute interval immediately preceding the breakdown.
-* **Statistical Aggregation**: Computes the mean, median, standard deviation, and a **95% Student-t confidence interval** of breakdown capacities across all successful seed replications.
+### 2. Breakdown Capacity
+
+This estimate used to contradict the fundamental diagram fitted to the same runs. Van Aerde put the simulation *above* the field, $2138$ against $2107\text{ veh/h}$ on the mainline; the breakdown method put it far *below*, $1544$ against $2052$. Two of those four numbers had to be wrong about the same data, and both errors were in the breakdown method.
+
+* **Congestion threshold**: one **study-wide** $v_{\text{crit}}$, shared by simulation and field.
+  * A GMM was previously fitted per dataset and each side scored against its own threshold. On this site that puts the empirical value near $67\text{ km/h}$ and the simulated one near $85$, so the simulation was judged by a threshold its own scatter crosses far more often, and every crossing counted as a breakdown.
+  * The per-dataset GMM speeds are still fitted and reported, since they describe each cloud, but they no longer decide what counts as a breakdown. The plot labels them as descriptive.
+  * Refitting the threshold per run also made it a random variable: most of the apparent spread between seeds was the threshold rather than the runs, and the standard deviation of the simulated capacity fell from $\pm 514$ to $\pm 68\text{ veh/h}$ once it was shared.
+* **Breakdown Identification** — one definition, shared by the q-v diagram and the event table, which formerly carried two separate implementations of it:
+  * Excludes the first **45 minutes** to discard warm-up transients.
+  * An episode is at least **three consecutive intervals** ($15\text{ min}$) below $v_{\text{crit}}$, entered out of free flow with a speed drop $dv \ge dv_{\text{min}}$ (iterating $dv_{\text{min}}$ from $10.0$ down to $5.0\text{ km/h}$). Two intervals was too weak a test: a facility that recovers within ten minutes did not reach its capacity.
+* **Capacity Extraction**: the **highest** pre-breakdown flow of the run, i.e. the largest flow in the 5-minute interval preceding any of its episodes.
+  * Taking the *first* episode instead compared unlike samples. An empirical day yields one episode, a simulated run one to three, so the field's only draw was compared against the smallest of several — the more often a model broke down, the lower its measured capacity came out. Measured over the fourth campaign the first episode sat at $55$–$82\,\%$ of the run's own maximum flow, with up to $28$ later intervals carrying *more* traffic than the moment of supposed failure; empirically the same figure is $100\,\%$ with nothing higher afterwards.
+  * The maximum carries the mirror-image bias — the largest of several draws grows with their number just as the first shrank with it — so the two are comparable only where both sides break down a similar number of times. The median and the first flow remain available so the effect of the rule can be checked. Where the numbers differ, the **product-limit estimate** is the one to use, since it handles censored observations rather than selecting a single draw.
+* **Statistical Aggregation**: mean, median, standard deviation and a **95 % Student-t confidence interval** across seed replications.
+
+With both corrections the four estimates agree: simulation $2064 \pm 68$ against an empirical $2052\text{ veh/h}$ on the mainline, $3150 \pm 178$ against $3144$ including the ramp, where the fitted diagram gives $2138$ and $2107$.
 
 ### 3. Layout Adjustments & HTML Overview Dashboard
 * **Clean Plotting Canvas**: The results annotation box (calibration metrics, fitted coefficients, capacity statistics) is placed outside the main plotting grid (on the right margin using `x=1.02, y=0.70` paper coordinates) by increasing the figure width to $780\text{ px}$ and right margin to $350\text{ px}$.
