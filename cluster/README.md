@@ -704,11 +704,20 @@ export MIROVA_STUDY_OPTS="--dates=cluster/dates.txt --demand=$(ws_find mirova)/d
 sbatch --chdir="$(ws_find mirova)" --array=0-134 cluster/run_mirova.sbatch   # 270 runs -> 135 tasks
 ```
 
-**Does it generalise?** Six of the nine dates have never been calibrated on, and three of them
-have no empirical breakdown at all. Those three are the sharper test: a model tuned to break down
-at the right flow must also manage *not* to break down on a day the site did not, and a
-calibration measured only on days that do break down cannot see that failure mode. Read the
-false-breakdown rate on those three before anything else.
+**Does it generalise?** Six of the nine dates have never been calibrated on. Their empirical
+pre-breakdown flows span 2940 to 4044 veh/h, i.e. a range wider than the three calibration dates
+cover, which is the point: a set fitted to the middle of that range has to hold at both ends.
+
+One date, 2025-09-22, has no persistent breakdown at all - its only congestion episode lasts two
+intervals - and it is the sharper test on its own. A model tuned to break down at the right flow
+must also manage *not* to break down on a day the site did not, and a calibration measured only
+on days that do break down cannot see that failure mode. Read the false-breakdown rate there
+before anything else.
+
+(The note in `dates_calibration.txt` that 2025-09-23 and 2025-10-08 have no identified breakdown
+predates the current detection and no longer holds: both yield one, at 2988 and 2940 veh/h. That
+file selected the calibration subset and its reasoning is unaffected, but the claim itself is
+stale.)
 
 **Does the headway close the rest?** The desired headway is the parameter with the strongest
 reported influence on bottleneck discharge, well ahead of the acceleration, so it is the natural
@@ -720,6 +729,54 @@ One caveat carried into the reading: the empirical reference now rests on eight 
 nine. The persistence rule that a breakdown must last fifteen minutes discarded one day's event,
 which is the intended behaviour but changes the reference the simulation is scored against.
 Check which day that is before treating the interval as unchanged.
+
+##### What it found
+
+The day is 2025-09-22: its only congestion episode lasts two intervals, so the fifteen-minute rule
+discards it. The reference now rests on eight days at a queue discharge of 3115 +/- 127 veh/h.
+
+The headway axis is exhausted rather than open. Averaged over all nine dates:
+
+| combination | discharge | pre 15 min | pre 5 min | onset | jam | jam speed | drop |
+|:---|:---|:---|:---|:---|:---|:---|:---|
+| tightest 0.8/1.1 | 3193 ok | 3006 | 3210 ok | 170 ok | 51 | 39.3 | -8.3 |
+| **tighter 0.9/1.2** | **3105 ok** | 3098 | **3280 ok** | **181 ok** | **64 ok** | 35.0 | -1.1 |
+| standard 1.0/1.3 | 2921 | 2990 | **3170 ok** | **167 ok** | 126 | 25.6 | +1.3 |
+| field (8 days) | 2988-3242 | 3216-3535 | 3146-3766 | 165-215 | 59-97 | 40-49 | 4-11 % |
+
+The pair already in use wins on four of seven metrics. Tightening further lowers the fifteen-minute
+pre-breakdown flow, shortens jams below the field interval and worsens the capacity drop.
+
+**The pre-breakdown deficit turns out to be about duration, not level.** The flow in the last
+five-minute interval before breakdown is inside the field interval for all three combinations; only
+the fifteen-minute mean leading into it is short. The model reaches the right breakdown flow and
+fails to hold it for a quarter of an hour, which is a different fault from insufficient capacity and
+was invisible under the earlier capacity measurement.
+
+Per day, in the winning cell, the errors are: discharge median -54 veh/h with a median absolute
+error of 106; pre-breakdown flow negative on **every** day, median -292; jam duration median -11 min,
+absolute 28; jam speed median -9 km/h, absolute 13. Only the pre-breakdown flow is a systematic bias;
+the rest is scatter around zero.
+
+The jam speed error is not scatter either, but it is not a bias: on days the field saw a fast jam
+(47-51 km/h) the model is 15-20 km/h low, on days it saw a slow one (37-39) the model is 6-16 high.
+The model produces much the same jam every time where the site does not - it reproduces the mean and
+not the day-to-day variation.
+
+**The discrimination test.** Breakdown rate over ten runs per day, against whether the site broke
+down:
+
+| combination | hit rate on the 8 breakdown days | false rate on 2025-09-22 |
+|:---|:---|:---|
+| standard | 82 % | 60 % |
+| tighter | 61 % | 30 % |
+| tightest | 34 % | 10 % |
+
+A sensitivity/specificity trade-off, and `tighter` sits in the middle of it. The ordering is right -
+the day that did not break down gets the lowest rate, and the three highest-demand days get the
+highest - but the separation is thin, 30 % against 40 % for the nearest real day. Note that a correct
+model should not give 100 % on a day that broke down: the field day is one draw from a probability,
+so rates of 60-90 % there and 30 % on a day that did not are not in themselves a contradiction.
 
 #### Re-running it after the merge FSM changes
 
