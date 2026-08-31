@@ -488,19 +488,50 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
             return null;
         }
 
+        /**
+         * Returns how much this cooperation is worth, rising as the candidate runs out of lane.
+         * <p>
+         * This used to return {@link MirovaParameters#DFREE} unchanged, so every cooperation carried the same weight:
+         * a vehicle that has just switched on its indicator a lookahead distance away counted for exactly as much as
+         * one about to run out of acceleration lane, and the arbitration could not prefer the second. A constant
+         * utility means the arbitration is not arbitrating.
+         * </p>
+         * <p>
+         * The scale is the same one {@link GapOpenerPattern#getDynamicCooperativeDecelerationThreshold} already uses
+         * for the deceleration it permits - full weight within the critical distance of the lane end, falling to the
+         * base value at the lookahead - so the two rise together rather than on separate scales.
+         * </p>
+         * @return double; the utility of cooperating with the current candidate
+         */
         @Override
         public double getUtility()
         {
             try
             {
-                return this.vehicle.getParameters().getParameter(MirovaParameters.DFREE);
+                double base = this.vehicle.getParameters().getParameter(MirovaParameters.DFREE);
+                HeadwayGtu candidate = this.maneuverPattern.getActiveMergeCandidate();
+                InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
+                LateralDirectionality dir = this.maneuverPattern.directionOfMergeCandidate;
+                if (candidate == null || infra == null || dir == null)
+                {
+                    return base;
+                }
+                RelativeLane rel = dir.isLeft() ? RelativeLane.LEFT : RelativeLane.RIGHT;
+                Length toEnd = infra.getRouteDistanceToLaneEnd(rel);
+                if (toEnd == null || Double.isInfinite(toEnd.si))
+                {
+                    return base;
+                }
+                double lookahead = this.vehicle.getParameters().getParameter(ParameterTypes.LOOKAHEAD).si;
+                double critical = 100.0;
+                double urgency = 1.0 - Math.min(1.0, Math.max(0.0,
+                        (toEnd.si - critical) / Math.max(lookahead - critical, 1.0)));
+                return base * (1.0 + urgency);
             }
             catch (ParameterException e)
             {
                 return 0.0;
             }
-
-        }
         }
 
         @Override
