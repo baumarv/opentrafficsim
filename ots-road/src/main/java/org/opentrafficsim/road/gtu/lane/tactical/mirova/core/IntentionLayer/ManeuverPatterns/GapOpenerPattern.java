@@ -47,6 +47,27 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.Mirov
 public class GapOpenerPattern extends ManeuverPattern implements Serializable
 {
     /** Serial version UID. */
+    /**
+     * Extra headway a cooperating vehicle holds to its own leader, in seconds; zero keeps the previous behaviour.
+     * <p>
+     * With zero the ego follows the merge candidate as though it were its own leader, which is a car-following
+     * equilibrium behind a vehicle on the ramp and therefore terminates at ramp speed, with the ego's own front gap
+     * growing for as long as the cooperation lasts. Above zero the ego instead holds an enlarged headway to its own
+     * leader, which opens the same gap by the same deceleration - the integral of the speed difference is the gap
+     * increment either way - but settles back at mainline speed once it is open.
+     * </p>
+     * <p>
+     * Set with {@code -Dmirova.coopHeadwayReserve=1.0}. A system property rather than a model parameter because this
+     * is under test; it becomes a parameter if the comparison supports it.
+     * </p>
+     */
+    private static final double COOP_HEADWAY_RESERVE =
+            Double.parseDouble(System.getProperty("mirova.coopHeadwayReserve", "0.0"));
+
+    /** Decay constant of the reserve [s]. A hard end would return the opened gap in one step. */
+    private static final double COOP_RESERVE_TAU =
+            Double.parseDouble(System.getProperty("mirova.coopReserveTau", "5.0"));
+
     private static final long serialVersionUID = 20260507L;
 
     /** The ID of the vehicle we are actively cooperating with. */
@@ -415,6 +436,18 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
                 }
             }
 
+            if (COOP_HEADWAY_RESERVE > 0.0)
+            {
+                // Hold an enlarged headway to the ego's own leader instead of following the candidate. The gap that
+                // matters to the merger is the ego's front gap, and this opens it without handing the ego's speed to
+                // a vehicle on the ramp. The reserve decays after the cooperation ends, so the gap is released
+                // gradually rather than closed the moment the candidate stops indicating.
+                ego.reserveHeadwayForCooperation(Duration.instantiateSI(COOP_HEADWAY_RESERVE),
+                        Duration.instantiateSI(COOP_RESERVE_TAU));
+                return new SimpleOperationalPlan(ego.getCurrentCarFollowingAcceleration(),
+                        this.maneuverPattern.getPatternSpecificTimestep());
+            }
+
             Acceleration finalAcceleration = Acceleration.min(aCooperation, aDirectLeader);
             return new SimpleOperationalPlan(finalAcceleration, this.vehicle.getParameters().getParameter(ParameterTypes.DT));
         }
@@ -467,6 +500,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
                 return 0.0;
             }
 
+        }
         }
 
         @Override

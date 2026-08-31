@@ -102,6 +102,60 @@ public class EgoContext extends ContextCategory implements UpdatableContext
      */
     private final Map<String, Acceleration> tickAccelerationCache = new HashMap<>();
 
+    /**
+     * Extra headway the ego holds to its own leader while a merge is pending, in seconds of headway.
+     * <p>
+     * The mirror of the Keane &amp; Gao relaxation this class already carries. That one lets a vehicle tolerate a
+     * <i>smaller</i> gap than equilibrium after a cut-in; this one lets it tolerate a <i>larger</i> one while it is
+     * cooperating, so that a gap opened for a merger is not immediately closed again by the car-following model. Both
+     * decay exponentially, for the same reason: a hard end returns the vehicle to its equilibrium gap in one step.
+     * </p>
+     * <p>
+     * Zero disables it, which is the default and reproduces the behaviour in which a cooperating vehicle instead
+     * follows the merge candidate as though it were its own leader - and thereby ends at the candidate's speed.
+     * </p>
+     */
+    private Duration cooperativeHeadwayReserve = Duration.ZERO;
+
+    /** Simulation time at which the reserve was last refreshed. */
+    private Duration reserveRefreshedAt = null;
+
+    /** Decay constant of the reserve. */
+    private Duration reserveTau = Duration.instantiateSI(5.0);
+
+    /**
+     * Refreshes the cooperative headway reserve, to be called while cooperation is active.
+     * @param reserve Duration; the extra headway to hold, in seconds
+     * @param tau Duration; the decay constant applied once refreshing stops
+     */
+    public void reserveHeadwayForCooperation(final Duration reserve, final Duration tau)
+    {
+        this.cooperativeHeadwayReserve = reserve;
+        this.reserveTau = tau;
+        this.reserveRefreshedAt = this.vehicle.getGtu().getSimulator().getSimulatorTime();
+        this.tickAccelerationCache.clear();
+    }
+
+    /**
+     * Returns the extra distance the ego currently holds to its own leader, decayed since the last refresh.
+     * @return Length; the reserve in metres, zero when none is active
+     */
+    public Length getCooperativeGapReserve()
+    {
+        if (this.reserveRefreshedAt == null || this.cooperativeHeadwayReserve.si <= 0.0)
+        {
+            return Length.ZERO;
+        }
+        Duration now = this.vehicle.getGtu().getSimulator().getSimulatorTime();
+        double age = now.si - this.reserveRefreshedAt.si;
+        double factor = Math.exp(-age / Math.max(this.reserveTau.si, 1e-6));
+        if (factor < 0.02)
+        {
+            return Length.ZERO;
+        }
+        return Length.instantiateSI(this.cooperativeHeadwayReserve.si * factor * getEgoSpeed().si);
+    }
+
     // ----------------------------------------------------------------------
     // Construction
     // ----------------------------------------------------------------------
