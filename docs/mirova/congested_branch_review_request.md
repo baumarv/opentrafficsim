@@ -247,3 +247,115 @@ link, so the gap-versus-equilibrium comparison can be made along the queue rathe
 merge section. If the platoon upstream sits at its own equilibrium while the merge section does not,
 that localises the cause and the proposal follows. If it is equally far from equilibrium upstream,
 where no cooperation is active, the proposal is aimed at the wrong mechanism.
+
+---
+
+## 8. Results of the measurements requested in review
+
+All five items are in. Two of them change the conclusions above; the corrections are stated where
+they belong rather than only here.
+
+### 8.1 The decisive test: the deviation is localized to the merge
+
+Gap against IDM equilibrium, now measured separately on the approach link — where no cooperation is
+active — and on the merge link (4 runs, 43 620 congested following pairs):
+
+| link | cooperation | gap/s_eq overall | 0–10 km/h | 10–20 km/h |
+|:---|:---|:---|:---|:---|
+| **L3a, approach** | **0.0 %** | **1.18** | 1.18 | 1.16 |
+| **L4a, merge** | **20.0 %** | **1.45** | 2.27 | 2.45 |
+
+**Localized to the merge.** On the approach the platoon sits at its own car-following equilibrium
+across every speed band; on the merge section it does not.
+
+**This also limits §2.2.** That section refuted a density explanation using gaps measured on the
+merge link only. On the approach the queue *is* dense and slow and follows the model — and the
+detector that measures the congested-speed deficit sits on that link. The two explanations are
+therefore not alternatives: if the merge section throttles the outflow, the approach densifies and
+slows with its car-following behaviour entirely intact. §2.2 as written overstates its reach.
+
+### 8.2 The acceleration deficit, measured rather than inferred
+
+The car-following acceleration is now recorded alongside the executed one, so the difference can be
+attributed. Over 845 590 congested mainline samples:
+
+| intervening state | share of affected samples | share of total loss | median loss |
+|:---|:---|:---|:---|
+| **`OpenGapState`** | **84.0 %** | **87.9 %** | 0.93 m/s² |
+| `PerformLaneChangeState` | 14.0 % | 10.1 % | 0.39 |
+| `ExecuteLaneChange` | 2.0 % | 1.9 % | 1.09 |
+
+**Cooperation accounts for 88 % of the acceleration suppressed in congestion.** The relaxation
+damping accounts for none — the median loss is 0.00 whether or not it is active. Of the acceleration
+the model asks for, **95 % is realized on the approach and 80 % on the merge section**.
+
+**§2.5 was overstated and is corrected.** It claimed the model would ask for about 1.3 m/s² where
+0.41 is driven, a factor of three. Measured, the car-following model asks for a median of 0.72 on the
+merge link and 0.58 is executed — a 20 % loss, not a factor of three. The 1.3 was a hand calculation
+that ignored the speed term. Only 10.3 % of congested samples lose anything at all, though those lose
+0.89 m/s² at the median.
+
+So cooperation is confirmed as the dominant suppressor, and the quantity it suppresses is smaller
+than §2.5 claimed.
+
+### 8.3 Congestion structure: the simulation propagates upstream
+
+With the approach link sampled the corridor spans 433 m, enough to resolve a wave at −15 km/h.
+Cross-correlating speed at two points 300 m apart, over the congested period:
+
+| run | lag | r | propagation |
+|:---|:---|:---|:---|
+| seed 42 | 70 s | 0.18 | −15 km/h |
+| seed 46 | 130 s | 0.55 | −8 km/h |
+| seed 47 | 190 s | 0.46 | −6 km/h |
+
+All three show a positive lag: the downstream point is disturbed first. **The simulation produces
+upstream-propagating structures at −6 to −15 km/h, not a stationary front.** The correlations are
+moderate, and three runs are few, but the sign is consistent.
+
+§2.4's conclusion of "no structural mismatch" does not survive on the simulation side. On the field
+side the question is not open but unanswerable: see 8.5.
+
+### 8.4 Sampler extension and its cost
+
+`FreiburgNord.SAMPLED_LINK_IDS` now takes a comma-separated list via `-Dmirova.samplerLinks`,
+defaulting to the merge link so campaigns are unchanged.
+
+| | trajectory file |
+|:---|:---|
+| 30 min, merge only | 1.5 MB |
+| 30 min, merge + approach | 2.5 MB |
+| 9 h campaign run, merge only | 26.1 MB |
+| 9 h campaign run, extrapolated with approach | ≈ 43 MB |
+
+A factor of 1.67, not a multiplication. A 270-run campaign would grow from roughly 7 to 12 GB, which
+the workspace tolerates but which should be a deliberate choice rather than a default.
+
+### 8.5 The `det_L5a` duplication: a preprocessing error, and §2.4 is void because of it
+
+`empirical.py` mapped only `det_L3a` and `det_L7a` to measurement positions and fell back to
+`"Hauptfahrbahn"` for everything else. The database holds exactly three positions at this site — one
+mainline cross-section, the on-ramp, the off-ramp. **There is no empirical detector chain**; the
+seven `det_LXa` names are simulation detectors, and five of them have no field counterpart.
+
+Reach: the evaluation pipeline requests only `det_L3a` and `det_L7a`, both correctly mapped, so no
+campaign result is affected. Two ad-hoc analyses are void — a speed profile along the corridor that
+compared the simulated downstream cross-section against the upstream empirical one, and §2.4's
+empirical propagation analysis, which cross-correlated the mainline series with itself and duly found
+a lag of zero at r = 0.99.
+
+**§2.4 is therefore not merely unresolved on the field side. It is unanswerable**: the site has one
+mainline cross-section, so no propagation speed can be estimated from it at any resolution. The
+unused off-ramp position has been added, and an unknown id now raises rather than returning a
+plausible frame.
+
+### 8.6 Where this leaves the proposal
+
+Supported, with its scope narrowed. Cooperation is measurably the dominant suppressor of
+acceleration and the only place the model departs from its own car-following behaviour. What is not
+shown is the link from that suppression to the congested speed measured on the approach — the
+approach queue is at equilibrium, so if the deficit reaches it, it does so through density, and that
+chain is inferred rather than measured.
+
+The magnitude therefore remains unknown, as §6 said. The paired comparison of §7 is still what would
+settle it, and the four criteria stand unchanged.

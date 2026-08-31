@@ -64,6 +64,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaIdmPlusFactory;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataActionState;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataGtuType;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataCurrentCFAcceleration;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataLaneChangeDesireLeft;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendeddata.ExtendedDataLaneChangeDesireRight;
 import org.opentrafficsim.road.gtu.strategical.LaneBasedStrategicalPlannerFactory;
@@ -106,6 +107,26 @@ public class FreiburgNord extends ScenarioGenerator
 
     /** Link whose lanes are recorded by the road sampler: the merge section downstream of node N3_4. */
     public static final String SAMPLED_LINK_ID = "L4a";
+
+    /**
+     * Links whose lanes the road sampler records, as a comma-separated list.
+     * <p>
+     * Defaults to the merge section alone, which is what the campaigns run on: sampling the approach as
+     * well multiplies the trajectory output, and the merge is where the interaction under study happens.
+     * That default has a cost worth stating, though - every trajectory-based result so far describes
+     * 202 m of merge section rather than the queue. A gap measured against car-following equilibrium, or
+     * a share of vehicles in a cooperative state, says nothing about the platoon upstream, where no
+     * cooperation is active and the comparison would be decisive.
+     * </p>
+     * <p>
+     * Override with {@code -Dmirova.samplerLinks=L4a,L3a} to record the approach as well. Check the
+     * resulting file size before using that for a campaign rather than a diagnostic run.
+     * </p>
+     */
+    public static final java.util.Set<String> SAMPLED_LINK_IDS = java.util.Arrays
+            .stream(System.getProperty("mirova.samplerLinks", SAMPLED_LINK_ID).split(","))
+            .map(String::trim).filter(x -> !x.isEmpty())
+            .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
 
     /**
      * Constructor for FreiburgNord.
@@ -535,7 +556,13 @@ public class FreiburgNord extends ScenarioGenerator
                     .registerExtendedDataType(new ExtendedDataLaneChangeDesireLeft())
                     .registerExtendedDataType(new ExtendedDataLaneChangeDesireRight())
                     .registerExtendedDataType(new ExtendedDataAccelerationDamping())
-                    .registerExtendedDataType(new ExtendedDataGtuType()).create();
+                    .registerExtendedDataType(new ExtendedDataGtuType())
+                    // The acceleration the car-following model alone asks for, recorded next to the one
+                    // that is executed. Their difference is what everything between the two takes away -
+                    // patterns, arbitration, clamps - and attributing it by component is the only way to
+                    // answer by measurement why queued vehicles accelerate at 0.41 m/s2 where the model
+                    // alone would give some 1.3.
+                    .registerExtendedDataType(new ExtendedDataCurrentCFAcceleration()).create();
         }
         else
         {
@@ -569,7 +596,7 @@ public class FreiburgNord extends ScenarioGenerator
                 // Record trajectories on the merge section L4a only: it is the segment downstream of the merge
                 // node N3_4, where the interaction being evaluated happens. Sampling the upstream mainline as well
                 // multiplied the trajectory output without adding to that analysis.
-                if (enableSamplers && linkId.equals(SAMPLED_LINK_ID))
+                if (enableSamplers && SAMPLED_LINK_IDS.contains(linkId))
                 {
                     GraphPath<LaneDataRoad> path = GraphLaneUtil.createPath("path", lane);
                     sampler.scheduleStartRecording(Time.instantiateSI(0), path.get(0).getSource(0));
