@@ -941,3 +941,60 @@ wait
 
 Add `-P` batching (or `xargs -P`) if you do not want all of them at once. The single-run path is
 the same one the cluster uses, so results are identical either way.
+
+#### The seventh run: headway against damping, on one date
+
+The relaxation acceleration damping turns out to be the strongest lever on the phenomenon the model
+gets worst - the smoothness with which traffic re-sorts itself after a merge. It scales positive
+accelerations while a relaxation is active, which is precisely the moments after an insertion, for
+the merging vehicle and for the follower it cut in front of.
+
+A paired local comparison over seven seeds, damping 0.70 against off:
+
+| | 0.70 | off | |
+|:---|:---|:---|:---|
+| vehicles with a stop-and-go cycle | 26.5 % | 14.7 % | -45 % |
+| ramp standstills | 767 | 304 | -60 % |
+| standstill time | 9786 s | 4717 s | -52 % |
+| merge speed | 32.4 | 55.8 km/h | +72 % |
+| jam duration | 75.0 | 19.3 min | -74 % |
+
+Every metric moves the same way, none reaches significance at seven seeds, and the effect sizes are
+large. **But it overshoots**: with damping off, four of the seven runs produced no breakdown at all,
+on a date where the site does break down at 3300 veh/h with a jam of some 70 minutes. Smoothing the
+recovery raises the discharge enough to prevent the breakdown rather than to improve it.
+
+The headway is the counterweight, since it sets capacity directly. This study crosses the two:
+
+```bash
+export MIROVA_CLUSTER_DIR="$PWD/cluster"
+export MIROVA_STUDY=smoothness
+export MIROVA_OUTPUT_ROOT="$(ws_find mirova)/output/smoothness_v1"
+export MIROVA_STUDY_OPTS="--dates=2025-10-27 --demand=$(ws_find mirova)/demand --replications=10 --strict=true"
+sbatch --chdir="$(ws_find mirova)" --array=0-59 cluster/run_mirova.sbatch   # 120 runs -> 60 tasks
+```
+
+Headways at 0.90/1.20, 1.00/1.30 and 1.10/1.40 crossed with damping at 0.70, 0.85, 0.95 and 1.00:
+twelve cells, ten seeds, one date.
+
+**Why 2025-10-27.** It is the marginal case, and the axis only discriminates where the outcome is in
+doubt. Its empirical pre-breakdown flow of 3300 veh/h is the lowest of the calibration dates, so it
+is where a smoother recovery first stops producing a breakdown - which is exactly the failure this
+study has to detect. On 2025-10-07, at 4044 veh/h, a breakdown occurs in almost any configuration
+and the damping axis would show nothing. It is also the date all the local work used, so the two
+connect directly.
+
+What to read, in this order:
+
+1. **The breakdown rate per cell**, out of ten runs. The site breaks down on this date, so a cell
+   producing none has over-stabilised however good its other numbers look. This is the criterion the
+   local comparison lacked and the reason that comparison could not be read as a success.
+2. **Vehicles with a stop-and-go cycle**, from the trajectories. This is the quantity the whole
+   exercise is about: whether the queue crawls in oscillation or moves.
+3. **Ramp standstills**, which stay a hard exclusion - and note that damping and standstills move
+   together here, so this is one of the rare axes where the constraint does not fight the objective.
+4. **Congested speed and jam duration** against 43.4 km/h and roughly 70 minutes.
+
+The combination sought is the one where 1 and 2 are satisfied at once. Neither axis achieves it
+alone: damping alone removes the breakdown, and headway alone was already exhausted by the
+validation campaign, where tightening it further made three of seven metrics worse.
