@@ -84,6 +84,15 @@ public final class MirovaCarFollowingUtil
 
         Duration now = vehicle.getGtu().getSimulator().getSimulatorTime();
         Length perceivedDistance = leader.getDistance();
+
+        // A cooperative headway reserve makes the ego perceive its own leader as closer than it is, so the model
+        // settles at a correspondingly larger real gap - the gap a merger needs. Applied here rather than by handing
+        // the ego's speed over to the candidate, which is what ends it at ramp speed.
+        Length reserve = ego.getCooperativeGapReserve();
+        if (reserve.si > 0.0 && perceivedDistance != null)
+        {
+            perceivedDistance = Length.instantiateSI(Math.max(perceivedDistance.si - reserve.si, 0.5));
+        }
         Speed perceivedLeaderSpeed = leader.getSpeed();
 
         // Acceleration aSafe =
