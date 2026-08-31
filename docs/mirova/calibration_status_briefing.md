@@ -206,6 +206,43 @@ interval** before breakdown is inside the field interval for all three combinati
 fails to hold it for a quarter of an hour. That is a different fault from insufficient capacity,
 and it was invisible under the earlier capacity measurement.
 
+### The ensemble against the realisation
+
+Comparing means answers the smaller half of the question. A field day is one draw from a stochastic
+process; the ten seeds of a cell are ten draws from the model's. A per-day deviation is evidence of
+misfit only when it exceeds what the model produces on its own.
+
+Standard deviations, and the ratio that matters:
+
+| quantity | sim within a day | sim between days | field between days | within / field |
+|:---|:---|:---|:---|:---|
+| queue discharge | 182.9 | 120.4 | 152.1 | 1.20 |
+| pre-breakdown flow, 15 min | 236.4 | 172.3 | 190.8 | 1.24 |
+| jam duration | 37.2 | 26.7 | 22.5 | 1.65 |
+| jam speed | 10.8 | 7.7 | 5.5 | **1.96** |
+
+**The model's own run-to-run scatter matches or exceeds the site's day-to-day scatter everywhere,
+and doubles it for jam speed.** A single day therefore carries little information about the
+parameter set — the 5.2 km/h jam-speed error of §6 sits well inside what the seed alone produces.
+
+Where each empirical day falls in its ensemble:
+
+| quantity | inside the 10–90 % band | ranks |
+|:---|:---|:---|
+| queue discharge | **7 of 8** | 2, 5, 7, 4, 1, 8, 3, 5 |
+| pre-breakdown flow, 15 min | 4 of 8 | 3, 6, 8, 3, 4, 8, 3, 6 |
+| jam speed | 3 of 8 | 1, 6, 8, 5, 1, 8, 1, 8 |
+
+Queue discharge is calibrated in the ensemble sense — seven of eight days inside, ranks spread
+evenly, which is what a correct ensemble looks like. This is a stronger statement than a matching
+mean and worth making in those terms. The pre-breakdown ranks pile up at the top, which is the
+systematic shortfall. The jam-speed ranks pile up at *both* ends, the signature of an ensemble too
+narrow for the phenomenon it is asked to reproduce.
+
+For the speed time series, the empirical curve lies inside the 10–90 % band in 37.8 % of intervals
+at a median band width of 8.0 km/h. A narrow band that misses is a systematic offset rather than a
+dispersion problem — here most likely the 3–5 km/h free-branch deficit.
+
 ### Per-day errors in the winning cell
 
 | quantity | median error | median absolute error | range |
@@ -218,11 +255,17 @@ and it was invisible under the earlier capacity measurement.
 Only the pre-breakdown flow is a systematic bias — it is negative on **every** day. The rest is
 scatter around zero.
 
-**The jam metrics fail in a specific way that should be named.** On days the field saw a fast jam
-(47–51 km/h) the model is 15–20 km/h low; on days it saw a slow one (37–39) the model is 6–16 high.
-The model produces much the same jam every time where the site does not. It reproduces the mean and
-not the day-to-day variation. The same holds for jam duration: the nine-day mean (64 against 78 min)
-is inside the field interval while individual days are hit about half the time.
+**The jam metrics fail in a specific way that should be named — and it is not a lack of variation.**
+On days the field saw a fast jam (47–51 km/h) the model is 15–20 km/h low; on days it saw a slow one
+(37–39) the model is 6–16 high. That is not scatter: the simulated and empirical day values
+correlate at **r = −0.81 (p = 0.014)**. The model responds to the days *against* the site rather than
+with it.
+
+The simulated day-to-day spread is in fact larger than the field's (7.7 against 5.5 km/h), so the
+model is not producing the same jam every time. It varies, in the wrong direction. Empirically the
+high-demand days have the *higher* jam speed; in the model more demand deepens the jam, as one would
+expect of a car-following model. The likely reading is that the site's busy days produce a moving
+queue where the model produces stop-and-go — see §11.
 
 ### The specificity test
 
@@ -358,7 +401,54 @@ of §4 possible at all.
 
 ---
 
-## 11. Open points
+## 11. The congested branch is too deep
+
+The day-to-day anti-correlation of §6 has a concrete cause, and it is measurable. Distribution of
+5-minute speeds during congestion at `det_L3a`, over the three highest-demand days:
+
+| | min | p10 | p25 | median | p75 |
+|:---|:---|:---|:---|:---|:---|
+| field | 14.2 | 27.2 | 34.0 | 43.4 | 53.1 |
+| simulation | 10.1 | 17.1 | 20.1 | 26.4 | 40.5 |
+
+**The whole distribution is shifted down by 15–17 km/h, not just its tail.** The site's congestion
+is a queue that keeps moving at 34–53 km/h; the model's crawls at 20–40. That is what produces the
+anti-correlation: on the busy days, where the field's queue moves fastest, the model's is deepest.
+
+From the trajectories, over congested mainline vehicles on those days (n ≈ 30 000):
+
+| | |
+|:---|:---|
+| at least one stop-and-go cycle | **13.9 %** of vehicles |
+| cycles per vehicle | 0.15 mean, 3 maximum |
+| time below 5 km/h | 3.4 % mean, 0 % median |
+| minimum speed per vehicle | 23.4 km/h median |
+| reaching standstill | 11.9 % |
+
+So genuine stop-and-go affects about one congested vehicle in seven, while the typical congested
+vehicle slows to some 23 km/h without stopping. Both parts matter: the oscillation drags the tail
+down, the general depth shifts the whole distribution.
+
+### Why, and what could be done
+
+The mechanism is standard. Car-following models of this family are string-unstable at short desired
+headways, and the calibration settled on `T` = 0.90 s for cars precisely because that reproduces the
+capacity. Short headways plus an **identical** driver population is the configuration that grows
+small disturbances into stop-and-go waves.
+
+That population is the lever, and it is largely unused. Desired speed is drawn per vehicle from a
+distribution; the car-following parameters — `T`, `a`, `b`, `s0` — are scalars applied to every
+vehicle of a class. A heterogeneous platoon damps waves because its members do not all react alike,
+which is why distributed parameters are standard practice in this model family. Distributing `T` and
+`a` addresses the stop-and-go and the missing day-to-day variation with the same change.
+
+Two other switches exist and neither is the answer here. The capacity-drop addon
+(`CAPACITY_DROP_ENABLED`, off) *adds* headway below 40 km/h, which would deepen the queue further
+even as it produces the capacity drop the model lacks — it should be tested, but not expected to
+help this. `farAnticipationEnabled` gates only `AnticipateDownstreamMergePattern`, which is
+deactivated anyway, and has nothing to do with car-following anticipation.
+
+## 12. Open points
 
 | | status |
 |:---|:---|
