@@ -26,11 +26,18 @@ public final class FreiburgStudyParameters
     /** Demand aggregation interval in minutes. */
     public static final int AGGREGATION_MIN = 5;
 
-    /** Desired headway T of cars, in seconds. */
-    public static final double CAR_T = 1.00;
+    /**
+     * Desired headway T of cars, in seconds.
+     * <p>
+     * Raised from 0.90 - the value the campaigns had been using - by the headway-against-damping grid. At 0.90 the
+     * model broke down in one run out of ten on 2025-10-27, a date on which the site does break down, and above a
+     * damping of 0.95 it did not break down at all. That headway leaves too much capacity for this site.
+     * </p>
+     */
+    public static final double CAR_T = 1.10;
 
-    /** Desired headway T of trucks, in seconds. */
-    public static final double TRUCK_T = 1.30;
+    /** Desired headway T of trucks, in seconds. Raised alongside {@link #CAR_T}; the grid varied the pair. */
+    public static final double TRUCK_T = 1.40;
 
     /**
      * Car-following acceleration of cars [m/s^2], after Kesting et al. for motorway traffic.
@@ -107,6 +114,23 @@ public final class FreiburgStudyParameters
 
     /** Deceleration a merging car expects the follower to accept at full desire [m/s^2]. See the minimum for context. */
     public static final double CAR_FOLLOWER_DECELERATION_MAX = -4.0;
+
+    /**
+     * Relaxation acceleration damping factor: the lower bound of the scaling applied to positive accelerations while a
+     * relaxation is active, so 1.00 leaves accelerations untouched and smaller values damp harder.
+     * <p>
+     * Now 1.00, i.e. off. The damping applies precisely in the moments after an insertion, to the merging vehicle and
+     * to the follower it cut in front of, and it is therefore the parameter governing how smoothly traffic re-sorts
+     * itself. A 120-run grid found it monotone in every headway row: at 1.10 / 1.40 it takes vehicles going through a
+     * stop-and-go cycle from 30.8 % to 11.0 % and ramp standstills from 1237 to 340 per run.
+     * </p>
+     * <p>
+     * It cannot be set alone. Removing the damping raises the discharge enough to prevent breakdowns - at the previous
+     * headway of 0.90 / 1.20 it removed them entirely - which is why the headway was lengthened at the same time. The
+     * two axes work against each other on the same quantity and only the pair is meaningful.
+     * </p>
+     */
+    public static final double RELAXATION_DAMPING = 1.00;
 
     /** Deceleration a car accepts in order to cooperate with a merging vehicle, in m/s^2. */
     public static final double CAR_COOPERATIVE_DECELERATION_THRESHOLD = -3.0;
@@ -215,7 +239,7 @@ public final class FreiburgStudyParameters
         params.set("car." + MirovaParameters.minFollowerDecelerationThreshold.getId(), CAR_FOLLOWER_DECELERATION_MIN);
         params.set("car." + MirovaParameters.maxFollowerDecelerationThreshold.getId(), CAR_FOLLOWER_DECELERATION_MAX);
         params.set("car." + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), false);
-        params.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), 0.8);
+        params.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), RELAXATION_DAMPING);
         params.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_ENABLED.getId(), true);
 
         // Truck parameters
@@ -231,7 +255,7 @@ public final class FreiburgStudyParameters
         params.set("truck." + MirovaParameters.farAnticipationEnabled.getId(), false);
         params.set("truck." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(), RED_FAC);
         params.set("truck." + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), false);
-        params.set("truck." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), 0.8);
+        params.set("truck." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), RELAXATION_DAMPING);
         params.set("truck." + MirovaParameters.RELAXATION_ACC_DAMPING_ENABLED.getId(), true);
 
         return params;
