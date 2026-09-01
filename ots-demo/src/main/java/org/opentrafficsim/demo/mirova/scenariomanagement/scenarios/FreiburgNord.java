@@ -52,6 +52,7 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioOutputConfigura
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioParameters;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioSimulationScript;
 import org.opentrafficsim.demo.mirova.scenariomanagement.libraries.DesiredSpeedLibrary;
+import org.opentrafficsim.demo.mirova.scenariomanagement.libraries.HeadwayDistributionLibrary;
 import org.opentrafficsim.draw.graphs.GraphPath;
 import org.opentrafficsim.road.gtu.generator.GeneratorPositions;
 import org.opentrafficsim.road.gtu.generator.characteristics.LaneBasedGtuCharacteristics;
@@ -419,10 +420,57 @@ public class FreiburgNord extends ScenarioGenerator
         odOptions.set(OdOptions.GTU_TYPE, characteristicsGenerator);
         odOptions.set(OdOptions.ERROR_HANDLER, GtuErrorHandler.DELETE);
         odOptions.set(OdOptions.LANE_BIAS, getLaneBiases());
+        applyHeadwayDistributions(odOptions);
 
         System.out.println("Applying OD matrix: \n" + odMatrix);
 
         OdApplier.applyOd(this.network, odMatrix, odOptions, new DetectorType("NL.VEHICLES"));
+    }
+
+    /**
+     * Sets the arrival headway distribution separately for the two inflows.
+     * <p>
+     * The two inflows of this site have opposite arrival characteristics, so a single global distribution is wrong for
+     * one of them whichever is chosen.
+     * </p>
+     * <p>
+     * <b>Mainline A5.</b> Above 2000 veh/h per lane the exponential distribution OTS defaults to keeps drawing gaps
+     * shorter than a vehicle, and traffic arriving from the upstream network is in any case already platooned rather
+     * than independent. A floor under the headway is therefore the physically defensible choice, and
+     * {@link HeadwayDistributionLibrary#shiftedExponential(double)} imposes one without touching the mean, so the OD
+     * demand is delivered unchanged. The default of 0.0 reproduces the previous behaviour exactly; set
+     * {@code -Dmirova.mainlineHeadwayFloor} to enable it.
+     * </p>
+     * <p>
+     * <b>On-ramp B31.</b> The opposite holds. Vehicles released by the signalized intersection travel as a tight
+     * platoon and disperse only gradually, with the red phase leaving a long gap between platoons - burstier than
+     * Poisson, and cyclic rather than random. Poisson understates the clustering and misrepresents its structure.
+     * </p>
+     * <p>
+     * That structure cannot be expressed here. A {@code HeadwayDistribution} sees only a random stream: it has no
+     * access to simulation time, so a process whose intensity varies with the phase of a signal cycle is outside what
+     * this interface can represent, whatever distribution is chosen. Reproducing it needs a time-aware arrivals
+     * generator - Robertson's dispersion model, a shifted geometric travel-time distribution applied to the flow
+     * profile leaving the stop line - which is a new generator rather than a parameter, and is not attempted here.
+     * </p>
+     * <p>
+     * Dispersion does not dispose of the question either. The modelled ramp runs some 310 m from R7_1 to the merge,
+     * and field studies still resolve platoon structure at 230, 450 and 700 m downstream of a stop line, so a platoon
+     * would arrive at the merge largely intact. The ramp therefore keeps the OTS default for now, as an acknowledged
+     * approximation rather than a justified choice.
+     * </p>
+     * @param odOptions OdOptions; the options to configure
+     */
+    private void applyHeadwayDistributions(final OdOptions odOptions)
+    {
+        double floor = Double.parseDouble(System.getProperty("mirova.mainlineHeadwayFloor", "0.0"));
+        if (floor > 0.0)
+        {
+            odOptions.set(this.network.getNode("N1_1"), OdOptions.HEADWAY_DIST,
+                    HeadwayDistributionLibrary.shiftedExponential(floor));
+            System.out.println("[HEADWAY] mainline N1_1: shifted exponential, floor " + floor
+                    + " of the mean headway; on-ramp R7_1: OTS default (exponential)");
+        }
     }
 
     /**
