@@ -337,8 +337,24 @@ public class ScenarioManager {
      * @return long; the seed of that replication
      */
     public static long seedFor(final ScenarioParameters generatorDefaults, final int replicationIndex) {
-        return generatorDefaults.getSeed() + replicationIndex;
+        return generatorDefaults.getSeed() + (long) replicationIndex * REPLICATION_SEED_SPACING;
     }
+
+    /**
+     * Distance between the seeds of consecutive replications.
+     * <p>
+     * Consecutive integers do not work here. The model registers its arrival-process stream as
+     * {@code MersenneTwister(seed)} and a second stream as {@code MersenneTwister(seed + 1)}, so with a spacing of
+     * one, replication <i>k</i>'s second stream is bit-identical to replication <i>k+1</i>'s arrival stream. The
+     * replications of a cell then share sequences instead of being independent draws, which is precisely what the
+     * paired seed statistics assume they are not.
+     * </p>
+     * <p>
+     * A prime spacing keeps the seeds readable in run folder names, unlike a hashed seed, while putting far more
+     * distance between them than any offset the model applies internally.
+     * </p>
+     */
+    public static final long REPLICATION_SEED_SPACING = 1000003L;
 
     /**
      * Derives the seed of a single replication of the given scenario generator class, without running anything. Intended for
