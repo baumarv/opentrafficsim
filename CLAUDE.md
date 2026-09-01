@@ -21,6 +21,7 @@ To save context window token usage and avoid parsing raw codebase files, refer d
 - **Layer 3: Intention / FSMs**: [docs/mirova/layer3_decision_intention.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/layer3_decision_intention.md)
 - **Layer 4: Reactive / Execution**: [docs/mirova/layer4_reactive_control.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/layer4_reactive_control.md)
 - **Arbitration & Plan Selector**: [docs/mirova/arbitration.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/arbitration.md)
+- **Parameter influence on the congested branch** (what each behavioural parameter measurably does, and what is not a parameter effect): [docs/mirova/parameter_sensitivity.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/parameter_sensitivity.md)
 - **Scenario Management**: [docs/mirova/scenarios_and_simulations.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/scenarios_and_simulations.md)
 - **OTS XML Format**: [docs/mirova/ots_xml_format.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/ots_xml_format.md)
 - **OTS Editor Reference**: [docs/mirova/ots_editor.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/ots_editor.md)
