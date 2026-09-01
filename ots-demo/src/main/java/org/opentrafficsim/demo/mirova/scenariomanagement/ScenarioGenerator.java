@@ -57,6 +57,7 @@ import org.djunits.value.vdouble.scalar.Speed;
 import org.djunits.value.vdouble.scalar.Duration;
 import nl.tudelft.simulation.jstats.distributions.DistContinuous;
 import nl.tudelft.simulation.jstats.distributions.DistUniform;
+import nl.tudelft.simulation.jstats.streams.MersenneTwister;
 import nl.tudelft.simulation.jstats.streams.StreamInterface;
 
 /**
@@ -87,8 +88,62 @@ public abstract class ScenarioGenerator
     /** The road network for this scenario. */
     protected RoadNetwork network = null;
 
-    /** Random stream for this scenario. */
+    /**
+     * Random stream for driver population draws: desired speed, the IDM speed adherence factor, and route choice.
+     * <p>
+     * This stream must stay disjoint from the {@code "generation"} stream that {@code OdApplier} uses for arrival
+     * times. Build it with {@link #newBehaviourStream(long)} rather than from the run seed directly - seeding it with
+     * the run seed produces a second generator emitting the very same sequence the arrival process consumes, so the
+     * two subsystems draw identical numbers while the code reads as though they were independent.
+     * </p>
+     */
     protected StreamInterface stream = null;
+
+    /**
+     * Role identifier of the behaviour stream, mixed into the run seed by {@link #deriveSeed(long, long)}.
+     * <p>
+     * The value is the odd 64-bit golden-ratio constant used by SplitMix64; any odd constant works, and using a
+     * named one keeps the derivation reproducible across runs and machines.
+     * </p>
+     */
+    public static final long STREAM_ROLE_BEHAVIOUR = 0x9E3779B97F4A7C15L;
+
+    /**
+     * Derives a well-separated seed for one random-number role from the seed of the run.
+     * <p>
+     * Uses the SplitMix64 finalizer, an avalanche mix in which a single bit of input change flips about half the
+     * output bits. Two roles derived from the same run seed therefore start Mersenne Twisters at unrelated points,
+     * where a small additive offset such as {@code seed + 1} would instead reproduce a neighbouring replication's
+     * sequence exactly.
+     * </p>
+     * <p>
+     * This is seed separation, not a formal guarantee of non-overlapping substreams. L'Ecuyer's jump-ahead
+     * construction would give that guarantee, but the jstats {@code MersenneTwister} exposes no jump-ahead and
+     * introducing a different generator would reach across all of OTS. Given the Mersenne Twister period of
+     * 2^19937-1 against at most some 10^7 draws per run, an overlap is not a practical concern once the starting
+     * points are unrelated.
+     * </p>
+     * @param baseSeed long; the seed of the simulation run
+     * @param streamRole long; the role constant identifying which stream is being derived
+     * @return long; the derived seed
+     */
+    public static long deriveSeed(final long baseSeed, final long streamRole)
+    {
+        long z = baseSeed + streamRole;
+        z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
+        z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
+        return z ^ (z >>> 31);
+    }
+
+    /**
+     * Creates the driver-population stream for a run, seeded so that it is disjoint from the arrival-process stream.
+     * @param baseSeed long; the seed of the simulation run
+     * @return StreamInterface; the behaviour stream
+     */
+    protected StreamInterface newBehaviourStream(final long baseSeed)
+    {
+        return new MersenneTwister(deriveSeed(baseSeed, STREAM_ROLE_BEHAVIOUR));
+    }
 
     /** Initial longitudinal positions for generated GTUs (optional). */
     protected Set<LanePosition> initialLongitudinalPositions = new LinkedHashSet<>();
