@@ -87,7 +87,6 @@ import org.opentrafficsim.road.od.OdOptions;
 
 import nl.tudelft.simulation.jstats.distributions.DistContinuous;
 import nl.tudelft.simulation.jstats.distributions.DistUniform;
-import nl.tudelft.simulation.jstats.streams.MersenneTwister;
 import nl.tudelft.simulation.jstats.streams.StreamInterface;
 
 /**
@@ -181,7 +180,7 @@ public class FreiburgNord extends ScenarioGenerator
     public RoadNetwork setupSimulation(final OtsSimulatorInterface sim, final ScenarioParameters params) throws Exception
     {
         this.currentParameters = params;
-        this.stream = new MersenneTwister(params.getSeed());
+        this.stream = newBehaviourStream(params.getSeed());
 
         buildNetwork(sim);
         getOutputConfiguration().setRoadNetwork(this.network);
