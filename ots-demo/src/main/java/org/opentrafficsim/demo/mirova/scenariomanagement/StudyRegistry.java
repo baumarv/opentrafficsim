@@ -8,6 +8,7 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgCombi
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgDampingStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgBehaviourStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgCarStudy;
+import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgCongestedBranchStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgSensitivityStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgSettledStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgSmoothnessStudy;
@@ -45,6 +46,7 @@ public final class StudyRegistry
         STUDIES.put("smoothness", FreiburgSmoothnessStudy.class);
         STUDIES.put("settled", FreiburgSettledStudy.class);
         STUDIES.put("sensitivity", FreiburgSensitivityStudy.class);
+        STUDIES.put("congested", FreiburgCongestedBranchStudy.class);
     }
 
     /** Utility class; not to be instantiated. */
