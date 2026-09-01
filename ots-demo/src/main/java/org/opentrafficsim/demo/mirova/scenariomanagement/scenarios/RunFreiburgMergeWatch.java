@@ -94,6 +94,38 @@ public final class RunFreiburgMergeWatch
         private static final double CAR_T = Double.parseDouble(
                         System.getProperty("mirova.carT", Double.toString(FreiburgStudyParameters.CAR_T)));
 
+        /**
+         * Maximum acceleration of cars, in m/s^2.
+         * <p>
+         * Exposed for the sensitivity screen. Trucks already had their own property; cars did not, so the value
+         * could only be changed by editing {@link FreiburgStudyParameters}.
+         * </p>
+         */
+        private static final double CAR_A = Double.parseDouble(
+                        System.getProperty("mirova.carA", Double.toString(FreiburgStudyParameters.CAR_A)));
+
+        /**
+         * Stopped bumper-to-bumper distance of cars, in m.
+         * <p>
+         * Sets the jam density directly, and through it the speed the model settles at inside a queue - the
+         * quantity the nightly campaign missed by 10 to 20 km/h across all eighteen cells.
+         * </p>
+         */
+        private static final double CAR_S0 = Double.parseDouble(
+                        System.getProperty("mirova.carS0", Double.toString(FreiburgStudyParameters.CAR_S0)));
+
+        /**
+         * Comfortable deceleration of both vehicle types, in m/s^2.
+         * <p>
+         * Untested so far. It governs how hard a vehicle brakes when its gap closes and therefore how deep a
+         * disturbance cuts before it recovers, which makes it the most plausible untried lever on jam speed.
+         * Applied to cars and trucks together: splitting it would double the cell count of the screen for a
+         * distinction the field data cannot resolve.
+         * </p>
+         */
+        private static final double COMFORTABLE_DECELERATION = Double.parseDouble(System.getProperty(
+                        "mirova.b", Double.toString(FreiburgStudyParameters.COMFORTABLE_DECELERATION)));
+
         /** Speed gain of cars, driving the socio-speed sensitivity [km/h]. Study baseline: 15.0. */
         private static final double CAR_V_GAIN = 15.0;
 
@@ -228,6 +260,10 @@ public final class RunFreiburgMergeWatch
                 params.applyOverridesFrom(FreiburgStudyParameters.baseBehaviorParams());
 
                 params.set("car." + ParameterTypes.T.getId(), CAR_T);
+                params.set("car." + ParameterTypes.A.getId(), CAR_A);
+                params.set("car." + ParameterTypes.S0.getId(), CAR_S0);
+                params.set("car." + ParameterTypes.B.getId(), COMFORTABLE_DECELERATION);
+                params.set("truck." + ParameterTypes.B.getId(), COMFORTABLE_DECELERATION);
                 params.set("car." + MirovaParameters.vGain.getId(), CAR_V_GAIN);
                 params.set("car." + MirovaParameters.A_MAX.getId(), CAR_A_MAX);
                 params.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(),
@@ -286,6 +322,8 @@ public final class RunFreiburgMergeWatch
                 System.out.println("[MergeWatch] cooperation: near=" + CAR_COOPERATIVE_DECELERATION_THRESHOLD + ", far="
                                 + COOP_DECEL_FAR + " | follower: min=" + FOLLOWER_DECEL_MIN + ", max=" + FOLLOWER_DECEL_MAX);
                 System.out.println("[MergeWatch] truck: a=" + TRUCK_A + ", T=" + TRUCK_T + ", s0=" + TRUCK_S0);
+                System.out.println("[MergeWatch] screen: b=" + COMFORTABLE_DECELERATION
+                                + ", carA=" + CAR_A + ", carS0=" + CAR_S0);
                 System.out.println("[MergeWatch] car:   T=" + CAR_T + "s, vGain=" + CAR_V_GAIN + ", aMax=" + CAR_A_MAX
                                 + ", coopDecel=" + CAR_COOPERATIVE_DECELERATION_THRESHOLD + ", safetyDist="
                                 + CAR_SAFETY_DISTANCE_FACTOR + ", damping=" + CAR_RELAXATION_DAMPING_FACTOR + " (enabled="
