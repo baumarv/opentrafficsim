@@ -159,6 +159,14 @@ behaviour: it arrives at the gap under control instead of reaching it late and s
 The mechanism is the standard reading of the IDM interaction term; what is measured here
 is its consequence, not the mechanism itself.
 
+> **Do not confuse `b` with the deceleration bounds.** `ParameterTypes.B` shapes the
+> *desired gap*; it is not a cap on braking. The deceleration MiRoVA actually applies is
+> filtered separately in `MirovaIdmPlus.combineInteractionTerm` against `B_CRIT` = −3.5 m/s²
+> and `B_MAX` = −6.0 m/s², a comfort filter that touches about 0.4 % of time steps and is
+> explicitly not a safety device. Three similarly named quantities therefore act at
+> different points, and a chapter that treats them as one will misattribute the effect
+> measured here. See [layer4_reactive_control.md](layer4_reactive_control.md).
+
 **Caution.** The gain in smoothness is paid for in breakdown frequency, which falls to
 58 % against an empirical 8 in 9. This is the same trade seen when the relaxation damping
 was switched off: smoothing the recovery raises discharge enough to prevent the breakdown
@@ -269,6 +277,66 @@ all of them, and the failures are informative:
 
 ---
 
+### 5.1 How deep the queue is, in distribution rather than in the mean
+
+The mean jam speed used above compresses a discrepancy that an earlier analysis resolved
+across the whole distribution. Five-minute speeds during congestion at `det_L3a`, over the
+three highest-demand days:
+
+| | min | p10 | p25 | median | p75 |
+|---|---|---|---|---|---|
+| field | 14.2 | 27.2 | 34.0 | 43.4 | 53.1 |
+| simulation | 10.1 | 17.1 | 20.1 | 26.4 | 40.5 |
+
+**The whole distribution is displaced by 15–17 km/h, not merely its lower tail.** The
+site's queue keeps moving at 34–53 km/h; the model's crawls at 20–40. From the
+trajectories, about one congested vehicle in seven (13.9 %) goes through at least one
+stop-and-go cycle and 11.9 % reach standstill, while the typical congested vehicle slows to
+some 23 km/h without stopping. Both parts contribute: the oscillation drags the tail down,
+the general depth shifts the whole distribution.
+
+This matters for how the chapter frames the problem. It is not a stop-and-go artefact
+sitting on an otherwise correct congested branch — the branch itself is in the wrong place.
+
+*Caveat:* these figures were measured at an earlier operating point, `T` = 0.90 s for cars,
+against the present baseline of 1.10. The shape of the finding is expected to carry, the
+levels are not directly comparable. Source:
+[calibration_status_briefing.md](calibration_status_briefing.md) §11.
+
+### 5.2 A non-car-following suppressor: cooperation
+
+The parameters above are not the only thing acting on acceleration in congestion. With the
+car-following demand recorded alongside the executed acceleration, over 845 590 congested
+mainline samples:
+
+| intervening state | share of affected samples | share of total loss | median loss |
+|---|---|---|---|
+| **`OpenGapState`** | **84.0 %** | **87.9 %** | 0.93 m/s² |
+| `PerformLaneChangeState` | 14.0 % | 10.1 % | 0.39 m/s² |
+| `ExecuteLaneChange` | 2.0 % | 1.9 % | 1.09 m/s² |
+
+**Cooperative gap opening accounts for 88 % of the acceleration suppressed in congestion.**
+The relaxation damping accounts for none — its median loss is 0.00 whether active or not,
+consistent with §4.5. Of the acceleration the model asks for, 95 % is realised on the
+approach and 80 % on the merge section, so the loss is a 20 % effect localised at the
+merge, not the factor of three an earlier hand calculation claimed.
+
+What is *not* established is the link from this suppression to the congested speed measured
+on the approach. The approach queue sits at equilibrium, so if the deficit reaches it, it
+does so through density, and that chain is inferred rather than measured. Source:
+[congested_branch_review_request.md](congested_branch_review_request.md) §8.2, §8.6.
+
+### 5.3 Two switches that exist and were not used
+
+- **`CAPACITY_DROP_ENABLED`** (default `false`) adds `alpha(v) · T_DISCHARGE_ADDON` to the
+  desired headway, ramping from full at standstill to zero at `V_CRIT_DISCHARGE`. It would
+  produce the capacity drop the model lacks, but it *adds* headway below 40 km/h and would
+  therefore deepen the queue further — the opposite of what §5.1 needs. Worth testing, not
+  worth expecting help from.
+- **`RELAXATION_ACC_DAMPING_FACTOR`** has a framework default of **0.40**, while every
+  campaign reported here ran it at 1.00, that is off. Numbers from this document should not
+  be compared against runs at the framework default without noting that.
+
 ## 6. What is *not* a parameter effect
 
 Several discrepancies that looked like calibration problems turned out not to be, and a
@@ -367,10 +435,28 @@ picture the empirical target set shows in §2.
   sampling the Nyquist period is 120 s, so the entire 60–120 s band of plausible signal
   cycles is unresolvable: the finding is consistent with a 120 s cycle and equally with an
   alias of a shorter one.
-- **Driver parameters are deterministic.** `T`, `a`, `b` and `s0` are identical for every
-  car and every truck; the only driver heterogeneity is desired speed. Adding heterogeneity
-  in `T` is the obvious next thought and the wrong lever — per Ehrhardt & Tordeux (2024),
-  scaled heterogeneity destabilizes, since ⟨1/a⟩ > 1 by Jensen's inequality.
+- **Driver parameters are deterministic, and whether to distribute them is genuinely
+  unresolved.** `T`, `a`, `b` and `s0` are identical for every car and every truck; the only
+  driver heterogeneity is desired speed. Two positions in this project's own documents
+  contradict each other, and the chapter should present the tension rather than pick a side
+  silently:
+
+  - [calibration_status_briefing.md](calibration_status_briefing.md) §11 argues *for*
+    distributing `T` and `a`: car-following models of this family are string-unstable at
+    short desired headways, and short headways plus an identical driver population is
+    exactly the configuration that grows small disturbances into stop-and-go waves. A
+    heterogeneous platoon damps waves because its members do not all react alike, which is
+    why distributed parameters are standard practice in this model family. It also addresses
+    the missing day-to-day variation with the same change.
+  - Ehrhardt & Tordeux (2024) argue the opposite for *scaled* heterogeneity: because
+    ⟨1/a⟩ > 1 by Jensen's inequality, scaling parameters multiplicatively across a
+    population destabilises rather than damps.
+
+  These are not necessarily inconsistent — the second concerns a particular way of
+  introducing heterogeneity, the first the existence of heterogeneity at all — but which
+  applies to a distribution over `T` and `a` here has not been established, and no
+  measurement in this project bears on it. An earlier draft of this document asserted the
+  Ehrhardt & Tordeux position as settled; that was an overstatement.
 
 ---
 
@@ -384,6 +470,24 @@ picture the empirical target set shows in §2.
 | §4.4, §4.5 headway and damping context | earlier `settled` campaign, 126 runs (3 days × 18 cells × 7 seeds) |
 | §6 arrival process | 9 local runs, 3 cross-sections (L1a, L3a, L4a) |
 | §6 random numbers | 126-run re-analysis plus 2 paired runs after the fix |
+| §5.1 speed distribution | [calibration_status_briefing.md](calibration_status_briefing.md) §11, measured at `T` = 0.90 |
+| §5.2 acceleration attribution | [congested_branch_review_request.md](congested_branch_review_request.md) §8.2, 845 590 samples |
 | §7 sample sizes | Wilson and Student-t on the measured coefficients of variation |
 
 Raw per-run records: `docs/mirova/results/`.
+
+## 10. Related documents
+
+- [calibration_status_briefing.md](calibration_status_briefing.md) — the calibration as a
+  whole: empirical reference, validation result, per-day errors, the specificity test, and
+  §9 "Corrections to the evaluation — read before using older numbers", which is required
+  reading before quoting any figure predating those corrections.
+- [congested_branch_review_request.md](congested_branch_review_request.md) — the analysis of
+  why the queue is too slow, including what was measured, what was inferred, and which of
+  its own claims were later withdrawn.
+- [layer4_reactive_control.md](layer4_reactive_control.md) — the control law itself: the
+  IDM+ variant in use, the kinematic bounding of the interaction term, the Keane & Gao
+  relaxation and the acceleration damping, and the section distinguishing the several
+  similarly named accelerations.
+- [mirova_parameters_documentation.md](mirova_parameters_documentation.md) — the parameter
+  catalogue: what each identifier means and where it lives.
