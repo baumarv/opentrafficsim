@@ -123,16 +123,22 @@ public abstract class ScenarioGenerator
      * 2^19937-1 against at most some 10^7 draws per run, an overlap is not a practical concern once the starting
      * points are unrelated.
      * </p>
+     * <p>
+     * The result is forced strictly positive: {@code RandomNumberGenerator} rejects a seed of zero or below, and the
+     * mix produces negative values for half of all inputs.
+     * </p>
      * @param baseSeed long; the seed of the simulation run
      * @param streamRole long; the role constant identifying which stream is being derived
-     * @return long; the derived seed
+     * @return long; the derived seed, strictly positive
      */
     public static long deriveSeed(final long baseSeed, final long streamRole)
     {
         long z = baseSeed + streamRole;
         z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
         z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
-        return z ^ (z >>> 31);
+        z = z ^ (z >>> 31);
+        long positive = z & Long.MAX_VALUE;
+        return positive == 0L ? 1L : positive;
     }
 
     /**
