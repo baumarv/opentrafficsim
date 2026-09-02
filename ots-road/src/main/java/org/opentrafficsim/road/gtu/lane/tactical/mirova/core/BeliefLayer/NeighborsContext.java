@@ -3,7 +3,6 @@ package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer;
 import java.util.Collections;
 import java.util.Iterator;
 
-import org.djunits.unit.AccelerationUnit;
 import org.djunits.unit.SpeedUnit;
 import org.djunits.value.vdouble.scalar.Acceleration;
 import org.djunits.value.vdouble.scalar.Duration;
@@ -24,6 +23,7 @@ import org.opentrafficsim.road.gtu.lane.perception.categories.neighbors.Neighbor
 import org.opentrafficsim.road.gtu.lane.perception.headway.HeadwayGtu;
 import org.opentrafficsim.road.gtu.lane.tactical.following.CarFollowingModel;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameterSnapshot;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaCarFollowingUtil;
 import org.opentrafficsim.road.gtu.lane.tactical.util.CarFollowingUtil;
@@ -55,6 +55,24 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
 
     /** Cache key for ego deceleration right. */
     public static final String EGO_DECEL_RIGHT = "egoDecel_RIGHT";
+
+    /**
+     * Speed advantage below which overtaking on the right is not permitted (StVO section 5(4)).
+     * <p>
+     * Held as a constant because it sits inside a comparison on a path walked every tick: building it there allocated a
+     * Speed per call to express a number that never changes.
+     * </p>
+     */
+    private static final Speed OVERTAKE_MIN_SPEED_DELTA = new Speed(20.0, SpeedUnit.KM_PER_HOUR);
+
+    /** Ego speed above which the right-side overtaking exemption no longer applies (StVO section 5(4)). */
+    private static final Speed OVERTAKE_MAX_EGO_SPEED = new Speed(60.0, SpeedUnit.KM_PER_HOUR);
+
+    /** Leader deceleration above which a cut-in is still considered safe enough to relax against. */
+    private static final Acceleration RELAXATION_MIN_LEADER_ACCELERATION = Acceleration.instantiateSI(-1.0);
+
+    /** Speed shortfall of a new leader beyond which relaxation is not triggered. */
+    private static final Speed RELAXATION_MAX_SPEED_DROP = new Speed(10.0, SpeedUnit.KM_PER_HOUR);
 
     /** Cache key for follower deceleration left. */
     public static final String FOLLOWER_DECEL_LEFT = "followerDecel_LEFT";
@@ -243,15 +261,31 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
     private Acceleration calculateDeceleration(final Speed relativeSpeed, final Length currentHeadway,
             final Length desiredHeadway) throws ParameterException
     {
-        Double effectiveCurrentHeadway = currentHeadway.si - desiredHeadway.si;
+        return calculateDeceleration(relativeSpeed.si, currentHeadway.si, desiredHeadway.si);
+    }
+
+    /**
+     * Computes the required deceleration from SI values.
+     * <p>
+     * The scalar-typed overload delegates here. Callers that would have to build Speed and Length objects only to have this
+     * method read their {@code si} fields call this one directly instead; the arithmetic is identical either way.
+     * </p>
+     * @param relativeSpeedSi the speed difference between the ego vehicle and the neighbour [m/s]
+     * @param currentHeadwaySi the current gap distance [m]
+     * @param desiredHeadwaySi the desired gap distance [m]
+     * @return minimum required deceleration [m/s&sup2;]
+     */
+    private Acceleration calculateDeceleration(final double relativeSpeedSi, final double currentHeadwaySi,
+            final double desiredHeadwaySi)
+    {
+        double effectiveCurrentHeadway = currentHeadwaySi - desiredHeadwaySi;
 
         if (Math.abs(effectiveCurrentHeadway) < 1E-6)
         {
             effectiveCurrentHeadway = 1E-6; // prevent division by zero
         }
 
-        Double resultingAcceleration = -(relativeSpeed.si * relativeSpeed.si) / (2.0 * effectiveCurrentHeadway);
-        return Acceleration.instantiateSI(resultingAcceleration);
+        return Acceleration.instantiateSI(-(relativeSpeedSi * relativeSpeedSi) / (2.0 * effectiveCurrentHeadway));
     }
 
     /**
@@ -267,14 +301,16 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         Speed egoSpeed = this.vehicle.getContextManager().getCategory("Ego", EgoContext.class).getEgoSpeed();
 
         Speed followerSpeed = gtu.isBehind() ? gtuSpeed : egoSpeed;
-        Duration desiredTimeHeadway = this.vehicle.getParameters().getParameter(ParameterTypes.T);
-        Length standstillDistance = this.vehicle.getParams().s0Scalar;
-        Double reductionFactor =
-                this.vehicle.getParams().safetyDistanceReductionFactorLaneChange;
-        Length desiredHeadway = standstillDistance.plus(followerSpeed.times(desiredTimeHeadway)).times(reductionFactor);
-        Speed relativeSpeed = egoSpeed.minus(gtuSpeed);
+        // T is not in the snapshot: it is overwritten at runtime.
+        double desiredTimeHeadwaySi = this.vehicle.getParameters().getParameter(ParameterTypes.T).si;
+        MirovaParameterSnapshot params = this.vehicle.getParams();
 
-        return calculateDeceleration(relativeSpeed, gtu.getDistance(), desiredHeadway);
+        // Same arithmetic as the scalar chain it replaces - s0 + v * T, scaled by the reduction factor - but without the
+        // three intermediate Length and Speed objects, none of which outlived this method.
+        double desiredHeadwaySi = (params.s0Si + followerSpeed.si * desiredTimeHeadwaySi)
+                * params.safetyDistanceReductionFactorLaneChange;
+
+        return calculateDeceleration(egoSpeed.si - gtuSpeed.si, gtu.getDistance().si, desiredHeadwaySi);
 
     }
 
@@ -916,7 +952,7 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         }
         catch (Exception e)
         {
-            return new Acceleration(Double.NaN, AccelerationUnit.SI);
+            return Acceleration.NaN;
         }
     }
 
@@ -933,7 +969,7 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         }
         catch (Exception e)
         {
-            return new Acceleration(Double.NaN, AccelerationUnit.SI);
+            return Acceleration.NaN;
         }
     }
 
@@ -1178,17 +1214,16 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
             // german law allows right-side overtaking only if the left vehicle is at least 20 km/h slower and ego is not
             // exceeding 60 km/h (StVO §5(4))
             // for now, we assume strict adherence to this rule (because we are german)
-            if (leftSpeedDelta.le(new Speed(20.0, SpeedUnit.KM_PER_HOUR))
-                    && egoSpeed.le(new Speed(60.0, SpeedUnit.KM_PER_HOUR)))
+            if (leftSpeedDelta.le(OVERTAKE_MIN_SPEED_DELTA) && egoSpeed.le(OVERTAKE_MAX_EGO_SPEED))
             {
                 return false;
             }
 
-            Length leftDistance = getFrontGapDistance(LateralDirectionality.LEFT);
-            Duration leftTTC = leftDistance.divide(leftSpeedDelta.abs());
-            Duration thresholdTTC = this.vehicle.getParams().undercuttingTtcThresholdScalar;
+            // Computed in SI rather than as a Duration: the time to collision is only compared against the threshold
+            // and never leaves this method, so the scalar it used to be wrapped in was allocated and discarded.
+            double leftTtcSi = getFrontGapDistance(LateralDirectionality.LEFT).si / Math.abs(leftSpeedDelta.si);
 
-            return leftSpeedDelta.gt(Speed.ZERO) && leftTTC.lt(thresholdTTC);
+            return leftSpeedDelta.si > 0.0 && leftTtcSi < this.vehicle.getParams().undercuttingTtcThresholdSi;
         }
         catch (Exception e)
         {
@@ -1339,8 +1374,8 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
                 {
                     EgoContext ego = vehicle.getContext(EgoContext.class);
                     // Relaxation is only applied in situations that are perceived as save
-                    if (currentLeader.getAcceleration().ge(Acceleration.instantiateSI(-1.0))
-                            && currentLeader.getSpeed().gt(ego.getEgoSpeed().minus(new Speed(10.0, SpeedUnit.KM_PER_HOUR))))
+                    if (currentLeader.getAcceleration().ge(RELAXATION_MIN_LEADER_ACCELERATION)
+                            && currentLeader.getSpeed().si > ego.getEgoSpeed().si - RELAXATION_MAX_SPEED_DROP.si)
                     {
                         // A new vehicle has cut in, or we changed lanes.
 

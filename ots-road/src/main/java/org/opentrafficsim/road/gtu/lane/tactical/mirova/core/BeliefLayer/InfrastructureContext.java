@@ -57,6 +57,9 @@ import org.opentrafficsim.road.network.speed.SpeedLimitInfo;
 public class InfrastructureContext extends ContextCategory implements UpdatableContext
 {
 
+    /** Look-ahead distance used when the speed limit info is requested without one. */
+    private static final Length DEFAULT_SPEED_LIMIT_LOOKAHEAD = new Length(200.0, LengthUnit.SI);
+
     /** Cache key prefix for route-based distance to lane end. */
     private static final String ROUTE_DIST_TO_LANE_END_PREFIX = "routeDistToLaneEnd_";
 
@@ -571,7 +574,7 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
     {
         try
         {
-            return computeSpeedLimitInfo(new Length(200.0, LengthUnit.SI));
+            return computeSpeedLimitInfo(DEFAULT_SPEED_LIMIT_LOOKAHEAD);
         }
         catch (Exception e)
         {
