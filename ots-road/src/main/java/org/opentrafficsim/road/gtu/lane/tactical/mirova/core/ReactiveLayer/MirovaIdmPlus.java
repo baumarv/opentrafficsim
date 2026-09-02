@@ -66,7 +66,11 @@ public class MirovaIdmPlus extends AbstractIdm implements DynamicHeadwayProvider
             double tEff = tBase;
 
             // Apply capacity drop addon if enabled
-            if (parameters.getParameter(MirovaParameters.CAPACITY_DROP_ENABLED))
+            // The relative formulation supersedes this one and is applied in combineInteractionTerm, where the
+            // desired speed its threshold is defined against is available. Skipping here keeps the two from
+            // stacking, so a configuration gets one capacity drop or the other, never both.
+            if (parameters.getParameter(MirovaParameters.CAPACITY_DROP_ENABLED)
+                    && parameters.getParameter(MirovaParameters.V_CRIT_DISCHARGE_FRACTION) <= 0.0)
             {
                 double vCritSi = parameters.getParameter(MirovaParameters.V_CRIT_DISCHARGE).si;
                 if (vSi < vCritSi && vCritSi > 0.0)
@@ -155,16 +159,77 @@ public class MirovaIdmPlus extends AbstractIdm implements DynamicHeadwayProvider
      * @return Acceleration; the bounded interaction acceleration.
      * @throws ParameterException if a required parameter is missing.
      */
+    /**
+     * Widens the desired headway in congestion, with both the amount and the threshold expressed relatively.
+     * <p>
+     * Models the capacity drop: the flow discharging from a queue is lower than the flow the facility carried before
+     * it broke down. The model reproduced the opposite until this was available - it discharged 5 to 8 % <i>more</i>
+     * than it carried before breakdown, against a field measurement of some 10 % less.
+     * </p>
+     *
+     * <pre>
+     *   alpha = max(0, (f_v * v_desired - v) / (f_v * v_desired))
+     *   T_eff = T * (1 + f_T * alpha)
+     * </pre>
+     * <p>
+     * Both fractions default to zero, which returns the headway untouched, so a configuration that does not ask for
+     * this behaves exactly as it did before. The absolute formulation in {@code MIROVA_HEADWAY} remains for the
+     * configurations that use it; the two are mutually exclusive by construction, since that one applies only while
+     * {@code V_CRIT_DISCHARGE_FRACTION} is zero.
+     * </p>
+     * <p>
+     * Why relative on both axes. An addon in seconds is a different fraction of a car's headway than of a truck's,
+     * so it would produce a capacity drop that differs by vehicle type without anyone having chosen that. And an
+     * absolute speed threshold treats a truck wanting 80 km/h and a car wanting 130 as being in the same traffic
+     * state at the same speed. The threshold also has to be read against how the target is measured: a detector's
+     * jam speed is a harmonic mean over the cross-section, so individual vehicles sit above and below it, and a
+     * fixed threshold near that mean splits them by a criterion that has nothing to do with the driver.
+     * </p>
+     * @param parameters Parameters; the parameter set of the GTU
+     * @param speed Speed; the current speed
+     * @param desiredSpeed Speed; the speed this vehicle wants to drive
+     * @param desiredHeadway Length; the desired headway before the capacity drop
+     * @return Length; the desired headway with the capacity drop applied
+     * @throws ParameterException if a required parameter is missing
+     */
+    private static Length applyRelativeCapacityDrop(final Parameters parameters, final Speed speed,
+            final Speed desiredSpeed, final Length desiredHeadway) throws ParameterException
+    {
+        if (!parameters.getParameter(MirovaParameters.CAPACITY_DROP_ENABLED))
+        {
+            return desiredHeadway;
+        }
+        double vFraction = parameters.getParameter(MirovaParameters.V_CRIT_DISCHARGE_FRACTION);
+        double tFraction = parameters.getParameter(MirovaParameters.T_DISCHARGE_FRACTION);
+        if (vFraction <= 0.0 || tFraction <= 0.0 || desiredSpeed == null || desiredSpeed.si <= 0.0)
+        {
+            return desiredHeadway;
+        }
+        double vThreshold = vFraction * desiredSpeed.si;
+        if (speed.si >= vThreshold)
+        {
+            return desiredHeadway;
+        }
+        double alpha = (vThreshold - speed.si) / vThreshold;
+        double deltaT = tFraction * parameters.getParameter(ParameterTypes.T).si;
+        return Length.instantiateSI(desiredHeadway.si + speed.si * alpha * deltaT);
+    }
+
     @Override
     protected final Acceleration combineInteractionTerm(final Acceleration aFree, final Parameters parameters,
             final Speed speed, final Speed desiredSpeed, final Length desiredHeadway,
             final PerceptionIterable<? extends Headway> leaders) throws ParameterException
     {
+        // 0. Capacity drop, relative form. The absolute form lives in MIROVA_HEADWAY; this one has to sit here
+        // because the desired-headway model is handed only the parameters and the current speed, while the ramp is
+        // defined against what this vehicle wants to drive - which is passed to this method and to no other.
+        Length effectiveHeadway = applyRelativeCapacityDrop(parameters, speed, desiredSpeed, desiredHeadway);
+
         // 1. Get raw IDM+ acceleration using the superclass implementation
         Acceleration a = parameters.getParameter(A);
         Headway leader = leaders.first();
         double sRatio =
-                dynamicDesiredHeadway(parameters, speed, desiredHeadway, leader.getSpeed()).si / leader.getDistance().si;
+                dynamicDesiredHeadway(parameters, speed, effectiveHeadway, leader.getSpeed()).si / leader.getDistance().si;
         double aInt = a.si * (1 - sRatio * sRatio);
         Acceleration aIdm = new Acceleration(aInt < aFree.si ? aInt : aFree.si, AccelerationUnit.SI);
         Acceleration bCrit = parameters.getParameter(MirovaParameters.B_CRIT);
