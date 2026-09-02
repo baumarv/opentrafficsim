@@ -122,6 +122,26 @@ A 60-minute Freiburg-Nord run (`RunFreiburgMergeWatch`, seed 42, headless), exec
 
 The zip container hashes differ because zip embeds timestamps; the contents do not.
 
+### How much it saved
+
+Wall clock of the simulation loop alone — bracketed by the first `[SIM ` progress line and
+`[OUTPUT] Writing sampler output`, so network construction and demand preparation are excluded.
+Five repetitions per variant, interleaved (pre, new, pre, new, …) so that drift in machine load hits
+both equally, each preceded by a discarded warm-up run that pays the demand-cache miss and the JIT.
+
+| Variant | min | median | max |
+|---|---|---|---|
+| `826a70ae8~1` (before stage 1) | 59.88 s | 62.01 s | 64.11 s |
+| `8df187cf3` (all three stages) | 47.77 s | 49.12 s | 49.87 s |
+
+**Median 62.01 s → 49.12 s, 20.8 % faster.** The distributions do not overlap: the slowest new run
+beats the fastest old one, so this is not noise at n=5. The spread also halved, from 4.2 s to 2.1 s,
+which is what less allocation does to GC jitter.
+
+Two limits on that number. It is wall clock, not a profile — it says the run got a fifth faster, not
+where the remaining time goes. And it is the combined effect of all three stages; no attempt was made
+to attribute it between the hash cache, the snapshot and the scalar allocations.
+
 **What this does not cover:** one seed, one scenario, one parameterisation. Untouched by this run are
 the `LmrsFactory` path in `MergeScenario` (a vehicle with no snapshot, exercising the fallback in
 `MirovaIdmPlus`), deadlock diffusion (0 events here), and the capacity drop (`false` in this
@@ -259,5 +279,7 @@ alive — so wait for the `[OUTPUT] Writing sampler output` line and kill the pr
   now-removed dead statement that read `extendedLookAheadDistance` and discarded it. The parameter's
   default is also 1000 m, so wiring it up would be behaviour-neutral by default and make the distance
   configurable. Left alone deliberately: it is a behaviour change, not a refactoring.
-- **No profiling has been re-run since these changes.** Equivalence is verified; the size of the
-  saving is not, beyond the wall-clock benchmark noted in the commit history.
+- **No profiling has been re-run since these changes.** The wall-clock gain is measured (20.8 %
+  median, above), but the CPU breakdown is not: it is unknown what now sits at the top of the profile,
+  and whether `ParameterSet.getParameter` still appears at all. The 2026-08 profiling pipeline in
+  `diss_mvb/scripts/simulation/ots/profiling/` is what would answer that.

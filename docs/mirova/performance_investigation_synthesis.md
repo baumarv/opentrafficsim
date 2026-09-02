@@ -100,7 +100,8 @@ byte-identical detector and trajectory output.
   in `ots-base`, so unlike the rejected DJUnits patch this ships through the normal build. On top of
   that, MiRoVA now reads constant parameters from a per-vehicle snapshot rather than looking them up
   at all: 171 call sites in active code became 74. Verified byte-identical on a 60-minute
-  Freiburg-Nord run; the size of the CPU saving has not been re-profiled.
+  Freiburg-Nord run, and **20.8 % faster** on the simulation loop (median of 5 interleaved runs per
+  variant, non-overlapping distributions). Not re-profiled, so what now tops the profile is unknown.
 - **Cells B and C of the matrix were never profiled**, only timed. B (stock, cache off) would
   separate the position cache's own contribution from the patch's.
 - **`CruisingSpeedIncentive` asks perception for three directions every tick.** Whether all three
