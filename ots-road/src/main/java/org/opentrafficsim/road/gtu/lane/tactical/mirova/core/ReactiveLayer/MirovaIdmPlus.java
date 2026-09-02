@@ -15,6 +15,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.following.AbstractIdm;
 import org.opentrafficsim.road.gtu.lane.tactical.following.DesiredHeadwayModel;
 import org.opentrafficsim.road.gtu.lane.tactical.following.DesiredSpeedModel;
 import org.opentrafficsim.road.gtu.lane.tactical.following.IdmPlus;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameterSnapshot;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 
 /**
@@ -59,24 +60,28 @@ public class MirovaIdmPlus extends AbstractIdm implements DynamicHeadwayProvider
         @Override
         public Length desiredHeadway(final Parameters parameters, final Speed speed) throws ParameterException
         {
-            double s0 = parameters.getParameter(S0).si;
+            // T stays a live lookup: it is overwritten at runtime by PreventUndercuttingPattern and by the LMRS
+            // Tailgating class, so it is not part of the snapshot.
             double tBase = parameters.getParameter(T).si;
             double vSi = speed.si;
-
             double tEff = tBase;
+
+            MirovaParameterSnapshot snapshot = MirovaParameterSnapshot.ofOrNull(parameters);
+            double s0 = snapshot != null ? snapshot.s0Si : parameters.getParameter(S0).si;
 
             // Apply capacity drop addon if enabled
             // The relative formulation supersedes this one and is applied in combineInteractionTerm, where the
             // desired speed its threshold is defined against is available. Skipping here keeps the two from
             // stacking, so a configuration gets one capacity drop or the other, never both.
-            if (parameters.getParameter(MirovaParameters.CAPACITY_DROP_ENABLED)
-                    && parameters.getParameter(MirovaParameters.V_CRIT_DISCHARGE_FRACTION) <= 0.0)
+            if (capacityDropEnabled(parameters, snapshot) && vCritDischargeFraction(parameters, snapshot) <= 0.0)
             {
-                double vCritSi = parameters.getParameter(MirovaParameters.V_CRIT_DISCHARGE).si;
+                double vCritSi = snapshot != null ? snapshot.vCritDischargeSi
+                        : parameters.getParameter(MirovaParameters.V_CRIT_DISCHARGE).si;
                 if (vSi < vCritSi && vCritSi > 0.0)
                 {
                     double alpha = (vCritSi - vSi) / vCritSi;
-                    double deltaT = parameters.getParameter(MirovaParameters.T_DISCHARGE_ADDON).si;
+                    double deltaT = snapshot != null ? snapshot.tDischargeAddonSi
+                            : parameters.getParameter(MirovaParameters.T_DISCHARGE_ADDON).si;
                     tEff += alpha * deltaT;
                 }
             }
@@ -195,12 +200,14 @@ public class MirovaIdmPlus extends AbstractIdm implements DynamicHeadwayProvider
     private static Length applyRelativeCapacityDrop(final Parameters parameters, final Speed speed,
             final Speed desiredSpeed, final Length desiredHeadway) throws ParameterException
     {
-        if (!parameters.getParameter(MirovaParameters.CAPACITY_DROP_ENABLED))
+        MirovaParameterSnapshot snapshot = MirovaParameterSnapshot.ofOrNull(parameters);
+        if (!capacityDropEnabled(parameters, snapshot))
         {
             return desiredHeadway;
         }
-        double vFraction = parameters.getParameter(MirovaParameters.V_CRIT_DISCHARGE_FRACTION);
-        double tFraction = parameters.getParameter(MirovaParameters.T_DISCHARGE_FRACTION);
+        double vFraction = vCritDischargeFraction(parameters, snapshot);
+        double tFraction = snapshot != null ? snapshot.tDischargeFraction
+                : parameters.getParameter(MirovaParameters.T_DISCHARGE_FRACTION);
         if (vFraction <= 0.0 || tFraction <= 0.0 || desiredSpeed == null || desiredSpeed.si <= 0.0)
         {
             return desiredHeadway;
@@ -226,13 +233,15 @@ public class MirovaIdmPlus extends AbstractIdm implements DynamicHeadwayProvider
         Length effectiveHeadway = applyRelativeCapacityDrop(parameters, speed, desiredSpeed, desiredHeadway);
 
         // 1. Get raw IDM+ acceleration using the superclass implementation
+        MirovaParameterSnapshot snapshot = MirovaParameterSnapshot.ofOrNull(parameters);
         Acceleration a = parameters.getParameter(A);
         Headway leader = leaders.first();
         double sRatio =
                 dynamicDesiredHeadway(parameters, speed, effectiveHeadway, leader.getSpeed()).si / leader.getDistance().si;
         double aInt = a.si * (1 - sRatio * sRatio);
         Acceleration aIdm = new Acceleration(aInt < aFree.si ? aInt : aFree.si, AccelerationUnit.SI);
-        Acceleration bCrit = parameters.getParameter(MirovaParameters.B_CRIT);
+        Acceleration bCrit =
+                snapshot != null ? snapshot.bCritMirovaScalar : parameters.getParameter(MirovaParameters.B_CRIT);
 
         // 2. If IDM deceleration is within comfortable limits (or we are accelerating), accept it
         if (aIdm.si >= bCrit.si)
@@ -242,7 +251,7 @@ public class MirovaIdmPlus extends AbstractIdm implements DynamicHeadwayProvider
 
         // 3. We are exceeding bCrit. Assess kinematic necessity.
         Length s = leader.getDistance();
-        Length s0 = parameters.getParameter(ParameterTypes.S0);
+        Length s0 = snapshot != null ? snapshot.s0Scalar : parameters.getParameter(ParameterTypes.S0);
         Speed deltaV = speed.minus(leader.getSpeed());
 
         double dKinSi = 0.0; // Required deceleration (positive value)
@@ -271,7 +280,37 @@ public class MirovaIdmPlus extends AbstractIdm implements DynamicHeadwayProvider
         // and B_MAX, so a situation calling for -4.0 m/s was braked at -6.0; the other returned a hard-coded
         // -9.0 m/s for anything beyond B_MAX, which made "maximum deceleration" not a maximum at all and left a
         // value in the model that no parameter could reach or explain.
-        Acceleration bMax = parameters.getParameter(MirovaParameters.B_MAX);
+        Acceleration bMax = snapshot != null ? snapshot.bMaxScalar : parameters.getParameter(MirovaParameters.B_MAX);
         return Acceleration.instantiateSI(Math.max(dKinSi, bMax.si));
+    }
+
+    /**
+     * Reads whether the capacity drop is enabled, from the snapshot when there is one.
+     * @param parameters Parameters; the parameter set of the GTU
+     * @param snapshot MirovaParameterSnapshot; the snapshot of the GTU, or {@code null} for a vehicle built without the
+     *            MiRoVA tactical planner
+     * @return boolean; whether the capacity drop mechanism is enabled
+     * @throws ParameterException if the parameter is missing on a vehicle without a snapshot
+     */
+    private static boolean capacityDropEnabled(final Parameters parameters, final MirovaParameterSnapshot snapshot)
+            throws ParameterException
+    {
+        return snapshot != null ? snapshot.capacityDropEnabled
+                : parameters.getParameter(MirovaParameters.CAPACITY_DROP_ENABLED);
+    }
+
+    /**
+     * Reads the relative capacity drop speed threshold, from the snapshot when there is one.
+     * @param parameters Parameters; the parameter set of the GTU
+     * @param snapshot MirovaParameterSnapshot; the snapshot of the GTU, or {@code null} for a vehicle built without the
+     *            MiRoVA tactical planner
+     * @return double; the ramp threshold as a fraction of the desired speed
+     * @throws ParameterException if the parameter is missing on a vehicle without a snapshot
+     */
+    private static double vCritDischargeFraction(final Parameters parameters, final MirovaParameterSnapshot snapshot)
+            throws ParameterException
+    {
+        return snapshot != null ? snapshot.vCritDischargeFraction
+                : parameters.getParameter(MirovaParameters.V_CRIT_DISCHARGE_FRACTION);
     }
 }
