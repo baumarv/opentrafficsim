@@ -93,9 +93,14 @@ byte-identical detector and trajectory output.
 
 ## Open items
 
-- **`ParameterSet.getParameter` is the obvious next target** and no work has been done on it. It is
-  a `HashMap` lookup per parameter access, keyed by `ParameterType`, whose `hashCode` is part of the
-  DJUnits hashing cost above.
+- ~~**`ParameterSet.getParameter` is the obvious next target**~~ — **done**, see
+  [`parameter_access_and_units.md`](parameter_access_and_units.md). Two things were wrong with it:
+  `ParameterType.hashCode()` was recomputed per lookup and reached the DJUnits chain above through
+  its default value, and the success path allocated a varargs array via `Throw.when`. Both are fixed
+  in `ots-base`, so unlike the rejected DJUnits patch this ships through the normal build. On top of
+  that, MiRoVA now reads constant parameters from a per-vehicle snapshot rather than looking them up
+  at all: 171 call sites in active code became 74. Verified byte-identical on a 60-minute
+  Freiburg-Nord run; the size of the CPU saving has not been re-profiled.
 - **Cells B and C of the matrix were never profiled**, only timed. B (stock, cache off) would
   separate the position cache's own contribution from the patch's.
 - **`CruisingSpeedIncentive` asks perception for three directions every tick.** Whether all three
