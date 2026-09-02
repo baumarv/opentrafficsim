@@ -259,9 +259,9 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         // 5. Trigger relaxation if there is ANY deficit (space OR speed)
         // Speed relaxation is dangerous: if there is a speed deficit, we target a lower headway instead of relaxing the speed
         // buffer, which would cause unwanted crashes.
-        Duration tauSpace = params.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
-        Duration tauSpeed = params.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
-        Double safetyDistanceReductionFactor = (params.getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange));
+        Duration tauSpace = this.vehicle.getParams().relaxationTauSpaceScalar;
+        Duration tauSpeed = this.vehicle.getParams().relaxationTauSpeedScalar;
+        Double safetyDistanceReductionFactor = (this.vehicle.getParams().safetyDistanceReductionFactorLaneChange);
         if (gammaV.si > 0.0)
         {
             triggerRelaxation(newLeader.getId(), Length.max(targetHeadway.times(safetyDistanceReductionFactor), gammaS),
@@ -311,7 +311,7 @@ public class EgoContext extends ContextCategory implements UpdatableContext
 
         Length targetHeadway = cfModel.desiredHeadway(params, egoSpeed);
 
-        Double safetyDistanceReductionFactor = (params.getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange));
+        Double safetyDistanceReductionFactor = (this.vehicle.getParams().safetyDistanceReductionFactorLaneChange);
         Length gammaS = Length.ZERO;
         if (leader.getDistance().lt(targetHeadway))
         {
@@ -319,8 +319,8 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         }
         Length reducedHeadway = Length.max(targetHeadway.times(safetyDistanceReductionFactor), gammaS);
 
-        Duration tauSpace = params.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
-        Duration tauSpeed = params.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
+        Duration tauSpace = this.vehicle.getParams().relaxationTauSpaceScalar;
+        Duration tauSpeed = this.vehicle.getParams().relaxationTauSpeedScalar;
 
         triggerRelaxation(leader.getId(), reducedHeadway, Speed.ZERO, tauSpace, tauSpeed);
     }
@@ -396,10 +396,10 @@ public class EgoContext extends ContextCategory implements UpdatableContext
             // For proactive lane changes, speed deficit is Ego Speed minus Target Leader Speed
             Speed speedDeficit = egoSpeed.minus(targetLeader.getSpeed());
 
-            Duration tauSpace = params.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
-            Duration tauSpeed = params.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
+            Duration tauSpace = this.vehicle.getParams().relaxationTauSpaceScalar;
+            Duration tauSpeed = this.vehicle.getParams().relaxationTauSpeedScalar;
             Double safetyDistanceReductionFactor =
-                    (params.getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange));
+                    (this.vehicle.getParams().safetyDistanceReductionFactorLaneChange);
             if (speedDeficit.si > 0.0)
             {
                 triggerRelaxation(targetLeader.getId(),
@@ -412,8 +412,8 @@ public class EgoContext extends ContextCategory implements UpdatableContext
             }
             // if (spaceDeficit.si > 0.0 || speedDeficit.si > 0.0)
             // {
-            // Duration tauSpace = params.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
-            // Duration tauSpeed = params.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
+            // Duration tauSpace = this.vehicle.getParams().relaxationTauSpaceScalar;
+            // Duration tauSpeed = this.vehicle.getParams().relaxationTauSpeedScalar;
 
             // // Force overwrite = true! Buffer will not decay until the trigger stops (i.e. physical LC starts).
             // triggerRelaxation(targetLeader.getId(), spaceDeficit, speedDeficit, tauSpace, tauSpeed, false);
@@ -660,15 +660,9 @@ public class EgoContext extends ContextCategory implements UpdatableContext
     public Acceleration getMaxPhysicalAccelerationAt(final org.djunits.value.vdouble.scalar.Speed speed)
     {
         double speedKmh = speed.getInUnit(SpeedUnit.KM_PER_HOUR);
-        double aMaxScaleSI;
-        try
-        {
-            aMaxScaleSI = this.vehicle.getParameters().getParameter(MirovaParameters.A_MAX).si;
-        }
-        catch (ParameterException e)
-        {
-            aMaxScaleSI = 3.5; // default reference value
-        }
+        // The 3.5 m/s2 fallback that stood here is gone with the lookup that could fail: the snapshot resolved A_MAX
+        // when the vehicle was built, so this can no longer silently substitute a value the configuration did not ask for.
+        double aMaxScaleSI = this.vehicle.getParams().aMaxSi;
         return Acceleration.instantiateSI(computeMaxPhysicalAccelerationAt(speedKmh, aMaxScaleSI));
     }
     // ----------------------------------------------------------------------
@@ -702,7 +696,7 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         try
         {
             desiredFrontHeadway = getEgoSpeed().times(this.vehicle.getParameters().getParameter(ParameterTypes.T))
-                    .plus(this.vehicle.getParameters().getParameter(ParameterTypes.S0));
+                    .plus(this.vehicle.getParams().s0Scalar);
         }
         catch (ParameterException exception)
         {
@@ -739,7 +733,7 @@ public class EgoContext extends ContextCategory implements UpdatableContext
                 else
                 {
                     desiredRearHeadway = followerSpeed.times(this.vehicle.getParameters().getParameter(ParameterTypes.T))
-                            .plus(this.vehicle.getParameters().getParameter(ParameterTypes.S0));
+                            .plus(this.vehicle.getParams().s0Scalar);
                 }
             }
         }
@@ -765,13 +759,13 @@ public class EgoContext extends ContextCategory implements UpdatableContext
     private Acceleration computeFollowerDecelerationThreshold(final LateralDirectionality dir) throws ParameterException
     {
         Acceleration minThreshold =
-                this.vehicle.getParameters().getParameter(MirovaParameters.minFollowerDecelerationThreshold);
+                this.vehicle.getParams().minFollowerDecelerationThresholdScalar;
         Acceleration maxThreshold =
-                this.vehicle.getParameters().getParameter(MirovaParameters.maxFollowerDecelerationThreshold);
+                this.vehicle.getParams().maxFollowerDecelerationThresholdScalar;
 
         // Use primitive double to avoid unnecessary autoboxing/unboxing overhead in the simulation loop
         double currentDirectionDesire = this.vehicle.getLaneChangeDesire().getDirectionalDesire(dir);
-        double mandatoryDesireThreshold = this.vehicle.getParameters().getParameter(MirovaParameters.DMAND);
+        double mandatoryDesireThreshold = this.vehicle.getParams().dMand;
 
         // Calculate the interpolation fraction based on current desire
         double fraction = (currentDirectionDesire - mandatoryDesireThreshold) / (1.0 - mandatoryDesireThreshold);
@@ -798,10 +792,10 @@ public class EgoContext extends ContextCategory implements UpdatableContext
      */
     private Acceleration computeEgoDecelerationThreshold(final LateralDirectionality dir) throws ParameterException
     {
-        Acceleration minThreshold = this.vehicle.getParameters().getParameter(MirovaParameters.minEgoDecelerationThreshold);
-        Acceleration maxThreshold = this.vehicle.getParameters().getParameter(MirovaParameters.maxEgoDecelerationThreshold);
+        Acceleration minThreshold = this.vehicle.getParams().minEgoDecelerationThresholdScalar;
+        Acceleration maxThreshold = this.vehicle.getParams().maxEgoDecelerationThresholdScalar;
         double currentDirectionDesire = this.vehicle.getLaneChangeDesire().getDirectionalDesire(dir);
-        double mandatoryDesireThreshold = this.vehicle.getParameters().getParameter(MirovaParameters.DMAND);
+        double mandatoryDesireThreshold = this.vehicle.getParams().dMand;
 
         // Calculate the interpolation fraction based on current desire
         double fraction = (currentDirectionDesire - mandatoryDesireThreshold) / (1.0 - mandatoryDesireThreshold);
@@ -889,13 +883,13 @@ public class EgoContext extends ContextCategory implements UpdatableContext
                 return 1.0;
             }
 
-            boolean enabled = this.vehicle.getParameters().getParameter(MirovaParameters.RELAXATION_ACC_DAMPING_ENABLED);
+            boolean enabled = this.vehicle.getParams().relaxationAccDampingEnabled;
             if (!enabled)
             {
                 return 1.0;
             }
 
-            double minFactor = this.vehicle.getParameters().getParameter(MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR);
+            double minFactor = this.vehicle.getParams().relaxationAccDampingFactor;
             double ratio = Math.min(1.0, Math.max(0.0, spaceBuffer.si / initialDeficit.si));
 
             // Linear / exponential recovery from minFactor (0.40) towards 1.0 as spaceBuffer decays to 0:
@@ -948,15 +942,8 @@ public class EgoContext extends ContextCategory implements UpdatableContext
     private Acceleration computeMaxPhysicalAcceleration()
     {
         double speedKmh = getEgoSpeed().getInUnit(SpeedUnit.KM_PER_HOUR);
-        double aMaxScaleSI;
-        try
-        {
-            aMaxScaleSI = this.vehicle.getParameters().getParameter(MirovaParameters.A_MAX).si;
-        }
-        catch (ParameterException e)
-        {
-            aMaxScaleSI = 3.5;
-        }
+        // See getMaxPhysicalAccelerationAt: the snapshot cannot fail, so the silent 3.5 m/s2 fallback is gone.
+        double aMaxScaleSI = this.vehicle.getParams().aMaxSi;
         return Acceleration.instantiateSI(computeMaxPhysicalAccelerationAt(speedKmh, aMaxScaleSI));
     }
 

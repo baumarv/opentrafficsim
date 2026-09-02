@@ -752,7 +752,7 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
     {
         InfrastructurePerception infra = this.vehicle.getPerception().getPerceptionCategory(InfrastructurePerception.class);
         Length extendedLookaheadDistance =
-                this.vehicle.getParameters().getParameter(MirovaParameters.extendedLookAheadDistance);
+                this.vehicle.getParams().extendedLookAheadDistanceScalar;
         this.vehicle.getParameters().setParameterResettable(ParameterTypes.LOOKAHEAD, extendedLookaheadDistance);
         SortedSet<LaneChangeInfo> laneInfo = infra.getLegalLaneChangeInfo(RelativeLane.CURRENT);
         this.vehicle.getParameters().resetParameter(ParameterTypes.LOOKAHEAD);
@@ -894,7 +894,6 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         {
             LaneBasedGtu egoGtu = this.vehicle.getGtu();
             Length lookahead = Length.instantiateSI(1000.0);
-            this.vehicle.getParameters().getParameter(MirovaParameters.extendedLookAheadDistance);
 
             // Project the path ahead
             LanePathInfo pathInfo = AbstractLaneBasedTacticalPlanner.buildLanePathInfo(egoGtu, lookahead);
@@ -1002,7 +1001,7 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
                 accumulatedPathLength = accumulatedPathLength.plus(lanesAhead.getLength());
             }
         }
-        catch (GtuException | NetworkException | ParameterException e)
+        catch (GtuException | NetworkException e)
         {
             e.printStackTrace();
         }
@@ -1030,7 +1029,7 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         try
         {
             LaneBasedGtu egoGtu = this.vehicle.getGtu();
-            Length lookahead = this.vehicle.getParameters().getParameter(MirovaParameters.extendedLookAheadDistance);
+            Length lookahead = this.vehicle.getParams().extendedLookAheadDistanceScalar;
 
             LanePathInfo pathInfo = AbstractLaneBasedTacticalPlanner.buildLanePathInfo(egoGtu, lookahead);
             if (pathInfo == null || pathInfo.laneList().isEmpty())
@@ -1117,7 +1116,7 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
             }
 
         }
-        catch (GtuException | NetworkException | ParameterException e)
+        catch (GtuException | NetworkException e)
         {
             e.printStackTrace();
         }
