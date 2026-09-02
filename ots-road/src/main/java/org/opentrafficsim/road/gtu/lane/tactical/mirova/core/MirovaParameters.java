@@ -262,6 +262,45 @@ public final class MirovaParameters implements ConstraintInterface
         public static final ParameterTypeSpeed V_CRIT_DISCHARGE = new ParameterTypeSpeed("vCritDischarge",
                         "Critical speed threshold for capacity drop ramp", new Speed(40.0, SpeedUnit.KM_PER_HOUR), POSITIVE);
 
+        /**
+         * Additional desired headway during congested discharge, as a fraction of the vehicle's own {@code T}.
+         * <p>
+         * The relative counterpart of {@link #T_DISCHARGE_ADDON}. An addon in seconds means different things to
+         * different vehicles: 0.4 s on a car at {@code T} = 1.00 is a 40 % increase, on a truck at 1.30 only 31 %,
+         * so the capacity drop would come out different per vehicle type without anyone having chosen that. As a
+         * fraction it is type-independent, and it states directly what it does - a value of 0.2 means the desired
+         * headway grows by up to a fifth in the queue.
+         * </p>
+         * <p>
+         * Zero, the default, leaves the mechanism to the absolute {@link #T_DISCHARGE_ADDON} path.
+         * </p>
+         */
+        public static final ParameterTypeDouble T_DISCHARGE_FRACTION = new ParameterTypeDouble("tDischargeFraction",
+                        "Additional desired headway during congested discharge, as a fraction of T", 0.0);
+
+        /**
+         * Speed below which the capacity drop ramps in, as a fraction of the vehicle's own desired speed.
+         * <p>
+         * The relative counterpart of {@link #V_CRIT_DISCHARGE}, and the reason the mechanism is applied in
+         * {@code MirovaIdmPlus.combineInteractionTerm} rather than in the desired-headway model: that model's
+         * signature carries only the parameters and the current speed, so it cannot see what the vehicle wants to
+         * drive, while the interaction term is handed the desired speed alongside it.
+         * </p>
+         * <p>
+         * An absolute threshold treats a truck wanting 80 km/h and a car wanting 130 as being in the same traffic
+         * state at the same speed, which they are not. It also sits awkwardly against the measurement: the jam speed
+         * a detector reports is a harmonic mean over the cross-section, so individual vehicles are slower and faster
+         * than it, and an absolute threshold near that mean divides them by a criterion unrelated to the driver.
+         * </p>
+         * <p>
+         * Zero, the default, disables the relative path and leaves {@link #V_CRIT_DISCHARGE} in charge, so existing
+         * configurations behave exactly as before.
+         * </p>
+         */
+        public static final ParameterTypeDouble V_CRIT_DISCHARGE_FRACTION =
+                        new ParameterTypeDouble("vCritDischargeFraction",
+                                        "Capacity drop ramp threshold, as a fraction of the desired speed", 0.0);
+
         // ----------------------------------------------------------------------
         // Headway relaxation acceleration damping parameters
         // ----------------------------------------------------------------------

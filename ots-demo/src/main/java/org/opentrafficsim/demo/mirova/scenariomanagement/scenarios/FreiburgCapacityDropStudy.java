@@ -5,9 +5,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import org.djunits.unit.SpeedUnit;
-import org.djunits.value.vdouble.scalar.Duration;
-import org.djunits.value.vdouble.scalar.Speed;
 import org.opentrafficsim.base.parameters.ParameterTypes;
 import org.opentrafficsim.demo.mirova.scenariomanagement.FacilityRegistry;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioManager;
@@ -40,13 +37,17 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * standing constraint. Measured as a control row in the capacity study, damping 0.90 was worse than 1.00 in every
  * pairing: lower pre-breakdown flow, worse specificity, lower jam speed.
  * </p>
- * <h3>The threshold has to move with the addon</h3>
+ * <h3>Both axes are relative</h3>
  * <p>
- * {@code MIROVA_HEADWAY} applies {@code T_eff = T + alpha(v) * T_DISCHARGE_ADDON} with
- * {@code alpha(v) = max(0, (V_CRIT_DISCHARGE - v) / V_CRIT_DISCHARGE)}. The framework default for
- * {@code V_CRIT_DISCHARGE} is 40 km/h, and the jam at {@code T} = 1.00 / 1.30 runs at 48.3 km/h - above it. At the
- * default the mechanism would be inert and the study would measure nothing. The threshold is therefore an axis
- * rather than a constant, at levels that put the observed jam speed inside the ramp.
+ * The mechanism applies {@code T_eff = T * (1 + f_T * alpha)} with
+ * {@code alpha = max(0, (f_v * v_desired - v) / (f_v * v_desired))}, in
+ * {@code MirovaIdmPlus.combineInteractionTerm} - the only place the desired speed the threshold is defined against
+ * is available, the desired-headway model being handed no more than the parameters and the current speed.
+ * </p>
+ * <p>
+ * The threshold has to be an axis rather than a constant either way: the framework default of the absolute
+ * {@code V_CRIT_DISCHARGE} is 40 km/h and the jam at {@code T} = 1.00 / 1.30 runs at 48.3, so at the default the
+ * mechanism would be inert and this study would measure nothing.
  * </p>
  * <p>
  * Copyright (c) 2026 Marvin Baumann / KIT. All rights reserved. <br>
@@ -81,23 +82,33 @@ public class FreiburgCapacityDropStudy implements StudyDefinition
     public static final double DAMPING = 1.00;
 
     /**
-     * Additional desired headway during congested discharge, in seconds.
+     * Additional desired headway during congested discharge, as a fraction of the vehicle's own {@code T}.
      * <p>
-     * Zero is the reference row and reproduces the capacity study's T100 cell exactly, so the effect of the addon is
-     * measured against a cell whose other numbers are already known rather than against an assumption.
+     * Relative rather than a value in seconds: 0.4 s is a 40 % increase on a car at {@code T} = 1.00 and 31 % on a
+     * truck at 1.30, so an absolute addon would produce a capacity drop that differs by vehicle type without anyone
+     * having chosen that. As a fraction the level states what it does - 0.2 widens the queue headway by a fifth.
+     * </p>
+     * <p>
+     * Zero is the reference row and reproduces the capacity study's T100 cell exactly, so the effect is measured
+     * against a cell whose other numbers are already known rather than against an assumption.
      * </p>
      */
-    public static final List<Double> ADDON_SECONDS = List.of(0.0, 0.4, 0.8);
+    public static final List<Double> ADDON_FRACTIONS = List.of(0.0, 0.2, 0.4);
 
     /**
-     * Speed below which the addon ramps in, in km/h.
+     * Speed below which the addon ramps in, as a fraction of the vehicle's own desired speed.
      * <p>
-     * The framework default of 40 sits below the 48.3 km/h jam this configuration produces, which would leave the
-     * mechanism inert. Both levels put that jam inside the ramp; the higher one also catches the faster jams the
-     * shorter headways produce on the lighter days.
+     * A car wanting 130 km/h reaches the ramp at 65 or 91 km/h, a truck wanting 80 at 40 or 56 - which is the point.
+     * An absolute threshold would treat both as being in the same traffic state at the same speed, and would also
+     * sit awkwardly against the measurement, since a detector's jam speed is a harmonic mean over the cross-section
+     * with individual vehicles above and below it.
+     * </p>
+     * <p>
+     * Both levels put the 48.3 km/h jam this configuration produces inside the ramp for cars; the higher one also
+     * catches the faster jams the lighter days produce.
      * </p>
      */
-    public static final List<Double> V_CRIT_KMH = List.of(55.0, 70.0);
+    public static final List<Double> V_CRIT_FRACTIONS = List.of(0.5, 0.7);
 
     /** Replications per date if the caller names none; matches the capacity study. */
     public static final int DEFAULT_REPLICATIONS = FreiburgCapacityStudy.DEFAULT_REPLICATIONS;
@@ -117,21 +128,22 @@ public class FreiburgCapacityDropStudy implements StudyDefinition
     @Override
     public String getDescription()
     {
-        return "Capacity-drop addon " + ADDON_SECONDS + " s x ramp threshold " + V_CRIT_KMH + " km/h on T="
+        return "Capacity-drop addon " + ADDON_FRACTIONS + " x T, ramp threshold " + V_CRIT_FRACTIONS
+                + " x desired speed, on T="
                 + HEADWAY.carT() + "/" + HEADWAY.truckT() + ": "
-                + (ADDON_SECONDS.size() * V_CRIT_KMH.size()) + " variations per date, "
+                + (ADDON_FRACTIONS.size() * V_CRIT_FRACTIONS.size()) + " variations per date, "
                 + DEFAULT_REPLICATIONS + " replications by default.";
     }
 
     /**
      * Returns the label identifying one cell, used as the suffix of the scenario name.
-     * @param addon double; the additional headway in seconds
-     * @param vCrit double; the ramp threshold in km/h
+     * @param addon double; the additional headway as a fraction of T
+     * @param vCrit double; the ramp threshold as a fraction of the desired speed
      * @return String; the variant label
      */
     public static String variantLabel(final double addon, final double vCrit)
     {
-        return String.format(Locale.ROOT, "add%.1f_vc%.0f", addon, vCrit);
+        return String.format(Locale.ROOT, "fT%.1f_fV%.1f", addon, vCrit);
     }
 
     /** {@inheritDoc} */
@@ -161,9 +173,9 @@ public class FreiburgCapacityDropStudy implements StudyDefinition
         for (String date : dates)
         {
             String demandCsvPath = demandPerDate.get(date).getAbsolutePath();
-            for (double addon : ADDON_SECONDS)
+            for (double addon : ADDON_FRACTIONS)
             {
-                for (double vCrit : V_CRIT_KMH)
+                for (double vCrit : V_CRIT_FRACTIONS)
                 {
                     String scenarioName = facility.scenarioName(date, variantLabel(addon, vCrit));
                     manager.addScenario(scenarioName, facility.getGeneratorClass());
@@ -182,10 +194,8 @@ public class FreiburgCapacityDropStudy implements StudyDefinition
                     for (String type : new String[] {"car.", "truck."})
                     {
                         params.set(type + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), enabled);
-                        params.set(type + MirovaParameters.T_DISCHARGE_ADDON.getId(),
-                                Duration.instantiateSI(addon));
-                        params.set(type + MirovaParameters.V_CRIT_DISCHARGE.getId(),
-                                new Speed(vCrit, SpeedUnit.KM_PER_HOUR));
+                        params.set(type + MirovaParameters.T_DISCHARGE_FRACTION.getId(), addon);
+                        params.set(type + MirovaParameters.V_CRIT_DISCHARGE_FRACTION.getId(), vCrit);
                     }
                     params.set(KEY_ADDON, addon);
                     params.set(KEY_VCRIT, vCrit);
