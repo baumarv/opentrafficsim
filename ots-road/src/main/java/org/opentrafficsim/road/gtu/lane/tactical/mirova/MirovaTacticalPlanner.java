@@ -99,6 +99,13 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     /** GTU specific parameters. */
     private Parameters params;
 
+    /**
+     * The constant parameters of this vehicle, resolved once at construction. Every layer should read behavioural parameters
+     * from here rather than through {@link Parameters#getParameter}; see {@link MirovaParameterSnapshot} for which parameters
+     * are constant and which are not.
+     */
+    private final MirovaParameterSnapshot paramSnapshot;
+
     // ----------------------------------------------------------------------
     // Knowledge Base and Patterns
     // ----------------------------------------------------------------------
@@ -146,6 +153,7 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         this.laneChange = Try.assign(() -> new LaneChange(gtu), "Parameter LCDUR is required.", GtuException.class);
         this.contextManager = new VehicleContextManager(this);
         this.params = getGtu().getParameters();
+        this.paramSnapshot = MirovaParameterSnapshot.install(this.params);
         this.laneChange.setDesiredLaneChangeDuration(getGtu().getParameters().getParameter(ParameterTypes.LCDUR));
         this.createTime = gtu.getSimulator().getSimulatorTime();
         this.hybridArbitrator = new HybridPlanArbitrator(this);
@@ -407,7 +415,17 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     }
 
     /**
-     * Returns the central vehicle context manager. * @return the context manager
+     * Returns the constant parameters of this vehicle, resolved once at construction.
+     * @return the parameter snapshot of this vehicle
+     */
+    public MirovaParameterSnapshot getParams()
+    {
+        return this.paramSnapshot;
+    }
+
+    /**
+     * Returns the central contextual model of this vehicle.
+     * @return the context manager
      */
     public VehicleContextManager getContextManager()
     {
