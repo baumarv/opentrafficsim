@@ -219,7 +219,7 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
 
         EgoContext egoCtx = this.vehicle.getContextManager().getCategory("Ego", EgoContext.class);
         Double reductionFactor =
-                this.vehicle.getParameters().getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange);
+                this.vehicle.getParams().safetyDistanceReductionFactorLaneChange;
         Length desiredFrontHeadway = egoCtx.getDesiredFrontHeadway(laneChangeDirection).times(reductionFactor);
         Acceleration egoDeceleration = getGtuDeceleration(leader, getFrontGapDeltaSpeed(laneChangeDirection),
                 getFrontGapDistance(laneChangeDirection), desiredFrontHeadway);
@@ -268,9 +268,9 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
 
         Speed followerSpeed = gtu.isBehind() ? gtuSpeed : egoSpeed;
         Duration desiredTimeHeadway = this.vehicle.getParameters().getParameter(ParameterTypes.T);
-        Length standstillDistance = this.vehicle.getParameters().getParameter(ParameterTypes.S0);
+        Length standstillDistance = this.vehicle.getParams().s0Scalar;
         Double reductionFactor =
-                this.vehicle.getParameters().getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange);
+                this.vehicle.getParams().safetyDistanceReductionFactorLaneChange;
         Length desiredHeadway = standstillDistance.plus(followerSpeed.times(desiredTimeHeadway)).times(reductionFactor);
         Speed relativeSpeed = egoSpeed.minus(gtuSpeed);
 
@@ -361,7 +361,7 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
 
         EgoContext egoCtx = this.vehicle.getContextManager().getCategory("Ego", EgoContext.class);
         Double reductionFactor =
-                this.vehicle.getParameters().getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange);
+                this.vehicle.getParams().safetyDistanceReductionFactorLaneChange;
 
         Length desiredRearHeadway = egoCtx.getDesiredRearHeadway(laneChangeDirection).times(reductionFactor);
 
@@ -1186,7 +1186,7 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
 
             Length leftDistance = getFrontGapDistance(LateralDirectionality.LEFT);
             Duration leftTTC = leftDistance.divide(leftSpeedDelta.abs());
-            Duration thresholdTTC = this.vehicle.getParameters().getParameter(MirovaParameters.undercuttingTTCThreshold);
+            Duration thresholdTTC = this.vehicle.getParams().undercuttingTtcThresholdScalar;
 
             return leftSpeedDelta.gt(Speed.ZERO) && leftTTC.lt(thresholdTTC);
         }
@@ -1226,7 +1226,7 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         Acceleration followerDecelThreshold = egoCtx.getFollowerDecelerationThreshold(laneChangeDirection);
         Acceleration egoDecelThreshold = egoCtx.getEgoDecelerationThreshold(laneChangeDirection);
         Double reductionFactor =
-                this.vehicle.getParameters().getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange);
+                this.vehicle.getParams().safetyDistanceReductionFactorLaneChange;
 
         Acceleration egoDecel = getEgoDeceleration(laneChangeDirection);
         Acceleration followerDecel = getFollowerDeceleration(laneChangeDirection);
