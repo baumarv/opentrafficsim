@@ -84,7 +84,7 @@ public final class LongitudinalControl
         {
 
             Iterable<HeadwayGtu> currentLeaders = neighbors.getLeaders(LateralDirectionality.NONE);
-            double maxLeadersToConsider = vehicle.getParameters().getParameter(MirovaParameters.CF_MAX_LEADERS);
+            double maxLeadersToConsider = vehicle.getParams().cfMaxLeaders;
             List<HeadwayGtu> limitedLeaders = new ArrayList<>();
             int leaderCount = 0;
             for (HeadwayGtu leader : currentLeaders)

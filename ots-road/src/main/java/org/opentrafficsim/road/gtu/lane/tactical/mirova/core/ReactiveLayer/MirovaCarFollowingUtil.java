@@ -191,8 +191,8 @@ public final class MirovaCarFollowingUtil
             return Acceleration.POSITIVE_INFINITY; // not closing in
         }
 
-        Length s0 = vehicle.getParameters().getParameter(ParameterTypes.S0);
-        Acceleration bMax = vehicle.getParameters().getParameter(MirovaParameters.B_MAX);
+        Length s0 = vehicle.getParams().s0Scalar;
+        Acceleration bMax = vehicle.getParams().bMaxScalar;
         double usable = distance.si - s0.si;
         if (usable <= 0.0)
         {
@@ -271,9 +271,9 @@ public final class MirovaCarFollowingUtil
             double ttc = gap.si / closingSpeed;
 
             // If TTC drops below 2.0 seconds, enforce physical braking limit
-            if (ttc < vehicle.getParameters().getParameter(MirovaParameters.ttc_emergency_braking).si)
+            if (ttc < vehicle.getParams().ttcEmergencyBrakingSi)
             {
-                double safeGap = vehicle.getParameters().getParameter(ParameterTypes.S0).si; // Minimum desired gap at
+                double safeGap = vehicle.getParams().s0Si; // Minimum desired gap at
                                                                                              // standstill
                 double distanceToDecel = Math.max(0.1, gap.si - safeGap);
 
