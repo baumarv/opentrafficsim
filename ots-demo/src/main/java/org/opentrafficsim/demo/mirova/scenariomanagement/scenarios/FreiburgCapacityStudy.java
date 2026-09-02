@@ -88,6 +88,18 @@ public class FreiburgCapacityStudy implements StudyDefinition
     /** Relaxation acceleration damping: 1.00 disables it, 0.90 is the control row. */
     public static final List<Double> ACC_DAMPING_FACTORS = List.of(0.90, 1.00);
 
+    /**
+     * Replications per date if the caller names none.
+     * <p>
+     * Eight rather than the four the earlier screens used. Scored across the nine days, as every campaign here is,
+     * that gives 72 runs per cell against 36 - enough that a difference between two headway levels of the order the
+     * capacity deficit implies is resolvable, where at 36 the Wilson intervals of neighbouring cells still overlap
+     * heavily. It stays well below the thirty of the production run, which is sized for quoting a figure rather than
+     * for ranking cells.
+     * </p>
+     */
+    public static final int DEFAULT_REPLICATIONS = 8;
+
     /** Parameter key recording the headway pair in {@code runParams.txt}. */
     public static final String KEY_HEADWAY = "studyHeadway";
 
@@ -105,7 +117,8 @@ public class FreiburgCapacityStudy implements StudyDefinition
     {
         return "Headway pairs " + HEADWAY_COMBINATIONS.size() + " x damping " + ACC_DAMPING_FACTORS
                 + " on the production congested-branch set (b=" + B + ", s0=" + S0_CAR + ", a=" + A_CAR + "): "
-                + (HEADWAY_COMBINATIONS.size() * ACC_DAMPING_FACTORS.size()) + " variations per date.";
+                + (HEADWAY_COMBINATIONS.size() * ACC_DAMPING_FACTORS.size()) + " variations per date, "
+                + DEFAULT_REPLICATIONS + " replications by default.";
     }
 
     /**
@@ -139,7 +152,7 @@ public class FreiburgCapacityStudy implements StudyDefinition
         String pattern = options.getOrDefault("pattern", DateStudy.DEFAULT_CSV_PATTERN);
         boolean strict = Boolean.parseBoolean(options.getOrDefault("strict", "false"));
         int replications = Integer.parseInt(
-                options.getOrDefault("replications", String.valueOf(DateStudy.DEFAULT_REPLICATIONS)));
+                options.getOrDefault("replications", String.valueOf(DEFAULT_REPLICATIONS)));
 
         Map<String, File> demandPerDate = DateStudy.resolveDemandCsvs(dates, demandLocation, pattern, strict);
 
