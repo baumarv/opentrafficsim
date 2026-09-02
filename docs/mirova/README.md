@@ -28,6 +28,7 @@ This documentation is divided into modular files. Each file corresponds to a spe
 | Editor | [**ots_editor.md**](ots_editor.md) | OTS Editor desktop app, UI layout, key features, step-by-step editing | `OtsEditor`, `RunEditor`, `EditorMap` |
 | Python | [**python_pipeline.md**](python_pipeline.md) | Trajectory import, lane-matching, dashboarding | `match_lanes.py`, `dashboard_trajectories.py`, `execute_db_import.py` |
 | Perf | [**performance_investigation_synthesis.md**](performance_investigation_synthesis.md) | Where the CPU actually goes, what was adopted and what was rejected; entry point to the four detailed profiling reports | `ScenarioGenerator` (`LaneBasedGtu.CACHING`), `CruisingSpeedIncentive`, `ParameterSet` |
+| Params | [**parameter_access_and_units.md**](parameter_access_and_units.md) | How parameters are read and how DJUnits is used: the per-vehicle snapshot, which parameters must never be snapshotted, SI-vs-scalar arithmetic, and the equivalence-check procedure | `MirovaParameterSnapshot`, `ParameterType`, `ParameterSet`, `MirovaTacticalPlanner` |
 | Build | [**troubleshooting_and_compilation.md**](troubleshooting_and_compilation.md) | JAXB ClassLoader issues, Maven `.m2` sync, fast build flags, direct Java execution | `XmlParser`, `RunFreiburgParallel`, `mvn` |
 
 

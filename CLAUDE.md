@@ -25,6 +25,7 @@ To save context window token usage and avoid parsing raw codebase files, refer d
 - **Scenario Management**: [docs/mirova/scenarios_and_simulations.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/scenarios_and_simulations.md)
 - **OTS XML Format**: [docs/mirova/ots_xml_format.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/ots_xml_format.md)
 - **OTS Editor Reference**: [docs/mirova/ots_editor.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/ots_editor.md)
+- **Parameter access & DJUnits usage** (the snapshot, which parameters must never be snapshotted, SI-vs-scalar arithmetic, equivalence checks): [docs/mirova/parameter_access_and_units.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/parameter_access_and_units.md)
 - **Performance: where the CPU goes, and why** (incl. the `LaneBasedGtu.CACHING=false` decision): [docs/mirova/performance_investigation_synthesis.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/performance_investigation_synthesis.md)
 - **Python Pipeline (diss_mvb)**: [docs/mirova/python_pipeline.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/python_pipeline.md)
 
@@ -42,7 +43,8 @@ All implementations must follow this layered structure:
 
 ## 4. Coding Standards
 
-- **Units**: Use DJUnits (`Length`, `Speed`, `Acceleration`, `Duration`) exclusively. Never use primitive `double` for physical values.
+- **Units**: Use DJUnits (`Length`, `Speed`, `Acceleration`, `Duration`) on all signatures, fields and return values. Never use primitive `double` for a physical value that crosses a boundary. Intermediate arithmetic *inside* a method may run on `.si` doubles and be wrapped once at the end — see [parameter_access_and_units.md](docs/mirova/parameter_access_and_units.md) for when this applies and why it is bit-identical.
+- **Parameters**: Read constant parameters from `vehicle.getParams()` (the `MirovaParameterSnapshot`), not via `getParameter`. Before adding a parameter to the snapshot, verify nothing writes it at runtime — a snapshotted mutable parameter silently freezes. Physical literals in per-tick code belong in named `static final` constants.
 - **Language**: All code, comments, and documentation in English.
 - **Javadoc**: Strict KIT/MiRoVA header template (Copyright 2026, Marvin Baumann). Escape generics in Javadoc (e.g., `List&lt;Gtu&gt;`). No empty tags.
 - **Performance**: Favor O(1) lookups. Use ID-based caching for expensive car-following evaluations within the same simulation tick.
@@ -88,7 +90,10 @@ Replacing parameter-hacking (e.g., temporarily reducing `T` or `s_0`) with a **2
 - [ ] All public methods have complete Javadocs (KIT/MiRoVA standard)
 - [ ] Full imports included
 - [ ] Mandatory MiRoVA class header present
-- [ ] Physical values use DJUnits, not primitive `double`
+- [ ] Physical values use DJUnits on signatures, fields and return values
+- [ ] Constant parameters read from `getParams()`, not `getParameter`
+- [ ] Nothing added to the snapshot is written at runtime
+- [ ] No physical literals built inline in per-tick code
 
 ## 8. Modular Git Commit Rule
 
