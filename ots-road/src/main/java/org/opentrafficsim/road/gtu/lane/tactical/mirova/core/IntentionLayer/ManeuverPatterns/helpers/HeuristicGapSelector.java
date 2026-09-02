@@ -26,6 +26,12 @@ public class HeuristicGapSelector
     /** Discrete deceleration level 2 (moderate braking). */
     private static final Acceleration DECEL_LEVEL_2 = Acceleration.instantiateSI(-2.0);
 
+    /** Safety buffer before the lane end kept when only a moderate deceleration is allowed. */
+    private static final Length BUFFER_MODERATE = Length.instantiateSI(30.0);
+
+    /** Safety buffer before the lane end kept when a stronger deceleration is accepted. */
+    private static final Length BUFFER_MEDIUM = Length.instantiateSI(15.0);
+
     /**
      * Heuristically decides whether the ego vehicle should aim to merge AHEAD (downstream) or BEHIND (upstream) the parallel
      * vehicle.
@@ -69,18 +75,16 @@ public class HeuristicGapSelector
         Speed vLeader = parallelVehicle.getSpeed();
 
         // Buffer for moderate decelerations (we do not want to use the lane until the very last meter)
-        Length bufferModerate = Length.instantiateSI(30.0);
 
         // Test 1: Very gentle deceleration (-1.0 m/s^2) with a large buffer
-        if (canReachUpstreamGap(vEgo, vLeader, xEgoToLaneEnd.minus(bufferModerate), DECEL_LEVEL_1, initialNetDistance,
+        if (canReachUpstreamGap(vEgo, vLeader, xEgoToLaneEnd.minus(BUFFER_MODERATE), DECEL_LEVEL_1, initialNetDistance,
                 minSafeGap))
         {
             return DECEL_LEVEL_1;
         }
 
         // Test 2: Moderate braking (-2.0 m/s^2) with a slight buffer
-        Length bufferMedium = Length.instantiateSI(15.0);
-        if (canReachUpstreamGap(vEgo, vLeader, xEgoToLaneEnd.minus(bufferMedium), DECEL_LEVEL_2, initialNetDistance,
+        if (canReachUpstreamGap(vEgo, vLeader, xEgoToLaneEnd.minus(BUFFER_MEDIUM), DECEL_LEVEL_2, initialNetDistance,
                 minSafeGap))
         {
             return DECEL_LEVEL_2;

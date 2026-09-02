@@ -28,6 +28,9 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoCont
 public class SocialInteractionsIncentives extends DesireIncentive
 {
 
+    /** Speed above which social interaction incentives are evaluated at all [m/s]. */
+    private static final double SOCIAL_INTERACTION_MIN_SPEED_SI = 20.0;
+
     /**
      * Constructs a new SocialInteractionsIncentives.
      * @param vehicle the tactical planner governing the ego agent
@@ -53,7 +56,7 @@ public class SocialInteractionsIncentives extends DesireIncentive
         try
         {
             // Applicable if speed is above threshold (e.g., 20 m/s)
-            return getEgoPerception().getSpeed().gt(Speed.instantiateSI(20.0));
+            return getEgoPerception().getSpeed().si > SOCIAL_INTERACTION_MIN_SPEED_SI;
         }
         catch (Exception e)
         {

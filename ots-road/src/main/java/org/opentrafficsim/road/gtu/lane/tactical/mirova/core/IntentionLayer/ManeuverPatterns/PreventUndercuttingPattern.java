@@ -44,6 +44,15 @@ import org.opentrafficsim.road.network.speed.SpeedLimitInfo;
  */
 public class PreventUndercuttingPattern extends ManeuverPattern
 {
+    /** Deceleration beyond which shadowing the left leader is abandoned as physically unreasonable. */
+    private static final Acceleration SHADOW_ABORT_DECELERATION = Acceleration.instantiateSI(-6.0);
+
+    /** Distance over which the left lane speed is approached while shadowing. */
+    private static final Length SHADOW_APPROACH_DISTANCE = Length.instantiateSI(50.0);
+
+    /** Comfortable deceleration floor applied while opening space for the lane change. */
+    private static final Acceleration COMFORTABLE_DECELERATION_FLOOR = Acceleration.instantiateSI(-2.0);
+
 
     /** ID of the vehicle on the left lane that this ego vehicle is currently shadowing. */
     protected String shadowingLeftNeighborId = null;
@@ -182,12 +191,12 @@ public class PreventUndercuttingPattern extends ManeuverPattern
                 this.vehicle.getParameters().resetParameter(ParameterTypes.T);
 
                 // Emergency break logic für die Ziellücke
-                if (aShadowLeft.lt(Acceleration.instantiateSI(-6.0)))
+                if (aShadowLeft.lt(SHADOW_ABORT_DECELERATION))
                 {
                     MacroTrafficContext macroCtx = this.vehicle.getContext(MacroTrafficContext.class);
                     Speed leftLaneSpeed = macroCtx.getAverageSpeed(RelativeLane.LEFT);
                     aShadowLeft =
-                            MirovaCarFollowingUtil.approachTargetSpeed(this.vehicle, Length.instantiateSI(50.0), leftLaneSpeed);
+                            MirovaCarFollowingUtil.approachTargetSpeed(this.vehicle, SHADOW_APPROACH_DISTANCE, leftLaneSpeed);
                 }
 
                 // Limit deceleration to a comfortable level for the lane maneuver
@@ -395,7 +404,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
             aDecel = MirovaCarFollowingUtil.followSingleLeader(this.vehicle, leftLeader);
 
             this.vehicle.getParameters().resetParameter(ParameterTypes.T);
-            aDecel = Acceleration.max(aDecel, Acceleration.instantiateSI(-2.0)); // Limit deceleration to a comfortable level
+            aDecel = Acceleration.max(aDecel, COMFORTABLE_DECELERATION_FLOOR); // Limit deceleration to a comfortable level
 
             aDecel = Acceleration.min(aDecel, ego.getCurrentCarFollowingAcceleration()); // Do not decelerate more than current
                                                                                          // following accel

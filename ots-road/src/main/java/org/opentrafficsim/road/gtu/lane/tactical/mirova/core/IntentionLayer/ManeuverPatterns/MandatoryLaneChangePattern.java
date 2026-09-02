@@ -92,6 +92,43 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     /** Buffer distance before the end of the lane where emergency braking is enforced. */
     public static final Length RAMP_END_BUFFER = Length.instantiateSI(10.0);
 
+    /**
+     * Distance over which a target speed is approached, both on the ramp and in the queue.
+     * <p>
+     * The constants from here down were written as literals inside the state machine, which rebuilt each of them on every
+     * tick of every merging vehicle. Naming them removes those allocations and, more usefully, says what the numbers are
+     * for.
+     * </p>
+     */
+    private static final Length TARGET_SPEED_APPROACH_DISTANCE = Length.instantiateSI(10.0);
+
+    /** Ego speed below which the merge is treated as taking place in a congested queue. */
+    private static final Speed CONGESTED_EGO_SPEED = new Speed(15.0, SpeedUnit.KM_PER_HOUR);
+
+    /** Deceleration beyond which the car-following demand counts as critical and suppresses speed matching. */
+    private static final Acceleration CRITICAL_DECELERATION = Acceleration.instantiateSI(-2.0);
+
+    /** Floor under the merge target speed, so a stationary queue does not pin the target at zero. */
+    private static final Speed MIN_MERGE_TARGET_SPEED = new Speed(5.0, SpeedUnit.KM_PER_HOUR);
+
+    /** Floor under the target speed while matching a moving queue. */
+    private static final Speed MIN_QUEUE_TARGET_SPEED = new Speed(20.0, SpeedUnit.KM_PER_HOUR);
+
+    /** Distance over which the creep speed is approached while positioning alongside a blocker. */
+    private static final Length CREEP_APPROACH_DISTANCE = Length.instantiateSI(5.0);
+
+    /** Speed crept towards while waiting for a gap beside a blocking vehicle. */
+    private static final Speed CREEP_TARGET_SPEED = new Speed(3.0, SpeedUnit.KM_PER_HOUR);
+
+    /** Upper bound on the creep acceleration, so creeping never becomes an overtake. */
+    private static final Acceleration CREEP_MAX_ACCELERATION = Acceleration.instantiateSI(0.3);
+
+    /** Minimum deceleration enforced when stopping at the end of the ramp. */
+    private static final Acceleration MIN_RAMP_STOP_DECELERATION = Acceleration.instantiateSI(-1.0);
+
+    /** Deceleration applied when a deadlock at the ramp end has to be resolved. */
+    private static final Acceleration DEADLOCK_RESOLVE_DECELERATION = Acceleration.instantiateSI(-2.5);
+
     /** Distance threshold to transition from anticipation to active matching. */
     private static final Length ANTICIPATION_THRESHOLD = Length.instantiateSI(400.0);
 
@@ -789,7 +826,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
 
             // --> NEU: Übergang in den Congested Merge State bei zähfließendem Verkehr (< 15 km/h)
             Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
-            if (egoSpeed.lt(new Speed(15.0, org.djunits.unit.SpeedUnit.KM_PER_HOUR)))
+            if (egoSpeed.si < CONGESTED_EGO_SPEED.si)
             {
                 return transitionTo(new CongestedMergeState(this.maneuverPattern));
             }
@@ -1006,7 +1043,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         @Override
         public SimpleOperationalPlan executeControl() throws ParameterException, GtuException, NetworkException
         {
-            Acceleration criticalDecelThreshold = Acceleration.instantiateSI(-2.0); // Ggf. aus Parametern holen
+            Acceleration criticalDecelThreshold = CRITICAL_DECELERATION;
             EgoContext ego = this.vehicle.getContext(EgoContext.class);
             InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
             Acceleration aCf = ego.getCurrentCarFollowingAcceleration();
@@ -1035,12 +1072,12 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
 
                     // Floor: never decelerate below this on the acceleration lane, even towards a congested target
                     // lane -- the ego still has to cover the remaining ramp. Deck: obey the legal speed limit.
-                    Speed targetSpeed = Speed.max(this.smoothedMergeSpeed, new Speed(20.0, SpeedUnit.KM_PER_HOUR));
+                    Speed targetSpeed = Speed.max(this.smoothedMergeSpeed, MIN_QUEUE_TARGET_SPEED);
                     targetSpeed = Speed.min(targetSpeed, speedLimit);
                     if (ego.getEgoSpeed().gt(targetSpeed))
                     {
                         Acceleration aToTarget = MirovaCarFollowingUtil.approachTargetSpeed(this.vehicle,
-                                Length.instantiateSI(10.0), targetSpeed);
+                                TARGET_SPEED_APPROACH_DISTANCE, targetSpeed);
                         Acceleration egoDecelThreshold = ego.getEgoDecelerationThreshold(this.pattern.getTargetDirection());
                         aToTarget = Acceleration.max(aToTarget, egoDecelThreshold);
 
@@ -1050,7 +1087,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                     // Below the reference speed the ego should already be gaining speed on the ramp rather than
                     // waiting for the acceleration lane to begin, so the same boost applies here.
                     return new SimpleOperationalPlan(rampAcceleration(this.vehicle, targetSpeed,
-                            Length.instantiateSI(10.0)), this.pattern.getPatternSpecificTimestep());
+                            TARGET_SPEED_APPROACH_DISTANCE), this.pattern.getPatternSpecificTimestep());
                 }
             }
 
@@ -1165,7 +1202,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         @Override
         public SimpleOperationalPlan executeControl() throws ParameterException, GtuException, NetworkException
         {
-            Acceleration criticalDecelThreshold = Acceleration.instantiateSI(-2.0); // Ggf. aus Parametern holen
+            Acceleration criticalDecelThreshold = CRITICAL_DECELERATION;
             EgoContext ego = this.vehicle.getContext(EgoContext.class);
             InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
             Acceleration aCf = ego.getCurrentCarFollowingAcceleration();
@@ -1184,7 +1221,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                     Speed targetSpeed = Speed.min(targetLaneSpeed, speedLimit);
                     // This is the phase whose entire purpose is to build up merge speed, so it uses the physical
                     // capability rather than the car-following comfort acceleration; see rampAcceleration.
-                    Acceleration aToTarget = rampAcceleration(this.vehicle, targetSpeed, Length.instantiateSI(10.0));
+                    Acceleration aToTarget = rampAcceleration(this.vehicle, targetSpeed, TARGET_SPEED_APPROACH_DISTANCE);
                     plan = new SimpleOperationalPlan(aToTarget, this.pattern.getPatternSpecificTimestep());
 
                 }
@@ -1297,9 +1334,9 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                     {
                         double distFraction = Math.min(1.0, distToLaneEnd.si / 200.0);
                         Speed dynamicTargetSpeed =
-                                Speed.max(new Speed(5.0, SpeedUnit.KM_PER_HOUR), Speed.instantiateSI(vCong.si * distFraction));
+                                Speed.max(MIN_MERGE_TARGET_SPEED, Speed.instantiateSI(vCong.si * distFraction));
                         Acceleration aApproach = MirovaCarFollowingUtil.approachTargetSpeed(this.vehicle,
-                                Length.instantiateSI(10.0), dynamicTargetSpeed);
+                                TARGET_SPEED_APPROACH_DISTANCE, dynamicTargetSpeed);
                         inducedDecel = Acceleration.min(inducedDecel, aApproach);
                     }
                 }
@@ -1334,7 +1371,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
 
             // --> NEU: Übergang in den Congested Merge State bei zähfließendem Verkehr (< 15 km/h)
             Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
-            if (egoSpeed.lt(new Speed(15.0, org.djunits.unit.SpeedUnit.KM_PER_HOUR)))
+            if (egoSpeed.si < CONGESTED_EGO_SPEED.si)
             {
                 return transitionTo(new CongestedMergeState(this.maneuverPattern));
             }
@@ -1505,7 +1542,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                     else
                     {
                         // If we have more room, we can afford a stronger deceleration to ensure we drop back in time
-                        aStop = Acceleration.min(aStop, Acceleration.instantiateSI(-1.0));
+                        aStop = Acceleration.min(aStop, MIN_RAMP_STOP_DECELERATION);
                     }
                     targetAcc = Acceleration.min(aCf, aStop);
                 }
@@ -1531,7 +1568,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
 
             // --> NEU: Übergang in den Congested Merge State bei zähfließendem Verkehr (< 15 km/h)
             Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
-            if (egoSpeed.lt(new Speed(15.0, org.djunits.unit.SpeedUnit.KM_PER_HOUR)))
+            if (egoSpeed.si < CONGESTED_EGO_SPEED.si)
             {
                 return transitionTo(new CongestedMergeState(this.maneuverPattern));
             }
@@ -1697,9 +1734,9 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
 
             // Creep gently toward 3 km/h – do NOT match the parallel vehicle's full acceleration.
             // This keeps the ego positioned for the gap without driving alongside the blocker.
-            Acceleration aCreep = MirovaCarFollowingUtil.approachTargetSpeed(this.vehicle, Length.instantiateSI(5.0),
-                    new Speed(3.0, SpeedUnit.KM_PER_HOUR));
-            aCreep = Acceleration.min(aCreep, Acceleration.instantiateSI(0.3));
+            Acceleration aCreep = MirovaCarFollowingUtil.approachTargetSpeed(this.vehicle, CREEP_APPROACH_DISTANCE,
+                    CREEP_TARGET_SPEED);
+            aCreep = Acceleration.min(aCreep, CREEP_MAX_ACCELERATION);
 
             // Hard floor: never worse than own-lane car-following.
             Acceleration finalAcc = Acceleration.min(aCf, aCreep);
@@ -1796,12 +1833,12 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             Length distToLaneEnd = infra.getRouteDistanceToLaneEnd();
             double distSI = distToLaneEnd != null ? Math.max(0.0, distToLaneEnd.si) : 200.0;
             double distFraction = Math.min(1.0, distSI / 200.0);
-            Speed dynamicTargetSpeed = Speed.max(new Speed(5.0, SpeedUnit.KM_PER_HOUR),
+            Speed dynamicTargetSpeed = Speed.max(MIN_MERGE_TARGET_SPEED,
                     Speed.instantiateSI(CONGESTION_SPEED_THRESHOLD.si * distFraction));
 
             // 3. Approach the dynamic target speed
             Acceleration aApproach =
-                    MirovaCarFollowingUtil.approachTargetSpeed(this.vehicle, Length.instantiateSI(10.0), dynamicTargetSpeed);
+                    MirovaCarFollowingUtil.approachTargetSpeed(this.vehicle, TARGET_SPEED_APPROACH_DISTANCE, dynamicTargetSpeed);
             aApproach = Acceleration.min(aApproach, ego.getMaxPhysicalAcceleration());
 
             // 4. Follow the putative leader on the target lane if one exists
@@ -2004,7 +2041,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 if (parallelGtu != null)
                 {
                     // Brake at least at -2.5 m/s^2 to drop behind
-                    aResolve = Acceleration.min(aStop, Acceleration.instantiateSI(-2.5));
+                    aResolve = Acceleration.min(aStop, DEADLOCK_RESOLVE_DECELERATION);
                 }
                 finalAcc = Acceleration.min(aResolve, Acceleration.min(aCf, aLeader));
             }

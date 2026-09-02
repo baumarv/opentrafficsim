@@ -36,6 +36,15 @@ import org.opentrafficsim.road.network.speed.SpeedLimitInfo;
  */
 public final class MirovaCarFollowingUtil
 {
+
+    /** Leader deceleration above which a cut-in is still considered safe enough to relax against. */
+    private static final Acceleration RELAXATION_MIN_LEADER_ACCELERATION = Acceleration.instantiateSI(-1.0);
+
+    /** Leader speed below which relaxation against a new leader is not applied. */
+    private static final Speed RELAXATION_MIN_LEADER_SPEED = new Speed(10.0, SpeedUnit.KM_PER_HOUR);
+
+    /** Deceleration reported when a collision is imminent or has already happened. */
+    private static final Acceleration COLLISION_DECELERATION = Acceleration.instantiateSI(-10.0);
     /**
      * Private constructor to prevent instantiation of this utility class.
      */
@@ -103,8 +112,8 @@ public final class MirovaCarFollowingUtil
         RelaxationState activeRelaxation = ego.getActiveRelaxationForLeader(leaderId);
         if (activeRelaxation != null)
         {
-            if (leader.getAcceleration().ge(Acceleration.instantiateSI(-1.0))
-                    && perceivedLeaderSpeed.ge(new Speed(10.0, SpeedUnit.KM_PER_HOUR)))
+            if (leader.getAcceleration().ge(RELAXATION_MIN_LEADER_ACCELERATION)
+                    && perceivedLeaderSpeed.si >= RELAXATION_MIN_LEADER_SPEED.si)
             {
                 perceivedDistance = perceivedDistance.plus(activeRelaxation.getVirtualSpaceBuffer(now));
                 perceivedLeaderSpeed = perceivedLeaderSpeed.plus(activeRelaxation.getVirtualSpeedBuffer(now));
@@ -259,7 +268,7 @@ public final class MirovaCarFollowingUtil
         Speed egoSpeed = vehicle.getContext(EgoContext.class).getEgoSpeed();
         if (gap == null || gap.si <= 0.0)
         {
-            return Acceleration.instantiateSI(-10.0); // Crash imminent or already happened
+            return COLLISION_DECELERATION; // Crash imminent or already happened
         }
 
         double aSafe = Double.POSITIVE_INFINITY;

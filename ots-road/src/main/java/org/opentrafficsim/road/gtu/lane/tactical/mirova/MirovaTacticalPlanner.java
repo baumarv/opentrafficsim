@@ -88,13 +88,13 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     protected Double absoluteDesire = 0.0;
 
     /** Relaxation time for the desire vector. */
-    protected Duration desireRelaxationTime = new Duration(0.0, DurationUnit.SI);
+    protected Duration desireRelaxationTime = Duration.ZERO;
 
     /** Socio-speed pressure experienced by the GTU. */
     private Double socioSpeedPressure = 0.0;
 
     /** Time since last lane change maneuver started. */
-    private Duration timeSinceLastLaneChange = new Duration(0.0, DurationUnit.SI);
+    private Duration timeSinceLastLaneChange = Duration.ZERO;
 
     /** GTU specific parameters. */
     private Parameters params;
