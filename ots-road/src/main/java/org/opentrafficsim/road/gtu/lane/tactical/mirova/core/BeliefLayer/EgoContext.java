@@ -123,6 +123,21 @@ public class EgoContext extends ContextCategory implements UpdatableContext
     /** Decay constant of the reserve. */
     private Duration reserveTau = Duration.instantiateSI(5.0);
 
+    /** Follower speed below which a rear headway constraint is treated as effectively absent. */
+    private static final Speed SLOW_FOLLOWER_SPEED = new Speed(15.0, SpeedUnit.KM_PER_HOUR);
+
+    /** Rear headway assumed behind a follower that is barely moving. */
+    private static final Length SLOW_FOLLOWER_REAR_HEADWAY = Length.instantiateSI(1.5);
+
+    /** Leader deceleration above which a cut-in is still considered safe enough to relax against. */
+    private static final Acceleration RELAXATION_MIN_LEADER_ACCELERATION = Acceleration.instantiateSI(-1.0);
+
+    /** Leader speed below which relaxation against a new leader is not applied. */
+    private static final Speed RELAXATION_MIN_LEADER_SPEED = new Speed(10.0, SpeedUnit.KM_PER_HOUR);
+
+    /** Vehicle length assumed when the GTU cannot be queried. */
+    private static final Length FALLBACK_VEHICLE_LENGTH = Length.instantiateSI(4.5);
+
     /**
      * Refreshes the cooperative headway reserve, to be called while cooperation is active.
      * @param reserve Duration; the extra headway to hold, in seconds
@@ -375,8 +390,8 @@ public class EgoContext extends ContextCategory implements UpdatableContext
             return;
         }
 
-        if (targetLeader.getAcceleration().ge(Acceleration.instantiateSI(-1.0))
-                && targetLeader.getSpeed().ge(new Speed(10.0, SpeedUnit.KM_PER_HOUR)))
+        if (targetLeader.getAcceleration().ge(RELAXATION_MIN_LEADER_ACCELERATION)
+                && targetLeader.getSpeed().si >= RELAXATION_MIN_LEADER_SPEED.si)
         {
             // Only trigger proactive relaxation if the target leader is not braking hard and has a reasonable speed.
             // This prevents dangerous relaxation
@@ -559,7 +574,7 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         }
         catch (Exception e)
         {
-            return Length.instantiateSI(4.5);
+            return FALLBACK_VEHICLE_LENGTH;
         }
     }
 
@@ -695,8 +710,10 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         Length desiredFrontHeadway = Length.NaN;
         try
         {
-            desiredFrontHeadway = getEgoSpeed().times(this.vehicle.getParameters().getParameter(ParameterTypes.T))
-                    .plus(this.vehicle.getParams().s0Scalar);
+            // v * T + s0, computed in SI so the intermediate Length from times() is never built.
+            desiredFrontHeadway = Length.instantiateSI(
+                    getEgoSpeed().si * this.vehicle.getParameters().getParameter(ParameterTypes.T).si
+                            + this.vehicle.getParams().s0Si);
         }
         catch (ParameterException exception)
         {
@@ -725,15 +742,16 @@ public class EgoContext extends ContextCategory implements UpdatableContext
             else
             {
                 Speed followerSpeed = follower.getSpeed();
-                if (followerSpeed.lt(new Speed(15.0, SpeedUnit.KM_PER_HOUR)))
+                if (followerSpeed.si < SLOW_FOLLOWER_SPEED.si)
                 {
                     // If follower is very slow, assume it can be very close without safety issues
-                    desiredRearHeadway = Length.instantiateSI(1.5);
+                    desiredRearHeadway = SLOW_FOLLOWER_REAR_HEADWAY;
                 }
                 else
                 {
-                    desiredRearHeadway = followerSpeed.times(this.vehicle.getParameters().getParameter(ParameterTypes.T))
-                            .plus(this.vehicle.getParams().s0Scalar);
+                    desiredRearHeadway = Length.instantiateSI(
+                            followerSpeed.si * this.vehicle.getParameters().getParameter(ParameterTypes.T).si
+                                    + this.vehicle.getParams().s0Si);
                 }
             }
         }
