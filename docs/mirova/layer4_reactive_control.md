@@ -97,10 +97,107 @@ Wiedemann 99 is implemented and calibrated but is currently only instantiated by
 *   **Location**: [MirovaIdmPlus.java](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/MirovaIdmPlus.java)
 *   **Description**: `IdmPlus` plus two additions — a kinematic bounding of the interaction term
     (below) and a desired-headway model carrying an optional capacity-drop addon.
-*   **Capacity-drop addon**: adds `alpha(v) * T_DISCHARGE_ADDON` to the desired headway, ramping
-    linearly from full at standstill to zero at `V_CRIT_DISCHARGE`. Governed by
-    `CAPACITY_DROP_ENABLED`, which is **`false` by default** — with it off the headway model is
-    identical to the standard one.
+*   **Capacity-drop addon**: two formulations, both governed by `CAPACITY_DROP_ENABLED`, which is
+    **`false` by default** — with it off the headway model is identical to the standard one.
+
+---
+
+## 📉 Capacity drop — widening the desired headway in the queue
+
+Models the fact that a queue discharges at a lower flow than the facility carried before it broke
+down. Without it the model reproduces the opposite: it discharged 5 to 8 % **more** than it carried
+before breakdown, against a field measurement of roughly 10 % less — the one quantity of the whole
+calibration whose sign was wrong.
+
+### Absolute formulation (original, in `MIROVA_HEADWAY`)
+
+```
+T_eff = T + alpha(v) * T_DISCHARGE_ADDON
+alpha(v) = max(0, (V_CRIT_DISCHARGE - v) / V_CRIT_DISCHARGE)
+```
+
+`V_CRIT_DISCHARGE` defaults to 40 km/h and `T_DISCHARGE_ADDON` to 0.5 s.
+
+### Relative formulation (in `MirovaIdmPlus.combineInteractionTerm`)
+
+```
+alpha = max(0, (f_v * v_desired - v) / (f_v * v_desired))
+T_eff = T * (1 + f_T * alpha)
+```
+
+with `f_T` = `T_DISCHARGE_FRACTION` and `f_v` = `V_CRIT_DISCHARGE_FRACTION`, both defaulting to 0.
+
+Both axes are relative for a reason:
+
+*   **The addon as a fraction of `T`.** An addon in seconds is a different fraction of a car's headway
+    than of a truck's — 0.4 s is 40 % at `T` = 1.00 and 31 % at 1.30 — so it produces a capacity drop
+    that differs by vehicle type without anyone having chosen that.
+*   **The threshold as a fraction of the desired speed.** An absolute threshold treats a truck wanting
+    80 km/h and a car wanting 130 as being in the same traffic state at the same speed. It also sits
+    awkwardly against the target: a detector's jam speed is a harmonic mean over the cross-section, so
+    individual vehicles are above and below it, and a fixed threshold near that mean divides them by a
+    criterion unrelated to the driver.
+
+> [!IMPORTANT]
+> The two formulations are **mutually exclusive by construction**: the absolute path in
+> `MIROVA_HEADWAY` is skipped whenever `V_CRIT_DISCHARGE_FRACTION` is set, so a configuration gets one
+> or the other, never both stacked.
+
+> [!WARNING]
+> **The relative formulation is where this layer's modularity currently breaks, and it is known.**
+> `DesiredHeadwayModel.desiredHeadway(Parameters, Speed)` is handed no more than the parameters and
+> the current speed — never what the vehicle wants to drive — so a threshold defined against the
+> desired speed cannot live there. It sits in `combineInteractionTerm`, which receives the desired
+> speed, and is therefore **welded to `MirovaIdmPlus`**: swapping the car-following model for
+> Wiedemann 99 would silently lose the capacity drop. That is inconsistent with how relaxation and
+> the cooperative reserve are built, and §"A cleaner home for these blocks" below records what to do
+> about it.
+
+---
+
+## 🧩 A cleaner home for these blocks
+
+Three mechanisms modify car-following behaviour in this layer, and they are **not built the same
+way**, which is worth knowing before adding a fourth.
+
+| mechanism | where it lives | works with any CF model? |
+|:---|:---|:---|
+| Keane & Gao relaxation | `MirovaCarFollowingUtil`, perception space | yes |
+| Cooperative gap reserve | `MirovaCarFollowingUtil`, perception space | yes |
+| Acceleration damping | `MirovaCarFollowingUtil`, post-processing | yes |
+| Kinematic bounding | `MirovaIdmPlus` | no — and correctly so |
+| Capacity drop (relative) | `MirovaIdmPlus` | **no — and wrongly so** |
+
+The established idiom is a **perception-space adjustment**: relaxation adds a virtual space and speed
+buffer to the perceived leader, and the cooperative reserve subtracts from the perceived distance, so
+the model settles at a correspondingly larger real gap. Both are applied in
+`MirovaCarFollowingUtil.followSingleLeader` before the car-following model is called at all, which is
+why both work with any model.
+
+**The capacity drop belongs in exactly that place, and can be expressed there.** Widening the desired
+gap by `v * alpha * f_T * T` is equivalent, at the equilibrium the model settles at, to subtracting
+the same amount from the perceived distance — which is precisely what the cooperative reserve already
+does, with the opposite sign. The desired speed the threshold needs is reachable from the util via
+`EgoContext.getCurrentDesiredSpeed()`.
+
+A worthwhile refactoring would therefore:
+
+1.  Move the capacity drop into `MirovaCarFollowingUtil` as a perception-space block, leaving
+    `MirovaIdmPlus` as plain IDM+ plus the kinematic bounding.
+2.  Formalize the sequence rather than leaving it implicit in statement order — an interface over
+    `(perceived distance, perceived leader speed)` with one implementation per mechanism, composed in
+    a documented order, each independently testable.
+3.  Keep two chains, not one: perception adjustments **before** the model call, acceleration
+    adjustments (damping, and the physical net) **after** it. They are different kinds of operation
+    and collapsing them would hide that.
+
+**What must not move.** The kinematic bounding needs the raw IDM output and `B_CRIT`; it is a property
+of the resulting acceleration, not of the perceived state, and belongs where it is.
+
+**One caveat before anyone does this.** The perception-space and headway-space formulations agree at
+equilibrium but not transiently: raising `T` enlarges `s*` directly, whereas shrinking the perceived
+distance changes the ratio `s*/s`, so the two react differently while a gap is closing. The move is
+therefore a model change to be measured against the current results, not a pure refactoring.
 
 ---
 
