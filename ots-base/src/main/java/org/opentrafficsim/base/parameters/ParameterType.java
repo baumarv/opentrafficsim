@@ -40,6 +40,13 @@ public class ParameterType<T> implements Serializable, Identifiable, Type<Parame
     protected final T defaultValue;
 
     /**
+     * Pre-computed hash code. All fields contributing to the hash code are final and assigned in the constructor, so the hash
+     * code is invariant over the lifetime of a parameter type. Caching it avoids recomputing four sub-hashes on every map
+     * lookup, which is a hot path since parameter types are used as map keys in {@code ParameterSet}.
+     */
+    private final int cachedHashCode;
+
+    /**
      * Construct a new AbstractParameterType without default value and constraint.
      * @param id short name of the new AbstractParameterType
      * @param description description or full name of the new AbstractParameterType
@@ -137,6 +144,13 @@ public class ParameterType<T> implements Serializable, Identifiable, Type<Parame
                         "Default value of parameter '" + getId() + "' does not comply with custom constraints.", pe);
             }
         }
+        final int prime = 31;
+        int hash = 1;
+        hash = prime * hash + ((this.defaultValue == null) ? 0 : this.defaultValue.hashCode());
+        hash = prime * hash + this.description.hashCode();
+        hash = prime * hash + this.id.hashCode();
+        hash = prime * hash + this.valueClass.hashCode();
+        this.cachedHashCode = hash;
     }
 
     /**
@@ -227,13 +241,7 @@ public class ParameterType<T> implements Serializable, Identifiable, Type<Parame
     @Override
     public final int hashCode()
     {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((this.defaultValue == null) ? 0 : this.defaultValue.hashCode());
-        result = prime * result + this.description.hashCode();
-        result = prime * result + this.id.hashCode();
-        result = prime * result + this.valueClass.hashCode();
-        return result;
+        return this.cachedHashCode;
     }
 
     @Override
@@ -252,6 +260,12 @@ public class ParameterType<T> implements Serializable, Identifiable, Type<Parame
             return false;
         }
         ParameterType<?> other = (ParameterType<?>) obj;
+        if (this.cachedHashCode != other.cachedHashCode)
+        {
+            // consistent with hashCode(): unequal hash codes imply unequal objects, and this avoids the string comparisons
+            // below for the common case of two different parameter types colliding in a hash bucket
+            return false;
+        }
         if (!this.id.equals(other.id))
         {
             return false;

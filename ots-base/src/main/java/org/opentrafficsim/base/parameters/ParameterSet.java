@@ -155,8 +155,13 @@ public class ParameterSet implements Parameters, Serializable
         @SuppressWarnings("unchecked")
         // set methods guarantee matching of parameter type and value
         T result = (T) this.parameters.get(parameterType);
-        Throw.when(result == null, ParameterException.class, "Could not get parameter of type '%s' as it was not set.",
-                parameterType.getId());
+        if (result == null)
+        {
+            // deliberately not Throw.when(...): that allocates a varargs array and calls getId() on every single get, which is
+            // measurable overhead on this hot path
+            throw new ParameterException(
+                    "Could not get parameter of type '" + parameterType.getId() + "' as it was not set.");
+        }
         return result;
     }
 
