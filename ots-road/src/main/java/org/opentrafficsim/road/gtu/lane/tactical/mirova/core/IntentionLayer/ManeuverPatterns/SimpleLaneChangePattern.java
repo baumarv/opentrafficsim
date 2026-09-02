@@ -301,17 +301,9 @@ public class SimpleLaneChangePattern extends ManeuverPattern
 
             if (this.isCooperative)
             {
-                try
-                {
-                    double dFree = this.vehicle.getParameters().getParameter(MirovaParameters.DFREE);
-                    // Cooperative LCs get a floor at D_FREE so they are preferred over non-cooperative
-                    // ones when desire is similar.
-                    baseUtility = Math.max(baseUtility, dFree);
-                }
-                catch (ParameterException e)
-                {
-                    // proceed with base utility
-                }
+                // Cooperative LCs get a floor at D_FREE so they are preferred over non-cooperative
+                // ones when desire is similar.
+                baseUtility = Math.max(baseUtility, this.vehicle.getParams().dFree);
             }
 
             return baseUtility;

@@ -84,12 +84,12 @@ public class ProhibitDeadEndIncentive extends DesireIncentive
 
         if (this.mergeDirection == LateralDirectionality.LEFT)
         {
-            this.desire = new Desire(-this.vehicle.getParameters().getParameter(MirovaParameters.DMAND), 0.0, false);
+            this.desire = new Desire(-this.vehicle.getParams().dMand, 0.0, false);
 
         }
         else if (this.mergeDirection == LateralDirectionality.RIGHT)
         {
-            this.desire = new Desire(0.0, -this.vehicle.getParameters().getParameter(MirovaParameters.DMAND), false);
+            this.desire = new Desire(0.0, -this.vehicle.getParams().dMand, false);
 
         }
         else

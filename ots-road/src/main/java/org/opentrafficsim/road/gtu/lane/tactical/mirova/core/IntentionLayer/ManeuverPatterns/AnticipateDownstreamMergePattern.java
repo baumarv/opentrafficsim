@@ -88,16 +88,9 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                     return new NearAnticipationState(this);
                 }
             }
-            try
+            if (!this.vehicle.getParams().farAnticipationEnabled)
             {
-                if (!this.vehicle.getParameters().getParameter(MirovaParameters.farAnticipationEnabled))
-                {
-                    return null;
-                }
-            }
-            catch (ParameterException e)
-            {
-                // default to true behavior
+                return null;
             }
             return new FarAnticipationState(this);
         };
@@ -137,7 +130,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
         Length distanceToEndRight = infra.getPhysicalDistanceToLaneEnd(RelativeLane.RIGHT);
         if (distanceToEndRight.eq(Length.POSITIVE_INFINITY))
         {
-            if (this.vehicle.getParameters().getParameter(MirovaParameters.farAnticipationEnabled))
+            if (this.vehicle.getParams().farAnticipationEnabled)
             {
                 LaneDropInfo dropInfoRight = infra.getAnticipatedLaneDropInfo(LateralDirectionality.RIGHT);
                 if (dropInfoRight != null)
@@ -151,7 +144,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
         Length distanceToEndLeft = infra.getPhysicalDistanceToLaneEnd(RelativeLane.LEFT);
         if (distanceToEndLeft.eq(Length.POSITIVE_INFINITY))
         {
-            if (this.vehicle.getParameters().getParameter(MirovaParameters.farAnticipationEnabled))
+            if (this.vehicle.getParams().farAnticipationEnabled)
             {
                 LaneDropInfo dropInfoLeft = infra.getAnticipatedLaneDropInfo(LateralDirectionality.LEFT);
                 if (dropInfoLeft != null)
@@ -251,8 +244,8 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
             NeighborsContext neighbors = this.vehicle.getContextManager().getCategory("Neighbors", NeighborsContext.class);
 
             if (ego != null && neighbors != null
-                    && ego.getEgoSpeed().gt(this.vehicle.getParameters().getParameter(ParameterTypes.VCONG))
-                    && this.vehicle.getParameters().getParameter(MirovaParameters.cooperativeLaneChangesEnabled))
+                    && ego.getEgoSpeed().gt(this.vehicle.getParams().vCongScalar)
+                    && this.vehicle.getParams().cooperativeLaneChangesEnabled)
             {
                 LateralDirectionality oppositeDir = dir.isLeft() ? LateralDirectionality.RIGHT : LateralDirectionality.LEFT;
 
@@ -314,7 +307,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                                 // Ignore
                             }
                         }
-                        Speed vCong = this.vehicle.getParameters().getParameter(ParameterTypes.VCONG);
+                        Speed vCong = this.vehicle.getParams().vCongScalar;
                         if (mergeLinkSpeed.ge(vCong))
                         {
                             return null;
@@ -331,7 +324,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                         Speed downstreamSpeed = infra.getLaneAverageSpeed(mainroadLane, startPos, mainroadLaneLength, 4,
                                 ScanDirection.FRONT_TO_BACK);
 
-                        if (downstreamSpeed.lt(this.vehicle.getParameters().getParameter(ParameterTypes.VCONG)))
+                        if (downstreamSpeed.lt(this.vehicle.getParams().vCongScalar))
                         {
                             aAnticipation = MirovaCarFollowingUtil.approachTargetSpeed(this.vehicle, Length.ZERO,
                                     Speed.max(downstreamSpeed, new Speed(30.0, SpeedUnit.KM_PER_HOUR)));
@@ -342,11 +335,11 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                 try
                 {
                     // Far-range macro check: slow down if the downstream merge zone is already congested.
-                    if (macro.getAverageSpeed(relativeLane).lt(this.vehicle.getParameters().getParameter(ParameterTypes.VCONG))
-                            && ego.getEgoSpeed().gt(this.vehicle.getParameters().getParameter(ParameterTypes.VCONG)))
+                    if (macro.getAverageSpeed(relativeLane).lt(this.vehicle.getParams().vCongScalar)
+                            && ego.getEgoSpeed().gt(this.vehicle.getParams().vCongScalar))
                     {
                         aAnticipation = Acceleration.min(aAnticipation,
-                                this.vehicle.getParameters().getParameter(MirovaParameters.preemptiveCooperativeDeceleration));
+                                this.vehicle.getParams().preemptiveCooperativeDecelerationScalar);
                     }
                 }
                 catch (OperationalPlanException exception)
@@ -361,9 +354,9 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                 return null;
             }
             Acceleration accCoop =
-                    this.vehicle.getParameters().getParameter(MirovaParameters.preemptiveCooperativeDeceleration);
+                    this.vehicle.getParams().preemptiveCooperativeDecelerationScalar;
             Acceleration finalAcc = Acceleration.min(aDirectLeader, Acceleration.max(aAnticipation, accCoop));
-            return new SimpleOperationalPlan(finalAcc, this.vehicle.getParameters().getParameter(ParameterTypes.DT));
+            return new SimpleOperationalPlan(finalAcc, this.vehicle.getParams().dtScalar);
         }
 
         @Override
@@ -473,10 +466,10 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                     }
 
                     if (rampHasVehicles
-                            && ego.getEgoSpeed().gt(this.vehicle.getParameters().getParameter(ParameterTypes.VCONG)))
+                            && ego.getEgoSpeed().gt(this.vehicle.getParams().vCongScalar))
                     {
                         aAnticipation =
-                                this.vehicle.getParameters().getParameter(MirovaParameters.preemptiveCooperativeDeceleration);
+                                this.vehicle.getParams().preemptiveCooperativeDecelerationScalar;
                     }
                 }
                 catch (OperationalPlanException exception)
@@ -492,9 +485,9 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
             }
 
             Acceleration aDirectLeader = ego.getCurrentCarFollowingAcceleration();
-            Acceleration accCoop = this.vehicle.getParameters().getParameter(MirovaParameters.cooperativeDecelerationThreshold);
+            Acceleration accCoop = this.vehicle.getParams().cooperativeDecelerationThresholdScalar;
             Acceleration finalAcc = Acceleration.min(aDirectLeader, Acceleration.max(aAnticipation, accCoop));
-            return new SimpleOperationalPlan(finalAcc, this.vehicle.getParameters().getParameter(ParameterTypes.DT));
+            return new SimpleOperationalPlan(finalAcc, this.vehicle.getParams().dtScalar);
         }
 
         @Override

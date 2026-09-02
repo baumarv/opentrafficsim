@@ -92,7 +92,7 @@ public class AnticipateAdjacentCongestionPattern extends ManeuverPattern impleme
         EgoContext ego = this.vehicle.getContextManager().getCategory("Ego", EgoContext.class);
 
         Speed egoSpeed = ego.getEgoSpeed();
-        Speed vCong = this.vehicle.getParameters().getParameter(ParameterTypes.VCONG);
+        Speed vCong = this.vehicle.getParams().vCongScalar;
 
         if (!egoSpeed.gt(vCong))
         {
@@ -170,24 +170,24 @@ public class AnticipateAdjacentCongestionPattern extends ManeuverPattern impleme
             EgoContext ego = this.vehicle.getContextManager().getCategory("Ego", EgoContext.class);
             Acceleration aDirectLeader = ego.getCurrentCarFollowingAcceleration();
             Acceleration aPreemptive =
-                    this.vehicle.getParameters().getParameter(MirovaParameters.preemptiveCooperativeDeceleration);
+                    this.vehicle.getParams().preemptiveCooperativeDecelerationScalar;
             Acceleration accCoopThresh =
-                    this.vehicle.getParameters().getParameter(MirovaParameters.cooperativeDecelerationThreshold);
+                    this.vehicle.getParams().cooperativeDecelerationThresholdScalar;
 
             Acceleration accVCong = MirovaCarFollowingUtil.approachTargetSpeed(vehicle, Length.ZERO,
-                    this.vehicle.getParameters().getParameter(ParameterTypes.VCONG));
+                    this.vehicle.getParams().vCongScalar);
 
             Acceleration accCoop = Acceleration.max(accCoopThresh, accVCong);
 
             Acceleration finalAcceleration = Acceleration.min(aDirectLeader, Acceleration.max(aPreemptive, accCoop));
-            return new SimpleOperationalPlan(finalAcceleration, this.vehicle.getParameters().getParameter(ParameterTypes.DT));
+            return new SimpleOperationalPlan(finalAcceleration, this.vehicle.getParams().dtScalar);
         }
 
         @Override
         public SimpleOperationalPlan abort() throws ParameterException, GtuException, NetworkException
         {
             MacroTrafficContext macro = this.vehicle.getContextManager().getCategory("MacroTraffic", MacroTrafficContext.class);
-            Speed vCong = this.vehicle.getParameters().getParameter(ParameterTypes.VCONG);
+            Speed vCong = this.vehicle.getParams().vCongScalar;
             for (LateralDirectionality dir : this.maneuverPattern.congestedLanes)
             {
                 if (dir == LateralDirectionality.LEFT && macro.getAverageSpeed(RelativeLane.LEFT).lt(vCong))

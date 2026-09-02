@@ -188,7 +188,7 @@ public class HybridPlanArbitrator
         this.lastActivePattern = best.getSourcePattern();
         this.lastActiveState = best.getSourcePattern().getCurrentActionState();
 
-        Duration dt = this.vehicle.getParameters().getParameter(ParameterTypes.DT);
+        Duration dt = this.vehicle.getParams().dtScalar;
         return new SimpleOperationalPlan(minAcc, dt, lateral);
     }
 
