@@ -70,36 +70,28 @@ public class PreventUndercuttingPattern extends ManeuverPattern
     @Override
     public boolean checkAbility()
     {
-        try
+        NeighborsContext neighbors = this.vehicle.getContext(NeighborsContext.class);
+        EgoContext ego = this.vehicle.getContext(EgoContext.class);
+
+        // 1. Check Traffic State (Undercutting is allowed/tolerated in congestion)
+        Speed congestionThreshold = this.vehicle.getParams().vCongScalar;
+        boolean isFreeFlow = ego.getEgoSpeed().gt(congestionThreshold);
+
+        if (isFreeFlow)
         {
-            NeighborsContext neighbors = this.vehicle.getContext(NeighborsContext.class);
-            EgoContext ego = this.vehicle.getContext(EgoContext.class);
+            // 2. Check Perception for Undercutting situation
+            boolean potentialUndercut = neighbors.getRightSideOvertakingAhead();
 
-            // 1. Check Traffic State (Undercutting is allowed/tolerated in congestion)
-            Speed congestionThreshold = this.vehicle.getParameters().getParameter(ParameterTypes.VCONG);
-            boolean isFreeFlow = ego.getEgoSpeed().gt(congestionThreshold);
-
-            if (isFreeFlow)
+            if (potentialUndercut)
             {
-                // 2. Check Perception for Undercutting situation
-                boolean potentialUndercut = neighbors.getRightSideOvertakingAhead();
-
-                if (potentialUndercut)
-                {
-                    this.shadowingLeftNeighborId = neighbors.getLeader(LateralDirectionality.LEFT).getId();
-                    return true;
-                }
+                this.shadowingLeftNeighborId = neighbors.getLeader(LateralDirectionality.LEFT).getId();
+                return true;
             }
-
-            this.shadowingLeftNeighborId = null;
-            setRunning(false);
-            return false;
-
         }
-        catch (ParameterException e)
-        {
-            throw new RuntimeException("Missing VCONG parameter for PreventUndercutting logic.", e);
-        }
+
+        this.shadowingLeftNeighborId = null;
+        setRunning(false);
+        return false;
     }
 
     /**
@@ -177,7 +169,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
 
                 // Calculate acceleration required to stay behind the left vehicle
                 Double safetyDistanceReductionFactorLaneChange =
-                        this.vehicle.getParameters().getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange)
+                        this.vehicle.getParams().safetyDistanceReductionFactorLaneChange
                                 * 1.1;
                 Duration timeHeadwayReduced = this.vehicle.getParameters().getParameter(ParameterTypes.T)
                         .times(safetyDistanceReductionFactorLaneChange);
@@ -205,7 +197,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
                 Acceleration aTarget = Acceleration.min(aShadowLeft, egoCtx.getCurrentCarFollowingAcceleration());
 
                 return new SimpleOperationalPlan(aTarget,
-                        this.vehicle.getGtu().getParameters().getParameter(ParameterTypes.DT));
+                        this.vehicle.getParams().dtScalar);
             }
 
             return null; // No left leader, should not happen as pattern should not be active, but safety first
@@ -271,7 +263,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
             }
 
             EgoContext ego = this.vehicle.getContext(EgoContext.class);
-            Speed congestionThreshold = this.vehicle.getParameters().getParameter(ParameterTypes.VCONG);
+            Speed congestionThreshold = this.vehicle.getParams().vCongScalar;
             boolean isFreeFlow = ego.getEgoSpeed().gt(congestionThreshold);
 
             // 2. Leader ID changed or traffic state changed
@@ -391,7 +383,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
 
             // Calculate acceleration required to stay behind the left vehicle
             Double safetyDistanceReductionFactorLaneChange =
-                    this.vehicle.getParameters().getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange) * 1.1;
+                    this.vehicle.getParams().safetyDistanceReductionFactorLaneChange * 1.1;
             Duration timeHeadwayReduced =
                     this.vehicle.getParameters().getParameter(ParameterTypes.T).times(safetyDistanceReductionFactorLaneChange);
             this.vehicle.getParameters().setParameterResettable(ParameterTypes.T, timeHeadwayReduced);
@@ -409,7 +401,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
                                                                                          // following accel
 
             SimpleOperationalPlan plan =
-                    new SimpleOperationalPlan(aDecel, this.vehicle.getGtu().getParameters().getParameter(ParameterTypes.DT));
+                    new SimpleOperationalPlan(aDecel, this.vehicle.getParams().dtScalar);
             plan.setIndicatorIntentLeft();
 
             return plan;
@@ -467,7 +459,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
             }
 
             EgoContext ego = this.vehicle.getContext(EgoContext.class);
-            Speed congestionThreshold = this.vehicle.getParameters().getParameter(ParameterTypes.VCONG);
+            Speed congestionThreshold = this.vehicle.getParams().vCongScalar;
             boolean isFreeFlow = ego.getEgoSpeed().gt(congestionThreshold);
 
             // 2. Leader ID changed or traffic state changed

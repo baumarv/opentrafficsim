@@ -168,7 +168,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
      */
     protected boolean findNewCandidate() throws ParameterException
     {
-        double dMand = this.vehicle.getParameters().getParameter(MirovaParameters.DMAND);
+        double dMand = this.vehicle.getParams().dMand;
         if (this.vehicle.getMandatoryLaneChangeDesire().magnitude() >= dMand)
         {
             return false;
@@ -191,7 +191,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
                 {
                     Length distanceCandidate = candidate.getDistance();
                     if (distanceCandidate.gt(
-                            this.vehicle.getParameters().getParameter(MirovaParameters.considerGapOpeningLookaheadDistance)))
+                            this.vehicle.getParams().considerGapOpeningLookaheadDistanceScalar))
                     {
                         break;
                     }
@@ -207,7 +207,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
                         }
                         EgoContext ego = this.vehicle.getContextManager().getCategory("Ego", EgoContext.class);
                         // we are behind the candidate and check deceleration
-                        if (distanceCandidate.gt(this.vehicle.getParameters().getParameter(ParameterTypes.S0)))
+                        if (distanceCandidate.gt(this.vehicle.getParams().s0Scalar))
                         {
                             Acceleration cooperationAcceleration = neighbors.getGtuDeceleration(candidate);
                             Acceleration decelThreshold = getDynamicCooperativeDecelerationThreshold(candidate, dir);
@@ -274,7 +274,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
         Length leaderToCandidateDistance = candidateDistance.minus(distanceToFrontLeader).minus(leaderLength);
 
         double safetyDistanceReductionFactor =
-                this.vehicle.getParameters().getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange);
+                this.vehicle.getParams().safetyDistanceReductionFactorLaneChange;
         Length leaderDesiredHeadway = frontLeader.getCarFollowingModel()
                 .desiredHeadway(frontLeader.getParameters(), leaderSpeed).times(safetyDistanceReductionFactor);
 
@@ -323,8 +323,8 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
     public Acceleration getDynamicCooperativeDecelerationThreshold(HeadwayGtu candidate, LateralDirectionality dir)
             throws ParameterException
     {
-        Acceleration maxCoop = this.vehicle.getParameters().getParameter(MirovaParameters.cooperativeDecelerationThreshold);
-        Acceleration minCoop = this.vehicle.getParameters().getParameter(MirovaParameters.preemptiveCooperativeDeceleration);
+        Acceleration maxCoop = this.vehicle.getParams().cooperativeDecelerationThresholdScalar;
+        Acceleration minCoop = this.vehicle.getParams().preemptiveCooperativeDecelerationScalar;
 
         InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
         RelativeLane relLane = (dir != null && dir.isLeft()) ? RelativeLane.LEFT : RelativeLane.RIGHT;
@@ -392,8 +392,8 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
             EgoContext ego = this.vehicle.getContextManager().getCategory("Ego", EgoContext.class);
             NeighborsContext neighbors = this.vehicle.getContextManager().getCategory("Neighbors", NeighborsContext.class);
 
-            if (ego.getEgoSpeed().gt(this.vehicle.getParameters().getParameter(ParameterTypes.VCONG))
-                    && this.vehicle.getParameters().getParameter(MirovaParameters.cooperativeLaneChangesEnabled))
+            if (ego.getEgoSpeed().gt(this.vehicle.getParams().vCongScalar)
+                    && this.vehicle.getParams().cooperativeLaneChangesEnabled)
             {
                 LateralDirectionality oppositeDir = this.maneuverPattern.directionOfMergeCandidate.isLeft()
                         ? LateralDirectionality.RIGHT : LateralDirectionality.LEFT;
@@ -432,7 +432,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
                 else
                 {
                     aCooperation =
-                            this.vehicle.getParameters().getParameter(MirovaParameters.preemptiveCooperativeDeceleration);
+                            this.vehicle.getParams().preemptiveCooperativeDecelerationScalar;
                 }
             }
 
@@ -449,7 +449,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
             }
 
             Acceleration finalAcceleration = Acceleration.min(aCooperation, aDirectLeader);
-            return new SimpleOperationalPlan(finalAcceleration, this.vehicle.getParameters().getParameter(ParameterTypes.DT));
+            return new SimpleOperationalPlan(finalAcceleration, this.vehicle.getParams().dtScalar);
         }
 
         @Override
@@ -476,7 +476,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
                 return finishManeuver();
             }
 
-            if (candidate.getDistance().lt(this.vehicle.getParameters().getParameter(ParameterTypes.S0)))
+            if (candidate.getDistance().lt(this.vehicle.getParams().s0Scalar))
             {
                 if (ego.getEgoSpeed().ge(new Speed(5.0, SpeedUnit.KM_PER_HOUR)) || egoFrontGap.si >= 15.0)
                 {
@@ -508,7 +508,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
         {
             try
             {
-                double base = this.vehicle.getParameters().getParameter(MirovaParameters.DFREE);
+                double base = this.vehicle.getParams().dFree;
                 HeadwayGtu candidate = this.maneuverPattern.getActiveMergeCandidate();
                 InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
                 LateralDirectionality dir = this.maneuverPattern.directionOfMergeCandidate;

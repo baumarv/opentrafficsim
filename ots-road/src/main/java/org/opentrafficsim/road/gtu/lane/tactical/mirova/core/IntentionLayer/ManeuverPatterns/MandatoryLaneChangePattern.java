@@ -478,7 +478,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             return aApproach;
         }
 
-        double aFree = vehicle.getParameters().getParameter(ParameterTypes.A).si;
+        double aFree = vehicle.getParams().aSi;
         if (aFree <= 0.0 || ego.getCurrentCarFollowingAcceleration().si < UNRESTRICTED_CAR_FOLLOWING_SHARE * aFree)
         {
             return aApproach;
@@ -933,7 +933,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         protected HeadwayGtu getParallelBlock(final NeighborsContext neigh, final LateralDirectionality dir, final EgoContext ego)
                 throws ParameterException
         {
-            double factor = this.vehicle.getParameters().getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange);
+            double factor = this.vehicle.getParams().safetyDistanceReductionFactorLaneChange;
             return findBlockingVehicle(neigh, dir, ego, ego.getDesiredFrontHeadway(dir).times(factor), true);
         }
 
@@ -952,7 +952,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         protected HeadwayGtu getParallelBlockWithoutSpeedCheck(final NeighborsContext neigh, final LateralDirectionality dir, final EgoContext ego)
                 throws ParameterException
         {
-            double factor = this.vehicle.getParameters().getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange);
+            double factor = this.vehicle.getParams().safetyDistanceReductionFactorLaneChange;
             return findBlockingVehicle(neigh, dir, ego, ego.getDesiredFrontHeadway(dir).times(factor), false);
         }
     }
@@ -1000,14 +1000,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             super(p);
             this.active = true;
             this.maneuverPattern.setRunning(true);
-            try
-            {
-                this.SPEED_SMOOTHING_FACTOR = this.vehicle.getParameters().getParameter(ParameterTypes.DT).si * 0.25;
-            }
-            catch (ParameterException exception)
-            {
-                exception.printStackTrace();
-            }
+            this.SPEED_SMOOTHING_FACTOR = this.vehicle.getParams().dtSi * 0.25;
         }
 
         @Override
@@ -1295,7 +1288,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 RelativeLane targetRelativeLane =
                         this.pattern.getTargetDirection().isLeft() ? RelativeLane.LEFT : RelativeLane.RIGHT;
                 Speed macroSpeed = macro.getAverageSpeed(targetRelativeLane);
-                Speed vCong = this.vehicle.getParameters().getParameter(ParameterTypes.VCONG);
+                Speed vCong = this.vehicle.getParams().vCongScalar;
                 if (macroSpeed.lt(vCong) && inducedDecel.si > 0)
                 {
                     InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
@@ -2089,7 +2082,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             // {
             // this.slowLaneChange = true;
             // this.vehicle.getParameters().setParameterResettable(ParameterTypes.LCDUR,
-            // this.vehicle.getParameters().getParameter(MirovaParameters.congestedLaneChangeDuration));
+            // this.vehicle.getParams().congestedLaneChangeDurationScalar);
             // }
         }
 

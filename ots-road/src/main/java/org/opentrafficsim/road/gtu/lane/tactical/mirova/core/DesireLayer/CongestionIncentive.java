@@ -44,7 +44,7 @@ public class CongestionIncentive extends DesireIncentive
     public CongestionIncentive(final MirovaTacticalPlanner vehicle) throws OperationalPlanException, ParameterException
     {
         super(vehicle);
-        this.standstillThreshold = vehicle.getParameters().getParameter(MirovaParameters.standstill_speed_threshold);
+        this.standstillThreshold = vehicle.getParams().standstillSpeedThresholdScalar;
     }
 
     /**

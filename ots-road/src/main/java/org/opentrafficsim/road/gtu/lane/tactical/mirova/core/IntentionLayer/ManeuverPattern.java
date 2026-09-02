@@ -60,15 +60,10 @@ public abstract class ManeuverPattern
     protected ManeuverPattern(final MirovaTacticalPlanner vehicle)
     {
         this.vehicle = vehicle;
-        try
-        {
-            this.patternSpecificTimestep = this.vehicle.getParameters().getParameter(ParameterTypes.DT);
-        }
-        catch (ParameterException exception)
-        {
-            // Fallback: Use standard duration or leave null if DT parameter is not set
-            exception.printStackTrace();
-        }
+        // Reading DT off the snapshot cannot fail: the snapshot resolved it when the vehicle was built, and a vehicle
+        // whose DT was missing would not have got this far. The try/catch that stood here, which printed a stack trace
+        // and left the timestep null, is therefore gone along with the lookup that could throw.
+        this.patternSpecificTimestep = this.vehicle.getParams().dtScalar;
     }
 
     // ----------------------------------------------------------------------

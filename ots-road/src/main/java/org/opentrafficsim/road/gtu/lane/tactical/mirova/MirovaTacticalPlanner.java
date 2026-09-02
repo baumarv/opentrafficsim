@@ -185,7 +185,7 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
             return OperationalPlan.standStill(getGtu(), locationAtStartTime, startTime, Duration.ZERO);
         }
 
-        Duration dt = getGtu().getParameters().getParameter(ParameterTypes.DT);
+        Duration dt = getParams().dtScalar;
         SimpleOperationalPlan plan;
         Boolean justCreated = (startTime.si < this.createTime.si + 1.0);
 
@@ -240,7 +240,7 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         // 1b. Check for deadlock diffusion (VISSIM-style vehicle removal)
         if (this.diffusionWatchdog.check())
         {
-            Duration dt = this.getGtu().getParameters().getParameter(ParameterTypes.DT);
+            Duration dt = getParams().dtScalar;
             return new SimpleOperationalPlan(Acceleration.ZERO, dt, LateralDirectionality.NONE);
         }
 
@@ -273,7 +273,7 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
 
             EgoContext egoContext = getContextManager().getCategory("Ego", EgoContext.class);
             Acceleration cfAcceleration = egoContext.getCurrentCarFollowingAcceleration();
-            Duration dt = this.getGtu().getParameters().getParameter(ParameterTypes.DT);
+            Duration dt = getParams().dtScalar;
 
             this.operationalPlan = new SimpleOperationalPlan(cfAcceleration, dt, LateralDirectionality.NONE);
         }

@@ -349,7 +349,7 @@ public class GapCandidate
             return null;
 
         Duration tauLC = params.getParameter(ParameterTypes.LCDUR);
-        Length dxMin = params.getParameter(ParameterTypes.S0);
+        Length dxMin = this.vehicle.getParams().s0Scalar;
         Duration Tdes = params.getParameter(ParameterTypes.T);
 
         Duration tauELeader = computeTauELeader(xL, xE, xM, this.leader.getSpeed(), vM, dxMin, Tdes);
@@ -397,7 +397,7 @@ public class GapCandidate
     private Length[] getPositions() throws ParameterException, GtuException, NetworkException
     {
         InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
-        Length emergencyBuffer = this.vehicle.getParameters().getParameter(MirovaParameters.emergencyStoppingDistance);
+        Length emergencyBuffer = this.vehicle.getParams().emergencyStoppingDistanceScalar;
         Length lM = this.vehicle.getGtu().getLength();
 
         // Define Ego Center strictly at x = 0.0
