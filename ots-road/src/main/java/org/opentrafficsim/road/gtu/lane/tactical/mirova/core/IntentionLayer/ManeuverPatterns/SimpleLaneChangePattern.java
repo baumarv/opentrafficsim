@@ -36,6 +36,12 @@ import org.opentrafficsim.road.network.lane.Lane;
  */
 public class SimpleLaneChangePattern extends ManeuverPattern
 {
+
+    /** Speed above which the ego counts as moving rather than standing [m/s]. */
+    private static final double MOVING_SPEED_SI = 1.0;
+
+    /** Speed the ego must retain after the manoeuvre for a discretionary lane change to be worth it [m/s]. */
+    private static final double LANE_CHANGE_MIN_SPEED_SI = 5.0;
     /** The target direction for the lane change. */
     private LateralDirectionality targetDirection = LateralDirectionality.NONE;
 
@@ -89,8 +95,8 @@ public class SimpleLaneChangePattern extends ManeuverPattern
             // Discretionary LCs require the vehicle to be physically mobile. When stuck in congestion
             // (near-zero speed AND no positive acceleration out of the jam), suppress the pattern so
             // cooperative parallel patterns (e.g. GapOpener) can operate without being locked out.
-            boolean canMove = ego.getEgoSpeed().gt(Speed.instantiateSI(1.0))
-                    || ego.getCurrentCarFollowingAcceleration().gt(Acceleration.instantiateSI(0.0));
+            boolean canMove = ego.getEgoSpeed().si > MOVING_SPEED_SI
+                    || ego.getCurrentCarFollowingAcceleration().gt(Acceleration.ZERO);
 
             return canMove && (this.targetDirection.isLeft() || this.targetDirection.isRight())
                     && neigh.getIfLaneChangePossible(this.targetDirection);
@@ -208,7 +214,7 @@ public class SimpleLaneChangePattern extends ManeuverPattern
             {
                 Speed resultingSpeed = egoSpeed.plus(minAcc.times(this.maneuverPattern.getPatternSpecificTimestep()));
                 this.startCondition =
-                        resultingSpeed.gt(Speed.instantiateSI(5.0)) && neighborsCtx.getIfLaneChangePossible(this.direction);
+                        resultingSpeed.si > LANE_CHANGE_MIN_SPEED_SI && neighborsCtx.getIfLaneChangePossible(this.direction);
             }
 
             if (!this.startCondition)
@@ -279,8 +285,8 @@ public class SimpleLaneChangePattern extends ManeuverPattern
             {
                 EgoContext ego = this.vehicle.getContext(EgoContext.class);
                 // A vehicle that cannot physically move has no utility for a discretionary LC.
-                boolean canMove = ego.getEgoSpeed().gt(Speed.instantiateSI(1.0))
-                        || ego.getCurrentCarFollowingAcceleration().gt(Acceleration.instantiateSI(0.0));
+                boolean canMove = ego.getEgoSpeed().si > MOVING_SPEED_SI
+                        || ego.getCurrentCarFollowingAcceleration().gt(Acceleration.ZERO);
                 if (!canMove)
                 {
                     return 0.0;

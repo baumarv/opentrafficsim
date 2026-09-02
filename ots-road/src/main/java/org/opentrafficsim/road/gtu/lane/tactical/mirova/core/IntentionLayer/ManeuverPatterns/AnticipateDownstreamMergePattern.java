@@ -49,6 +49,9 @@ import org.opentrafficsim.road.network.lane.Lane;
  */
 public class AnticipateDownstreamMergePattern extends ManeuverPattern implements Serializable
 {
+
+    /** Floor under the anticipated downstream speed, so a stalled sample does not brake the ego to a halt. */
+    private static final Speed MIN_ANTICIPATED_SPEED = new Speed(30.0, SpeedUnit.KM_PER_HOUR);
     /** Serial version UID. */
     private static final long serialVersionUID = 20260507L;
 
@@ -327,7 +330,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                         if (downstreamSpeed.lt(this.vehicle.getParams().vCongScalar))
                         {
                             aAnticipation = MirovaCarFollowingUtil.approachTargetSpeed(this.vehicle, Length.ZERO,
-                                    Speed.max(downstreamSpeed, new Speed(30.0, SpeedUnit.KM_PER_HOUR)));
+                                    Speed.max(downstreamSpeed, MIN_ANTICIPATED_SPEED));
                         }
                     }
                 }

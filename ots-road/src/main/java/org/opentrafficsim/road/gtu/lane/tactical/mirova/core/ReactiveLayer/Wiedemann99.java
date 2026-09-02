@@ -165,7 +165,7 @@ public class Wiedemann99 extends AbstractWiedemannModel
     protected Speed computeSdvc(final Speed sdv, final Parameters p, final Speed vLeader) throws ParameterException
     {
         Speed cc4 = p.getParameter(CC4);
-        return (vLeader.si > 0) ? Speed.instantiateSI(cc4.si - sdv.si) : Speed.instantiateSI(0.0);
+        return (vLeader.si > 0) ? Speed.instantiateSI(cc4.si - sdv.si) : Speed.ZERO;
     }
 
     @Override

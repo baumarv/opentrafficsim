@@ -82,6 +82,15 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
     /** Distance threshold to consider cooperation near a lane drop in slow traffic. */
     private static final Length DISTANCE_THRESHOLD_MERGE_COOPERATION = Length.instantiateSI(250.0);
 
+    /** Ego speed below which cooperation is judged against the standing-queue criterion instead. */
+    private static final Speed COOPERATION_STANDSTILL_SPEED = new Speed(5.0, SpeedUnit.KM_PER_HOUR);
+
+    /** The cooperative headway reserve as a scalar, built once rather than on every tick of every cooperating vehicle. */
+    private static final Duration COOP_HEADWAY_RESERVE_SCALAR = Duration.instantiateSI(COOP_HEADWAY_RESERVE);
+
+    /** The decay constant of the cooperative headway reserve as a scalar. */
+    private static final Duration COOP_RESERVE_TAU_SCALAR = Duration.instantiateSI(COOP_RESERVE_TAU);
+
     /** Time-to-lane-end threshold for cooperation activation at free-flow speeds. */
     private static final Duration TIME_THRESHOLD_MERGE_COOPERATION = Duration.instantiateSI(30.0);
 
@@ -233,7 +242,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
                         }
                         // we are parallel to the candidate, but since we have not much space to drive forward, we can also
                         // consider cooperation
-                        else if (ego.getEgoSpeed().lt(new Speed(5.0, SpeedUnit.KM_PER_HOUR)) && egoFrontGap.si < 15.0)
+                        else if (ego.getEgoSpeed().lt(COOPERATION_STANDSTILL_SPEED) && egoFrontGap.si < 15.0)
                         {
                             this.activeMergeCandidateId = candidate.getId();
                             this.directionOfMergeCandidate = dir;
@@ -416,7 +425,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
 
             EgoContext ego = this.vehicle.getContextManager().getCategory("Ego", EgoContext.class);
             Acceleration aDirectLeader = ego.getCurrentCarFollowingAcceleration();
-            Acceleration aCooperation = new Acceleration(Double.POSITIVE_INFINITY, AccelerationUnit.METER_PER_SECOND_2);
+            Acceleration aCooperation = Acceleration.POSITIVE_INFINITY;
 
             HeadwayGtu candidate = this.maneuverPattern.activeMergeCandidate;
             if (candidate != null)
@@ -442,8 +451,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
                 // matters to the merger is the ego's front gap, and this opens it without handing the ego's speed to
                 // a vehicle on the ramp. The reserve decays after the cooperation ends, so the gap is released
                 // gradually rather than closed the moment the candidate stops indicating.
-                ego.reserveHeadwayForCooperation(Duration.instantiateSI(COOP_HEADWAY_RESERVE),
-                        Duration.instantiateSI(COOP_RESERVE_TAU));
+                ego.reserveHeadwayForCooperation(COOP_HEADWAY_RESERVE_SCALAR, COOP_RESERVE_TAU_SCALAR);
                 return new SimpleOperationalPlan(ego.getCurrentCarFollowingAcceleration(),
                         this.maneuverPattern.getPatternSpecificTimestep());
             }
@@ -478,7 +486,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
 
             if (candidate.getDistance().lt(this.vehicle.getParams().s0Scalar))
             {
-                if (ego.getEgoSpeed().ge(new Speed(5.0, SpeedUnit.KM_PER_HOUR)) || egoFrontGap.si >= 15.0)
+                if (ego.getEgoSpeed().ge(COOPERATION_STANDSTILL_SPEED) || egoFrontGap.si >= 15.0)
                 {
                     // Parallel cooperation is aborted once we have enough space to drive forward
                     return finishManeuver();
