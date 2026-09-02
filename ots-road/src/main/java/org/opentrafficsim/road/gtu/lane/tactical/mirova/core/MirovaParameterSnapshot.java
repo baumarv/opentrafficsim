@@ -83,6 +83,9 @@ public final class MirovaParameterSnapshot implements Serializable
     /** Speed threshold below which traffic counts as congested [m/s]. */
     public final double vCongSi;
 
+    /** Speed threshold below which traffic counts as congested, as a scalar. */
+    public final Speed vCongScalar;
+
     /** Stopping distance, i.e. desired gap at standstill [m]. */
     public final double s0Si;
 
@@ -116,6 +119,9 @@ public final class MirovaParameterSnapshot implements Serializable
 
     /** Additional distance required for emergency stopping maneuvers [m]. */
     public final double emergencyStoppingDistanceSi;
+
+    /** Additional distance required for emergency stopping maneuvers, as a scalar. */
+    public final Length emergencyStoppingDistanceScalar;
 
     /** Time after which a stopped vehicle is removed to prevent gridlock [s]. */
     public final double vehicleDiffusionTimeSi;
@@ -158,6 +164,9 @@ public final class MirovaParameterSnapshot implements Serializable
 
     /** Speed below which the vehicle counts as standing still [m/s]. */
     public final double standstillSpeedThresholdSi;
+
+    /** Speed below which the vehicle counts as standing still, as a scalar. */
+    public final Speed standstillSpeedThresholdScalar;
 
     // ----------------------------------------------------------------------
     // Social interaction
@@ -241,6 +250,9 @@ public final class MirovaParameterSnapshot implements Serializable
     /** Time-to-collision threshold below which undercutting is prevented [s]. */
     public final double undercuttingTtcThresholdSi;
 
+    /** Time-to-collision threshold below which undercutting is prevented, as a scalar. */
+    public final Duration undercuttingTtcThresholdScalar;
+
     /** Spatial relaxation time constant tau_s [s]. */
     public final double relaxationTauSpaceSi;
 
@@ -293,7 +305,8 @@ public final class MirovaParameterSnapshot implements Serializable
     {
         this.dtScalar = p.getParameter(ParameterTypes.DT);
         this.dtSi = this.dtScalar.si;
-        this.vCongSi = p.getParameter(ParameterTypes.VCONG).si;
+        this.vCongScalar = p.getParameter(ParameterTypes.VCONG);
+        this.vCongSi = this.vCongScalar.si;
         this.s0Scalar = p.getParameter(ParameterTypes.S0);
         this.s0Si = this.s0Scalar.si;
         this.aSi = p.getParameter(ParameterTypes.A).si;
@@ -304,7 +317,8 @@ public final class MirovaParameterSnapshot implements Serializable
         this.dFree = p.getParameter(MirovaParameters.DFREE);
         this.dMand = p.getParameter(MirovaParameters.DMAND);
         this.dSearch = p.getParameter(MirovaParameters.DSEARCH);
-        this.emergencyStoppingDistanceSi = p.getParameter(MirovaParameters.emergencyStoppingDistance).si;
+        this.emergencyStoppingDistanceScalar = p.getParameter(MirovaParameters.emergencyStoppingDistance);
+        this.emergencyStoppingDistanceSi = this.emergencyStoppingDistanceScalar.si;
         this.vehicleDiffusionTimeSi = p.getParameter(MirovaParameters.vehicleDiffusionTime).si;
         this.mandatoryLaneChangeLookAheadDistanceSi =
                 p.getParameter(MirovaParameters.mandatoryLaneChangeLookAheadDistance).si;
@@ -319,7 +333,8 @@ public final class MirovaParameterSnapshot implements Serializable
         this.aMaxScalar = p.getParameter(MirovaParameters.A_MAX);
         this.aMaxSi = this.aMaxScalar.si;
         this.accelerationScalingFactor = p.getParameter(MirovaParameters.ACCELERATION_SCALING_FACTOR);
-        this.standstillSpeedThresholdSi = p.getParameter(MirovaParameters.standstill_speed_threshold).si;
+        this.standstillSpeedThresholdScalar = p.getParameter(MirovaParameters.standstill_speed_threshold);
+        this.standstillSpeedThresholdSi = this.standstillSpeedThresholdScalar.si;
 
         this.vGainSi = p.getParameter(MirovaParameters.vGain).si;
         this.vCritSi = p.getParameter(MirovaParameters.vCrit).si;
@@ -347,7 +362,8 @@ public final class MirovaParameterSnapshot implements Serializable
                 p.getParameter(MirovaParameters.considerGapOpeningLookaheadDistance);
         this.considerGapOpeningLookaheadDistanceSi = this.considerGapOpeningLookaheadDistanceScalar.si;
 
-        this.undercuttingTtcThresholdSi = p.getParameter(MirovaParameters.undercuttingTTCThreshold).si;
+        this.undercuttingTtcThresholdScalar = p.getParameter(MirovaParameters.undercuttingTTCThreshold);
+        this.undercuttingTtcThresholdSi = this.undercuttingTtcThresholdScalar.si;
         this.relaxationTauSpaceScalar = p.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
         this.relaxationTauSpaceSi = this.relaxationTauSpaceScalar.si;
         this.relaxationTauSpeedScalar = p.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
@@ -389,6 +405,22 @@ public final class MirovaParameterSnapshot implements Serializable
     public static MirovaParameterSnapshot of(final Parameters p) throws ParameterException
     {
         return p.getParameter(TYPE);
+    }
+
+    /**
+     * Returns the snapshot installed in the given parameter set, or {@code null} if there is none.
+     * <p>
+     * Unlike {@link #of}, this tolerates a vehicle that was not built through the MiRoVA tactical planner. That case is real:
+     * {@code MirovaIdmPlus} is also used behind a plain {@code LmrsFactory}, whose vehicles carry neither a snapshot nor the
+     * MiRoVA parameters it is built from. Call sites that can be reached by such a vehicle must use this method and keep a
+     * fallback path reading the parameters directly.
+     * </p>
+     * @param p the parameter set of the vehicle
+     * @return the snapshot of this vehicle, or {@code null} if none was installed
+     */
+    public static MirovaParameterSnapshot ofOrNull(final Parameters p)
+    {
+        return p.getParameterOrNull(TYPE);
     }
 
     /**
