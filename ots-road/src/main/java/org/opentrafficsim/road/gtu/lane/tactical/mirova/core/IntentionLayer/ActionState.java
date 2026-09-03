@@ -8,6 +8,7 @@ import org.opentrafficsim.core.gtu.GtuException;
 import org.opentrafficsim.core.gtu.plan.operational.OperationalPlanException;
 import org.opentrafficsim.core.network.NetworkException;
 import org.opentrafficsim.road.gtu.lane.plan.operational.SimpleOperationalPlan;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.FsmTraceRecorder;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoContext;
 
@@ -104,6 +105,7 @@ public abstract class ActionState
         this.maneuverPattern.setCurrentActionState(this);
         this.maneuverPattern.setRunning(true);
         this.vehicle.setCurrentActionState(this);
+        FsmTraceRecorder.noteStateEntered(this);
         onEntry();
     }
 
@@ -258,11 +260,13 @@ public abstract class ActionState
     public final ActionState next()
             throws OperationalPlanException, ParameterException, GtuException, NetworkException
     {
-        for (Transition transition : getTransitions())
+        List<Transition> rules = getTransitions();
+        for (int index = 0; index < rules.size(); index++)
         {
-            ActionState target = transition.evaluate();
+            ActionState target = rules.get(index).evaluate();
             if (target != null)
             {
+                FsmTraceRecorder.noteTransitionTaken(this, index);
                 return target;
             }
         }

@@ -235,9 +235,9 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
             // The abort() this state used to have answered null unconditionally, so it was never a rule; it is gone rather
             // than carried over as one that can never apply.
             return List.of(
-                    new Transition("evasive change away from the merge side possible", "PerformLaneChange",
+                    new Transition("evasive change away from the merge side possible", "PerformLaneChangeState",
                             this::evasiveChangePossible),
-                    new Transition("ramp now directly adjacent", "NearAnticipation", this::rampNowAdjacent));
+                    new Transition("ramp now directly adjacent", "NearAnticipationState", this::rampNowAdjacent));
         }
 
         /**

@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -69,6 +70,32 @@ public final class FsmTraceRecorder
 
     /** Collected rows, sorted only when the trace is written. */
     private final List<Row> rows = new ArrayList<>();
+
+    /**
+     * One instance of every action state the run entered, by class name.
+     * <p>
+     * Kept so that the transition graph can be exported from the same run that produced the trace. A state's table is built
+     * by the instance, and several of its rules are inherited, so describing the graph needs live states rather than class
+     * literals -- and taking them from a run means the export shows what the run actually reached, rather than what someone
+     * believed was reachable.
+     * </p>
+     */
+    private final Map<String, ActionState> statesEntered = new LinkedHashMap<>();
+
+    /**
+     * How often each transition rule was the one that fired, keyed by state class name and the rule's position in that
+     * state's table.
+     * <p>
+     * A rule's declared existence and its use are different facts, and only the first can be read off the code. Counting
+     * the second turns the exported graph from a picture of what the machine may do into a picture of what it did.
+     * </p>
+     * <p>
+     * The count belongs to one run of one scenario at one seed, and nothing more. A rule that never fired in the merge
+     * case fires constantly in Freiburg, because the merge case never reaches the congested branch at all. Read as
+     * "unused", such a number is an invitation to delete working code.
+     * </p>
+     */
+    private final Map<String, Integer> transitionsTaken = new LinkedHashMap<>();
 
     /**
      * Creates a recorder writing to the given file.
@@ -151,6 +178,59 @@ public final class FsmTraceRecorder
         }
         recorder.rows.add(new Row(time.si, gtuId, name(pattern), name(state), acceleration == null ? Double.NaN
                 : acceleration.si, indicator, laneChange));
+    }
+
+    /**
+     * Notes that a state was entered, keeping the first instance of each class. Does nothing unless a recording is running.
+     * @param state the state being entered
+     */
+    public static void noteStateEntered(final ActionState state)
+    {
+        FsmTraceRecorder recorder = active;
+        if (recorder == null)
+        {
+            return;
+        }
+        recorder.statesEntered.putIfAbsent(state.getClass().getName(), state);
+    }
+
+    /**
+     * Notes that a rule fired. Does nothing unless a recording is running.
+     * @param state the state the rule belongs to
+     * @param ruleIndex the rule's zero-based position in that state's table
+     */
+    public static void noteTransitionTaken(final ActionState state, final int ruleIndex)
+    {
+        FsmTraceRecorder recorder = active;
+        if (recorder == null)
+        {
+            return;
+        }
+        String key = state.getClass().getName() + "#" + ruleIndex;
+        recorder.transitionsTaken.merge(key, 1, Integer::sum);
+    }
+
+    /**
+     * Returns how often a given rule fired during the current recording.
+     * @param state the state the rule belongs to
+     * @param ruleIndex the rule's zero-based position in that state's table
+     * @return the number of times it fired, zero if never or if no recording is running
+     */
+    public static int getTimesTaken(final ActionState state, final int ruleIndex)
+    {
+        FsmTraceRecorder recorder = active;
+        return recorder == null ? 0
+                : recorder.transitionsTaken.getOrDefault(state.getClass().getName() + "#" + ruleIndex, 0);
+    }
+
+    /**
+     * Returns one instance of every action state the current recording has seen entered, in the order they first appeared.
+     * @return the states, or an empty list when no recording is running
+     */
+    public static List<ActionState> getStatesEntered()
+    {
+        FsmTraceRecorder recorder = active;
+        return recorder == null ? Collections.emptyList() : new ArrayList<>(recorder.statesEntered.values());
     }
 
     /**

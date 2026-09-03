@@ -763,8 +763,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         protected List<Transition> commonTransitions()
         {
             return List.of(desireGoneRule(),
-                    new Transition("gap open and ego ready to take it", "ExecuteLaneChange", this::gapOpenAndReady),
-                    new Transition("no longer able to stop before the lane ends", "EmergencyStop", this::cannotStopInTime));
+                    new Transition("gap open and ego ready to take it", "ExecuteLaneChangeState", this::gapOpenAndReady),
+                    new Transition("no longer able to stop before the lane ends", "EmergencyStopState", this::cannotStopInTime));
         }
 
         /**
@@ -773,7 +773,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
          */
         protected Transition enterCongestedRule()
         {
-            return new Transition("ego has dropped into the congested regime", "CongestedMerge", this::congestionEntered);
+            return new Transition("ego has dropped into the congested regime", "CongestedMergeState", this::congestionEntered);
         }
 
         /**
@@ -782,7 +782,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
          */
         protected Transition leaveCongestedRule()
         {
-            return new Transition("ego speed recovered", "SynchroniseMergeSpeed", this::congestionRecovered);
+            return new Transition("ego speed recovered", "SynchroniseMergeSpeedState", this::congestionRecovered);
         }
 
         /**
@@ -1199,7 +1199,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             // this state carries its own end condition rather than the manoeuvre-wide one.
             return List.of(
                     new Transition("merge is still too far off to anticipate", "end", this::mergeStillFarOff),
-                    new Transition("acceleration lane reached, or the ramp is running out", "-", this::phaseOver));
+                    new Transition("acceleration lane reached, or the ramp is running out",
+                            "SynchroniseMergeSpeedState|EmergencyStopState", this::phaseOver));
         }
 
         /**
@@ -1359,7 +1360,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         protected List<Transition> transitions()
         {
             List<Transition> rules = new ArrayList<>(commonTransitions());
-            rules.add(new Transition("something is in the way of the merge", "-", this::resolveObstacle));
+            rules.add(new Transition("something is in the way of the merge",
+                    "CongestedMergeState|SolveParallelVehicleState|MatchLeaderSpeedState", this::resolveObstacle));
             return rules;
         }
 
@@ -1494,7 +1496,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         {
             List<Transition> rules = new ArrayList<>(commonTransitions());
             rules.add(enterCongestedRule());
-            rules.add(new Transition("leader out of reach, or a vehicle alongside", "-", this::reconsiderTarget));
+            rules.add(new Transition("leader out of reach, or a vehicle alongside",
+                    "SynchroniseMergeSpeedState|SolveParallelVehicleState", this::reconsiderTarget));
             return rules;
         }
 
@@ -1699,7 +1702,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         {
             List<Transition> rules = new ArrayList<>(commonTransitions());
             rules.add(enterCongestedRule());
-            rules.add(new Transition("the vehicle alongside has cleared", "-", this::conflictResolved));
+            rules.add(new Transition("the vehicle alongside has cleared",
+                    "MatchLeaderSpeedState|SynchroniseMergeSpeedState", this::conflictResolved));
             return rules;
         }
 
@@ -1800,7 +1804,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         {
             List<Transition> rules = new ArrayList<>(commonTransitions());
             rules.add(leaveCongestedRule());
-            rules.add(new Transition("pick the congested sub-state", "-", this::routeCongested));
+            rules.add(new Transition("pick the congested sub-state", "CongestedCreepState|CongestedFollowLeaderState",
+                    this::routeCongested));
             return rules;
         }
 
@@ -1911,7 +1916,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         protected List<Transition> transitions()
         {
             List<Transition> rules = new ArrayList<>(commonTransitions());
-            rules.add(new Transition("the vehicle alongside has cleared", "CongestedMerge", this::parallelBlockCleared));
+            rules.add(new Transition("the vehicle alongside has cleared", "CongestedMergeState", this::parallelBlockCleared));
             return rules;
         }
 
@@ -2033,7 +2038,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         {
             List<Transition> rules = new ArrayList<>(commonTransitions());
             rules.add(leaveCongestedRule());
-            rules.add(new Transition("a vehicle appeared alongside", "CongestedMerge", this::congestionChanged));
+            rules.add(new Transition("a vehicle appeared alongside", "CongestedMergeState", this::congestionChanged));
             return rules;
         }
 
@@ -2237,7 +2242,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             // and the stop rule below it would be circular here. This was previously expressed by EmergencyStopState
             // simply not calling the shared helper, which read as an omission rather than as a decision.
             return List.of(desireGoneRule(),
-                    new Transition("a gap has appeared after all", "ExecuteLaneChange", this::gapAppeared));
+                    new Transition("a gap has appeared after all", "ExecuteLaneChangeState", this::gapAppeared));
         }
 
         /**

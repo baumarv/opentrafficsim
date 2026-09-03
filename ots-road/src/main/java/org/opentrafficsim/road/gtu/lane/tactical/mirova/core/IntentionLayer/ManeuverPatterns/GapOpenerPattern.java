@@ -402,7 +402,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
         {
             return List.of(
                     new Transition("cooperation no longer called for", "end", this::cooperationNoLongerNeeded),
-                    new Transition("evasive change away from the merge side possible", "PerformLaneChange",
+                    new Transition("evasive change away from the merge side possible", "PerformLaneChangeState",
                             this::evasiveChangePossible));
         }
 
