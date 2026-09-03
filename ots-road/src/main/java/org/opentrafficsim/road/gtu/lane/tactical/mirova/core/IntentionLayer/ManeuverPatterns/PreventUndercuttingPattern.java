@@ -283,8 +283,8 @@ public class PreventUndercuttingPattern extends ManeuverPattern
             return List.of(
                     new Transition("undercutting situation resolved", "end",
                             () -> undercuttingResolved(this.vehicle, (PreventUndercuttingPattern) this.maneuverPattern)),
-                    new Transition("gap open on the left and wanted", "PerformLaneChange", this::gapOpenAndWanted),
-                    new Transition("closing on the left leader with room behind it", "PrepareLaneChange",
+                    new Transition("gap open on the left and wanted", "PerformLaneChangeState", this::gapOpenAndWanted),
+                    new Transition("closing on the left leader with room behind it", "PrepareLaneChangeState",
                             this::worthPreparing));
         }
 
@@ -460,8 +460,8 @@ public class PreventUndercuttingPattern extends ManeuverPattern
             return List.of(
                     new Transition("undercutting situation resolved", "end",
                             () -> undercuttingResolved(this.vehicle, (PreventUndercuttingPattern) this.maneuverPattern)),
-                    new Transition("gap open on the left", "PerformLaneChange", this::gapNowOpen),
-                    new Transition("gap behind the left leader lost again", "Shadowing", this::gapLostAgain));
+                    new Transition("gap open on the left", "PerformLaneChangeState", this::gapNowOpen),
+                    new Transition("gap behind the left leader lost again", "ShadowingState", this::gapLostAgain));
         }
 
         /**
