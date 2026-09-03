@@ -37,9 +37,6 @@ import org.opentrafficsim.road.network.speed.SpeedLimitInfo;
 public final class MirovaCarFollowingUtil
 {
 
-    /** Leader deceleration above which a cut-in is still considered safe enough to relax against. */
-    private static final Acceleration RELAXATION_MIN_LEADER_ACCELERATION = Acceleration.instantiateSI(-1.0);
-
     /** Leader speed below which relaxation against a new leader is not applied. */
     private static final Speed RELAXATION_MIN_LEADER_SPEED = new Speed(10.0, SpeedUnit.KM_PER_HOUR);
 
@@ -112,7 +109,7 @@ public final class MirovaCarFollowingUtil
         RelaxationState activeRelaxation = ego.getActiveRelaxationForLeader(leaderId);
         if (activeRelaxation != null)
         {
-            if (leader.getAcceleration().ge(RELAXATION_MIN_LEADER_ACCELERATION)
+            if (leader.getAcceleration().ge(vehicle.getParams().relaxationAbortDecelerationScalar)
                     && perceivedLeaderSpeed.si >= RELAXATION_MIN_LEADER_SPEED.si)
             {
                 perceivedDistance = perceivedDistance.plus(activeRelaxation.getVirtualSpaceBuffer(now));
