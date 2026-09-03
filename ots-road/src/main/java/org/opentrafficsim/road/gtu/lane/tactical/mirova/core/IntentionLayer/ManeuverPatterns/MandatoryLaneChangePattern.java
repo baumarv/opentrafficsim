@@ -110,8 +110,19 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     /** Deceleration beyond which stopping at the end of the lane is no longer something a driver would choose. */
     private static final Acceleration CRITICAL_STOP_DECELERATION = Acceleration.instantiateSI(-5.0);
 
-    /** Ego speed below which the merge is treated as taking place in a congested queue. */
+    /**
+     * Ego speed below which the merge is treated as taking place in a congested queue.
+     * <p>
+     * This and {@link #RECOVERY_SPEED_THRESHOLD} are the two halves of one hysteresis: the manoeuvre drops into the
+     * congested branch below the first and climbs out above the second, and the gap between them is what keeps a vehicle
+     * hovering around 15 km/h from oscillating between the two regimes. They were compared against in four separate places,
+     * which is how a hysteresis quietly becomes two unrelated thresholds.
+     * </p>
+     */
     private static final Speed CONGESTED_EGO_SPEED = new Speed(15.0, SpeedUnit.KM_PER_HOUR);
+
+    /** Ego speed above which the merge leaves the congested branch again. The upper half of the hysteresis. */
+    private static final Speed RECOVERY_SPEED_THRESHOLD = new Speed(30.0, SpeedUnit.KM_PER_HOUR);
 
     /** Deceleration beyond which the car-following demand counts as critical and suppresses speed matching. */
     private static final Acceleration CRITICAL_DECELERATION = Acceleration.instantiateSI(-2.0);
@@ -757,6 +768,46 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         /**
+         * The rule that takes the manoeuvre into the congested branch. Named by the states that are outside it.
+         * @return the rule
+         */
+        protected Transition enterCongestedRule()
+        {
+            return new Transition("ego has dropped into the congested regime", "CongestedMerge", this::congestionEntered);
+        }
+
+        /**
+         * The rule that takes the manoeuvre back out of the congested branch. Named by the states that are inside it.
+         * @return the rule
+         */
+        protected Transition leaveCongestedRule()
+        {
+            return new Transition("ego speed recovered", "SynchroniseMergeSpeed", this::congestionRecovered);
+        }
+
+        /**
+         * Enters the congested branch once the ego has slowed to queue speeds, where there is no flow to synchronise with
+         * and merging becomes a matter of creeping into a gap rather than matching a speed.
+         * @return the congested decision node, or {@code null} while the ego is still moving with the traffic
+         */
+        private ActionState congestionEntered()
+        {
+            return this.vehicle.getContext(EgoContext.class).getEgoSpeed().si < CONGESTED_EGO_SPEED.si
+                    ? new CongestedMergeState(this.maneuverPattern) : null;
+        }
+
+        /**
+         * Leaves the congested branch once the ego is moving again. The threshold is well above the one for entering, so a
+         * vehicle hovering around queue speed does not oscillate between the two regimes.
+         * @return the speed-matching state, or {@code null} while the ego is still crawling
+         */
+        private ActionState congestionRecovered()
+        {
+            return this.vehicle.getContext(EgoContext.class).getEgoSpeed().gt(RECOVERY_SPEED_THRESHOLD)
+                    ? new SynchroniseMergeSpeedState(this.maneuverPattern) : null;
+        }
+
+        /**
          * The rule that ends the manoeuvre when the reason for it has gone away. Separate because
          * {@code EmergencyStopState} takes this rule without the others.
          * @return the rule
@@ -875,7 +926,9 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             Length distToLaneEnd = this.vehicle.getContext(InfrastructureContext.class).getRouteDistanceToLaneEnd();
 
 
-            // --> NEU: Übergang in den Congested Merge State bei zähfließendem Verkehr (< 15 km/h)
+            // The one placement of the congested rule that is not hoisted into the table. It sits below the open-gap
+            // test above: a slow ego with an open gap has nothing to resolve and stays where it is, whereas the hoisted
+            // rule would route it into the congested branch. The states that do hoist it have no such test before it.
             Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
             if (egoSpeed.si < CONGESTED_EGO_SPEED.si)
             {
@@ -1440,7 +1493,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         protected List<Transition> transitions()
         {
             List<Transition> rules = new ArrayList<>(commonTransitions());
-            rules.add(new Transition("congestion, an unreachable leader, or a vehicle alongside", "-", this::reconsiderTarget));
+            rules.add(enterCongestedRule());
+            rules.add(new Transition("leader out of reach, or a vehicle alongside", "-", this::reconsiderTarget));
             return rules;
         }
 
@@ -1461,15 +1515,9 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
 
             Length distToLaneEnd = this.vehicle.getContext(InfrastructureContext.class).getRouteDistanceToLaneEnd();
 
-            // --> NEU: Übergang in den Congested Merge State bei zähfließendem Verkehr (< 15 km/h)
-            Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
-            if (egoSpeed.si < CONGESTED_EGO_SPEED.si)
-            {
-                return new CongestedMergeState(this.maneuverPattern);
-            }
-
             HeadwayGtu leader = neigh.getLeader(dir);
             EgoContext ego = this.vehicle.getContext(EgoContext.class);
+            Speed egoSpeed = ego.getEgoSpeed();
 
             // Continuous kinematic re-evaluation: if the target leader has pulled away and the
             // downstream gap is no longer reachable within the remaining ramp distance, exit
@@ -1650,7 +1698,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         protected List<Transition> transitions()
         {
             List<Transition> rules = new ArrayList<>(commonTransitions());
-            rules.add(new Transition("congestion, or the vehicle alongside has cleared", "-", this::conflictResolved));
+            rules.add(enterCongestedRule());
+            rules.add(new Transition("the vehicle alongside has cleared", "-", this::conflictResolved));
             return rules;
         }
 
@@ -1668,13 +1717,6 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         {
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
             LateralDirectionality dir = this.pattern.getTargetDirection();
-
-            // --> NEU: Übergang in den Congested Merge State bei zähfließendem Verkehr (< 15 km/h)
-            Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
-            if (egoSpeed.si < CONGESTED_EGO_SPEED.si)
-            {
-                return new CongestedMergeState(this.maneuverPattern);
-            }
 
             // 3. Check if the parallel vehicle is still blocking us
             parallelVehicle = getParallelBlockWithoutSpeedCheck(neigh, dir, this.vehicle.getContext(EgoContext.class));
@@ -1732,8 +1774,6 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     public static class CongestedMergeState extends MandatoryLaneChangeState
     {
         /** Speed threshold above which the vehicle returns to normal gap evaluation. */
-        static final Speed RECOVERY_SPEED_THRESHOLD = new Speed(30.0, org.djunits.unit.SpeedUnit.KM_PER_HOUR);
-
         /**
          * Constructor for the congested merge state.
          * @param p the parent maneuver pattern
@@ -1759,7 +1799,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         protected List<Transition> transitions()
         {
             List<Transition> rules = new ArrayList<>(commonTransitions());
-            rules.add(new Transition("route out of the congested branch", "-", this::routeCongested));
+            rules.add(leaveCongestedRule());
+            rules.add(new Transition("pick the congested sub-state", "-", this::routeCongested));
             return rules;
         }
 
@@ -1778,14 +1819,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
             LateralDirectionality dir = this.pattern.getTargetDirection();
 
-            // 3. Speed recovered: return to normal gap evaluation
-            Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
-            if (egoSpeed.gt(RECOVERY_SPEED_THRESHOLD))
-            {
-                return new SynchroniseMergeSpeedState(this.maneuverPattern);
-            }
-
-            // 4. Parallel block present → creep alongside
+            // Parallel block present → creep alongside
             if (detectParallelBlock(neigh, dir, this.vehicle.getContext(EgoContext.class), this.vehicle.getParameters()))
             {
                 return new CongestedCreepState(this.maneuverPattern);
@@ -1825,8 +1859,22 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
      * <ul>
      *   <li>Transitions to <i>ExecuteLaneChangeState</i> if a gap becomes physically open.</li>
      *   <li>Transitions to <i>EmergencyStopState</i> if the end of the lane is critically close (emergency stop).</li>
-     *   <li>Transitions back to <i>CongestedMergeState</i> (dispatcher) as soon as the parallel block is resolved.</li>
+     *   <li>Transitions back to <i>CongestedMergeState</i> as soon as the parallel block is resolved.</li>
      * </ul>
+     *
+     * <h4>Why this state has no recovery rule:</h4>
+     * <p>
+     * Every other state in the congested branch carries {@code leaveCongestedRule()} and leaves the branch the moment the
+     * ego is moving again. This one deliberately does not. Creeping is a commitment made in the expectation that the
+     * vehicle alongside will clear shortly, and abandoning it the instant the ego picks up speed would throw that away
+     * while the block is still there. The vehicle leaves through {@link CongestedMergeState} once the block has gone, one
+     * transition later, and the recovery rule applies there.
+     * </p>
+     * <p>
+     * This is the one place where the congested branch is not a clean composite state: an exit rule on the composite's
+     * boundary would apply to every sub-state including this one. The exception is a statement about the manoeuvre, not an
+     * oversight, and it is written here so that a later tidying does not silently remove it.
+     * </p>
      */
     public static class CongestedCreepState extends MandatoryLaneChangeState
     {
@@ -1984,7 +2032,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         protected List<Transition> transitions()
         {
             List<Transition> rules = new ArrayList<>(commonTransitions());
-            rules.add(new Transition("speed recovered, or a vehicle appeared alongside", "-", this::congestionChanged));
+            rules.add(leaveCongestedRule());
+            rules.add(new Transition("a vehicle appeared alongside", "CongestedMerge", this::congestionChanged));
             return rules;
         }
 
@@ -2002,14 +2051,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
             LateralDirectionality dir = this.pattern.getTargetDirection();
 
-            // 3. Speed recovered → exit congested branch
-            Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
-            if (egoSpeed.gt(CongestedMergeState.RECOVERY_SPEED_THRESHOLD))
-            {
-                return new SynchroniseMergeSpeedState(this.maneuverPattern);
-            }
-
-            // 4. Parallel block appeared → back to dispatcher (will route to CongestedCreepState)
+            // Parallel block appeared → back to the decision node, which will route to creeping
             if (detectParallelBlock(neigh, dir, this.vehicle.getContext(EgoContext.class), this.vehicle.getParameters()))
             {
                 return new CongestedMergeState(this.maneuverPattern);

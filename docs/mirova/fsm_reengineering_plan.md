@@ -331,7 +331,47 @@ where they are. 77 lines removed, none of them a decision.
 The lesson generalises to stage 5: duplication is a reason to extract what is shared, not a reason to
 assume the things sharing it are the same thing.
 
-### Stage 5 -- Hierarchy, for `MandatoryLaneChangePattern` only
+### Stage 5 -- Hierarchy, for `MandatoryLaneChangePattern` only (done, trace verified)
+
+**It turned out to need no behaviour change at all**, which is the opposite of what this plan predicted. Two findings
+account for that.
+
+*The superstate arrived in stage 3.* `commonTransitions()` already holds the rules that belong to the manoeuvre rather
+than to a phase of it, and each state's table is those plus its own. The structural work this stage was written for was
+mostly done by expressing transitions as a table.
+
+*`EmergencyStopState` could never have inherited the full set anyway.* The plan assumed the question was whether it
+*should*. But one of the three rules, `cannotStopInTime`, would answer `EmergencyStop` while the vehicle is already in
+`EmergencyStop` -- a self-transition every tick, which the bounded driver loop from stage 2 would report as a cycle after
+32 steps. So only the gap rule was ever in question, and there the difference is narrow: `mayExecuteLaneChange()` already
+returns true at the ramp end, in congestion, when obstructed, and under a speed tolerance that widens from 20 to 40 km/h as
+the time on the ramp runs out. The two rules diverge only for a vehicle that is more than 20 m from the ramp end, facing a
+target lane flowing above 40 km/h, more than 20-40 km/h below the speed it could still reach, and needing more than 5 m/s2
+to stop. Today such a vehicle merges. **Decision: it keeps merging** -- refusing a gap to the one vehicle that is running
+out of lane is how vehicles end up deleted at the ramp end.
+
+#### What this stage did do
+
+The congested branch's hysteresis was compared against in four separate places, and its upper half lived as a field inside
+`CongestedMergeState` while `CongestedFollowLeaderState` reached into that class to use it. It is now one pair of
+constants documented as one mechanism, and two rules -- `enterCongestedRule()` and `leaveCongestedRule()` -- that the
+states name in their tables.
+
+One placement resisted. In `resolveMergeObstacle` the congested test stays inline, because it sits *below* the open-gap
+test: hoisting it into the table would route a slow vehicle with an open gap into the congested branch instead of leaving
+it where it is. The states that do hoist it have no such test in front of it.
+
+#### The congested branch is deliberately not a clean composite
+
+`CongestedCreepState` carries no recovery rule, and should not. Creeping is a commitment made in the expectation that the
+vehicle alongside will clear shortly; leaving the moment the ego picks up speed would abandon that while the block is
+still there. It exits through `CongestedMergeState` once the block has gone, one transition later, and the recovery rule
+applies there. An exit rule on a composite's boundary would apply to every sub-state and would remove this. The exception
+is recorded in the state's Javadoc so that a later tidying does not quietly undo it.
+
+#### The plan as it was written
+
+
 
 ```
 MandatoryLaneChange  (superstate: guards for ExecuteLaneChange / EmergencyStop / terminal)
@@ -396,5 +436,5 @@ not need the table.
 | 2 Driver loop | **done**, folded into 1b |
 | 4 Shared lateral execution | **done**, trace verified |
 | 3 Transition table | **done**, trace verified |
-| 5 Hierarchy | not started |
+| 5 Congested-branch consolidation | **done**, trace verified, no behaviour change |
 | 6 SingleStatePattern | not started |
