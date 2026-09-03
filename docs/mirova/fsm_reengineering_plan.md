@@ -171,6 +171,23 @@ Side benefit: the trace directly yields the state-occupancy statistics for the d
 
 ### Stage 1 -- Decouple the `ActionState` contract
 
+Split into two steps, each verified on its own, because the lifecycle turned out to be more
+entangled than the plan assumed.
+
+**Stage 1a -- construction no longer enters (done, trace verified).** The constructor no longer calls
+`setCurrentActionState(this)` / `setRunning(true)`. Entering is `enter()`, which does that
+bookkeeping in one place and then calls the new `onEntry()` hook; `exit()` calls `onExit()`. Only the
+transition machinery and `ManeuverPattern.update()` call them.
+
+**Stage 1b -- `next()` returns a target instead of a plan (not started).** Held back deliberately:
+`isRunning` is read per tick by `PatternSelector` to decide whether `checkContext()` runs at all, and
+several states re-assert `setRunning(true)` from inside `executeControl()` while
+`FarAnticipationState` and `AdjacentCongestionState` clear it every tick on purpose. Those
+per-tick assertions are redundant now that `enter()` exists, but removing them changes when a
+pattern counts as running, so it needs its own verified step rather than being folded into 1a.
+
+#### The contract, once 1b is done
+
 ```java
 public abstract class ActionState {
     protected ActionState(ManeuverPattern p) { ... }   // no side effects any more
@@ -284,7 +301,8 @@ not need the table.
 | Stage | State |
 |:--|:--|
 | 0 Trace test | **done** (merge reference recorded and verified deterministic; congested-creep and anticipation coverage still missing) |
-| 1 API split | not started |
+| 1a Constructor / enter-exit | **done**, trace verified on both cases |
+| 1b `next()` returns a target | not started |
 | 2 Driver loop | not started |
 | 4 Submachine | not started |
 | 3 Transition table | not started |

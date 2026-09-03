@@ -39,11 +39,27 @@ appearance within the trace instead.
 
     mvn -o -pl ots-demo test -Dtest=FsmTraceRegressionTest -Dmirova.fsmtrace=true
 
-If this fails with `NoClassDefFoundError: ColorType` (or another `org.opentrafficsim.xml.bindings`
-type) rather than a trace difference, the `ots-xml` artifact in the local Maven repository is stale
-relative to the working tree. Rebuild it with
+### Two ways this goes wrong that have nothing to do with the model
+
+**The change was never in the artifact.** The test resolves `ots-road` from the local Maven
+repository, so it tests whatever was installed there last. `-DskipTests` does not skip test
+execution in this build, and a failing test in `ots-road` -- `InjectionsTest.testIdorder` fails on
+its own -- aborts the install, leaving the previous jar in place. The test then compares the *old*
+model against the references and reports a pass or a failure that means nothing. Install with
+
+    mvn -o -pl ots-demo -am install -Dmaven.test.failure.ignore=true
+
+and check that the change actually arrived before trusting a result:
+
+    python -c "import zipfile; print(b'onEntry' in zipfile.ZipFile(r'<m2>/org/opentrafficsim/ots-road/1.7.6/ots-road-1.7.6.jar').read('org/opentrafficsim/road/gtu/lane/tactical/mirova/core/IntentionLayer/ActionState.class'))"
+
+**JAXB cannot see the generated bindings.** A `NoClassDefFoundError: ColorType`, or
+`Error occured while invoking reflection on target classes ... XmlJavaTypeAdapter`, is an `ots-xml`
+artifact problem rather than a trace difference. Rebuild that module **on its own**:
 
     mvn -o -pl ots-xml install -Dmaven.test.failure.ignore=true
 
-and note that `-Dmaven.test.skip=true` must **not** be used there: it also skips the XSD code
-generation and installs a jar with a quarter of the classes.
+Two traps here. `-Dmaven.test.skip=true` must not be used: it also skips the XSD code generation and
+installs a jar with a quarter of the classes. And building `ots-xml` as part of the full reactor
+(`-pl ots-demo -am`) produces a *different, larger* jar that JAXB then fails on -- 544 KB against the
+530 KB of the standalone build. After a reactor install, reinstall `ots-xml` alone.

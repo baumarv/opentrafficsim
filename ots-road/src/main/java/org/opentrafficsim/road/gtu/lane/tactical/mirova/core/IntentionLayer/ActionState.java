@@ -48,16 +48,70 @@ public abstract class ActionState
     // ----------------------------------------------------------------------
 
     /**
-     * Initializes a new ActionState for the given maneuver pattern. Sets this state as the currently active action state in the
-     * pattern.
+     * Initializes a new ActionState for the given maneuver pattern.
+     * <p>
+     * Constructing a state does <b>not</b> enter it. Until this was separated, {@code new SomeState(pattern)} made that
+     * state the pattern's current one and marked the pattern running as a side effect of the {@code new}, so a state could
+     * not be created without altering the machine -- which is why a transition had to be expressed as construction, and
+     * why no state could be evaluated or unit-tested in isolation. Entering is now {@link #enter()}, and the transition
+     * machinery is the only thing that calls it.
+     * </p>
      * @param maneuverPattern the parent maneuver pattern this state belongs to
      */
     public ActionState(final ManeuverPattern maneuverPattern)
     {
         this.maneuverPattern = maneuverPattern;
         this.vehicle = maneuverPattern.getMirovaTacticalPlanner();
+    }
+
+    // ----------------------------------------------------------------------
+    // Entry and exit
+    // ----------------------------------------------------------------------
+
+    /**
+     * Makes this state the pattern's current one and marks the pattern running, then runs {@link #onEntry()}.
+     * <p>
+     * This is what {@code new SomeState(pattern)} used to do implicitly. Keeping it in one method is what allows the
+     * bookkeeping -- the pattern's current state, the running flag, the planner's view of the current state -- to be
+     * maintained in a single place instead of being re-asserted from constructors and from {@code executeControl}.
+     * </p>
+     */
+    public final void enter()
+    {
+        this.active = true;
         this.maneuverPattern.setCurrentActionState(this);
         this.maneuverPattern.setRunning(true);
+        this.vehicle.setCurrentActionState(this);
+        onEntry();
+    }
+
+    /**
+     * Runs {@link #onExit()} and marks this state no longer active.
+     */
+    public final void exit()
+    {
+        onExit();
+        this.active = false;
+    }
+
+    /**
+     * Hook invoked when this state is entered. Empty by default.
+     * <p>
+     * Work a state does once on entry belongs here rather than in its constructor or in the first {@code executeControl}
+     * call: a constructor runs when the state is merely considered, and {@code executeControl} runs every tick.
+     * </p>
+     */
+    protected void onEntry()
+    {
+        //
+    }
+
+    /**
+     * Hook invoked when this state is left, whether by transition or by the maneuver finishing. Empty by default.
+     */
+    protected void onExit()
+    {
+        //
     }
 
     // ----------------------------------------------------------------------
@@ -178,9 +232,8 @@ public abstract class ActionState
             throws ParameterException, NullPointerException, IllegalArgumentException, GtuException, NetworkException
     {
         this.vehicle.releaseActionLock();
-        this.active = false;
-        nextState.active = true;
-        this.vehicle.setCurrentActionState(nextState);
+        exit();
+        nextState.enter();
         return nextState.update();
     }
 
@@ -194,6 +247,7 @@ public abstract class ActionState
     protected SimpleOperationalPlan finishManeuver() throws ParameterException, GtuException, NetworkException
     {
         this.vehicle.releaseActionLock();
+        exit();
         this.maneuverPattern.setRunning(false);
         EgoContext egoCtx = this.vehicle.getContext(EgoContext.class);
         return new SimpleOperationalPlan(egoCtx.getCurrentCarFollowingAcceleration(),

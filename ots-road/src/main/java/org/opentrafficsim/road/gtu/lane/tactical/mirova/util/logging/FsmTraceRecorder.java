@@ -13,6 +13,8 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.Locale;
 import java.util.zip.GZIPOutputStream;
 
@@ -48,6 +50,13 @@ public final class FsmTraceRecorder
 
     /** Header of the trace file. */
     public static final String HEADER = "time,vehicle,pattern,state,a,indicator,laneChange";
+
+    /**
+     * Vehicle ids embedded in a state name. Deliberately narrow: it matches the {@code candidate=} field the gap-opening
+     * states print and nothing else, so that a number which merely happens to follow an equals sign is not renumbered as
+     * if it were a vehicle. A state that starts naming vehicles under another key has to be added here.
+     */
+    private static final Pattern EMBEDDED_ID = Pattern.compile("(candidate=)(\\d+)");
 
     /** Name used when no pattern or no action state was active in a tick. */
     private static final String NONE = "-";
@@ -215,11 +224,35 @@ public final class FsmTraceRecorder
             writer.write('\n');
             for (Row row : this.rows)
             {
-                writer.write(row.toCsv(normalised.get(row.gtuId)));
+                writer.write(row.toCsv(normalised.get(row.gtuId), normalised));
                 writer.write('\n');
             }
         }
         return this.target;
+    }
+
+    /**
+     * Replaces the raw vehicle ids a state name embeds by their normalised numbers.
+     * <p>
+     * Normalising the vehicle column alone is not enough: several states name the vehicle they are reasoning about --
+     * {@code OpenGapState[candidate=11]} -- and that id comes from the same long-lived counter. Leaving it raw put the
+     * counter back into the trace through the state name.
+     * </p>
+     * @param state the state name
+     * @param normalised the mapping from raw id to rank of first appearance
+     * @return the state name with its embedded ids normalised; ids the mapping does not know are left alone
+     */
+    private static String normaliseEmbeddedIds(final String state, final Map<String, Integer> normalised)
+    {
+        Matcher matcher = EMBEDDED_ID.matcher(state);
+        StringBuilder result = new StringBuilder();
+        while (matcher.find())
+        {
+            Integer rank = normalised.get(matcher.group(2));
+            matcher.appendReplacement(result, rank == null ? matcher.group() : matcher.group(1) + rank);
+        }
+        matcher.appendTail(result);
+        return result.toString();
     }
 
     /**
@@ -308,12 +341,13 @@ public final class FsmTraceRecorder
          * byte for byte, so a locale-dependent or shortest-round-trip representation would make the comparison depend on
          * something other than the model.
          * @param vehicle the vehicle's rank of first appearance, written instead of its raw id
+         * @param normalised the mapping used to normalise vehicle ids embedded in the state name
          * @return the CSV line, without the line separator
          */
-        String toCsv(final int vehicle)
+        String toCsv(final int vehicle, final Map<String, Integer> normalised)
         {
-            return String.format(Locale.ROOT, "%.3f,%d,%s,%s,%.9f,%s,%s", this.time, vehicle, this.pattern, this.state,
-                    this.acceleration, this.indicator, this.laneChange);
+            return String.format(Locale.ROOT, "%.3f,%d,%s,%s,%.9f,%s,%s", this.time, vehicle, this.pattern,
+                    normaliseEmbeddedIds(this.state, normalised), this.acceleration, this.indicator, this.laneChange);
         }
     }
 }
