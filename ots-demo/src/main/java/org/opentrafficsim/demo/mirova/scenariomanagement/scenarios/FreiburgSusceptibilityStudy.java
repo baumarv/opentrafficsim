@@ -40,11 +40,11 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * <h3>Axis 2: the deceleration at which a relaxation is abandoned</h3>
  * <p>
  * The obvious candidate was the relaxation time constant, and measurement ruled it out before a single run. The
- * buffer decays as {@code exp(-t / tau_s)} with {@code tau_s} = 20 s, but it is discarded outright as soon as the
- * leader brakes harder than -1.0 m/s^2. Over 2.0 million vehicle-seconds on the merge and its approach that fires at
- * <b>0.97 per second</b>: a mean lifetime of 1.0 s, and 0.5 s in congestion. About 5 % of the gap deficit is relaxed
- * away before the rest is discarded. Lengthening {@code tau_s} would extend a curve that is cut off at 5 %, so that
- * axis would have measured nothing.
+ * buffer decays as {@code exp(-t / tau_s)} with {@code tau_s} = 20 s, but most relaxations are discarded long
+ * before it runs out. Counted inside the model over one congested hour, 26 % end because the leader braked past the
+ * threshold, after a mean of 2.0 s, and 66 % because the leader fell below 10 km/h, after well under a second. Only
+ * the 8 % that neither condition touches live their full 60 s. Lengthening {@code tau_s} would extend a curve that
+ * almost nothing reaches, so that axis would have measured nothing.
  * </p>
  * <p>
  * The threshold governs the lifetime, so the threshold is the axis. A deceleration of one metre per second squared

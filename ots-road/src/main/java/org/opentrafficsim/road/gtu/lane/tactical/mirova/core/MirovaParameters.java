@@ -212,12 +212,16 @@ public final class MirovaParameters implements ConstraintInterface
          * grounds that the buffers are no longer safe to trust.
          * </p>
          * <p>
-         * Measured over 2.0 million vehicle-seconds on the merge and its approach, the framework's original value of
-         * -1.0 m/s^2 fires at 0.97 per second: a mean relaxation lifetime of 1.0 s against a nominal time constant of
-         * 20 s, or 0.5 s in congestion. Some 5 % of the gap deficit is relaxed away before the remainder is discarded,
-         * so the exponential decay never runs. A deceleration of one metre per second squared is ordinary
-         * car-following, not hard braking, and the threshold was acting as a permanent switch-off rather than as the
-         * safety abort it was written to be.
+         * Counted inside the model over one congested hour, the framework's original value of -1.0 m/s^2 ends 26 %
+         * of all relaxations, after a mean of 2.0 s. Raising it to -3.5 lengthens those to 9.5 s and reduces them to
+         * under 1 % - but the accompanying 10 km/h speed condition absorbs the difference and rises from 66 % to 89 %
+         * of endings, at a mean lifetime of well under a second. This threshold therefore governs a minority of
+         * endings, and the fixed speed condition the majority.
+         * </p>
+         * <p>
+         * A relaxation left alone by both runs its full course: the 8 % that decay naturally live some 60 s, three
+         * time constants, as designed. An earlier figure of a 1.0 s mean lifetime came from reconstructing endings
+         * from trajectories, which can only see aborts and only on the 199 m of L4a.
          * </p>
          * <p>
          * Exposed as a parameter so that lifetime can be varied. The default preserves the original behaviour.
