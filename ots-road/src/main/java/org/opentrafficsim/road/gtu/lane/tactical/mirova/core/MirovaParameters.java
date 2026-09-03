@@ -231,6 +231,35 @@ public final class MirovaParameters implements ConstraintInterface
                         new ParameterTypeAcceleration("aRelaxAbort", "Leader deceleration abandoning a relaxation",
                                         Acceleration.instantiateSI(-1.0));
 
+        /**
+         * How long the buffer takes to fade to zero once a relaxation is abandoned.
+         * <p>
+         * Abandoning a relaxation used to remove its buffer between one tick and the next, so the follower's
+         * perceived distance dropped by the whole remaining buffer at once - measured at a mean of 9.2 m in free flow
+         * and 2.2 m in congestion, in over 99 % of aborts. Since the interaction term takes distance quadratically,
+         * that is a braking impulse the model inflicts on itself.
+         * </p>
+         * <p>
+         * A non-positive value restores the original behaviour, ending the relaxation immediately.
+         * </p>
+         */
+        public static final ParameterTypeDuration RELAXATION_FADE_DURATION = new ParameterTypeDuration(
+                        "tRelaxFade", "Fade-out duration when a relaxation is abandoned", Duration.instantiateSI(1.0));
+
+        /**
+         * Longest a relaxation may run, as a multiple of {@link #RELAXATION_TAU_SPACE}.
+         * <p>
+         * The housekeeping used to collect a relaxation once its buffer fell below an absolute 0.1 m. That makes the
+         * lifetime depend on the initial deficit rather than on the time constant: a 10 m deficit takes 92 s to decay
+         * under 0.1 m and a 20 m deficit 106 s, so a mechanism declared with a 20 s time constant lingered for a
+         * minute and a half. After three time constants the buffer is 5 % of the deficit and the relaxation is over
+         * in all but name.
+         * </p>
+         */
+        public static final ParameterTypeDouble RELAXATION_MAX_LIFETIME_FACTOR =
+                        new ParameterTypeDouble("relaxMaxLifetime",
+                                        "Longest a relaxation may run, in multiples of tau_s", 3.0, POSITIVE);
+
         /** Time To Collision (TTC) threshold for emergency braking. */
         public static final ParameterTypeDuration ttc_emergency_braking = new ParameterTypeDuration("TTC_EMERGENCY_BRAKING",
                         "Time To Collision (TTC) threshold for emergency braking", Duration.instantiateSI(2.0), POSITIVE);

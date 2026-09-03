@@ -859,9 +859,19 @@ public class EgoContext extends ContextCategory implements UpdatableContext
             {
                 RelaxationState state = iterator.next().getValue();
 
-                // If both the space buffer (< 10cm) and speed buffer (< 0.1 m/s) have decayed,
-                // the relaxation process is finished. We remove it to free memory.
-                if (state.getVirtualSpaceBuffer(now).si < 0.1 && Math.abs(state.getVirtualSpeedBuffer(now).si) < 0.1)
+                // The relaxation is finished once it has faded out, once it has run its permitted lifetime, or
+                // once both buffers have decayed to nothing.
+                //
+                // The lifetime bound matters: collecting only on an absolute 0.1 m made the duration depend on the
+                // initial deficit rather than on the time constant, so a 10 m deficit lingered for 92 s and a 20 m
+                // one for 106 s under a mechanism declared with a 20 s constant. After three constants the buffer is
+                // 5 % of the deficit and the relaxation is over in all but name.
+                double maxLifeSi = this.vehicle.getParams().relaxationMaxLifetimeFactor
+                        * state.getTauSpace().si;
+                boolean tooOld = maxLifeSi > 0.0 && (now.si - state.getStartTime().si) >= maxLifeSi;
+                if (state.isFadedOut(now) || tooOld
+                        || (state.getVirtualSpaceBuffer(now).si < 0.1
+                                && Math.abs(state.getVirtualSpeedBuffer(now).si) < 0.1))
                 {
                     if (RelaxationDiagnostics.ENABLED)
                     {

@@ -259,6 +259,12 @@ public final class MirovaParameterSnapshot implements Serializable
     /** Spatial relaxation time constant, as a scalar. */
     public final Duration relaxationTauSpaceScalar;
 
+    /** Fade-out duration when a relaxation is abandoned, as a scalar. */
+    public final Duration relaxationFadeDurationScalar;
+
+    /** Longest a relaxation may run, in multiples of tau_s. */
+    public final double relaxationMaxLifetimeFactor;
+
     /** Leader deceleration abandoning an active relaxation, as a scalar. */
     public final Acceleration relaxationAbortDecelerationScalar;
 
@@ -369,6 +375,8 @@ public final class MirovaParameterSnapshot implements Serializable
         this.undercuttingTtcThresholdSi = this.undercuttingTtcThresholdScalar.si;
         this.relaxationTauSpaceScalar = p.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
         this.relaxationTauSpaceSi = this.relaxationTauSpaceScalar.si;
+        this.relaxationFadeDurationScalar = p.getParameter(MirovaParameters.RELAXATION_FADE_DURATION);
+        this.relaxationMaxLifetimeFactor = p.getParameter(MirovaParameters.RELAXATION_MAX_LIFETIME_FACTOR);
         this.relaxationAbortDecelerationScalar =
                 p.getParameter(MirovaParameters.RELAXATION_ABORT_DECELERATION);
         this.relaxationTauSpeedScalar = p.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
