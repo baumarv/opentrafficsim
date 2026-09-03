@@ -1,0 +1,81 @@
+' Transition graph of the MiRoVA Layer 3 state machine.
+' Structure read from the states' transition tables; counts from one run:
+' FreiburgNord, 20 min from 2025-10-13 13:00, seed 42, merge-watch calibration.
+' Regenerate: mvn -o -q -pl ots-demo exec:java \
+'   -Dexec.mainClass=org.opentrafficsim.demo.mirova.fsmtrace.FsmTraceHarness \
+'   -Dexec.args="<dir> freiburg-merge"
+'
+@startuml
+hide empty description
+
+' Edges are declared in the code; the counts are from one run of one scenario at one seed.
+' "not taken in this run" means exactly that, and never that the transition is dead: the
+' synthetic merge case, for one, never enters the congested branch at all.
+
+state "SimpleLaneChangePattern" as SimpleLaneChangePattern {
+  ' initial state not available: RuntimeException
+  PerformLaneChangeState --> [*] : 1. start conditions lost before the move began [61x]
+  PerformLaneChangeState --> [*] : 2. lateral move complete [388x]
+}
+
+state "MandatoryLaneChangePattern" as MandatoryLaneChangePattern {
+  [*] --> AnticipateMergeState
+  AnticipateMergeState --> [*] : 1. merge is still too far off to anticipate [4028x]
+  AnticipateMergeState --> SynchroniseMergeSpeedState : 2. acceleration lane reached, or the ramp is running out [359x]
+  AnticipateMergeState --> EmergencyStopState : 2. acceleration lane reached, or the ramp is running out [359x]
+  SynchroniseMergeSpeedState --> [*] : 1. mandatory desire has fallen below DMAND [36x]
+  SynchroniseMergeSpeedState --> ExecuteLaneChangeState : 2. gap open and ego ready to take it [273x]
+  SynchroniseMergeSpeedState --> EmergencyStopState : 3. no longer able to stop before the lane ends [26x]
+  SynchroniseMergeSpeedState --> CongestedMergeState : 4. something is in the way of the merge [87x]
+  SynchroniseMergeSpeedState --> SolveParallelVehicleState : 4. something is in the way of the merge [87x]
+  SynchroniseMergeSpeedState --> MatchLeaderSpeedState : 4. something is in the way of the merge [87x]
+  ExecuteLaneChangeState --> [*] : 1. desire fell away before the crossing began [316x]
+  ExecuteLaneChangeState --> [*] : 2. crossing complete [25x]
+  MatchLeaderSpeedState --> [*] : 1. mandatory desire has fallen below DMAND [not taken in this run]
+  MatchLeaderSpeedState --> ExecuteLaneChangeState : 2. gap open and ego ready to take it [25x]
+  MatchLeaderSpeedState --> EmergencyStopState : 3. no longer able to stop before the lane ends [not taken in this run]
+  MatchLeaderSpeedState --> CongestedMergeState : 4. ego has dropped into the congested regime [1x]
+  MatchLeaderSpeedState --> SynchroniseMergeSpeedState : 5. leader out of reach, or a vehicle alongside [66x]
+  MatchLeaderSpeedState --> SolveParallelVehicleState : 5. leader out of reach, or a vehicle alongside [66x]
+  SolveParallelVehicleState --> [*] : 1. mandatory desire has fallen below DMAND [not taken in this run]
+  SolveParallelVehicleState --> ExecuteLaneChangeState : 2. gap open and ego ready to take it [11x]
+  SolveParallelVehicleState --> EmergencyStopState : 3. no longer able to stop before the lane ends [not taken in this run]
+  SolveParallelVehicleState --> CongestedMergeState : 4. ego has dropped into the congested regime [5x]
+  SolveParallelVehicleState --> MatchLeaderSpeedState : 5. the vehicle alongside has cleared [46x]
+  SolveParallelVehicleState --> SynchroniseMergeSpeedState : 5. the vehicle alongside has cleared [46x]
+  EmergencyStopState --> [*] : 1. mandatory desire has fallen below DMAND [not taken in this run]
+  EmergencyStopState --> ExecuteLaneChangeState : 2. a gap has appeared after all [31x]
+  CongestedMergeState --> [*] : 1. mandatory desire has fallen below DMAND [not taken in this run]
+  CongestedMergeState --> ExecuteLaneChangeState : 2. gap open and ego ready to take it [not taken in this run]
+  CongestedMergeState --> EmergencyStopState : 3. no longer able to stop before the lane ends [not taken in this run]
+  CongestedMergeState --> SynchroniseMergeSpeedState : 4. ego speed recovered [not taken in this run]
+  CongestedMergeState --> CongestedCreepState : 5. pick the congested sub-state [48x]
+  CongestedMergeState --> CongestedFollowLeaderState : 5. pick the congested sub-state [48x]
+  CongestedFollowLeaderState --> [*] : 1. mandatory desire has fallen below DMAND [not taken in this run]
+  CongestedFollowLeaderState --> ExecuteLaneChangeState : 2. gap open and ego ready to take it [2x]
+  CongestedFollowLeaderState --> EmergencyStopState : 3. no longer able to stop before the lane ends [5x]
+  CongestedFollowLeaderState --> SynchroniseMergeSpeedState : 4. ego speed recovered [not taken in this run]
+  CongestedFollowLeaderState --> CongestedMergeState : 5. a vehicle appeared alongside [20x]
+  CongestedCreepState --> [*] : 1. mandatory desire has fallen below DMAND [not taken in this run]
+  CongestedCreepState --> ExecuteLaneChangeState : 2. gap open and ego ready to take it [not taken in this run]
+  CongestedCreepState --> EmergencyStopState : 3. no longer able to stop before the lane ends [not taken in this run]
+  CongestedCreepState --> CongestedMergeState : 4. the vehicle alongside has cleared [21x]
+}
+
+state "GapOpenerPattern" as GapOpenerPattern {
+  [*] --> OpenGapState
+  OpenGapState --> [*] : 1. cooperation no longer called for [367x]
+  OpenGapState --> PerformLaneChangeState : 2. evasive change away from the merge side possible [39x]
+}
+
+state "PreventUndercuttingPattern" as PreventUndercuttingPattern {
+  [*] --> ShadowingState
+  ShadowingState --> [*] : 1. undercutting situation resolved [13x]
+  ShadowingState --> PerformLaneChangeState : 2. gap open on the left and wanted [5x]
+  ShadowingState --> PrepareLaneChangeState : 3. closing on the left leader with room behind it [74x]
+  PrepareLaneChangeState --> [*] : 1. undercutting situation resolved [52x]
+  PrepareLaneChangeState --> PerformLaneChangeState : 2. gap open on the left [22x]
+  PrepareLaneChangeState --> ShadowingState : 3. gap behind the left leader lost again [not taken in this run]
+}
+
+@enduml

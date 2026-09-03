@@ -1,6 +1,7 @@
 package org.opentrafficsim.demo.mirova.fsmtrace;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -15,6 +16,7 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgNord;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.MergeScenario;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunFreiburgMergeWatch;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.SimpleHighwayScenario;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ActionState;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.FsmTraceRecorder;
 
 /**
@@ -144,11 +146,43 @@ public final class FsmTraceHarness
         }
         finally
         {
+            // The graph is written before the recording stops, because the states it describes are held by the recorder.
             // Written even when the run aborts: a partial trace still says where the two runs diverged, and leaving the
             // recorder armed would silently poison the next case.
+            writeGraph(traceCase, outputDirectory);
             FsmTraceRecorder.stop();
         }
         return trace;
+    }
+
+    /**
+     * Writes the transition graph of every state the run entered, next to the trace.
+     * <p>
+     * Taking the states from the run rather than constructing them means the graph shows what was actually reached. A state
+     * the scenario never enters does not appear, which is information rather than a gap: the merge case, for one, never
+     * enters the congested branch at all.
+     * </p>
+     * @param traceCase the case that was run
+     * @param outputDirectory where to write
+     */
+    private static void writeGraph(final Case traceCase, final File outputDirectory)
+    {
+        try
+        {
+            List<ActionState> states = FsmTraceRecorder.getStatesEntered();
+            if (states.isEmpty())
+            {
+                return;
+            }
+            Path graph = TransitionGraphExport.writePlantUml(states,
+                    new File(outputDirectory, traceCase.getId() + ".graph.puml").toPath());
+            System.out.println("[FsmTraceHarness] wrote " + graph.toAbsolutePath() + " (" + states.size() + " states)");
+        }
+        catch (IOException exception)
+        {
+            // The graph is a by-product; losing it must not cost the trace the run just produced.
+            System.out.println("[FsmTraceHarness] could not write the transition graph: " + exception);
+        }
     }
 
     /**

@@ -12,6 +12,7 @@ import java.util.Map;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ActionState;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Transition;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.FsmTraceRecorder;
 
 /**
  * Writes the Layer 3 transition graph as PlantUML, read off the states themselves rather than reconstructed by hand.
@@ -77,10 +78,29 @@ public final class TransitionGraphExport
         out.println("@startuml");
         out.println("hide empty description");
         out.println();
+        out.println("' Edges are declared in the code; the counts are from one run of one scenario at one seed.");
+        out.println("' \"not taken in this run\" means exactly that, and never that the transition is dead: the");
+        out.println("' synthetic merge case, for one, never enters the congested branch at all.");
+        out.println();
 
         for (String pattern : patterns.keySet())
         {
             out.println("state \"" + pattern + "\" as " + identifier(pattern) + " {");
+
+            // The pattern's own starting point, so the diagram has somewhere to begin. Read from the pattern rather than
+            // guessed from the order states were entered, which depends on the traffic the run happened to produce.
+            // Building it can fail when the run has already ended and the vehicle it belonged to is gone; the diagram is
+            // then one arrow poorer rather than lost.
+            try
+            {
+                ActionState initial = patterns.get(pattern).getInitialActionState();
+                out.println("  [*] --> " + identifier(initial.getClass().getSimpleName()));
+            }
+            catch (Exception exception)
+            {
+                out.println("  ' initial state not available: " + exception.getClass().getSimpleName());
+            }
+
             for (ActionState state : states)
             {
                 if (!state.getManeuverPattern().getClass().getSimpleName().equals(pattern))
@@ -89,11 +109,21 @@ public final class TransitionGraphExport
                 }
                 String from = identifier(name(state));
                 int order = 0;
-                for (Transition transition : state.getTransitions())
+                List<Transition> rules = state.getTransitions();
+                for (Transition transition : rules)
                 {
+                    int taken = FsmTraceRecorder.getTimesTaken(state, order);
                     order++;
-                    String to = "end".equals(transition.getTarget()) ? "[*]" : identifier(transition.getTarget());
-                    out.println("  " + from + " --> " + to + " : " + order + ". " + transition.getName());
+                    String howOften = taken == 0 ? " [not taken in this run]" : " [" + taken + "x]";
+                    // A rule may lead to one of several states -- the merge analysis picks between three. Each is drawn as
+                    // its own edge under the same rule number, so the diagram shows every branch the rule can take rather
+                    // than collapsing them into an unnamed one.
+                    for (String target : transition.getTarget().split("\\|"))
+                    {
+                        String to = "end".equals(target) ? "[*]" : identifier(target);
+                        out.println("  " + from + " --> " + to + " : " + order + ". " + transition.getName()
+                                + howOften);
+                    }
                 }
             }
             out.println("}");
