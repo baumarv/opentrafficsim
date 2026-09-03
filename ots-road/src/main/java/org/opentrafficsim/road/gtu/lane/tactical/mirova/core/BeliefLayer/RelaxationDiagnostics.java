@@ -59,6 +59,15 @@ public final class RelaxationDiagnostics
     /** Relaxations created. */
     private static final AtomicLong CREATED = new AtomicLong();
 
+    /** Summed initial space deficit in millimetres, over all creations. */
+    private static final AtomicLong CREATED_DEFICIT_MM = new AtomicLong();
+
+    /** Summed space buffer discarded at an abort, in millimetres. */
+    private static final AtomicLong DISCARDED_MM = new AtomicLong();
+
+    /** Aborts at which more than half a metre of buffer was discarded. */
+    private static final AtomicLong DISCARDED_LARGE = new AtomicLong();
+
     /** Car-following calls made against a leader that has an active relaxation. */
     private static final AtomicLong CALLS_RELAXED = new AtomicLong();
 
@@ -109,10 +118,27 @@ public final class RelaxationDiagnostics
         LIFE_EXPIRED.addAndGet(Math.round(lifetimeSeconds * 1000.0));
     }
 
-    /** Records that a relaxation was created. */
-    public static void created()
+    /**
+     * Records that a relaxation was created, and how large a gap deficit it started from.
+     * @param initialDeficitMetres double; the initial space deficit
+     */
+    public static void created(final double initialDeficitMetres)
     {
         CREATED.incrementAndGet();
+        CREATED_DEFICIT_MM.addAndGet(Math.round(initialDeficitMetres * 1000.0));
+    }
+
+    /**
+     * Records how much buffer an abort threw away, which is the jump in perceived distance it causes.
+     * @param bufferMetres double; the space buffer still active when the relaxation was abandoned
+     */
+    public static void discarded(final double bufferMetres)
+    {
+        DISCARDED_MM.addAndGet(Math.round(bufferMetres * 1000.0));
+        if (bufferMetres > 0.5)
+        {
+            DISCARDED_LARGE.incrementAndGet();
+        }
     }
 
     /**
@@ -151,6 +177,15 @@ public final class RelaxationDiagnostics
                     created, total, unaccounted, 100.0 * unaccounted / created);
             System.out.println("[RELAX]   unaccounted = the leader stopped being the leader, so the state was never"
                     + " consulted again - the ending no trajectory can show");
+        }
+        long aborts = dec + spd;
+        if (aborts > 0)
+        {
+            System.out.printf("[RELAX] mean initial deficit %5.2f m, mean buffer discarded at abort %5.2f m, "
+                    + "aborts discarding more than 0.5 m: %d (%.1f %%)%n",
+                    created == 0 ? 0.0 : CREATED_DEFICIT_MM.get() / 1000.0 / created,
+                    DISCARDED_MM.get() / 1000.0 / aborts,
+                    DISCARDED_LARGE.get(), 100.0 * DISCARDED_LARGE.get() / aborts);
         }
         long relaxed = CALLS_RELAXED.get();
         long plain = CALLS_PLAIN.get();

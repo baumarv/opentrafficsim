@@ -126,6 +126,7 @@ public final class MirovaCarFollowingUtil
                 if (RelaxationDiagnostics.ENABLED)
                 {
                     double life = now.si - activeRelaxation.getStartTime().si;
+                    RelaxationDiagnostics.discarded(activeRelaxation.getVirtualSpaceBuffer(now).si);
                     if (leader.getAcceleration().lt(vehicle.getParams().relaxationAbortDecelerationScalar))
                     {
                         RelaxationDiagnostics.abortedByDeceleration(life);
