@@ -122,13 +122,50 @@ isolated, and documented.
 
 ## 4. Stages
 
-### Stage 0 -- Regression net (prerequisite for everything)
+### Stage 0 -- Regression net (prerequisite for everything) -- DONE
 
-A trace recorder in the planner writes one row per tick:
-`(t, gtuId, patternName, stateName, a, indicator, laneChangeDirection)`.
+`FsmTraceRecorder` is pushed once from the end of `MirovaTacticalPlanner.update()`, where the
+pattern, the action state and the acceleration the vehicle acts on are all settled. It writes one
+gzipped row per vehicle per tick:
+`(t, gtuId, pattern, state, a, indicator, laneChange)`, sorted by (time, vehicle) so the file does
+not depend on the order the simulator happened to visit the vehicles. It is off unless started, and
+costs one static null check per vehicle per tick while off.
 
-A test drives two scenarios (free flow, congested merge; fixed seed) and compares byte-for-byte
-against a committed reference trace.
+`FsmTraceHarness` runs a fixed-seed case; `FsmTraceRegressionTest` compares it against the committed
+reference and reports the *first* differing row, which is the only one that says where the machine
+took a different branch. The test is gated behind `-Dmirova.fsmtrace=true`, because a case is a full
+headless simulation.
+
+**Determinism is verified**: two runs of the merge case from the same seed produce byte-identical
+traces.
+
+#### What the merge reference covers
+
+600 s of `MergeScenario` at seed 42 sweeps the demand from 1000 to 6500 veh/h, giving 289 395 rows.
+Reached: `AnticipateMergeState`, `SynchroniseMergeSpeedState`, `MatchLeaderSpeedState`,
+`SolveParallelVehicleState`, `EmergencyStopState`, `ExecuteLaneChangeState`,
+`CongestedFollowLeaderState`, plus `GapOpenerPattern`, `PreventUndercuttingPattern` and
+`SimpleLaneChangePattern` throughout.
+
+#### Known gaps, to be closed before stage 5
+
+- **`CongestedCreepState` is never entered** in the reference. The congested branch is therefore only
+  partly netted, and stage 5 restructures exactly that branch. A case that reaches it is needed
+  first.
+- **`CongestedMergeState` produces no row at all.** This is not a gap but a measurement: as the
+  router it always transitions, so it never produces a plan. Section 1.3 predicted this; the trace
+  confirms it.
+- **`AnticipateDownstreamMergePattern` and `AnticipateAdjacentCongestionPattern` are not reached**
+  by the merge case.
+- **The highway case does not run.** `SimpleHighwayScenario` at 4000 veh/h destroys GTUs with a
+  `NullPointerException` and the watchdog aborts the run at 300 s for lack of detector flow. This is
+  a pre-existing scenario problem, not a Layer 3 one, so the case is kept in the harness without a
+  reference; the test skips a case whose reference is missing. A `FreiburgNord` case is the likely
+  replacement for the missing coverage.
+
+Ticks in which `update()` is not reached at all -- a GTU not yet fully positioned, or a tick the
+deadlock watchdog cuts short -- produce no row. That is deliberate: the trace covers the decision
+cycle, and none of those paths involve the FSM.
 
 Side benefit: the trace directly yields the state-occupancy statistics for the dissertation.
 
@@ -246,7 +283,7 @@ not need the table.
 
 | Stage | State |
 |:--|:--|
-| 0 Trace test | not started |
+| 0 Trace test | **done** (merge reference recorded and verified deterministic; congested-creep and anticipation coverage still missing) |
 | 1 API split | not started |
 | 2 Driver loop | not started |
 | 4 Submachine | not started |
