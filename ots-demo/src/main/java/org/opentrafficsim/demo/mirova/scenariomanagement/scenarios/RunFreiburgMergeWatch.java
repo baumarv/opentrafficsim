@@ -270,6 +270,32 @@ public final class RunFreiburgMergeWatch
                 ScenarioGenerator scenario = new FreiburgNord();
                 scenario.setOutputDirectory(outputDir);
 
+                ScenarioParameters params = watchParameters(scenario);
+
+                printConfiguration();
+
+                ScenarioSimulationScript script = scenario.buildSimulationScript(params);
+                script.setGuiEnabled(SHOW_GUI);
+                script.start();
+
+                // The JVM does not exit on its own after a headless run - AWT threads keep it alive - so a shutdown
+                // hook would never fire. Report here instead, once the run has finished writing its output.
+                RelaxationDiagnostics.report();
+        }
+
+
+        /**
+         * Assembles the parameter set this run is calibrated with.
+         * <p>
+         * Extracted from {@code main} so that the FSM trace harness can record the very scenario this runner is used to
+         * watch. A second copy of these assignments would drift from this one exactly the way the behaviour block here
+         * had already drifted from the study baseline before it was folded back into it.
+         * </p>
+         * @param scenario the scenario whose defaults carry the demand wiring and network settings
+         * @return the parameters, including the demand window and the configured run length
+         */
+        public static ScenarioParameters watchParameters(final ScenarioGenerator scenario)
+        {
                 // The scenario defaults carry the demand wiring and network settings but no behaviour parameters, so every
                 // behavioural value the run uses is the one configured above.
                 // Start from the study baseline so that every behavioural value it defines - including ones added
@@ -336,16 +362,7 @@ public final class RunFreiburgMergeWatch
                 // Only a slice of the demand window is simulated -- this run is for looking, not for producing statistics.
                 params.setSimulationTime(new Duration(SIMULATED_MINUTES, DurationUnit.MINUTE));
                 params.set("enableTrajectoryRecording", RECORD_TRAJECTORIES);
-
-                printConfiguration();
-
-                ScenarioSimulationScript script = scenario.buildSimulationScript(params);
-                script.setGuiEnabled(SHOW_GUI);
-                script.start();
-
-                // The JVM does not exit on its own after a headless run - AWT threads keep it alive - so a shutdown
-                // hook would never fire. Report here instead, once the run has finished writing its output.
-                RelaxationDiagnostics.report();
+                return params;
         }
 
         /**

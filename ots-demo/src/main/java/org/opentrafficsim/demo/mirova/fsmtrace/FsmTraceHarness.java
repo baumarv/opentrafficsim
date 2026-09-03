@@ -2,13 +2,18 @@ package org.opentrafficsim.demo.mirova.fsmtrace;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import org.djunits.unit.DurationUnit;
 import org.djunits.value.vdouble.scalar.Duration;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioGenerator;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioParameters;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioSimulationScript;
+import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgNord;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.MergeScenario;
+import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunFreiburgMergeWatch;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.SimpleHighwayScenario;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.FsmTraceRecorder;
 
@@ -16,9 +21,14 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.FsmTraceRec
  * Runs short, fixed-seed scenarios with the {@link FsmTraceRecorder} enabled, so that the tactical decisions of the Layer 3
  * state machine can be compared before and after a restructuring.
  * <p>
- * The two cases were chosen to reach every pattern between them. {@link Case#MERGE} sweeps the on-ramp demand from 1000 to
- * 6500 veh/h within its run time, so a single run passes through free flow, the onset of congestion and the congested merge
- * branch. {@link Case#HIGHWAY} exercises the free-driving and discretionary behaviour that the merge network barely reaches.
+ * {@link Case#FREIBURG_MERGE} is the primary case: the real Freiburg-Nord network under measured demand, with the
+ * calibration {@link RunFreiburgMergeWatch} is used to inspect merge behaviour with. Because it is that runner's own
+ * parameter set rather than a copy of it, a change to the calibration cannot silently leave the regression net behind.
+ * </p>
+ * <p>
+ * {@link Case#MERGE} is the synthetic counterpart: it sweeps the on-ramp demand from 1000 to 6500 veh/h within its run time,
+ * so one run passes through free flow, the onset of congestion and the congested merge branch, cheaply and without depending
+ * on demand data. {@link Case#HIGHWAY} would exercise free driving and discretionary changes, but does not currently run.
  * </p>
  * <p>
  * The run times are short on purpose: the recorder buffers every row in memory, and the point of the trace is coverage of the
@@ -44,7 +54,10 @@ public final class FsmTraceHarness
      */
     public enum Case
     {
-        /** Merge network, demand ramp through congestion. */
+        /** Freiburg-Nord on-ramp under measured demand, with the merge-watch calibration. */
+        FREIBURG_MERGE("freiburg-merge"),
+
+        /** Synthetic merge network, demand ramp through congestion. */
         MERGE("merge"),
 
         /** Plain highway, free flow and discretionary lane changes. */
@@ -85,6 +98,12 @@ public final class FsmTraceHarness
     /** Simulated time per case. Long enough for the merge demand ramp to reach the congested branch. */
     private static final Duration RUN_TIME = new Duration(600.0, DurationUnit.SECOND);
 
+    /**
+     * Simulated time for the Freiburg case. Shorter, because that network carries far more vehicles per second of
+     * simulation and the recorder holds every row in memory.
+     */
+    private static final Duration FREIBURG_RUN_TIME = new Duration(20.0, DurationUnit.MINUTE);
+
     /** Seed of every recorded run. Fixed, because a trace from a different seed compares against nothing. */
     private static final long SEED = 42L;
 
@@ -106,20 +125,12 @@ public final class FsmTraceHarness
      */
     public static Path record(final Case traceCase, final File outputDirectory) throws Exception
     {
-        ScenarioGenerator scenario = traceCase == Case.MERGE ? new MergeScenario() : new SimpleHighwayScenario();
+        ScenarioGenerator scenario = scenarioFor(traceCase);
 
         outputDirectory.mkdirs();
         scenario.setOutputDirectory(outputDirectory);
 
-        // Every input of the recorded run is stated here rather than inherited from the scenario's defaults: a reference
-        // trace is only meaningful together with the configuration it was recorded under, and a default that drifts later
-        // would silently invalidate it.
-        ScenarioParameters params = new ScenarioParameters();
-        params.setSeed(SEED);
-        params.setSimulationTime(RUN_TIME);
-        params.setDemand(DEMAND_VEH_PER_HOUR);
-        params.setTruckShare(TRUCK_SHARE);
-        params.setMergeShare(MERGE_SHARE);
+        ScenarioParameters params = parametersFor(traceCase, scenario);
 
         ScenarioSimulationScript script = scenario.buildSimulationScript(params);
         script.setGuiEnabled(false);
@@ -141,17 +152,117 @@ public final class FsmTraceHarness
     }
 
     /**
-     * Records both cases into the given directory.
-     * @param args optional single argument: the output directory; defaults to {@code build/fsm-trace}
-     * @throws Exception if a run fails
+     * Returns the scenario a case runs on.
+     * @param traceCase the case
+     * @return a fresh scenario instance
+     */
+    private static ScenarioGenerator scenarioFor(final Case traceCase)
+    {
+        switch (traceCase)
+        {
+            case FREIBURG_MERGE:
+                return new FreiburgNord();
+            case MERGE:
+                return new MergeScenario();
+            default:
+                return new SimpleHighwayScenario();
+        }
+    }
+
+    /**
+     * Returns the parameters a case runs with.
+     * <p>
+     * The Freiburg case takes {@link RunFreiburgMergeWatch}'s own parameter assembly, so that the trace pins the
+     * calibration that is actually being worked on; only the run length and the seed are overridden, and the trajectory
+     * recording is switched off because the trace, not the trajectories, is what this run is for.
+     * </p>
+     * <p>
+     * The synthetic cases state every input here rather than inheriting the scenario's defaults: a reference trace is only
+     * meaningful together with the configuration it was recorded under, and a default that drifts later would silently
+     * invalidate it.
+     * </p>
+     * @param traceCase the case
+     * @param scenario the scenario the case runs on
+     * @return the parameters
+     */
+    private static ScenarioParameters parametersFor(final Case traceCase, final ScenarioGenerator scenario)
+    {
+        if (traceCase == Case.FREIBURG_MERGE)
+        {
+            ScenarioParameters params = RunFreiburgMergeWatch.watchParameters(scenario);
+            params.setSeed(SEED);
+            params.setSimulationTime(FREIBURG_RUN_TIME);
+            params.set("enableTrajectoryRecording", false);
+            return params;
+        }
+
+        ScenarioParameters params = new ScenarioParameters();
+        params.setSeed(SEED);
+        params.setSimulationTime(RUN_TIME);
+        params.setDemand(DEMAND_VEH_PER_HOUR);
+        params.setTruckShare(TRUCK_SHARE);
+        params.setMergeShare(MERGE_SHARE);
+        return params;
+    }
+
+    /**
+     * Records the requested cases into the given directory.
+     * <p>
+     * A case that fails is reported and the remaining cases still run: one scenario that cannot start is not a reason to
+     * lose the traces of the others.
+     * </p>
+     * @param args output directory (default {@code build/fsm-trace}), optionally followed by case ids to record; with no
+     *            ids, every case is recorded
+     * @throws Exception if no case could be recorded at all
      */
     public static void main(final String[] args) throws Exception
     {
         File out = new File(args.length > 0 ? args[0] : "build/fsm-trace");
+
+        List<Case> cases = new ArrayList<>();
+        for (int i = 1; i < args.length; i++)
+        {
+            cases.add(byId(args[i]));
+        }
+        if (cases.isEmpty())
+        {
+            cases.addAll(Arrays.asList(Case.values()));
+        }
+
+        int recorded = 0;
+        for (Case traceCase : cases)
+        {
+            try
+            {
+                Path trace = record(traceCase, out);
+                System.out.println("[FsmTraceHarness] wrote " + trace.toAbsolutePath());
+                recorded++;
+            }
+            catch (Exception exception)
+            {
+                System.out.println("[FsmTraceHarness] case '" + traceCase.getId() + "' failed: " + exception);
+            }
+        }
+        if (recorded == 0)
+        {
+            throw new IllegalStateException("No case could be recorded.");
+        }
+    }
+
+    /**
+     * Returns the case with the given id.
+     * @param id the file-name stem of a case, e.g. {@code merge}
+     * @return the case
+     */
+    private static Case byId(final String id)
+    {
         for (Case traceCase : Case.values())
         {
-            Path trace = record(traceCase, out);
-            System.out.println("[FsmTraceHarness] wrote " + trace.toAbsolutePath());
+            if (traceCase.getId().equals(id))
+            {
+                return traceCase;
+            }
         }
+        throw new IllegalArgumentException("Unknown case '" + id + "'; known: " + Arrays.toString(Case.values()));
     }
 }

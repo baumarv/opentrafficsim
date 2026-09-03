@@ -15,7 +15,14 @@ intended and understood -- overwriting a reference is how a regression net stops
 
 | File | Case | Rows |
 |:--|:--|--:|
+| `freiburg-merge.trace.csv.gz` | `FreiburgNord`, 20 min from 2025-10-13 13:00, seed 42, merge-watch calibration | 318 436 |
 | `merge.trace.csv.gz` | `MergeScenario`, 600 s, seed 42, demand ramp 1000..6500 veh/h | 289 395 |
+
+`freiburg-merge` is the primary case: it is the real network under measured demand, and it takes its
+parameters from `RunFreiburgMergeWatch.watchParameters()` rather than from a copy, so a change to
+that calibration reaches the regression net instead of leaving it behind. It is the only case that
+enters the congested branch -- `CongestedFollowLeaderState` (311 rows) and `CongestedCreepState`
+(40) -- which is exactly the part of the machine stage 5 restructures.
 
 No reference exists for the `highway` case: `SimpleHighwayScenario` currently aborts on the deadlock
 watchdog. The test skips a case whose reference is missing.
