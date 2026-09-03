@@ -247,9 +247,45 @@ Semantically identical to today's recursion (chain within one tick, last state p
 but bounded and in one place. The `CongestedMerge` cycle becomes loggable instead of a
 `StackOverflowError`.
 
-### Stage 3 -- Declarative transition table
+### Stage 3 -- Declarative transition table (done, trace verified)
 
-One ordered list per state, built once:
+Each state declares `transitions()`: an ordered list of named rules, built once per instance and cached. `next()` is final
+and walks it, taking the first rule that applies. 17 tables, 28 rules.
+
+**The plan's shape did not survive contact either.** It assumed a rule splits into a guard and a target factory. Three
+things in the actual transitions do not fit that:
+
+- several rules carry a value the guard computed into the state they lead to -- the vehicle alongside that
+  `SolveParallelVehicleState` is given;
+- the merge decision shares one expensive piece of analysis (follower deceleration, kinematic reachability of the
+  downstream gap) across three possible outcomes;
+- splitting either would mean computing things twice or passing them sideways through a field.
+
+So a rule is a *named answer to one question* -- "what does this state hand over to, right now" -- returning the target or
+`null`, and carrying its name and declared target alongside for description. Guard and target stay together because the code
+needs them together.
+
+**`abort()` is gone.** It was never an exceptional path: it was asked on every state in every tick and answered with a
+state, which is to say it was the highest-priority guard under another name (section 1.8). It is now simply the first entry
+in the same table.
+
+**The superstate is now expressible, which is what stage 5 needs.** `MandatoryLaneChangeState.commonTransitions()` holds
+the three rules that belong to the manoeuvre rather than to a phase of it, and each state's table is
+`commonTransitions()` plus its own. Three states opt out and now say why in a comment instead of by omission:
+
+| State | Takes | Why |
+|:--|:--|:--|
+| `AnticipateMergeState` | neither | the target lane is not alongside yet, so the gap rule has nothing to look at; carries its own end condition |
+| `EmergencyStopState` | the desire rule only | its own gap rule is the same test without the readiness precondition, and the stop rule would be circular here |
+| `ExecuteLaneChangeState` | neither | mid-crossing there is no gap to evaluate and no stopping to reconsider |
+
+`EmergencyStopState` is the one the plan flagged as the stage-5 model decision. It is now a written-down decision rather
+than a missing call, which is the whole point of doing stage 3 before stage 5.
+
+**Export.** `TransitionGraphExport` writes the graph as PlantUML by asking the states for their tables. It needs live state
+instances, since tables are built per instance and several rules are inherited; wiring it to a recorded run is a follow-up.
+
+The sketch this stage was planned from:
 
 ```java
 transitions = List.of(
@@ -359,6 +395,6 @@ not need the table.
 | 1b `next()` returns a target | **done**, trace verified |
 | 2 Driver loop | **done**, folded into 1b |
 | 4 Shared lateral execution | **done**, trace verified |
-| 3 Transition table | not started |
+| 3 Transition table | **done**, trace verified |
 | 5 Hierarchy | not started |
 | 6 SingleStatePattern | not started |
