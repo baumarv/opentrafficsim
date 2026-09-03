@@ -247,6 +247,11 @@ public final class FsmTraceHarness
         {
             throw new IllegalStateException("No case could be recorded.");
         }
+
+        // The simulation leaves non-daemon AWT threads behind even headless, so the JVM does not end when this method
+        // does. Without this, recording several cases in one command hangs after the first: the run is finished, the
+        // trace is written, and nothing but a kill moves it along.
+        System.exit(0);
     }
 
     /**

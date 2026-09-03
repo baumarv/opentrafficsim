@@ -10,7 +10,8 @@ Regenerate with:
         -Dexec.mainClass=org.opentrafficsim.demo.mirova.fsmtrace.FsmTraceHarness \
         -Dexec.args=<output directory>
 
-then copy the `.trace.csv.gz` files here. Do that **only** for a change whose effect on the model is
+Named cases can be appended to `-Dexec.args` (`<dir> merge freiburg-merge`) to record only those;
+with none, every case runs. Then copy the `.trace.csv.gz` files here. Do that **only** for a change whose effect on the model is
 intended and understood -- overwriting a reference is how a regression net stops being one.
 
 | File | Case | Rows |
@@ -26,6 +27,13 @@ enters the congested branch -- `CongestedFollowLeaderState` (311 rows) and `Cong
 
 No reference exists for the `highway` case: `SimpleHighwayScenario` currently aborts on the deadlock
 watchdog. The test skips a case whose reference is missing.
+
+## What is in a row
+
+The `vehicle` column is not the GTU id. Ids come from a counter that outlives a single simulation, so
+the same scenario run twice in one JVM produces the same decisions under different ids; the trace
+would then depend on what else that JVM had run. The column is the vehicle's rank of first
+appearance within the trace instead.
 
 ## Running the test
 
