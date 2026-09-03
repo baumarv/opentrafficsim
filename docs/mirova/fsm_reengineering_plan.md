@@ -179,12 +179,23 @@ entangled than the plan assumed.
 bookkeeping in one place and then calls the new `onEntry()` hook; `exit()` calls `onExit()`. Only the
 transition machinery and `ManeuverPattern.update()` call them.
 
-**Stage 1b -- `next()` returns a target instead of a plan (not started).** Held back deliberately:
-`isRunning` is read per tick by `PatternSelector` to decide whether `checkContext()` runs at all, and
-several states re-assert `setRunning(true)` from inside `executeControl()` while
-`FarAnticipationState` and `AdjacentCongestionState` clear it every tick on purpose. Those
-per-tick assertions are redundant now that `enter()` exists, but removing them changes when a
-pattern counts as running, so it needs its own verified step rather than being folded into 1a.
+**Stage 1b -- `next()` returns a target instead of a plan (done, trace verified).** `next()` and
+`abort()` now answer with an `ActionState`: the target, the `FINISHED` sentinel, or `null`. They are
+decisions and nothing else -- they do not enter anything, do not build a plan, and leave the machine
+as they found it. `transitionTo` is gone, and with it the recursion; stage 2 came with this step
+rather than after it, because a method that returns a target needs something to consume it.
+
+Ending the maneuver is the `FINISHED` sentinel rather than a second method. That is what removed the
+defect recorded in section 1.7: `PreventUndercuttingPattern` called `finishManeuver()` for its side
+effects, threw the plan away and then transitioned, marking the pattern finished and immediately
+entering a state in it. With one channel for the question "what does this state hand over to", the
+contradiction cannot be written down any more.
+
+**What is still open from 1b.** The per-tick `setRunning(true)` calls inside `executeControl()` are
+redundant now that `enter()` exists, but removing them is a separate question: `isRunning` is read
+per tick by `PatternSelector` to decide whether `checkContext()` runs at all, and
+`FarAnticipationState` and `AdjacentCongestionState` clear it every tick on purpose. That is
+behaviour wearing the clothes of bookkeeping, and it deserves its own verified step.
 
 #### The contract, once 1b is done
 
@@ -207,9 +218,17 @@ public abstract class ActionState {
 - `setRunning` / `releaseActionLock` / `commitToAction` leave constructors and `executeControl`
   and are served exclusively by `onEntry` / `onExit` and the driver loop.
 
-### Stage 2 -- Centralise the driver loop
+### Stage 2 -- Centralise the driver loop (done, trace verified, folded into 1b)
 
-`ManeuverPattern.update()` resolves transition chains iteratively instead of recursively:
+The loop lives in `ActionState.update()` rather than in `ManeuverPattern.update()` as sketched below.
+`HybridPlanArbitrator` calls `update()` directly on the locked state, so the loop has to be reachable
+from a state and not only from a pattern; putting it in the state serves both entry points without a
+second copy.
+
+`MAX_TRANSITIONS_PER_TICK` is 32. Exceeding it throws with the pattern and the last state named,
+which turns the reachable `CongestedMerge` cycle from a `StackOverflowError` into a report.
+
+The sketch this stage was planned from:
 
 ```java
 int depth = 0;
@@ -304,6 +323,16 @@ The four single-state patterns get a `SingleStatePattern` base that pre-fills `n
 
 ---
 
+## 4b. The `old/` package
+
+Removed while doing 1b. Ten files, about 109 call sites, all of them overriding the two methods whose
+signature this stage changes, and none of them reachable: the only references outside the package
+were three imports and one commented-out line in `MirovaTacticalPlannerFactory`. Converting dead code
+to a new contract is work that buys nothing, and leaving it behind under the old contract would have
+meant keeping both contracts alive. Git remembers it.
+
+---
+
 ## 5. Order and risk
 
 | Stage | Effort | Trace changes | Note |
@@ -325,10 +354,10 @@ not need the table.
 
 | Stage | State |
 |:--|:--|
-| 0 Trace test | **done** (merge reference recorded and verified deterministic; congested-creep and anticipation coverage still missing) |
+| 0 Trace test | **done**; two references, both deterministic, Freiburg covers the congested branch |
 | 1a Constructor / enter-exit | **done**, trace verified on both cases |
-| 1b `next()` returns a target | not started |
-| 2 Driver loop | not started |
+| 1b `next()` returns a target | **done**, trace verified |
+| 2 Driver loop | **done**, folded into 1b |
 | 4 Shared lateral execution | **done**, trace verified |
 | 3 Transition table | not started |
 | 5 Hierarchy | not started |

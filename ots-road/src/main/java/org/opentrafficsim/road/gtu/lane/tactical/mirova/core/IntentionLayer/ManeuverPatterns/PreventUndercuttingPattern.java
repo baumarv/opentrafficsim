@@ -220,7 +220,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
          * @throws NetworkException if network topology fails
          */
         @Override
-        public SimpleOperationalPlan next() throws ParameterException, GtuException, NetworkException
+        public ActionState next() throws ParameterException, GtuException, NetworkException
         {
             NeighborsContext neighbors = this.vehicle.getContext(NeighborsContext.class);
 
@@ -228,8 +228,8 @@ public class PreventUndercuttingPattern extends ManeuverPattern
                     && neighbors.getIfLaneChangePossible(LateralDirectionality.LEFT))
             {
                 // Transition to performing the lane change
-                return transitionTo(new SimpleLaneChangePattern.PerformLaneChangeState(this.maneuverPattern,
-                        LateralDirectionality.LEFT, true));
+                return new SimpleLaneChangePattern.PerformLaneChangeState(this.maneuverPattern,
+                        LateralDirectionality.LEFT, true);
             }
 
             Duration leftTimeHeadway = neighbors.getFrontGapTimeHeadway(LateralDirectionality.LEFT);
@@ -241,7 +241,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
                 if (gapLeftLane.ge(this.vehicle.getParameters().getParameter(ParameterTypes.T)))
                 {
                     // Transition to preparing the lane change
-                    return transitionTo(new PrepareLaneChangeState(this.maneuverPattern));
+                    return new PrepareLaneChangeState(this.maneuverPattern);
                 }
             }
 
@@ -260,7 +260,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
          * @throws NetworkException if network context fails
          */
         @Override
-        public SimpleOperationalPlan abort() throws ParameterException, GtuException, NetworkException
+        public ActionState abort() throws ParameterException, GtuException, NetworkException
         {
             NeighborsContext neighbors = this.vehicle.getContext(NeighborsContext.class);
             HeadwayGtu leftLeader = neighbors.getLeader(LateralDirectionality.LEFT);
@@ -268,7 +268,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
             // 1. Leader disappeared
             if (leftLeader == null)
             {
-                return finishManeuver();
+                return FINISHED;
             }
 
             EgoContext ego = this.vehicle.getContext(EgoContext.class);
@@ -278,7 +278,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
             // 2. Leader ID changed or traffic state changed
             if (!leftLeader.getId().equals(this.maneuverPattern.getShadowingLeftNeighborId()) || !isFreeFlow)
             {
-                return finishManeuver();
+                return FINISHED;
             }
 
             // 3. NEW: The situation has naturally resolved (Left Leader drove away)
@@ -293,7 +293,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
 
             if (isFarAway || isPullingAway)
             {
-                return finishManeuver();
+                return FINISHED;
             }
 
             return null; // Continue maneuver
@@ -424,21 +424,24 @@ public class PreventUndercuttingPattern extends ManeuverPattern
          * @throws NetworkException if network topology fails
          */
         @Override
-        public SimpleOperationalPlan next() throws ParameterException, GtuException, NetworkException
+        public ActionState next() throws ParameterException, GtuException, NetworkException
         {
             NeighborsContext neighbors = this.vehicle.getContext(NeighborsContext.class);
 
             if (neighbors.getIfLaneChangePossible(LateralDirectionality.LEFT))
             {
-                finishManeuver();
-                return transitionTo(new SimpleLaneChangePattern.PerformLaneChangeState(this.maneuverPattern,
-                        LateralDirectionality.LEFT, true));
+                // This used to call finishManeuver() and throw its plan away before transitioning, which marked the
+                // pattern finished and then entered a state in it. It was harmless only because the state entered sets
+                // the running flag again on its first tick. Handing the target back is the same transition without the
+                // contradiction.
+                return new SimpleLaneChangePattern.PerformLaneChangeState(this.maneuverPattern,
+                        LateralDirectionality.LEFT, true);
             }
             else if (ShadowingState.getGapBehindLeftLeader(this.vehicle).si < this.vehicle.getParameters()
                     .getParameter(ParameterTypes.T).si)
             {
                 // If we lose the gap while preparing, we go back to shadowing to avoid cutting in too closely
-                return transitionTo(new ShadowingState(this.maneuverPattern));
+                return new ShadowingState(this.maneuverPattern);
             }
 
             return null; // Stay in preparation state until we can move
@@ -456,7 +459,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
          * @throws NetworkException if network context fails
          */
         @Override
-        public SimpleOperationalPlan abort() throws ParameterException, GtuException, NetworkException
+        public ActionState abort() throws ParameterException, GtuException, NetworkException
         {
             NeighborsContext neighbors = this.vehicle.getContext(NeighborsContext.class);
             HeadwayGtu leftLeader = neighbors.getLeader(LateralDirectionality.LEFT);
@@ -464,7 +467,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
             // 1. Leader disappeared
             if (leftLeader == null)
             {
-                return finishManeuver();
+                return FINISHED;
             }
 
             EgoContext ego = this.vehicle.getContext(EgoContext.class);
@@ -474,7 +477,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
             // 2. Leader ID changed or traffic state changed
             if (!leftLeader.getId().equals(this.maneuverPattern.getShadowingLeftNeighborId()) || !isFreeFlow)
             {
-                return finishManeuver();
+                return FINISHED;
             }
 
             // 3. NEW: The situation has naturally resolved (Left Leader drove away)
@@ -489,7 +492,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
 
             if (isFarAway || isPullingAway)
             {
-                return finishManeuver();
+                return FINISHED;
             }
 
             return null; // Continue maneuver
