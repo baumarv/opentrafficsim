@@ -1,0 +1,366 @@
+<title>Seeds, Streams and Arrivals</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,500;0,600;1,400&display=swap">
+
+<style>
+:root{
+  --ground:#F5F5F8; --surface:#FFFFFF; --sunk:#ECECF2;
+  --ink:#17161D; --body:#373543; --muted:#6B6879; --faint:#9895A6;
+  --rule:#E0DEE7; --rule-hard:#C6C3D2;
+  --accent:#4A3E8E; --accent-soft:#E7E4F3;
+  --ok:#3B7350; --warn:#93662A; --bad:#96374A;
+  --ok-bg:#E4EEE8; --warn-bg:#F5EBDA; --bad-bg:#F5E2E6;
+  --measure:66ch;
+  --s1:.4rem; --s2:.75rem; --s3:1.25rem; --s4:2rem; --s5:3.25rem; --s6:5rem;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#100F16; --surface:#191822; --sunk:#22202D;
+    --ink:#EBE9F2; --body:#C6C2D4; --muted:#8E8AA0; --faint:#6E6A80;
+    --rule:#2A2836; --rule-hard:#3E3B50;
+    --accent:#A99BE8; --accent-soft:#241F3D;
+    --ok:#74B98D; --warn:#D3A45F; --bad:#DB8194;
+    --ok-bg:#18271D; --warn-bg:#2A2114; --bad-bg:#2C191F;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#100F16; --surface:#191822; --sunk:#22202D;
+  --ink:#EBE9F2; --body:#C6C2D4; --muted:#8E8AA0; --faint:#6E6A80;
+  --rule:#2A2836; --rule-hard:#3E3B50;
+  --accent:#A99BE8; --accent-soft:#241F3D;
+  --ok:#74B98D; --warn:#D3A45F; --bad:#DB8194;
+  --ok-bg:#18271D; --warn-bg:#2A2114; --bad-bg:#2C191F;
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--ground); color:var(--body);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  font-size:16.5px; line-height:1.62; margin:0;
+  padding:var(--s5) var(--s3) var(--s6); -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:min(100%,74rem); margin:0 auto; display:flex; flex-direction:column; gap:var(--s5)}
+.prose{max-width:var(--measure); margin-inline:auto; display:flex; flex-direction:column; gap:var(--s3)}
+.prose > *{margin:0}
+
+h1,h2,h3{font-family:"IBM Plex Serif",Georgia,serif; color:var(--ink); text-wrap:balance; margin:0; line-height:1.22}
+h1{font-size:clamp(2rem,1.3rem + 2.6vw,3rem); font-weight:600; letter-spacing:-.015em}
+h2{font-size:1.45rem; font-weight:600}
+h3{font-size:1.06rem; font-weight:600}
+.eyebrow{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.72rem; font-weight:500;
+  letter-spacing:.15em; text-transform:uppercase; color:var(--accent)}
+.lede{font-size:1.16rem}
+.dim{color:var(--muted); font-size:.93rem}
+b,strong{color:var(--ink); font-weight:600}
+code{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.88em;
+  background:var(--sunk); padding:.1em .35em; border-radius:3px}
+a{color:var(--accent)}
+a:focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:3px}
+
+header.head{max-width:var(--measure); margin-inline:auto; display:flex; flex-direction:column;
+  gap:var(--s2); border-bottom:2px solid var(--rule-hard); padding-bottom:var(--s3)}
+.meta{display:flex; flex-wrap:wrap; gap:.4rem var(--s3); font-family:"IBM Plex Mono",monospace;
+  font-size:.76rem; color:var(--faint); font-variant-numeric:tabular-nums}
+
+/* The work really is a sequence, so the steps are numbered. */
+.step{max-width:var(--measure); margin-inline:auto; width:100%;
+  display:flex; flex-direction:column; gap:var(--s3)}
+.stephead{display:flex; align-items:baseline; gap:var(--s2); flex-wrap:wrap;
+  border-top:1px solid var(--rule-hard); padding-top:var(--s3)}
+.stepno{font-family:"IBM Plex Mono",monospace; font-size:.78rem; font-weight:600; letter-spacing:.1em;
+  color:var(--accent); background:var(--accent-soft); padding:.2rem .5rem; border-radius:2px; white-space:nowrap}
+.status{font-family:"IBM Plex Mono",monospace; font-size:.66rem; letter-spacing:.1em; text-transform:uppercase;
+  padding:.14rem .45rem; border-radius:2px; font-weight:500; white-space:nowrap}
+.s-done{background:var(--ok-bg); color:var(--ok)}
+.s-part{background:var(--warn-bg); color:var(--warn)}
+.s-open{background:var(--bad-bg); color:var(--bad)}
+
+.tablewrap{width:100%; overflow-x:auto; background:var(--surface); border:1px solid var(--rule); border-radius:2px}
+table{border-collapse:collapse; width:100%; font-size:.855rem; font-variant-numeric:tabular-nums}
+caption{text-align:left; padding:var(--s3) var(--s3) var(--s2); font-family:"IBM Plex Serif",Georgia,serif;
+  font-weight:600; font-size:1.02rem; color:var(--ink)}
+caption span{display:block; font-family:"IBM Plex Sans",sans-serif; font-weight:400; font-size:.82rem;
+  color:var(--muted); margin-top:.3rem; max-width:60ch}
+th,td{padding:.5rem .7rem; text-align:right; white-space:nowrap; border-bottom:1px solid var(--rule)}
+th:first-child,td:first-child{text-align:left}
+thead th{font-family:"IBM Plex Mono",monospace; font-size:.68rem; font-weight:500; letter-spacing:.07em;
+  text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--rule-hard); vertical-align:bottom}
+tbody td{font-family:"IBM Plex Mono",monospace}
+tbody td:first-child{font-family:"IBM Plex Sans",sans-serif}
+tbody tr:hover td{background:var(--sunk)}
+td.good{color:var(--ok)} td.bad{color:var(--bad)} td.warn{color:var(--warn)}
+
+.commits{display:flex; flex-direction:column; border:1px solid var(--rule); background:var(--surface)}
+.commits > div{padding:var(--s3); border-bottom:1px solid var(--rule); display:flex; flex-direction:column; gap:var(--s1)}
+.commits > div:last-child{border-bottom:0}
+.sha{font-family:"IBM Plex Mono",monospace; font-size:.78rem; color:var(--accent)}
+.commits p{margin:0; font-size:.94rem}
+
+.callout{border:1px solid var(--rule); border-left:3px solid var(--warn); background:var(--surface);
+  padding:var(--s3); display:flex; flex-direction:column; gap:var(--s2); max-width:var(--measure);
+  margin-inline:auto; width:100%}
+.callout.bad{border-left-color:var(--bad)}
+.callout p{margin:0}
+.callout .eyebrow{color:var(--warn)}
+.callout.bad .eyebrow{color:var(--bad)}
+
+ul{margin:0; padding-left:1.15rem; display:flex; flex-direction:column; gap:var(--s2)}
+li::marker{color:var(--faint)}
+
+footer{max-width:var(--measure); margin-inline:auto; width:100%; border-top:1px solid var(--rule);
+  padding-top:var(--s3); font-size:.83rem; color:var(--faint); display:flex; flex-direction:column; gap:var(--s2)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<header class="head">
+  <p class="eyebrow">MiRoVA &middot; A5 Freiburg-Nord</p>
+  <h1>Seeds, Streams and Arrivals</h1>
+  <p class="lede">An audit of how randomness enters the model, what it was doing wrong, and what changed. Prompted
+    by run-to-run variation that reached a coefficient of variation of 60 % on the metrics the calibration is
+    scored against.</p>
+  <div class="meta">
+    <span>3 review steps</span><span>4 commits</span><span>2 repositories</span>
+    <span>126 existing runs re-analysed</span><span>2 new runs</span>
+  </div>
+</header>
+
+<section class="prose">
+  <h2>How randomness enters at all</h2>
+  <p>Each run builds three Mersenne Twisters. <code>generation</code> from the run seed drives arrival times via
+    <code>OdApplier</code>; <code>default</code> from seed + 1 feeds OTS internals; and the scenario built its own
+    from the run seed again, for desired speed, the IDM speed-adherence factor and route choice.</p>
+  <p>Randomness enters at exactly four points: arrival headways, desired speed from an empirical distribution, the
+    per-vehicle FSPEED factor <code>N(1.031, 0.1)</code>, and route choice. <b>The driver parameters are entirely
+    deterministic</b> &mdash; <code>T</code>, <code>a</code>, <code>b</code> and <code>s0</code> are identical for
+    every car and for every truck. The only driver heterogeneity in the model is desired speed.</p>
+  <p class="dim">One suspicion did not survive checking: the overridden <code>getParameters()</code> in
+    <code>ScenarioGenerator</code> looked as though it discarded the FSPEED draw, but
+    <code>getDefaultParameters()</code> calls <code>getCarFollowingParameters()</code>, which draws afresh per
+    vehicle.</p>
+</section>
+
+<div class="step">
+  <div class="stephead"><span class="stepno">STEP 0</span><h2>Measure the CRN break</h2><span class="status s-done">done</span></div>
+  <p>Paired campaign comparisons rest on the claim that identical seeds make cells directly comparable, so only the
+    model differs. Testing that required no new runs: the settled campaign's cells differ, at equal headway, only in
+    the relaxation damping &mdash; a pure behaviour parameter &mdash; at identical seeds.</p>
+  <p><b>Answer: yes, Common Random Numbers were broken.</b> The aggregate inflow was bit-identical: 20049 against
+    20049 vehicles, truck share 15.1978 % against 15.1978 %. The generation stream itself did not diverge. What
+    diverged was the microscopic assignment &mdash; which vehicle is a truck, at which point in the stream &mdash;
+    and that is what decides whether a breakdown triggers.</p>
+</div>
+
+<div class="tablewrap">
+  <table>
+    <caption>Divergence before the correction
+      <span>Same seed, same headway, damping the only difference. The effect scales with congestion.</span></caption>
+    <thead><tr><th>Date, seed</th><th>Type mismatches</th><th>Share</th><th>Ids in one run only</th></tr></thead>
+    <tbody>
+      <tr><td>2025-09-22, seed 43</td><td>4</td><td class="good">0.02 %</td><td>6</td></tr>
+      <tr><td>2025-09-22, seed 42</td><td>451</td><td class="warn">2.4 %</td><td>335</td></tr>
+      <tr><td>2025-10-07, seed 44</td><td>1374</td><td class="bad">7.1 %</td><td>998</td></tr>
+      <tr><td>2025-10-07, seed 43</td><td>1841</td><td class="bad">9.9 %</td><td>1386</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<section class="prose">
+  <p>The first roughly 9000 vehicles agreed in every pair; divergence set in after that and persisted. Retrospectively
+    the earlier paired comparisons are not void &mdash; the inflow matched in volume and composition &mdash; but
+    "only the model changed" held only up to the onset of congestion.</p>
+</section>
+
+<div class="callout">
+  <p class="eyebrow">Not demonstrated</p>
+  <p>This did not show that the stream duplication caused it. A second mechanism explains the same pattern: under
+    congestion the generators queue too, and the order in which mainline and ramp vehicles are actually placed
+    shifts. That would happen with fully independent streams and is physical, not a defect. Separating the two
+    needed the same measurement repeated after the fix &mdash; which is why the baseline had to be taken first.</p>
+</div>
+
+<div class="step">
+  <div class="stephead"><span class="stepno">STEP 1</span><h2>Correct the two findings, separately</h2><span class="status s-done">done</span></div>
+</div>
+
+<div class="commits">
+  <div>
+    <span class="sha">06e38078b</span>
+    <h3>A behaviour stream disjoint from arrivals</h3>
+    <p>All three scenarios built their behaviour stream as <code>new MersenneTwister(seed)</code> &mdash; the same
+      seed <code>OdApplier</code>'s <code>generation</code> stream uses. Two separate generators emitting one
+      identical sequence. The behaviour seed now goes through a SplitMix64 finalizer so the roles start at unrelated
+      points.</p>
+  </div>
+  <div>
+    <span class="sha">75a812777</span>
+    <h3>Replication seeds spaced by a prime</h3>
+    <p>Seeds ran as consecutive integers, so replication <i>k</i>'s <code>default</code> stream was bit-identical to
+      replication <i>k+1</i>'s arrival stream. The seven replications of a cell were not independent draws, which is
+      exactly what the paired statistics assume. Spacing is now 1000003. Replications 1 and up carry new seeds, so
+      existing campaigns cannot be extended with runs from this revision.</p>
+  </div>
+  <div>
+    <span class="sha">50ed4f994</span>
+    <h3>Keep the derived seed positive</h3>
+    <p>SplitMix64 returns negative values for half of all inputs and jstats rejects any seed at or below zero. Base
+      seed 42 landed negative, so every scenario threw at stream construction. Caught by the verification code, not
+      by the earlier smoke run, whose output was still in the pipe buffer when it was killed.</p>
+  </div>
+</div>
+
+<section class="prose">
+  <p><b>Verified:</b> behaviour stream matches neither the arrival stream nor <code>default</code>, and
+    <code>default(k)</code> no longer reproduces <code>generation(k+1)</code>. A reference run completes to
+    t&nbsp;=&nbsp;3590/3600&nbsp;s.</p>
+  <p class="dim">L'Ecuyer jump-ahead substreams were considered and not introduced: jstats' MersenneTwister exposes
+    no jump-ahead, and swapping the generator would reach across all of OTS. Against a period of 2<sup>19937</sup>&minus;1
+    and some 10<sup>7</sup> draws per run, seed separation is proportionate. Recorded in the commit.</p>
+</section>
+
+<div class="tablewrap">
+  <table>
+    <caption>The same measurement repeated after the correction
+      <span>2025-10-07, seed 43, T 1.10/1.40, damping 1.00 against 0.90. Two fresh runs.</span></caption>
+    <thead><tr><th></th><th>before</th><th>after</th></tr></thead>
+    <tbody>
+      <tr><td>Type mismatches</td><td class="bad">9.86 %</td><td class="warn">4.11 %</td></tr>
+      <tr><td>Ids in one run only</td><td>1386</td><td>580</td></tr>
+      <tr><td>First divergence at</td><td class="bad">t = 1050 s</td><td class="good">t = 14859 s</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<section class="prose">
+  <p><b>Both mechanisms were present.</b> The coupling is gone: divergence now starts four hours of simulated time
+    later, at roughly 17:08, precisely when congestion builds. That residual matches generator backlog reordering,
+    which is physical and not removable by seed separation. Paired comparisons are now clean up to the onset of
+    congestion; beyond it a realization difference remains that is not attributable to the model.</p>
+  <p class="dim">Caveat: n = 1, and the baseline ran through the cluster entry point with CSV demand while the new
+    runs used <code>RunFreiburgMergeWatch</code> with a database fetch. Within each pair the measurement is
+    consistent, but the step from 9.86 to 4.11 % may mix the correction with the change of entry point.</p>
+</section>
+
+<div class="step">
+  <div class="stephead"><span class="stepno">STEP 2</span><h2>Ramp geometry and the signal cycle</h2><span class="status s-part">partly conclusive</span></div>
+  <p><b>Geometry.</b> The modelled ramp runs some 310 m of chord from R7_1 to the merge point (143 m to the curve
+    end, 165 m onward), with a 199 m merge section on L4a. Field studies still resolve platoon structure at 230, 450
+    and 700 m downstream of a stop line, so a platoon would arrive largely intact. <b>Open:</b> R7_1 is the model
+    boundary, not demonstrably the signalized intersection. If the signal sits further upstream, the distance is
+    longer and the argument weaker.</p>
+  <p><b>Periodicity.</b> Sharper limitation than the review assumed: at 1-minute sampling the Nyquist period is
+    120 s, so the entire 60&ndash;120 s band of typical cycle times is unresolvable, not merely its lower edge.</p>
+</div>
+
+<div class="tablewrap">
+  <table>
+    <caption>Autocorrelation of detrended ramp counts, 15:00&ndash;19:00
+      <span>An alternating pattern &mdash; odd lags low, even lags high &mdash; is the signature of a two-minute
+        period. Tested under three detrendings to rule out an artefact of the rolling mean.</span></caption>
+    <thead><tr><th>Date, detrending</th><th>Lag 1 min</th><th>Lag 2 min</th><th>Lag 3 min</th><th>Lag 4 min</th></tr></thead>
+    <tbody>
+      <tr><td>2025-10-27, rolling 15</td><td>&minus;0.214</td><td>+0.080</td><td>&minus;0.191</td><td>+0.088</td></tr>
+      <tr><td>2025-10-27, rolling 31</td><td>&minus;0.135</td><td>+0.124</td><td>&minus;0.122</td><td>+0.126</td></tr>
+      <tr><td>2025-10-27, linear</td><td>+0.141</td><td>+0.335</td><td>+0.146</td><td>+0.340</td></tr>
+      <tr><td>2025-09-22, rolling 15</td><td>&minus;0.163</td><td>&minus;0.115</td><td>&minus;0.112</td><td>&minus;0.075</td></tr>
+      <tr><td>2025-09-22, linear</td><td>+0.172</td><td>+0.197</td><td>+0.190</td><td>+0.216</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<section class="prose">
+  <p>On 2025-10-27 the alternation holds under every detrending and the periodogram peaks at exactly 120 s. On
+    2025-09-22 there is no alternation under any. So the day with the longest jam at the lowest demand shows a
+    two-minute periodicity in ramp arrivals; the jam-free day does not.</p>
+  <p><b>What it does not prove.</b> 120 s sits exactly at Nyquist, which is equally consistent with a 120 s cycle and
+    with an alias of a shorter one. Neither can be excluded; signal timing plans would be the next source. The weaker
+    peaks at 151 s and 181 s on other days are not counted &mdash; no correction was made for the number of
+    frequencies examined, and across some 50 bins a periodogram maximum routinely exceeds three standard
+    deviations.</p>
+</section>
+
+<div class="step">
+  <div class="stephead"><span class="stepno">THEN</span><h2>The three items the review left open</h2><span class="status s-done">done</span></div>
+</div>
+
+<div class="commits">
+  <div>
+    <span class="sha">21735a7e2</span>
+    <h3>Arrival process, per inflow</h3>
+    <p><b>Mainline: implemented.</b> A shifted exponential <code>m + (1&minus;m)&middot;(&minus;ln u)</code> set at
+      origin node N1_1, enabled by <code>-Dmirova.mainlineHeadwayFloor</code>. Over 2&nbsp;million draws the mean
+      holds at 1.000 for every <i>m</i>, so OD demand is delivered unchanged, while the floor is exact.</p>
+    <p><b>On-ramp: deliberately not implemented</b>, for a structural reason found while building it &mdash; a
+      <code>HeadwayDistribution</code> receives only a random stream, never simulation time. A process whose
+      intensity varies with the phase of a signal cycle cannot be expressed through this interface by any
+      distribution. Robertson dispersion needs a time-aware arrivals generator, not a parameter. The ramp keeps the
+      default as an acknowledged approximation, recorded in the Javadoc.</p>
+  </div>
+  <div>
+    <span class="sha">23cbbb8</span>
+    <h3>Confidence intervals on every campaign figure</h3>
+    <p>Student-t half-width and contributing n for each metric; a Wilson score interval for breakdown probability,
+      which is a share of runs and would otherwise leave [0, 1] and collapse to zero width exactly at 0 % and
+      100 %.</p>
+  </div>
+  <div>
+    <span class="sha">a5283ab</span>
+    <h3>Scoring against the empirical distribution</h3>
+    <p><code>compare_capacity_distributions</code> puts the simulated product-limit distribution beside the empirical
+      one and names the <i>direction</i> of the error. Checked on synthetic cases: 1.59&times; reads "too wide",
+      1.09&times; "matches", 0.63&times; "too narrow &mdash; overshot". Undershooting the empirical spread counts as
+      a failure, not a better score.</p>
+  </div>
+</div>
+
+<div class="tablewrap">
+  <table>
+    <caption>What the mainline default actually draws
+      <span>At a mean headway of 1.8 s, i.e. 2000 veh/h per lane. 2 million draws per row.</span></caption>
+    <thead><tr><th>Distribution</th><th>Mean</th><th>Shortest headway</th><th>Share below 0.5 s</th></tr></thead>
+    <tbody>
+      <tr><td>Exponential (OTS default)</td><td>1.0003</td><td>0.000 s</td><td class="bad">24.2 %</td></tr>
+      <tr><td>Shifted, floor 0.2</td><td>1.0002</td><td>0.360 s</td><td class="warn">9.2 %</td></tr>
+      <tr><td>Shifted, floor 0.4</td><td>1.0002</td><td>0.720 s</td><td class="good">0 %</td></tr>
+      <tr><td>Shifted, floor 0.6</td><td>1.0001</td><td>1.080 s</td><td class="good">0 %</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="callout bad">
+  <p class="eyebrow">This changes how earlier results should be read</p>
+  <p>At n = 7 a cell at 57 % breakdown has a Wilson interval of [0.25, 0.84] and one at 86 % has [0.49, 0.97].
+    <b>The cells were never distinguishable.</b> And the jam duration that looked like the campaign's one clean hit
+    &mdash; 69 min against an empirical 70 &mdash; is 69 &plusmn; 60 min over the four seeds that broke down at all.
+    An earlier estimate of &plusmn;13 min, taken from the mean coefficient of variation across cells, understated it
+    considerably.</p>
+</div>
+
+<section class="prose">
+  <h2>What remains open</h2>
+  <ul>
+    <li><b>The headway floor is untested.</b> The default of 0.0 reproduces current behaviour exactly, so nothing has
+      changed yet. Measuring its effect is a campaign of its own &mdash; and given the Wilson intervals it needs more
+      seeds than seven, or the result will again be unresolvable.</li>
+    <li><b>Ramp platoon arrivals</b> need a time-aware generator. Whether that is worth building depends on whether
+      the 120 s periodicity is real, which 1-minute data cannot settle.</li>
+    <li><b>The signal's true position</b> relative to R7_1, which decides how much of the platoon survives to the
+      merge.</li>
+    <li><b>The CRN re-test rests on one pair</b>, across a change of entry point. A clean version would repeat both
+      runs on the pre-commit state through the same entry point.</li>
+    <li><b>Driver parameters remain deterministic.</b> Adding heterogeneity in <code>T</code> is the obvious next
+      thought and the wrong lever: per Ehrhardt &amp; Tordeux, scaled heterogeneity destabilizes.</li>
+  </ul>
+</section>
+
+<footer>
+  <p>Commits: <code>06e38078b</code>, <code>75a812777</code>, <code>50ed4f994</code>, <code>21735a7e2</code> in
+    opentrafficsim; <code>23cbbb8</code>, <code>a5283ab</code> in diss_mvb.</p>
+  <p>Step 0 re-analysed the 126 runs of the settled campaign; the step 1 re-test added two runs of the full
+    2025-10-07 window. Periodicity worked on the 1-minute ramp cross-section from the diss_mvb field database, no
+    simulation involved.</p>
+</footer>
+
+</div>
