@@ -26,6 +26,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.MacroTr
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.NeighborsContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext.ScanDirection;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ActionState;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.LateralExecution;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaCarFollowingUtil;
 import org.opentrafficsim.road.network.lane.Lane;
@@ -954,14 +955,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
          */
         protected void setIndicators(final SimpleOperationalPlan plan, final LateralDirectionality dir)
         {
-            if (dir.isLeft())
-            {
-                plan.setIndicatorIntentLeft();
-            }
-            else if (dir.isRight())
-            {
-                plan.setIndicatorIntentRight();
-            }
+            LateralExecution.setIndicators(plan, dir);
         }
 
         /**
@@ -2126,28 +2120,11 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         @Override
         public SimpleOperationalPlan executeControl() throws ParameterException, GtuException, NetworkException
         {
+            // The mandatory manoeuvre commits unconditionally: by the time this state is entered the gap has been
+            // established, and releasing the lock mid-crossing would let another pattern steer.
             this.vehicle.commitToAction(this);
-            NeighborsContext neighborsCtx = this.vehicle.getContext(NeighborsContext.class);
-            EgoContext egoCtx = this.vehicle.getContext(EgoContext.class);
 
-            HeadwayGtu targetLeader = neighborsCtx.getLeader(LateralDirectionality.NONE);
-            if (targetLeader != null && !this.vehicle.getLaneChange().isChangingLane())
-            {
-                egoCtx.triggerRelaxationWithReducedSafetyDistance(targetLeader);
-            }
-
-            Acceleration minAcc = egoCtx.getCurrentCarFollowingAcceleration();
-
-            Iterable<HeadwayGtu> leaders = neighborsCtx.getLeaders(this.direction);
-            for (HeadwayGtu leader : leaders)
-            {
-                if (!this.vehicle.getLaneChange().isChangingLane())
-                {
-                    egoCtx.triggerRelaxationWithReducedSafetyDistance(leader);
-                }
-                Acceleration aTarget = MirovaCarFollowingUtil.followSingleLeader(this.vehicle, leader);
-                minAcc = Acceleration.min(minAcc, aTarget);
-            }
+            Acceleration minAcc = LateralExecution.accelerationForLateralMove(this.vehicle, this.direction);
 
             SimpleOperationalPlan plan =
                     new SimpleOperationalPlan(minAcc, this.pattern.getPatternSpecificTimestep(), this.direction);
@@ -2161,10 +2138,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         public SimpleOperationalPlan next()
                 throws ParameterException, NullPointerException, IllegalArgumentException, GtuException, NetworkException
         {
-            boolean finished =
-                    !this.vehicle.getLaneChange().isChangingLane() && !this.originLane.equals(this.vehicle.getGtu().getLane());
-
-            if (finished)
+            if (LateralExecution.lateralMoveFinished(this.vehicle, this.originLane))
             {
                 // if (this.slowLaneChange)
                 // {

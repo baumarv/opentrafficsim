@@ -8,7 +8,6 @@ import org.opentrafficsim.base.parameters.Parameters;
 import org.opentrafficsim.core.gtu.GtuException;
 import org.opentrafficsim.core.network.LateralDirectionality;
 import org.opentrafficsim.core.network.NetworkException;
-import org.opentrafficsim.road.gtu.lane.perception.headway.HeadwayGtu;
 import org.opentrafficsim.road.gtu.lane.plan.operational.SimpleOperationalPlan;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
@@ -17,8 +16,8 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.Infrast
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.NeighborsContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.Desire;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ActionState;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.LateralExecution;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaCarFollowingUtil;
 import org.opentrafficsim.road.network.lane.Lane;
 
 /**
@@ -185,28 +184,9 @@ public class SimpleLaneChangePattern extends ManeuverPattern
             this.maneuverPattern.setRunning(true);
 
             NeighborsContext neighborsCtx = this.vehicle.getContext(NeighborsContext.class);
-            EgoContext egoCtx = this.vehicle.getContext(EgoContext.class);
+            Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
 
-            Speed egoSpeed = egoCtx.getEgoSpeed();
-
-            HeadwayGtu targetLeader = neighborsCtx.getLeader(LateralDirectionality.NONE);
-            if (targetLeader != null && !this.vehicle.getLaneChange().isChangingLane())
-            {
-                egoCtx.triggerRelaxationWithReducedSafetyDistance(targetLeader);
-            }
-
-            Acceleration minAcc = egoCtx.getCurrentCarFollowingAcceleration();
-
-            Iterable<HeadwayGtu> leaders = neighborsCtx.getLeaders(this.direction);
-            for (HeadwayGtu leader : leaders)
-            {
-                if (!this.vehicle.getLaneChange().isChangingLane())
-                {
-                    egoCtx.triggerRelaxationWithReducedSafetyDistance(leader);
-                }
-                Acceleration aTarget = MirovaCarFollowingUtil.followSingleLeader(this.vehicle, leader);
-                minAcc = Acceleration.min(minAcc, aTarget);
-            }
+            Acceleration minAcc = LateralExecution.accelerationForLateralMove(this.vehicle, this.direction);
 
             // Evaluate lateral feasibility before committing. Only update startCondition when not
             // yet in a lateral move — once the physical change has begun we must complete it.
@@ -224,14 +204,7 @@ public class SimpleLaneChangePattern extends ManeuverPattern
                 // running (e.g. GapOpener) every tick the vehicle is stuck waiting for a gap.
                 SimpleOperationalPlan waitPlan = new SimpleOperationalPlan(minAcc,
                         this.maneuverPattern.getPatternSpecificTimestep(), LateralDirectionality.NONE);
-                if (this.direction.isLeft())
-                {
-                    waitPlan.setIndicatorIntentLeft();
-                }
-                else if (this.direction.isRight())
-                {
-                    waitPlan.setIndicatorIntentRight();
-                }
+                LateralExecution.setIndicators(waitPlan, this.direction);
                 return waitPlan;
             }
 
@@ -239,14 +212,7 @@ public class SimpleLaneChangePattern extends ManeuverPattern
             this.vehicle.commitToAction(this);
             SimpleOperationalPlan plan =
                     new SimpleOperationalPlan(minAcc, this.maneuverPattern.getPatternSpecificTimestep(), this.direction);
-            if (this.direction.isLeft())
-            {
-                plan.setIndicatorIntentLeft();
-            }
-            else if (this.direction.isRight())
-            {
-                plan.setIndicatorIntentRight();
-            }
+            LateralExecution.setIndicators(plan, this.direction);
             return plan;
         }
 
@@ -254,13 +220,8 @@ public class SimpleLaneChangePattern extends ManeuverPattern
         public SimpleOperationalPlan next()
                 throws ParameterException, NullPointerException, IllegalArgumentException, GtuException, NetworkException
         {
-            // Pattern completes when the vehicle is no longer laterally moving and has reached a new lane
-            boolean finished =
-                    !this.vehicle.getLaneChange().isChangingLane() && !this.originLane.equals(this.vehicle.getGtu().getLane());
-
-            if (finished)
+            if (LateralExecution.lateralMoveFinished(this.vehicle, this.originLane))
             {
-
                 return finishManeuver();
             }
             return null;

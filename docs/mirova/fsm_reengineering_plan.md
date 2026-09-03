@@ -243,13 +243,38 @@ The order encodes exactly today's `if` cascade, so equivalence is checkable by i
 only by the trace. Gain: the graph becomes machine-readable (PlantUML export for the dissertation),
 and a test can pin the guard order.
 
-### Stage 4 -- `LateralExecutionState` as a real submachine
+### Stage 4 -- Share the lateral execution mechanism (done, trace verified)
 
-Merge `ExecuteLaneChangeState` and `PerformLaneChangeState` into **one** class, parameterised by
-`direction`, `cooperative` (flag already exists) and `commit` (whether `commitToAction` is called --
-the only real difference). Every pattern then shares the same execution state, and the relaxation
-trigger exists once. Largest gain per unit of risk: purely mechanical, trace-verifiable, removes
-about 110 duplicated lines.
+**The plan was wrong about the shape of this one, and the code corrected it.** It assumed
+`ExecuteLaneChangeState` and `PerformLaneChangeState` differed only in whether `commitToAction` is
+called, and could therefore be merged into one class with a flag or three. Comparing them line by
+line shows something else: what they duplicate is the *mechanism*, and what they differ in is
+*policy*, on four counts.
+
+Identical, character for character:
+
+- trigger a reduced-safety-distance relaxation for the current leader and for every leader on the
+  target lane, but only while the crossing has not yet begun;
+- take the minimum of the plain car-following acceleration and the response to each of those
+  leaders;
+- set the indicator matching the direction;
+- decide the movement is over once the vehicle has stopped crossing and is on a different lane.
+
+Genuinely different, and deliberately so:
+
+| | `PerformLaneChangeState` | `ExecuteLaneChangeState` |
+|:--|:--|:--|
+| start | gated: aborts unless the resulting speed clears a minimum and the gap is still open | ungated: the gap was established before the state was entered |
+| lock | taken only once the gate passes, so a waiting vehicle does not block cooperative patterns | taken unconditionally |
+| give up | when the gate fails | when the desire drops below `DMAND`, and never mid-crossing |
+| worth | discretionary desire, zero if the vehicle cannot move | mandatory desire |
+
+Merging those into one class would encode four policy differences as four flags -- worse than the two
+classes that exist. So the **mechanism** moved into `LateralExecution` and the **policies** stayed
+where they are. 77 lines removed, none of them a decision.
+
+The lesson generalises to stage 5: duplication is a reason to extract what is shared, not a reason to
+assume the things sharing it are the same thing.
 
 ### Stage 5 -- Hierarchy, for `MandatoryLaneChangePattern` only
 
@@ -304,7 +329,7 @@ not need the table.
 | 1a Constructor / enter-exit | **done**, trace verified on both cases |
 | 1b `next()` returns a target | not started |
 | 2 Driver loop | not started |
-| 4 Submachine | not started |
+| 4 Shared lateral execution | **done**, trace verified |
 | 3 Transition table | not started |
 | 5 Hierarchy | not started |
 | 6 SingleStatePattern | not started |
