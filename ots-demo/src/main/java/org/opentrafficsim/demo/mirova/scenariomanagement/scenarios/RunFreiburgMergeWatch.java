@@ -95,6 +95,16 @@ public final class RunFreiburgMergeWatch
                         System.getProperty("mirova.carT", Double.toString(FreiburgStudyParameters.CAR_T)));
 
         /**
+         * Leader deceleration at which an active relaxation is abandoned, in m/s^2.
+         * <p>
+         * Exposed so the safety of a longer-lived relaxation can be checked locally before a campaign spends cluster
+         * time on it. The default is the framework value.
+         * </p>
+         */
+        private static final double RELAXATION_ABORT_DECELERATION =
+                        Double.parseDouble(System.getProperty("mirova.abortDecel", "-1.0"));
+
+        /**
          * Maximum acceleration of cars, in m/s^2.
          * <p>
          * Exposed for the sensitivity screen. Trucks already had their own property; cars did not, so the value
@@ -263,6 +273,12 @@ public final class RunFreiburgMergeWatch
                 params.set("car." + ParameterTypes.A.getId(), CAR_A);
                 params.set("car." + ParameterTypes.S0.getId(), CAR_S0);
                 params.set("car." + ParameterTypes.B.getId(), COMFORTABLE_DECELERATION);
+                params.set("car." + MirovaParameters.RELAXATION_ABORT_DECELERATION.getId(),
+                                org.djunits.value.vdouble.scalar.Acceleration
+                                                .instantiateSI(RELAXATION_ABORT_DECELERATION));
+                params.set("truck." + MirovaParameters.RELAXATION_ABORT_DECELERATION.getId(),
+                                org.djunits.value.vdouble.scalar.Acceleration
+                                                .instantiateSI(RELAXATION_ABORT_DECELERATION));
                 params.set("truck." + ParameterTypes.B.getId(), COMFORTABLE_DECELERATION);
                 params.set("car." + MirovaParameters.vGain.getId(), CAR_V_GAIN);
                 params.set("car." + MirovaParameters.A_MAX.getId(), CAR_A_MAX);
@@ -322,6 +338,7 @@ public final class RunFreiburgMergeWatch
                 System.out.println("[MergeWatch] cooperation: near=" + CAR_COOPERATIVE_DECELERATION_THRESHOLD + ", far="
                                 + COOP_DECEL_FAR + " | follower: min=" + FOLLOWER_DECEL_MIN + ", max=" + FOLLOWER_DECEL_MAX);
                 System.out.println("[MergeWatch] truck: a=" + TRUCK_A + ", T=" + TRUCK_T + ", s0=" + TRUCK_S0);
+                System.out.println("[MergeWatch] relaxation abort at " + RELAXATION_ABORT_DECELERATION + " m/s2");
                 System.out.println("[MergeWatch] screen: b=" + COMFORTABLE_DECELERATION
                                 + ", carA=" + CAR_A + ", carS0=" + CAR_S0);
                 System.out.println("[MergeWatch] car:   T=" + CAR_T + "s, vGain=" + CAR_V_GAIN + ", aMax=" + CAR_A_MAX
