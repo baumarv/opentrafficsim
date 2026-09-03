@@ -407,6 +407,45 @@ occur, in the model and in the trajectory data.
 
 ---
 
+### 6.5 How long a relaxation actually lives, and why an earlier figure here was wrong
+
+An earlier version of this section reported a mean relaxation lifetime of 1.0 s against a
+nominal time constant of 20 s, reconstructed from trajectories. **That figure was wrong**, and
+the way it was wrong is worth recording.
+
+A relaxation can end three ways and only one leaves a trace in trajectories: the abort when
+the leader brakes past `RELAXATION_ABORT_DECELERATION` or falls below 10 km/h, the natural
+decay collected by `EgoContext.updateFromPerception`, and the leader simply ceasing to be the
+leader, after which the state is never consulted again. The reconstruction saw only the
+first — and saw it on the 199 m of link L4a, the only link the sampler records by default,
+which every vehicle leaves within 15 to 50 s depending on the traffic state. The group that
+runs to completion was therefore invisible by construction.
+
+Measured directly, by counting inside the model over one congested hour:
+
+| ending | share | mean lifetime |
+|---|---|---|
+| leader braked past the threshold | 26.1 % | 2.00 s |
+| **leader below 10 km/h** | **65.8 %** | **0.28 s** |
+| decayed to nothing | 8.1 % | **60.4 s** |
+| leader stopped being the leader | 8.7 % | — |
+
+**A relaxation that is left alone lives its full 60 s**, that is three time constants, exactly
+as designed. What the trajectory reconstruction measured was the abort rate of the shortest-lived
+group, not the lifetime of the mechanism.
+
+The same instrumentation explains the null result of the `susceptibility` campaign. Raising the
+deceleration threshold from −1.0 to −3.5 does what it should — the relaxations ended that way
+go from 26.1 % of endings at 2.00 s to 0.8 % at 9.52 s — but the speed condition absorbs the
+difference and rises to 89 %. The axis worked; it governs a quarter of the cases while a fixed
+10 km/h threshold, which was never varied, governs two thirds.
+
+*Provenance:* `-Dmirova.relaxDiag=true`, one hour of 2025-10-07 with the sampler extended to
+L3a, L4a and L5a, single seed. The share attributed to each ending is specific to that hour's
+traffic state; the 60 s lifetime of the undisturbed group is not.
+
+---
+
 ## 7. What is *not* a parameter effect
 
 Several discrepancies that looked like calibration problems turned out not to be, and a
@@ -543,6 +582,7 @@ picture the empirical target set shows in §2.
 | §5.1 speed distribution | [calibration_status_briefing.md](calibration_status_briefing.md) §11, measured at `T` = 0.90 |
 | §5.2 acceleration attribution | [congested_branch_review_request.md](congested_branch_review_request.md) §8.2, 845 590 samples |
 | §6 breakdown position | 55 runs of the calibrated cell against 8 field days, plus the demand profiles |
+| §6.5 relaxation lifetimes | in-model counters, one congested hour, sampler on L3a, L4a and L5a |
 | §6.3 headway effect | study `capacity`, 432 runs (9 days x 6 cells x 8 seeds) |
 | §6.3 capacity-drop addon | study `capdrop`, 432 runs (9 days x 6 cells x 8 seeds) |
 | §8 sample sizes | Wilson and Student-t on the measured coefficients of variation |
