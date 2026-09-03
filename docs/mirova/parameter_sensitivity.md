@@ -5,9 +5,10 @@ simulated traffic state at a motorway merge, measured rather than assumed. Writt
 reference for the calibration chapter, so every claim carries the measurement it rests on
 and the uncertainty that measurement has.
 
-**Status:** the sensitivity screen (360 runs) is complete; the follow-up grid
-(`congested`, 648 runs) is defined but not yet evaluated. Section 8 lists what is still
-open.
+**Status:** the sensitivity screen (360 runs), the congested-branch grid (648), the
+production ensemble (270), the headway study (432) and the capacity-drop study (432) are
+all evaluated. Section 6 carries the finding that reframes several of the others; section 9
+lists what is still open.
 
 ---
 
@@ -95,7 +96,7 @@ worth paying for only on the axes that turn out to matter.
 safety distance factor 0.55.
 
 **Pooling is essential and deliberate.** Nine days × 4 replications gives 36 runs per
-cell. Per day it is 4, and at that size nothing is resolvable — see §7. Every figure
+cell. Per day it is 4, and at that size nothing is resolvable — see §8. Every figure
 below is pooled across days unless stated otherwise.
 
 **Reference rows.** `T` and damping were carried through the screen although they were
@@ -337,7 +338,76 @@ does so through density, and that chain is inferred rather than measured. Source
   campaign reported here ran it at 1.00, that is off. Numbers from this document should not
   be compared against runs at the framework default without noting that.
 
-## 6. What is *not* a parameter effect
+## 6. Where the breakdown happens, and why no parameter reaches the capacity drop
+
+The capacity drop is the one target of this calibration whose **sign** is wrong, in every cell of
+every campaign: the field discharges some 10 % less than it carried before breakdown, the model
+discharges 3 to 8 % more. A dedicated study of the capacity-drop mechanism failed to turn it, and in
+failing, explained it.
+
+### 6.1 The model collapses on the rising flank
+
+Demand around the moment of breakdown, over 55 runs of the calibrated set against the eight field
+days:
+
+| | 15 min before breakdown | 30 min after | |
+|---|---|---|---|
+| simulation | 3552 | 3805 | **+7.1 %** |
+| field | 3767 | 3608 | **−4.2 %** |
+
+In 93 % of runs the demand is **still rising** when the model breaks down. In the field it is already
+falling. The site collapses at or after its demand peak; the model collapses on the way up.
+
+That alone accounts for the sign. If demand keeps growing after the collapse, the queue afterwards
+discharges more traffic than was flowing at the moment it formed, so the "drop" comes out negative by
+construction — no parameter can invert it while the breakdown lands on the rising flank.
+
+### 6.2 It is not a difference of mechanism, it is one of susceptibility
+
+Both the site and the model break down through **merging**. Nothing else happens at an on-ramp, and
+demand is the load, not the mechanism. The difference is *how loaded the mainline has to be* before a
+merge succeeds in overturning it:
+
+| | breakdown flow | highest free-flow flow reached | ratio |
+|---|---|---|---|
+| field | 3456 | 3676 | **94 %** |
+| simulation | 3158 | 3504 | **90 %** |
+
+The model's peak capability is close to the site's — 3504 against 3676, a 5 % shortfall. What differs
+is the point on the flow axis at which a merge disturbance stops being absorbed. In the field a merge
+is absorbed until the mainline is nearly saturated. In the model it succeeds earlier, at a flow the
+model demonstrably sustains — it sustains exactly that flow in the queue afterwards, at 3282.
+
+**The mainline is too susceptible to merge disturbances, or recovers from them too poorly.** That is
+the finding; it is a statement about robustness, not about cause.
+
+### 6.3 What this reframes
+
+Three results documented elsewhere in this file follow from it rather than standing on their own:
+
+*   **Shortening the headway barely raised the breakdown capacity** (§4.4, and a dedicated study
+    measuring +5.5 % for an 18 % shorter headway). Capacity was never the binding constraint;
+    susceptibility is.
+*   **The capacity-drop addon lengthened the queue but did not turn the sign.** Measured against the
+    free-flow 95th percentile instead of the transition interval — a reference that cannot be
+    contaminated by the mechanism itself — the drop is still −3.1 to −4.7 % against a field +6.9 %.
+    The addon lowers the pre-breakdown flow and the discharge together.
+*   **The one day the site stayed free breaks down in the model regardless** (§2.1, §5). If breakdown
+    depends on merge events rather than on how close demand is to capacity, a day being below capacity
+    does not protect it.
+
+### 6.4 Limits of this finding
+
+The comparison rests on 55 runs of one cell against 8 field days, and the field's breakdown flow of
+3456 comes from the same cross-section whose limitation §2.1 records — 114 m upstream of the merge,
+inside the queue once one forms. The direction is solid; the magnitudes are not accurate to a few
+percent. What would settle it is a measure of susceptibility itself rather than of its consequence:
+the share of merge events followed by a sustained speed drop, as a function of the flow at which they
+occur, in the model and in the trajectory data.
+
+---
+
+## 7. What is *not* a parameter effect
 
 Several discrepancies that looked like calibration problems turned out not to be, and a
 chapter based on this material should not attribute them to parameters.
@@ -382,7 +452,7 @@ in the screen).
 
 ---
 
-## 7. Methodological findings
+## 8. Methodological findings
 
 These are worth a paragraph in the chapter in their own right, because they invalidate a
 naive reading of the earlier campaigns.
@@ -418,7 +488,7 @@ picture the empirical target set shows in §2.
 
 ---
 
-## 8. Open questions
+## 9. Open questions
 
 - **The grid is not yet run.** `b` × `s0` × `a`, 18 cells over nine days, is defined
   (study `congested`) but unevaluated. Whether a combination reaches all four targets
@@ -460,7 +530,7 @@ picture the empirical target set shows in §2.
 
 ---
 
-## 9. Provenance
+## 10. Provenance
 
 | Result | Source |
 |---|---|
@@ -472,11 +542,14 @@ picture the empirical target set shows in §2.
 | §6 random numbers | 126-run re-analysis plus 2 paired runs after the fix |
 | §5.1 speed distribution | [calibration_status_briefing.md](calibration_status_briefing.md) §11, measured at `T` = 0.90 |
 | §5.2 acceleration attribution | [congested_branch_review_request.md](congested_branch_review_request.md) §8.2, 845 590 samples |
-| §7 sample sizes | Wilson and Student-t on the measured coefficients of variation |
+| §6 breakdown position | 55 runs of the calibrated cell against 8 field days, plus the demand profiles |
+| §6.3 headway effect | study `capacity`, 432 runs (9 days x 6 cells x 8 seeds) |
+| §6.3 capacity-drop addon | study `capdrop`, 432 runs (9 days x 6 cells x 8 seeds) |
+| §8 sample sizes | Wilson and Student-t on the measured coefficients of variation |
 
 Raw per-run records: `docs/mirova/results/`.
 
-## 10. Related documents
+## 11. Related documents
 
 - [calibration_status_briefing.md](calibration_status_briefing.md) — the calibration as a
   whole: empirical reference, validation result, per-day errors, the specificity test, and
