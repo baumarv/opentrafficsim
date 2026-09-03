@@ -15,7 +15,10 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoCont
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.NeighborsContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.Desire;
+import java.util.List;
+
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ActionState;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Transition;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.LateralExecution;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern;
 import org.opentrafficsim.road.network.lane.Lane;
@@ -217,26 +220,29 @@ public class SimpleLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public ActionState next()
-                throws ParameterException, NullPointerException, IllegalArgumentException, GtuException, NetworkException
+        protected List<Transition> transitions()
         {
-            if (LateralExecution.lateralMoveFinished(this.vehicle, this.originLane))
-            {
-                return FINISHED;
-            }
-            return null;
+            return List.of(
+                    new Transition("start conditions lost before the move began", "end", this::startConditionLost),
+                    new Transition("lateral move complete", "end", this::moveComplete));
         }
 
-        @Override
-        public ActionState abort() throws ParameterException, GtuException, NetworkException
+        /**
+         * Ends the pattern when the gate in {@code executeControl} closed before the crossing began.
+         * @return {@link #FINISHED} if the start condition failed, {@code null} otherwise
+         */
+        private ActionState startConditionLost()
         {
-            // If the start condition failed before the move began, terminate the pattern
-            if (!this.startCondition)
-            {
-                //
-                return FINISHED;
-            }
-            return null;
+            return this.startCondition ? null : FINISHED;
+        }
+
+        /**
+         * Ends the pattern once the vehicle has arrived on the target lane.
+         * @return {@link #FINISHED} when the crossing is over, {@code null} while it is not
+         */
+        private ActionState moveComplete()
+        {
+            return LateralExecution.lateralMoveFinished(this.vehicle, this.originLane) ? FINISHED : null;
         }
 
         @Override

@@ -18,7 +18,10 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.MacroTrafficContext;
+import java.util.List;
+
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ActionState;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Transition;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaCarFollowingUtil;
 
@@ -156,12 +159,6 @@ public class AnticipateAdjacentCongestionPattern extends ManeuverPattern impleme
         }
 
         @Override
-        public ActionState next()
-        {
-            return null;
-        }
-
-        @Override
         public SimpleOperationalPlan executeControl()
                 throws ParameterException, OperationalPlanException, GtuException, NetworkException
         {
@@ -184,7 +181,19 @@ public class AnticipateAdjacentCongestionPattern extends ManeuverPattern impleme
         }
 
         @Override
-        public ActionState abort() throws ParameterException, GtuException, NetworkException
+        protected List<Transition> transitions()
+        {
+            return List.of(new Transition("no adjacent lane congested any more", "end", this::adjacentTrafficRecovered));
+        }
+
+        /**
+         * Ends the pattern once none of the lanes it was reacting to is congested any more.
+         * @return {@link #FINISHED} when every congested lane has recovered, {@code null} while any is still slow
+         * @throws ParameterException if a parameter lookup fails
+         * @throws GtuException if a GTU query fails
+         * @throws NetworkException if a network query fails
+         */
+        private ActionState adjacentTrafficRecovered() throws ParameterException, GtuException, NetworkException
         {
             MacroTrafficContext macro = this.vehicle.getContextManager().getCategory("MacroTraffic", MacroTrafficContext.class);
             Speed vCong = this.vehicle.getParams().vCongScalar;

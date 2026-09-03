@@ -20,7 +20,10 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoCont
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.MacroTrafficContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.NeighborsContext;
+import java.util.List;
+
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ActionState;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Transition;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaCarFollowingUtil;
 import org.opentrafficsim.road.network.speed.SpeedLimitInfo;
@@ -53,6 +56,61 @@ public class PreventUndercuttingPattern extends ManeuverPattern
     /** Comfortable deceleration floor applied while opening space for the lane change. */
     private static final Acceleration COMFORTABLE_DECELERATION_FLOOR = Acceleration.instantiateSI(-2.0);
 
+
+    /** Gap beyond which the left neighbour is simply too far ahead for undercutting to be a concern. */
+    private static final Length FAR_AWAY_GAP = Length.instantiateSI(80.0);
+
+    /** Gap beyond which a neighbour that is also faster counts as pulling away rather than staying alongside. */
+    private static final Length PULLING_AWAY_GAP = Length.instantiateSI(40.0);
+
+    /** Speed advantage at which the left neighbour counts as pulling away. */
+    private static final Speed PULLING_AWAY_SPEED = Speed.instantiateSI(1.0);
+
+    /** Time headway below which the ego counts as running up on the left leader. */
+    private static final Duration CLOSING_TIME_HEADWAY = Duration.instantiateSI(1.5);
+
+    /**
+     * Decides whether the undercutting situation this pattern reacts to still exists.
+     * <p>
+     * Both states asked exactly this, in two byte-identical copies. It is a question about the world rather than about the
+     * phase the manoeuvre is in, so it is asked in one place and both tables name it first.
+     * </p>
+     * @param vehicle the ego vehicle
+     * @param pattern the pattern, which remembers the neighbour being shadowed
+     * @return {@link ActionState#FINISHED} once the situation has resolved, {@code null} while it persists
+     * @throws ParameterException if a parameter lookup fails
+     * @throws GtuException if a GTU query fails
+     * @throws NetworkException if a network query fails
+     */
+    static ActionState undercuttingResolved(final MirovaTacticalPlanner vehicle, final PreventUndercuttingPattern pattern)
+            throws ParameterException, GtuException, NetworkException
+    {
+        NeighborsContext neighbors = vehicle.getContext(NeighborsContext.class);
+        HeadwayGtu leftLeader = neighbors.getLeader(LateralDirectionality.LEFT);
+
+        // The neighbour being shadowed is gone.
+        if (leftLeader == null)
+        {
+            return ActionState.FINISHED;
+        }
+
+        EgoContext ego = vehicle.getContext(EgoContext.class);
+        boolean isFreeFlow = ego.getEgoSpeed().gt(vehicle.getParams().vCongScalar);
+
+        // Someone else is there now, or traffic has become congested, where undercutting is normal anyway.
+        if (!leftLeader.getId().equals(pattern.getShadowingLeftNeighborId()) || !isFreeFlow)
+        {
+            return ActionState.FINISHED;
+        }
+
+        // The neighbour has settled it themselves, by being far ahead or by pulling away.
+        Length leftGap = neighbors.getFrontGapDistance(LateralDirectionality.LEFT);
+        boolean isFarAway = leftGap.si > FAR_AWAY_GAP.si;
+        boolean isPullingAway = leftLeader.getSpeed().si > ego.getEgoSpeed().si + PULLING_AWAY_SPEED.si
+                && leftGap.si > PULLING_AWAY_GAP.si;
+
+        return isFarAway || isPullingAway ? ActionState.FINISHED : null;
+    }
 
     /** ID of the vehicle on the left lane that this ego vehicle is currently shadowing. */
     protected String shadowingLeftNeighborId = null;
@@ -220,83 +278,56 @@ public class PreventUndercuttingPattern extends ManeuverPattern
          * @throws NetworkException if network topology fails
          */
         @Override
-        public ActionState next() throws ParameterException, GtuException, NetworkException
+        protected List<Transition> transitions()
         {
-            NeighborsContext neighbors = this.vehicle.getContext(NeighborsContext.class);
-
-            if (this.vehicle.getMandatoryLaneChangeDesire().getMandatoryDesire(LateralDirectionality.LEFT) >= 0.0
-                    && neighbors.getIfLaneChangePossible(LateralDirectionality.LEFT))
-            {
-                // Transition to performing the lane change
-                return new SimpleLaneChangePattern.PerformLaneChangeState(this.maneuverPattern,
-                        LateralDirectionality.LEFT, true);
-            }
-
-            Duration leftTimeHeadway = neighbors.getFrontGapTimeHeadway(LateralDirectionality.LEFT);
-
-            if (leftTimeHeadway.si < 1.5)
-            {
-                Duration gapLeftLane = getGapBehindLeftLeader(this.vehicle);
-
-                if (gapLeftLane.ge(this.vehicle.getParameters().getParameter(ParameterTypes.T)))
-                {
-                    // Transition to preparing the lane change
-                    return new PrepareLaneChangeState(this.maneuverPattern);
-                }
-            }
-
-            return null; // Stay in shadowing
+            return List.of(
+                    new Transition("undercutting situation resolved", "end",
+                            () -> undercuttingResolved(this.vehicle, (PreventUndercuttingPattern) this.maneuverPattern)),
+                    new Transition("gap open on the left and wanted", "PerformLaneChange", this::gapOpenAndWanted),
+                    new Transition("closing on the left leader with room behind it", "PrepareLaneChange",
+                            this::worthPreparing));
         }
 
         /**
-         * Verifies if the state should be aborted.
-         * <p>
-         * Abort conditions: 1. The left leader disappears or changes ID. 2. Traffic state transitions to congestion
-         * (undercutting allowed). 3. The undercutting situation is physically resolved (leader is far away or pulling away).
-         * </p>
-         * @return finish maneuver if no longer required, {@code null} otherwise
-         * @throws ParameterException if parameters are missing
-         * @throws GtuException if GTU context fails
-         * @throws NetworkException if network context fails
+         * Goes straight into the lane change when the gap is already there and the ego wants it.
+         * @return the lane-change state, or {@code null}
+         * @throws ParameterException if a parameter lookup fails
+         * @throws GtuException if a GTU query fails
+         * @throws NetworkException if a network query fails
          */
-        @Override
-        public ActionState abort() throws ParameterException, GtuException, NetworkException
+        private ActionState gapOpenAndWanted() throws ParameterException, GtuException, NetworkException
         {
             NeighborsContext neighbors = this.vehicle.getContext(NeighborsContext.class);
-            HeadwayGtu leftLeader = neighbors.getLeader(LateralDirectionality.LEFT);
-
-            // 1. Leader disappeared
-            if (leftLeader == null)
+            if (this.vehicle.getMandatoryLaneChangeDesire().getMandatoryDesire(LateralDirectionality.LEFT) >= 0.0
+                    && neighbors.getIfLaneChangePossible(LateralDirectionality.LEFT))
             {
-                return FINISHED;
+                return new SimpleLaneChangePattern.PerformLaneChangeState(this.maneuverPattern,
+                        LateralDirectionality.LEFT, true);
             }
+            return null;
+        }
 
-            EgoContext ego = this.vehicle.getContext(EgoContext.class);
-            Speed congestionThreshold = this.vehicle.getParams().vCongScalar;
-            boolean isFreeFlow = ego.getEgoSpeed().gt(congestionThreshold);
+        /**
+         * Starts preparing once the ego is running up on the left leader and there is room behind it to slot into.
+         * @return the preparation state, or {@code null} while shadowing is still the right thing to do
+         * @throws ParameterException if a parameter lookup fails
+         * @throws GtuException if a GTU query fails
+         * @throws NetworkException if a network query fails
+         */
+        private ActionState worthPreparing() throws ParameterException, GtuException, NetworkException
+        {
+            NeighborsContext neighbors = this.vehicle.getContext(NeighborsContext.class);
+            Duration leftTimeHeadway = neighbors.getFrontGapTimeHeadway(LateralDirectionality.LEFT);
 
-            // 2. Leader ID changed or traffic state changed
-            if (!leftLeader.getId().equals(this.maneuverPattern.getShadowingLeftNeighborId()) || !isFreeFlow)
+            if (leftTimeHeadway.si < CLOSING_TIME_HEADWAY.si)
             {
-                return FINISHED;
+                Duration gapLeftLane = getGapBehindLeftLeader(this.vehicle);
+                if (gapLeftLane.ge(this.vehicle.getParameters().getParameter(ParameterTypes.T)))
+                {
+                    return new PrepareLaneChangeState(this.maneuverPattern);
+                }
             }
-
-            // 3. NEW: The situation has naturally resolved (Left Leader drove away)
-            Length leftGap = neighbors.getFrontGapDistance(LateralDirectionality.LEFT);
-            Speed leftSpeed = leftLeader.getSpeed();
-            Speed egoSpeed = ego.getEgoSpeed();
-
-            // Abort if the left neighbor is far away (> 80m)
-            // OR if they are accelerating away (speed delta > 1 m/s and gap > 40m)
-            boolean isFarAway = leftGap.si > 80.0;
-            boolean isPullingAway = (leftSpeed.si > egoSpeed.si + 1.0) && (leftGap.si > 40.0);
-
-            if (isFarAway || isPullingAway)
-            {
-                return FINISHED;
-            }
-
-            return null; // Continue maneuver
+            return null;
         }
 
         /**
@@ -424,78 +455,49 @@ public class PreventUndercuttingPattern extends ManeuverPattern
          * @throws NetworkException if network topology fails
          */
         @Override
-        public ActionState next() throws ParameterException, GtuException, NetworkException
+        protected List<Transition> transitions()
+        {
+            return List.of(
+                    new Transition("undercutting situation resolved", "end",
+                            () -> undercuttingResolved(this.vehicle, (PreventUndercuttingPattern) this.maneuverPattern)),
+                    new Transition("gap open on the left", "PerformLaneChange", this::gapNowOpen),
+                    new Transition("gap behind the left leader lost again", "Shadowing", this::gapLostAgain));
+        }
+
+        /**
+         * Begins the lane change once the gap the preparation was opening has appeared.
+         * @return the lane-change state, or {@code null}
+         * @throws ParameterException if a parameter lookup fails
+         * @throws GtuException if a GTU query fails
+         * @throws NetworkException if a network query fails
+         */
+        private ActionState gapNowOpen() throws ParameterException, GtuException, NetworkException
         {
             NeighborsContext neighbors = this.vehicle.getContext(NeighborsContext.class);
-
             if (neighbors.getIfLaneChangePossible(LateralDirectionality.LEFT))
             {
                 // This used to call finishManeuver() and throw its plan away before transitioning, which marked the
                 // pattern finished and then entered a state in it. It was harmless only because the state entered sets
-                // the running flag again on its first tick. Handing the target back is the same transition without the
+                // the running flag again on its first tick. Naming the target is the same transition without the
                 // contradiction.
                 return new SimpleLaneChangePattern.PerformLaneChangeState(this.maneuverPattern,
                         LateralDirectionality.LEFT, true);
             }
-            else if (ShadowingState.getGapBehindLeftLeader(this.vehicle).si < this.vehicle.getParameters()
-                    .getParameter(ParameterTypes.T).si)
-            {
-                // If we lose the gap while preparing, we go back to shadowing to avoid cutting in too closely
-                return new ShadowingState(this.maneuverPattern);
-            }
-
-            return null; // Stay in preparation state until we can move
+            return null;
         }
 
         /**
-         * Verifies if the state should be aborted.
-         * <p>
-         * Abort conditions: 1. The left leader disappears or changes ID. 2. Traffic state transitions to congestion
-         * (undercutting allowed). 3. The undercutting situation is physically resolved (leader is far away or pulling away).
-         * </p>
-         * @return finish maneuver if no longer required, {@code null} otherwise
-         * @throws ParameterException if parameters are missing
-         * @throws GtuException if GTU context fails
-         * @throws NetworkException if network context fails
+         * Falls back to shadowing when the gap closes again during the preparation, rather than cutting in too closely.
+         * @return the shadowing state, or {@code null} while the preparation still makes sense
+         * @throws ParameterException if a parameter lookup fails
+         * @throws GtuException if a GTU query fails
+         * @throws NetworkException if a network query fails
          */
-        @Override
-        public ActionState abort() throws ParameterException, GtuException, NetworkException
+        private ActionState gapLostAgain() throws ParameterException, GtuException, NetworkException
         {
-            NeighborsContext neighbors = this.vehicle.getContext(NeighborsContext.class);
-            HeadwayGtu leftLeader = neighbors.getLeader(LateralDirectionality.LEFT);
-
-            // 1. Leader disappeared
-            if (leftLeader == null)
-            {
-                return FINISHED;
-            }
-
-            EgoContext ego = this.vehicle.getContext(EgoContext.class);
-            Speed congestionThreshold = this.vehicle.getParams().vCongScalar;
-            boolean isFreeFlow = ego.getEgoSpeed().gt(congestionThreshold);
-
-            // 2. Leader ID changed or traffic state changed
-            if (!leftLeader.getId().equals(this.maneuverPattern.getShadowingLeftNeighborId()) || !isFreeFlow)
-            {
-                return FINISHED;
-            }
-
-            // 3. NEW: The situation has naturally resolved (Left Leader drove away)
-            Length leftGap = neighbors.getFrontGapDistance(LateralDirectionality.LEFT);
-            Speed leftSpeed = leftLeader.getSpeed();
-            Speed egoSpeed = ego.getEgoSpeed();
-
-            // Abort if the left neighbor is far away (> 80m)
-            // OR if they are accelerating away (speed delta > 1 m/s and gap > 40m)
-            boolean isFarAway = leftGap.si > 80.0;
-            boolean isPullingAway = (leftSpeed.si > egoSpeed.si + 1.0) && (leftGap.si > 40.0);
-
-            if (isFarAway || isPullingAway)
-            {
-                return FINISHED;
-            }
-
-            return null; // Continue maneuver
+            return ShadowingState.getGapBehindLeftLeader(this.vehicle).si
+                    < this.vehicle.getParameters().getParameter(ParameterTypes.T).si
+                            ? new ShadowingState(this.maneuverPattern) : null;
         }
 
         @Override

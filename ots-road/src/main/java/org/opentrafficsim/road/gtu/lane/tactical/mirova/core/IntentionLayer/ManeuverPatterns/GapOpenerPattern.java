@@ -25,7 +25,10 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoCont
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.NeighborsContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext.LaneDropInfo;
+import java.util.List;
+
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ActionState;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Transition;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.SimpleLaneChangePattern.PerformLaneChangeState;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaCarFollowingUtil;
@@ -395,7 +398,25 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
         }
 
         @Override
-        public ActionState next() throws OperationalPlanException, ParameterException, GtuException, NetworkException
+        protected List<Transition> transitions()
+        {
+            return List.of(
+                    new Transition("cooperation no longer called for", "end", this::cooperationNoLongerNeeded),
+                    new Transition("evasive change away from the merge side possible", "PerformLaneChange",
+                            this::evasiveChangePossible));
+        }
+
+        /**
+         * Moves out of the merger's way instead of only decelerating, where the ego is fast enough for a lane change and
+         * cooperative changes are enabled for it.
+         * @return the lane-change state, or {@code null} if the ego stays where it is
+         * @throws OperationalPlanException if plan construction fails
+         * @throws ParameterException if a parameter lookup fails
+         * @throws GtuException if a GTU query fails
+         * @throws NetworkException if a network query fails
+         */
+        private ActionState evasiveChangePossible()
+                throws OperationalPlanException, ParameterException, GtuException, NetworkException
         {
 
             EgoContext ego = this.vehicle.getContextManager().getCategory("Ego", EgoContext.class);
@@ -460,8 +481,20 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
             return new SimpleOperationalPlan(finalAcceleration, this.vehicle.getParams().dtScalar);
         }
 
-        @Override
-        public ActionState abort() throws ParameterException, GtuException, NetworkException
+        /**
+         * Ends the cooperation once there is nobody to cooperate with, somebody better placed to do it, or enough room to
+         * simply drive on.
+         * <p>
+         * Unlike the other rules this one is not free of side effects: it refreshes the pattern's active merge candidate and
+         * clears the running flag on the way out. Both were in the {@code abort()} method it came from and both are relied
+         * on elsewhere in the pattern, so they stay until the running flag itself is untangled.
+         * </p>
+         * @return {@link #FINISHED} when the cooperation is over, {@code null} while it continues
+         * @throws ParameterException if a parameter lookup fails
+         * @throws GtuException if a GTU query fails
+         * @throws NetworkException if a network query fails
+         */
+        private ActionState cooperationNoLongerNeeded() throws ParameterException, GtuException, NetworkException
         {
             this.maneuverPattern.activeMergeCandidate = this.maneuverPattern.getActiveMergeCandidate();
             HeadwayGtu candidate = this.maneuverPattern.activeMergeCandidate;
