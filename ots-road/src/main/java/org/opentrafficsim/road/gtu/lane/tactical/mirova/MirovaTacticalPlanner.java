@@ -28,6 +28,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Mane
 import org.opentrafficsim.road.network.*;
 import org.opentrafficsim.road.network.speed.*;
 
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.FsmTraceRecorder;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.DeadlockDiffusionWatchdog;
 
 import java.util.*;
@@ -303,6 +304,14 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         {
             getGtu().setTurnIndicatorStatus(TurnIndicatorStatus.NONE);
         }
+
+        // 8. Hand the finished decision to the FSM trace recorder. This is the one point in the cycle where the pattern,
+        // the action state and the acceleration the vehicle actually acts on are all settled, which is what makes the
+        // trace usable as a regression net for restructuring Layer 3. Costs a static null check while not recording.
+        FsmTraceRecorder.record(getGtu().getSimulator().getSimulatorAbsTime(), getGtu().getId(), this.lastActivePattern,
+                this.currentActionState, this.operationalPlan.getAcceleration(),
+                this.operationalPlan.getIndicatorIntent().toString(),
+                this.operationalPlan.getLaneChangeDirection().toString());
 
         return this.operationalPlan;
     }
