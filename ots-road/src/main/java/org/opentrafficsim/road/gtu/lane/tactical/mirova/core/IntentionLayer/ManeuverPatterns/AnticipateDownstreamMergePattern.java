@@ -27,7 +27,10 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.MacroTr
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.NeighborsContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext.LaneDropInfo;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext.ScanDirection;
+import java.util.List;
+
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ActionState;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Transition;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.SimpleLaneChangePattern.PerformLaneChangeState;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaCarFollowingUtil;
@@ -227,22 +230,44 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
         }
 
         @Override
-        public ActionState abort() throws ParameterException, GtuException, NetworkException
+        protected List<Transition> transitions()
         {
-            return null;
+            // The abort() this state used to have answered null unconditionally, so it was never a rule; it is gone rather
+            // than carried over as one that can never apply.
+            return List.of(
+                    new Transition("evasive change away from the merge side possible", "PerformLaneChange",
+                            this::evasiveChangePossible),
+                    new Transition("ramp now directly adjacent", "NearAnticipation", this::rampNowAdjacent));
         }
 
-        @Override
-        public ActionState next() throws OperationalPlanException, ParameterException, GtuException, NetworkException
+        /**
+         * Returns the lane the merge is expected on, or {@code null} while no lane needs cooperation.
+         * @return the direction of the merge, or {@code null}
+         */
+        private LateralDirectionality mergeSide()
         {
-            if (this.mergePattern.listLanesWithCooperationNeeds.isEmpty())
+            return this.mergePattern.listLanesWithCooperationNeeds.isEmpty() ? null
+                    : this.mergePattern.listLanesWithCooperationNeeds.get(0);
+        }
+
+        /**
+         * Moves out of the merge lane's way while there is still room to do so. Only the far phase offers this: closer in,
+         * there is no longer time for a lane change of the ego's own.
+         * @return the lane-change state, or {@code null} if the ego stays where it is
+         * @throws OperationalPlanException if plan construction fails
+         * @throws ParameterException if a parameter lookup fails
+         * @throws GtuException if a GTU query fails
+         * @throws NetworkException if a network query fails
+         */
+        private ActionState evasiveChangePossible()
+                throws OperationalPlanException, ParameterException, GtuException, NetworkException
+        {
+            LateralDirectionality dir = mergeSide();
+            if (dir == null)
             {
                 return null;
             }
 
-            LateralDirectionality dir = this.mergePattern.listLanesWithCooperationNeeds.get(0);
-
-            // Evasive cooperative LC away from the merge side (only in the far phase, where time permits).
             EgoContext ego = this.vehicle.getContextManager().getCategory("Ego", EgoContext.class);
             NeighborsContext neighbors = this.vehicle.getContextManager().getCategory("Neighbors", NeighborsContext.class);
 
@@ -258,17 +283,29 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                     return new PerformLaneChangeState(this.mergePattern, oppositeDir, true);
                 }
             }
+            return null;
+        }
+
+        /**
+         * Hands over to the near-range state once the ramp has become an adjacent lane rather than something downstream.
+         * @return the near-range state, or {@code null} while the ramp is still ahead
+         */
+        private ActionState rampNowAdjacent()
+        {
+            LateralDirectionality dir = mergeSide();
+            if (dir == null)
+            {
+                return null;
+            }
 
             RelativeLane relativeLane = dir.isLeft() ? RelativeLane.LEFT : RelativeLane.RIGHT;
             InfrastructureContext infra =
                     this.vehicle.getContextManager().getCategory("Infrastructure", InfrastructureContext.class);
 
-            // Ramp is now directly adjacent — hand off to the near-range state.
             if (infra != null && !infra.getPhysicalDistanceToLaneEnd(relativeLane).eq(Length.POSITIVE_INFINITY))
             {
                 return new NearAnticipationState(this.mergePattern);
             }
-
             return null;
         }
 
@@ -408,10 +445,22 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
         }
 
         @Override
-        public ActionState abort() throws ParameterException, GtuException, NetworkException
+        protected List<Transition> transitions()
         {
-            // PatternSelector only calls checkContext() when isRunning() == false. Because NearAnticipationState
-            // keeps the pattern running, we must refresh listLanesWithCooperationNeeds manually here each tick.
+            return List.of(new Transition("no lane needs cooperation any more", "end", this::cooperationNoLongerNeeded));
+        }
+
+        /**
+         * Ends the pattern when the situation no longer calls for cooperation.
+         * <p>
+         * The context check is repeated here on purpose. {@code PatternSelector} only calls {@code checkContext()} on a
+         * pattern that is not running, and this state keeps the pattern running, so the list of lanes needing cooperation
+         * would otherwise never be refreshed.
+         * </p>
+         * @return {@link #FINISHED} when cooperation is no longer called for, {@code null} otherwise
+         */
+        private ActionState cooperationNoLongerNeeded()
+        {
             try
             {
                 if (!this.mergePattern.checkContext())
@@ -419,18 +468,11 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                     return FINISHED;
                 }
             }
-            catch (Exception e)
+            catch (Exception exception)
             {
                 // If context evaluation fails, terminate conservatively rather than running blind.
                 return FINISHED;
             }
-            return null;
-        }
-
-        @Override
-        public ActionState next() throws OperationalPlanException, ParameterException, GtuException, NetworkException
-        {
-            // Termination is handled by abort(); no internal FSM transition needed from the near state.
             return null;
         }
 

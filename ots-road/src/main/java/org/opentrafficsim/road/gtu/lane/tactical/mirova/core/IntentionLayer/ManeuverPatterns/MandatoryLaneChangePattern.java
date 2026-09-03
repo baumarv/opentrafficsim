@@ -25,7 +25,11 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.Infrast
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.MacroTrafficContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.NeighborsContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext.ScanDirection;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ActionState;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Transition;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.LateralExecution;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaCarFollowingUtil;
@@ -102,6 +106,9 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
      * </p>
      */
     private static final Length TARGET_SPEED_APPROACH_DISTANCE = Length.instantiateSI(10.0);
+
+    /** Deceleration beyond which stopping at the end of the lane is no longer something a driver would choose. */
+    private static final Acceleration CRITICAL_STOP_DECELERATION = Acceleration.instantiateSI(-5.0);
 
     /** Ego speed below which the merge is treated as taking place in a congested queue. */
     private static final Speed CONGESTED_EGO_SPEED = new Speed(15.0, SpeedUnit.KM_PER_HOUR);
@@ -390,7 +397,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
      * This is a <i>precondition of the execution</i>, not a property of any single state. Whether the manoeuvre may be
      * carried out depends on the ego's speed relative to the traffic it is joining and on how much acceleration lane is
      * left -- never on which state the vehicle happens to have reached the decision from. Evaluating it here, and requiring
-     * it in {@link MandatoryLaneChangeState#checkCommonTransitions}, has two consequences that the previous formulation as
+     * it in {@link MandatoryLaneChangeState#gapOpenAndReady}, has two consequences that the previous formulation as
      * a transition condition on a single edge could not provide:
      * </p>
      * <ul>
@@ -727,8 +734,43 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public ActionState abort() throws ParameterException, OperationalPlanException, NullPointerException,
-                IllegalArgumentException, GtuException, NetworkException
+        protected List<Transition> transitions()
+        {
+            return commonTransitions();
+        }
+
+        /**
+         * The rules that belong to the manoeuvre as a whole rather than to any phase of it, in evaluation order.
+         * <p>
+         * Every state but {@code EmergencyStopState} evaluates these before its own. That is not a new arrangement: each
+         * state used to inherit the desire rule as {@code abort()} and then open its own {@code next()} with a call to
+         * the manoeuvre-wide rules. Stating them as an inherited table says the same thing once, and makes the one
+         * state that opts out say so explicitly instead of by omission.
+         * </p>
+         * @return the manoeuvre-wide rules
+         */
+        protected List<Transition> commonTransitions()
+        {
+            return List.of(desireGoneRule(),
+                    new Transition("gap open and ego ready to take it", "ExecuteLaneChange", this::gapOpenAndReady),
+                    new Transition("no longer able to stop before the lane ends", "EmergencyStop", this::cannotStopInTime));
+        }
+
+        /**
+         * The rule that ends the manoeuvre when the reason for it has gone away. Separate because
+         * {@code EmergencyStopState} takes this rule without the others.
+         * @return the rule
+         */
+        protected Transition desireGoneRule()
+        {
+            return new Transition("mandatory desire has fallen below DMAND", "end", this::desireGone);
+        }
+
+        /**
+         * Ends the manoeuvre once the vehicle no longer wants to change lane.
+         * @return {@link #FINISHED} when the desire has fallen away, {@code null} otherwise
+         */
+        private ActionState desireGone()
         {
             try
             {
@@ -746,28 +788,42 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         /**
-         * Checks transitions to ExecuteLaneChangeState or EmergencyStopState.
-         * @param neigh the neighbors context
-         * @param dir the target direction
-         * @return plan if transitioned, null otherwise
+         * Starts the lane change as soon as the gap allows it and the ego itself is in a fit state to take it.
+         * @return the execution state, or {@code null} if the manoeuvre cannot begin yet
+         * @throws ParameterException if a parameter lookup fails
+         * @throws GtuException if a GTU query fails
+         * @throws NetworkException if a network query fails
          */
-        protected ActionState checkCommonTransitions(final NeighborsContext neigh, final LateralDirectionality dir)
-                throws ParameterException, OperationalPlanException, GtuException, NetworkException
+        protected ActionState gapOpenAndReady() throws ParameterException, GtuException, NetworkException
         {
             // Two independent questions, deliberately kept apart: whether the gap physically permits the manoeuvre,
             // and whether the ego is in a fit state to perform it. The second is a property of the vehicle, not of the
             // state it is in, so it is enforced here -- on every path to the execution -- rather than on a single edge.
+            LateralDirectionality dir = this.pattern.getTargetDirection();
+            NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
             if (neigh.getIfLaneChangePossible(dir) && mayExecuteLaneChange(this.vehicle, dir))
             {
                 return new ExecuteLaneChangeState(this.maneuverPattern, dir);
             }
+            return null;
+        }
 
+        /**
+         * Gives up on merging and brakes for the end of the lane once stopping there would take more deceleration than a
+         * driver would use voluntarily.
+         * @return the emergency-stop state, or {@code null} while there is still room
+         * @throws ParameterException if a parameter lookup fails
+         * @throws GtuException if a GTU query fails
+         * @throws NetworkException if a network query fails
+         */
+        protected ActionState cannotStopInTime() throws ParameterException, GtuException, NetworkException
+        {
             Length distToLaneEnd = this.vehicle.getContext(InfrastructureContext.class).getRouteDistanceToLaneEnd();
             if (distToLaneEnd != null)
             {
                 Acceleration requiredStopAccel =
                         MirovaCarFollowingUtil.stop(this.vehicle, distToLaneEnd.minus(RAMP_END_BUFFER));
-                if (requiredStopAccel.si < -5.0)
+                if (requiredStopAccel.si < CRITICAL_STOP_DECELERATION.si)
                 {
                     return new EmergencyStopState(this.maneuverPattern);
                 }
@@ -782,7 +838,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
          * </p>
          * <ul>
          * <li><b>The gap is open.</b> Then nothing needs resolving, and the only remaining question is whether the ego
-         * itself is ready -- which {@link #checkCommonTransitions} has already answered. If it is not ready it simply
+         * itself is ready -- which the manoeuvre-wide gap rule has already answered. If it is not ready it simply
          * keeps accelerating; there is no obstacle to react to.</li>
          * <li><b>The gap is not open.</b> Then the reason matters, and the vehicle is routed to the state that
          * addresses it: congested traffic, a physically overlapping vehicle, or a leader it has to align with.</li>
@@ -804,19 +860,13 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
          * @throws GtuException if GTU limits fail
          * @throws NetworkException if network queries fail
          */
-        protected ActionState checkMergeTransitions(final NeighborsContext neigh,
+        protected ActionState resolveMergeObstacle(final NeighborsContext neigh,
                 final LateralDirectionality dir)
                 throws ParameterException, OperationalPlanException, GtuException, NetworkException
         {
-            ActionState commonTransition = checkCommonTransitions(neigh, dir);
-            if (commonTransition != null)
-            {
-                return commonTransition;
-            }
-
             if (neigh.getIfLaneChangePossible(dir))
             {
-                // The gap permits the manoeuvre; checkCommonTransitions already established that the ego is not yet
+                // The gap permits the manoeuvre; the manoeuvre-wide gap rule already established that the ego is not yet
                 // ready for it. There is nothing to resolve, so keep accelerating rather than paying for the
                 // obstacle analysis below. The value is cached for the tick, so this test is free.
                 return null;
@@ -1090,36 +1140,21 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public ActionState next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
+        protected List<Transition> transitions()
         {
-            InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
-            if (!infra.getIfLaneAvailable(this.pattern.getTargetDirection()))
-            {
-                // The target lane is not yet physically alongside, so nothing can be perceived on it and no merge
-                // conflict can exist yet. The only thing that can happen in this phase is the safety net.
-                Length routeDistToEnd = infra.getRouteDistanceToLaneEnd();
-                if (routeDistToEnd != null)
-                {
-                    Acceleration requiredStopAccel =
-                            MirovaCarFollowingUtil.stop(this.vehicle, routeDistToEnd.minus(RAMP_END_BUFFER));
-                    if (requiredStopAccel.si < -5.0)
-                    {
-                        return new EmergencyStopState(this.maneuverPattern);
-                    }
-                }
-                return null;
-            }
-
-            // The acceleration lane has been reached. This is a change of phase, not a decision to merge: the ego now
-            // accelerates towards the speed of the traffic it is joining and resolves any merge conflicts, while
-            // permission to actually execute the change rests with mayExecuteLaneChange() on the execution path.
-            return new SynchroniseMergeSpeedState(this.maneuverPattern);
+            // Not commonTransitions(): the target lane is not alongside yet, so the gap rule has nothing to look at, and
+            // this state carries its own end condition rather than the manoeuvre-wide one.
+            return List.of(
+                    new Transition("merge is still too far off to anticipate", "end", this::mergeStillFarOff),
+                    new Transition("acceleration lane reached, or the ramp is running out", "-", this::phaseOver));
         }
 
-
-
-        @Override
-        public ActionState abort() throws ParameterException, GtuException, NetworkException
+        /**
+         * Ends the anticipation while the merge point is still beyond the extended lookahead: there is nothing to
+         * anticipate yet, and holding the pattern open would keep it from being re-evaluated.
+         * @return {@link #FINISHED} while the merge is out of range, {@code null} once it is in range
+         */
+        private ActionState mergeStillFarOff()
         {
             try
             {
@@ -1135,6 +1170,42 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 return FINISHED;
             }
             return null;
+        }
+
+        /**
+         * Leaves the anticipation phase, either for the merge proper once the target lane is alongside, or for the safety
+         * net if the ramp is running out first.
+         * @return the state to move to, or {@code null} to keep anticipating
+         * @throws ParameterException if a parameter lookup fails
+         * @throws OperationalPlanException if plan construction fails
+         * @throws GtuException if a GTU query fails
+         * @throws NetworkException if a network query fails
+         */
+        private ActionState phaseOver()
+                throws ParameterException, OperationalPlanException, GtuException, NetworkException
+        {
+            InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
+            if (!infra.getIfLaneAvailable(this.pattern.getTargetDirection()))
+            {
+                // The target lane is not yet physically alongside, so nothing can be perceived on it and no merge
+                // conflict can exist yet. The only thing that can happen in this phase is the safety net.
+                Length routeDistToEnd = infra.getRouteDistanceToLaneEnd();
+                if (routeDistToEnd != null)
+                {
+                    Acceleration requiredStopAccel =
+                            MirovaCarFollowingUtil.stop(this.vehicle, routeDistToEnd.minus(RAMP_END_BUFFER));
+                    if (requiredStopAccel.si < CRITICAL_STOP_DECELERATION.si)
+                    {
+                        return new EmergencyStopState(this.maneuverPattern);
+                    }
+                }
+                return null;
+            }
+
+            // The acceleration lane has been reached. This is a change of phase, not a decision to merge: the ego now
+            // accelerates towards the speed of the traffic it is joining and resolves any merge conflicts, while
+            // permission to actually execute the change rests with mayExecuteLaneChange() on the execution path.
+            return new SynchroniseMergeSpeedState(this.maneuverPattern);
         }
 
         @Override
@@ -1166,7 +1237,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
      * <h4>Functional Behavior:</h4>
      * <ul>
      *   <li>Accelerates towards the reference speed of the target lane, bounded by the legal speed limit.</li>
-     *   <li>Delegates all transition decisions to {@link MandatoryLaneChangeState#checkMergeTransitions}, which routes to
+     *   <li>Delegates all transition decisions to {@link MandatoryLaneChangeState#resolveMergeObstacle}, which routes to
      *       the state addressing whatever prevents the merge.</li>
      * </ul>
      *
@@ -1232,9 +1303,25 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public ActionState next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
+        protected List<Transition> transitions()
         {
-            return checkMergeTransitions(this.vehicle.getContext(NeighborsContext.class),
+            List<Transition> rules = new ArrayList<>(commonTransitions());
+            rules.add(new Transition("something is in the way of the merge", "-", this::resolveObstacle));
+            return rules;
+        }
+
+        /**
+         * Routes to the state that addresses whatever is preventing the merge right now.
+         * @return the state that addresses it, or {@code null} if nothing needs resolving
+         * @throws ParameterException if a parameter lookup fails
+         * @throws OperationalPlanException if plan construction fails
+         * @throws GtuException if a GTU query fails
+         * @throws NetworkException if a network query fails
+         */
+        private ActionState resolveObstacle()
+                throws ParameterException, OperationalPlanException, GtuException, NetworkException
+        {
+            return resolveMergeObstacle(this.vehicle.getContext(NeighborsContext.class),
                     this.pattern.getTargetDirection());
         }
 
@@ -1350,16 +1437,27 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public ActionState next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
+        protected List<Transition> transitions()
+        {
+            List<Transition> rules = new ArrayList<>(commonTransitions());
+            rules.add(new Transition("congestion, an unreachable leader, or a vehicle alongside", "-", this::reconsiderTarget));
+            return rules;
+        }
+
+        /**
+         * Reconsiders the leader being matched: congested traffic, a leader that cannot be caught within the remaining ramp,
+         * or a vehicle physically alongside each mean this is no longer the right thing to be doing.
+         * @return the state to move to, or {@code null} to stay in this one
+         * @throws ParameterException if a parameter lookup fails
+         * @throws OperationalPlanException if plan construction fails
+         * @throws GtuException if a GTU query fails
+         * @throws NetworkException if a network query fails
+         */
+        private ActionState reconsiderTarget()
+                throws ParameterException, OperationalPlanException, GtuException, NetworkException
         {
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
             LateralDirectionality dir = this.pattern.getTargetDirection();
-
-            ActionState commonTransition = checkCommonTransitions(neigh, dir);
-            if (commonTransition != null)
-            {
-                return commonTransition;
-            }
 
             Length distToLaneEnd = this.vehicle.getContext(InfrastructureContext.class).getRouteDistanceToLaneEnd();
 
@@ -1549,16 +1647,27 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public ActionState next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
+        protected List<Transition> transitions()
+        {
+            List<Transition> rules = new ArrayList<>(commonTransitions());
+            rules.add(new Transition("congestion, or the vehicle alongside has cleared", "-", this::conflictResolved));
+            return rules;
+        }
+
+        /**
+         * Leaves this state once the vehicle alongside is gone, or once traffic has become congested and the congested branch
+         * takes over.
+         * @return the state to move to, or {@code null} to stay in this one
+         * @throws ParameterException if a parameter lookup fails
+         * @throws OperationalPlanException if plan construction fails
+         * @throws GtuException if a GTU query fails
+         * @throws NetworkException if a network query fails
+         */
+        private ActionState conflictResolved()
+                throws ParameterException, OperationalPlanException, GtuException, NetworkException
         {
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
             LateralDirectionality dir = this.pattern.getTargetDirection();
-
-            ActionState commonTransition = checkCommonTransitions(neigh, dir);
-            if (commonTransition != null)
-            {
-                return commonTransition;
-            }
 
             // --> NEU: Übergang in den Congested Merge State bei zähfließendem Verkehr (< 15 km/h)
             Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
@@ -1647,16 +1756,27 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public ActionState next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
+        protected List<Transition> transitions()
+        {
+            List<Transition> rules = new ArrayList<>(commonTransitions());
+            rules.add(new Transition("route out of the congested branch", "-", this::routeCongested));
+            return rules;
+        }
+
+        /**
+         * Picks the congested sub-state that fits the situation. This state produces no plan of its own: it always answers with
+         * another state, which is what makes it a decision node rather than a phase of the manoeuvre.
+         * @return the state to move to, or {@code null} to stay in this one
+         * @throws ParameterException if a parameter lookup fails
+         * @throws OperationalPlanException if plan construction fails
+         * @throws GtuException if a GTU query fails
+         * @throws NetworkException if a network query fails
+         */
+        private ActionState routeCongested()
+                throws ParameterException, OperationalPlanException, GtuException, NetworkException
         {
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
             LateralDirectionality dir = this.pattern.getTargetDirection();
-
-            ActionState commonTransition = checkCommonTransitions(neigh, dir);
-            if (commonTransition != null)
-            {
-                return commonTransition;
-            }
 
             // 3. Speed recovered: return to normal gap evaluation
             Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
@@ -1740,16 +1860,26 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public ActionState next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
+        protected List<Transition> transitions()
+        {
+            List<Transition> rules = new ArrayList<>(commonTransitions());
+            rules.add(new Transition("the vehicle alongside has cleared", "CongestedMerge", this::parallelBlockCleared));
+            return rules;
+        }
+
+        /**
+         * Returns to the congested decision node once nothing is alongside any more.
+         * @return the state to move to, or {@code null} to stay in this one
+         * @throws ParameterException if a parameter lookup fails
+         * @throws OperationalPlanException if plan construction fails
+         * @throws GtuException if a GTU query fails
+         * @throws NetworkException if a network query fails
+         */
+        private ActionState parallelBlockCleared()
+                throws ParameterException, OperationalPlanException, GtuException, NetworkException
         {
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
             LateralDirectionality dir = this.pattern.getTargetDirection();
-
-            ActionState commonTransition = checkCommonTransitions(neigh, dir);
-            if (commonTransition != null)
-            {
-                return commonTransition;
-            }
 
             // 3. Parallel block resolved → return to dispatcher
             if (!detectParallelBlock(neigh, dir, this.vehicle.getContext(EgoContext.class), this.vehicle.getParameters()))
@@ -1851,16 +1981,26 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public ActionState next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
+        protected List<Transition> transitions()
+        {
+            List<Transition> rules = new ArrayList<>(commonTransitions());
+            rules.add(new Transition("speed recovered, or a vehicle appeared alongside", "-", this::congestionChanged));
+            return rules;
+        }
+
+        /**
+         * Leaves the congested following behaviour when the traffic state changes under it.
+         * @return the state to move to, or {@code null} to stay in this one
+         * @throws ParameterException if a parameter lookup fails
+         * @throws OperationalPlanException if plan construction fails
+         * @throws GtuException if a GTU query fails
+         * @throws NetworkException if a network query fails
+         */
+        private ActionState congestionChanged()
+                throws ParameterException, OperationalPlanException, GtuException, NetworkException
         {
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
             LateralDirectionality dir = this.pattern.getTargetDirection();
-
-            ActionState commonTransition = checkCommonTransitions(neigh, dir);
-            if (commonTransition != null)
-            {
-                return commonTransition;
-            }
 
             // 3. Speed recovered → exit congested branch
             Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
@@ -2047,7 +2187,25 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public ActionState next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
+        protected List<Transition> transitions()
+        {
+            // Deliberately not commonTransitions(). Of the manoeuvre-wide rules this state takes only the desire rule:
+            // its own gap rule below is the same test without the mayExecuteLaneChange() precondition, because a vehicle
+            // braking for the end of the lane takes the gap it is offered rather than waiting to be in a fit state for it,
+            // and the stop rule below it would be circular here. This was previously expressed by EmergencyStopState
+            // simply not calling the shared helper, which read as an omission rather than as a decision.
+            return List.of(desireGoneRule(),
+                    new Transition("a gap has appeared after all", "ExecuteLaneChange", this::gapAppeared));
+        }
+
+        /**
+         * Takes the gap if one appears while the vehicle is braking for the end of the lane.
+         * @return the execution state, or {@code null} while there is still no gap
+         * @throws ParameterException if a parameter lookup fails
+         * @throws GtuException if a GTU query fails
+         * @throws NetworkException if a network query fails
+         */
+        private ActionState gapAppeared() throws ParameterException, GtuException, NetworkException
         {
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
             if (neigh.getIfLaneChangePossible(this.pattern.getTargetDirection()))
@@ -2135,23 +2293,21 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public ActionState next()
-                throws ParameterException, NullPointerException, IllegalArgumentException, GtuException, NetworkException
+        protected List<Transition> transitions()
         {
-            if (LateralExecution.lateralMoveFinished(this.vehicle, this.originLane))
-            {
-                // if (this.slowLaneChange)
-                // {
-                // this.vehicle.getParameters().resetParameter(ParameterTypes.LCDUR);
-                // }
-                this.vehicle.releaseActionLock();
-                return FINISHED;
-            }
-            return null;
+            // Not commonTransitions(): once the crossing has begun there is no gap left to evaluate and no stopping to
+            // reconsider, and the manoeuvre-wide desire rule is replaced by one that will not fire mid-crossing.
+            return List.of(
+                    new Transition("desire fell away before the crossing began", "end", this::abandonedBeforeCrossing),
+                    new Transition("crossing complete", "end", this::crossingComplete));
         }
 
-        @Override
-        public ActionState abort() throws ParameterException, OperationalPlanException
+        /**
+         * Ends the manoeuvre when the vehicle changes its mind, but only while it still can: a vehicle already crossing
+         * has to finish.
+         * @return {@link #FINISHED} if the manoeuvre is abandoned, {@code null} otherwise
+         */
+        private ActionState abandonedBeforeCrossing()
         {
             if (this.vehicle.getLaneChange().isChangingLane())
             {
@@ -2163,18 +2319,31 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 if (this.vehicle.getLaneChangeDesire().magnitude() < this.vehicle.getParameters()
                         .getParameter(MirovaParameters.DMAND))
                 {
-                    // if (this.slowLaneChange)
-                    // {
-                    // this.vehicle.getParameters().resetParameter(ParameterTypes.LCDUR);
-                    // }
-
-                    this.vehicle.releaseActionLock(); // HIER EINFÜGEN
+                    this.vehicle.releaseActionLock();
                     return FINISHED;
                 }
             }
-            catch (Exception e)
+            catch (Exception exception)
             {
-                e.printStackTrace();
+                exception.printStackTrace();
+            }
+            return null;
+        }
+
+        /**
+         * Ends the manoeuvre once the vehicle has arrived on the target lane.
+         * @return {@link #FINISHED} when the crossing is over, {@code null} while it is not
+         */
+        private ActionState crossingComplete()
+        {
+            if (LateralExecution.lateralMoveFinished(this.vehicle, this.originLane))
+            {
+                // if (this.slowLaneChange)
+                // {
+                // this.vehicle.getParameters().resetParameter(ParameterTypes.LCDUR);
+                // }
+                this.vehicle.releaseActionLock();
+                return FINISHED;
             }
             return null;
         }

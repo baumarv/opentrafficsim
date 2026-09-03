@@ -1,5 +1,8 @@
 package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer;
 
+import java.util.Collections;
+import java.util.List;
+
 import org.opentrafficsim.base.parameters.ParameterException;
 import org.opentrafficsim.core.gtu.GtuException;
 import org.opentrafficsim.core.gtu.plan.operational.OperationalPlanException;
@@ -19,8 +22,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoCont
  * Each ActionState is responsible for:
  * <ul>
  * <li>Executing control logic (e.g., car-following, gap maintenance) by returning a {@link SimpleOperationalPlan}</li>
- * <li>Evaluating transition conditions to the next state</li>
- * <li>Detecting abort conditions (if the maneuver is no longer feasible)</li>
+ * <li>Declaring the rules under which it hands over to another state, or ends the maneuver</li>
  * </ul>
  * <p>
  * Copyright (c) 2025 Marvin Baumann / KIT. All rights reserved. <br>
@@ -38,7 +40,7 @@ public abstract class ActionState
     private static final int MAX_TRANSITIONS_PER_TICK = 32;
 
     /**
-     * Sentinel returned by {@link #next()} or {@link #abort()} to end the maneuver rather than move to another state.
+     * Sentinel returned by a transition rule to end the maneuver rather than move to another state.
      * <p>
      * A sentinel rather than a second method, because ending is one of the answers to the same question -- what does this
      * state hand over to -- and giving it its own channel is what allowed finishManeuver() to be called for its side effects
@@ -55,6 +57,9 @@ public abstract class ActionState
 
     /** Indicates whether this state is currently active. */
     protected boolean active = false;
+
+    /** This state's transition rules, built on first use. */
+    private List<Transition> transitionTable;
 
     /** Optional cached operational plan for the current time step. */
     protected SimpleOperationalPlan operationalPlan;
@@ -138,10 +143,9 @@ public abstract class ActionState
     /**
      * Runs the state machine for one time step and returns the plan the vehicle acts on.
      * <p>
-     * Each state is asked for an abort target first and a transition target second; a state that wants neither produces the
-     * plan. A state that names a target is left, the target is entered, and the same two questions are put to it, so a chain
+     * Each state is asked where it hands over to; a state that answers nowhere produces the plan. A state that names a target is left, the target is entered, and the same two questions are put to it, so a chain
      * of transitions resolves inside one tick and the state the chain ends in is the one that acts. The previous
-     * implementation did the same thing, but it did it by having next() call transitionTo, which called update() on the
+     * implementation did the same thing, but it did it by having a state perform its own transition and call update() on the
      * target, so the chain was an unbounded recursion spread across every state class. Two states that transition to each
      * other were a StackOverflowError waiting for the right traffic situation. Here the chain is a bounded loop in one
      * place, and a cycle is reported as what it is.
@@ -159,11 +163,7 @@ public abstract class ActionState
         ActionState state = this;
         for (int depth = 0; depth < MAX_TRANSITIONS_PER_TICK; depth++)
         {
-            ActionState target = state.abort();
-            if (target == null)
-            {
-                target = state.next();
-            }
+            ActionState target = state.next();
             if (target == null)
             {
                 state.operationalPlan = state.executeControl();
@@ -203,38 +203,71 @@ public abstract class ActionState
             throws ParameterException, OperationalPlanException, GtuException, NetworkException;
 
     /**
-     * Names the state to move to, if this state wants to move on.
+     * Returns this state's transition rules, in the order they are to be evaluated.
      * <p>
-     * A decision and nothing else: the implementation must not enter the target, must not build a plan, and must leave the
-     * machine as it found it. {@link #update()} performs the transition it names.
+     * The order is the machine's behaviour, not a detail of it: the first rule that applies wins, so moving one rule past
+     * another changes what the vehicle does. Subclasses that extend an inherited table put the inherited rules first --
+     * {@code super.transitions()} then their own -- because a rule that belonged to the enclosing manoeuvre outranks one
+     * that belongs to a phase of it.
+     * </p>
+     * <p>
+     * Built once per state instance and cached, so the rules may be lambdas without allocating them every tick.
+     * </p>
+     * @return the ordered rules; empty for a state that only ever ends by some other means
+     */
+    protected List<Transition> transitions()
+    {
+        return Collections.emptyList();
+    }
+
+    /**
+     * Returns this state's transition rules, for describing the machine rather than running it.
+     * <p>
+     * The point of holding the rules in a list is that something other than the machine itself can read them: the graph can
+     * be exported instead of drawn by hand, and the evaluation order can be pinned by a test instead of being an emergent
+     * property of a cascade of {@code if} statements.
+     * </p>
+     * @return the ordered rules
+     */
+    public final List<Transition> getTransitions()
+    {
+        if (this.transitionTable == null)
+        {
+            this.transitionTable = transitions();
+        }
+        return this.transitionTable;
+    }
+
+    /**
+     * Names the state to move to, by evaluating {@link #transitions()} in order and taking the first rule that applies.
+     * <p>
+     * A decision and nothing else: a rule must not enter its target, must not build a plan, and must leave the machine as it
+     * found it. {@link #update()} performs the transition the rule names.
+     * </p>
+     * <p>
+     * There used to be a second method, {@code abort()}, asked before this one. It was never an exceptional path: it was
+     * evaluated on every state in every tick and answered with a state, which is to say it was the highest-priority guard
+     * wearing another name. It is now simply the first entry in the same table.
      * </p>
      * @return the state to transition to, {@link #FINISHED} to end the maneuver, or {@code null} to stay
      * @throws OperationalPlanException if the generation of the operational plan fails
      * @throws ParameterException if parameter retrieval fails during transition checks
-     * @throws NullPointerException if required contextual data is missing
-     * @throws IllegalArgumentException if invalid arguments are passed during plan generation
      * @throws GtuException if an error occurs within the GTU state
      * @throws NetworkException if a network-related error occurs
      */
-    public abstract ActionState next() throws OperationalPlanException, ParameterException, NullPointerException,
-            IllegalArgumentException, GtuException, NetworkException;
-
-    /**
-     * Names the state to move to when the maneuver has become pointless or infeasible, asked before {@link #next()}.
-     * <p>
-     * Despite the name this is not an exceptional path but the highest-priority guard: it is asked first, on every state, in
-     * every tick. Most implementations answer {@link #FINISHED} or {@code null}.
-     * </p>
-     * @return the state to transition to, {@link #FINISHED} to end the maneuver, or {@code null} to continue
-     * @throws ParameterException if parameter retrieval fails during abort checks
-     * @throws OperationalPlanException if the generation of the operational plan fails
-     * @throws NullPointerException if required contextual data is missing
-     * @throws IllegalArgumentException if invalid arguments are passed
-     * @throws GtuException if an error occurs within the GTU state
-     * @throws NetworkException if a network-related error occurs
-     */
-    public abstract ActionState abort() throws ParameterException, OperationalPlanException, NullPointerException,
-            IllegalArgumentException, GtuException, NetworkException;
+    public final ActionState next()
+            throws OperationalPlanException, ParameterException, GtuException, NetworkException
+    {
+        for (Transition transition : getTransitions())
+        {
+            ActionState target = transition.evaluate();
+            if (target != null)
+            {
+                return target;
+            }
+        }
+        return null;
+    }
 
     /**
      * Calculates and returns the utility of this specific action state.
@@ -280,18 +313,6 @@ public abstract class ActionState
         public SimpleOperationalPlan executeControl()
         {
             throw new UnsupportedOperationException("ActionState.FINISHED is a marker and cannot be executed.");
-        }
-
-        @Override
-        public ActionState next()
-        {
-            throw new UnsupportedOperationException("ActionState.FINISHED is a marker and has no transitions.");
-        }
-
-        @Override
-        public ActionState abort()
-        {
-            throw new UnsupportedOperationException("ActionState.FINISHED is a marker and has no transitions.");
         }
 
         @Override
