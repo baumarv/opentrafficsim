@@ -114,14 +114,9 @@ public final class MirovaCarFollowingUtil
         }
         if (activeRelaxation != null)
         {
-            if (leader.getAcceleration().ge(vehicle.getParams().relaxationAbortDecelerationScalar)
-                    && perceivedLeaderSpeed.si >= RELAXATION_MIN_LEADER_SPEED.si)
-            {
-                perceivedDistance = perceivedDistance.plus(activeRelaxation.getVirtualSpaceBuffer(now));
-                perceivedLeaderSpeed = perceivedLeaderSpeed.plus(activeRelaxation.getVirtualSpeedBuffer(now));
-                perceptionRelaxed = true;
-            }
-            else
+            boolean abortNow = leader.getAcceleration().lt(vehicle.getParams().relaxationAbortDecelerationScalar)
+                    || perceivedLeaderSpeed.si < RELAXATION_MIN_LEADER_SPEED.si;
+            if (abortNow && !activeRelaxation.isFading())
             {
                 if (RelaxationDiagnostics.ENABLED)
                 {
@@ -136,8 +131,19 @@ public final class MirovaCarFollowingUtil
                         RelaxationDiagnostics.abortedBySpeed(life);
                     }
                 }
-                // If the leader is braking hard, we abort the relaxation immediately to prevent crashes, as the safety buffers
-                // are no longer valid.
+                // Fade the buffer out rather than dropping it, so the perceived distance does not jump. With a
+                // non-positive fade duration this ends the relaxation at once, as it used to.
+                activeRelaxation.beginFade(now, vehicle.getParams().relaxationFadeDurationScalar);
+            }
+            if (!activeRelaxation.isFadedOut(now))
+            {
+                perceivedDistance = perceivedDistance.plus(activeRelaxation.getVirtualSpaceBuffer(now));
+                perceivedLeaderSpeed = perceivedLeaderSpeed.plus(activeRelaxation.getVirtualSpeedBuffer(now));
+                perceptionRelaxed = true;
+            }
+            else
+            {
+                // The fade has run its course: nothing is left to apply, so drop the state.
                 ego.clearRelaxationForLeader(leaderId);
             }
         }
