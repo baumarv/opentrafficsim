@@ -8,6 +8,7 @@ import org.opentrafficsim.base.parameters.ParameterTypes;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioGenerator;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioParameters;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioSimulationScript;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.RelaxationDiagnostics;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 
 /**
@@ -326,6 +327,10 @@ public final class RunFreiburgMergeWatch
                 ScenarioSimulationScript script = scenario.buildSimulationScript(params);
                 script.setGuiEnabled(SHOW_GUI);
                 script.start();
+
+                // The JVM does not exit on its own after a headless run - AWT threads keep it alive - so a shutdown
+                // hook would never fire. Report here instead, once the run has finished writing its output.
+                RelaxationDiagnostics.report();
         }
 
         /**
