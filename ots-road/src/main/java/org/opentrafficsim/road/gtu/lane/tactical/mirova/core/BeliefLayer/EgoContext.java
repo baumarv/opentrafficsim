@@ -367,7 +367,8 @@ public class EgoContext extends ContextCategory implements UpdatableContext
                         new RelaxationState(now, initialSpaceDeficit, initialSpeedDeficit, tauSpace, tauSpeed));
                 if (RelaxationDiagnostics.ENABLED)
                 {
-                    RelaxationDiagnostics.created();
+                    RelaxationDiagnostics.created(
+                            initialSpaceDeficit == null ? 0.0 : initialSpaceDeficit.si);
                 }
 
                 // ARCHITECTURE-UPDATE: Targeted cache invalidation ensures the IDM immediately recalculates
