@@ -103,7 +103,10 @@ public abstract class ManeuverPattern
     {
         if (!this.isRunning())
         {
-            this.setCurrentActionState(this.initialActionState.get());
+            // Entering is explicit now that constructing a state no longer enters it. The two steps happen back to back
+            // in the same tick and in the same order as before, so what the machine does is unchanged; what changed is
+            // that the pattern, and not a constructor, decides when a state becomes current.
+            this.initialActionState.get().enter();
         }
         return this.currentActionState.update();
     }
@@ -145,7 +148,7 @@ public abstract class ManeuverPattern
      */
     public void resetCurrentActionState()
     {
-        this.currentActionState = this.initialActionState.get();
+        this.initialActionState.get().enter();
     }
 
     /**
