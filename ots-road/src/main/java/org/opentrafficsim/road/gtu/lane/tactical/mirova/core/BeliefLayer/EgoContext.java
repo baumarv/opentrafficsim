@@ -365,6 +365,10 @@ public class EgoContext extends ContextCategory implements UpdatableContext
                 Duration now = this.vehicle.getGtu().getSimulator().getSimulatorTime();
                 this.activeRelaxations.put(leaderId,
                         new RelaxationState(now, initialSpaceDeficit, initialSpeedDeficit, tauSpace, tauSpeed));
+                if (RelaxationDiagnostics.ENABLED)
+                {
+                    RelaxationDiagnostics.created();
+                }
 
                 // ARCHITECTURE-UPDATE: Targeted cache invalidation ensures the IDM immediately recalculates
                 this.tickAccelerationCache.remove(leaderId);
@@ -858,6 +862,10 @@ public class EgoContext extends ContextCategory implements UpdatableContext
                 // the relaxation process is finished. We remove it to free memory.
                 if (state.getVirtualSpaceBuffer(now).si < 0.1 && Math.abs(state.getVirtualSpeedBuffer(now).si) < 0.1)
                 {
+                    if (RelaxationDiagnostics.ENABLED)
+                    {
+                        RelaxationDiagnostics.expired(now.si - state.getStartTime().si);
+                    }
                     iterator.remove();
                 }
             }

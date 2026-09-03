@@ -16,6 +16,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.following.CarFollowingModel;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoContext;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.RelaxationDiagnostics;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.RelaxationState;
 import org.opentrafficsim.road.gtu.lane.tactical.util.CarFollowingUtil;
@@ -107,6 +108,10 @@ public final class MirovaCarFollowingUtil
         // 2. Check for and apply ID-based relaxation buffers
         boolean perceptionRelaxed = false;
         RelaxationState activeRelaxation = ego.getActiveRelaxationForLeader(leaderId);
+        if (RelaxationDiagnostics.ENABLED)
+        {
+            RelaxationDiagnostics.carFollowingCall(activeRelaxation != null);
+        }
         if (activeRelaxation != null)
         {
             if (leader.getAcceleration().ge(vehicle.getParams().relaxationAbortDecelerationScalar)
@@ -118,6 +123,18 @@ public final class MirovaCarFollowingUtil
             }
             else
             {
+                if (RelaxationDiagnostics.ENABLED)
+                {
+                    double life = now.si - activeRelaxation.getStartTime().si;
+                    if (leader.getAcceleration().lt(vehicle.getParams().relaxationAbortDecelerationScalar))
+                    {
+                        RelaxationDiagnostics.abortedByDeceleration(life);
+                    }
+                    else
+                    {
+                        RelaxationDiagnostics.abortedBySpeed(life);
+                    }
+                }
                 // If the leader is braking hard, we abort the relaxation immediately to prevent crashes, as the safety buffers
                 // are no longer valid.
                 ego.clearRelaxationForLeader(leaderId);

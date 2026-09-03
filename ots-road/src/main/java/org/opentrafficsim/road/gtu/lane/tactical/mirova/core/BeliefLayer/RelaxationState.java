@@ -112,6 +112,15 @@ public class RelaxationState
      * Returns the initial space headway deficit [m] at the time of the relaxation event.
      * @return Length; initial space headway deficit
      */
+    /**
+     * Returns the simulation time at which this relaxation began.
+     * @return Duration; the start time
+     */
+    public Duration getStartTime()
+    {
+        return this.startTime;
+    }
+
     public Length getInitialSpaceDeficit()
     {
         return this.initialSpaceDeficit;
