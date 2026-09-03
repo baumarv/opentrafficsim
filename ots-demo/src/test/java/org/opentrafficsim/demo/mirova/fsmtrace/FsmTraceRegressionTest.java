@@ -46,6 +46,16 @@ public class FsmTraceRegressionTest
     private static final String REFERENCE_DIR = "src/test/resources/mirova/fsmtrace";
 
     /**
+     * Checks the Freiburg case: the real network under measured demand, and the only case that enters the congested branch.
+     * @throws Exception if the run or the comparison fails
+     */
+    @Test
+    public void freiburgMergeTraceIsUnchanged() throws Exception
+    {
+        assertTraceUnchanged(FsmTraceHarness.Case.FREIBURG_MERGE);
+    }
+
+    /**
      * Checks the merge case, which sweeps the on-ramp demand through the onset of congestion.
      * @throws Exception if the run or the comparison fails
      */

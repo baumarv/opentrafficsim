@@ -10,7 +10,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.zip.GZIPOutputStream;
 
@@ -45,7 +47,7 @@ public final class FsmTraceRecorder
 {
 
     /** Header of the trace file. */
-    public static final String HEADER = "time,gtuId,pattern,state,a,indicator,laneChange";
+    public static final String HEADER = "time,vehicle,pattern,state,a,indicator,laneChange";
 
     /** Name used when no pattern or no action state was active in a tick. */
     private static final String NONE = "-";
@@ -187,7 +189,21 @@ public final class FsmTraceRecorder
      */
     private Path write() throws IOException
     {
-        this.rows.sort(Comparator.comparingDouble((final Row r) -> r.time).thenComparing(r -> r.gtuId));
+        this.rows.sort(Comparator.comparingDouble((final Row r) -> r.time).thenComparing(r -> r.gtuId, ID_ORDER));
+
+        // Vehicles are numbered from a counter that lives longer than one simulation, so the same scenario run twice in
+        // one JVM produces the same decisions under different ids. Writing the raw id would make the trace depend on what
+        // else the JVM had run, which is precisely the kind of environmental coupling a regression net must not have.
+        // The id is therefore replaced by the vehicle's rank of first appearance within this trace.
+        Map<String, Integer> normalised = new LinkedHashMap<>();
+        for (Row row : this.rows)
+        {
+            // Not computeIfAbsent: its mapping function must not modify the map, and the value here is the map's own size.
+            if (!normalised.containsKey(row.gtuId))
+            {
+                normalised.put(row.gtuId, normalised.size() + 1);
+            }
+        }
         Path parent = this.target.toAbsolutePath().getParent();
         if (parent != null)
         {
@@ -199,12 +215,28 @@ public final class FsmTraceRecorder
             writer.write('\n');
             for (Row row : this.rows)
             {
-                writer.write(row.toCsv());
+                writer.write(row.toCsv(normalised.get(row.gtuId)));
                 writer.write('\n');
             }
         }
         return this.target;
     }
+
+    /**
+     * Orders vehicle ids numerically where they are numeric, so that the ordering does not shift when the counter passes a
+     * power of ten, and falls back to the plain text order otherwise.
+     */
+    private static final Comparator<String> ID_ORDER = (left, right) ->
+    {
+        try
+        {
+            return Long.compare(Long.parseLong(left), Long.parseLong(right));
+        }
+        catch (NumberFormatException exception)
+        {
+            return left.compareTo(right);
+        }
+    };
 
     /**
      * Opens the writer for the target file, gzipping it when the name says so. The reference traces live in the repository,
@@ -275,11 +307,12 @@ public final class FsmTraceRecorder
          * Formats this row as a CSV line. The acceleration is written with a fixed number of decimals: the trace is compared
          * byte for byte, so a locale-dependent or shortest-round-trip representation would make the comparison depend on
          * something other than the model.
+         * @param vehicle the vehicle's rank of first appearance, written instead of its raw id
          * @return the CSV line, without the line separator
          */
-        String toCsv()
+        String toCsv(final int vehicle)
         {
-            return String.format(Locale.ROOT, "%.3f,%s,%s,%s,%.9f,%s,%s", this.time, this.gtuId, this.pattern, this.state,
+            return String.format(Locale.ROOT, "%.3f,%d,%s,%s,%.9f,%s,%s", this.time, vehicle, this.pattern, this.state,
                     this.acceleration, this.indicator, this.laneChange);
         }
     }
