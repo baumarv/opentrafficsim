@@ -12,6 +12,7 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgCapac
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgCapacityStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgCongestedBranchStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgProductionStudy;
+import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgRelaxationStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgSensitivityStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgSettledStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgSusceptibilityStudy;
@@ -55,6 +56,7 @@ public final class StudyRegistry
         STUDIES.put("capacity", FreiburgCapacityStudy.class);
         STUDIES.put("capdrop", FreiburgCapacityDropStudy.class);
         STUDIES.put("susceptibility", FreiburgSusceptibilityStudy.class);
+        STUDIES.put("relaxation", FreiburgRelaxationStudy.class);
     }
 
     /** Utility class; not to be instantiated. */
