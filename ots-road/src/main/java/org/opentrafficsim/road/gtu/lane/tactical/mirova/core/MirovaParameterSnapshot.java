@@ -259,6 +259,9 @@ public final class MirovaParameterSnapshot implements Serializable
     /** Spatial relaxation time constant, as a scalar. */
     public final Duration relaxationTauSpaceScalar;
 
+    /** Leader deceleration abandoning an active relaxation, as a scalar. */
+    public final Acceleration relaxationAbortDecelerationScalar;
+
     /** Speed relaxation time constant tau_v [s]. */
     public final double relaxationTauSpeedSi;
 
@@ -366,6 +369,8 @@ public final class MirovaParameterSnapshot implements Serializable
         this.undercuttingTtcThresholdSi = this.undercuttingTtcThresholdScalar.si;
         this.relaxationTauSpaceScalar = p.getParameter(MirovaParameters.RELAXATION_TAU_SPACE);
         this.relaxationTauSpaceSi = this.relaxationTauSpaceScalar.si;
+        this.relaxationAbortDecelerationScalar =
+                p.getParameter(MirovaParameters.RELAXATION_ABORT_DECELERATION);
         this.relaxationTauSpeedScalar = p.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
         this.relaxationTauSpeedSi = this.relaxationTauSpeedScalar.si;
         this.ttcEmergencyBrakingSi = p.getParameter(MirovaParameters.ttc_emergency_braking).si;

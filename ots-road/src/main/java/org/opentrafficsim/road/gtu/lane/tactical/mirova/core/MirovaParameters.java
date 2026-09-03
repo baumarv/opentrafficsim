@@ -193,9 +193,39 @@ public final class MirovaParameters implements ConstraintInterface
 
         /**
          * Speed relaxation time constant (Tau_v) for the Keane and Gao (2021) phenomenon.
+         * <p>
+         * <b>Currently without effect, by decision rather than by oversight.</b> Every live call site of
+         * {@code EgoContext.triggerRelaxation} passes {@code Speed.ZERO} as the speed deficit, and
+         * {@code RelaxationState.getVirtualSpeedBuffer} returns zero for a non-positive deficit, so the speed buffer
+         * is never built and this constant never enters a calculation. Two call sites compute a speed deficit and use
+         * it only to choose a branch. Relaxation in this model runs on the space buffer alone.
+         * </p>
          */
         public static final ParameterTypeDuration RELAXATION_TAU_SPEED = new ParameterTypeDuration("tau_relax_v",
                         "Speed relaxation time constant", Duration.instantiateSI(8.0), ConstraintInterface.POSITIVE);
+
+        /**
+         * Leader deceleration at which an active relaxation is abandoned, in m/s^2 (negative).
+         * <p>
+         * The relaxation lets a follower tolerate the short gap a cut-in leaves it, decaying over
+         * {@link #RELAXATION_TAU_SPACE}. It is abandoned outright when the leader brakes harder than this, on the
+         * grounds that the buffers are no longer safe to trust.
+         * </p>
+         * <p>
+         * Measured over 2.0 million vehicle-seconds on the merge and its approach, the framework's original value of
+         * -1.0 m/s^2 fires at 0.97 per second: a mean relaxation lifetime of 1.0 s against a nominal time constant of
+         * 20 s, or 0.5 s in congestion. Some 5 % of the gap deficit is relaxed away before the remainder is discarded,
+         * so the exponential decay never runs. A deceleration of one metre per second squared is ordinary
+         * car-following, not hard braking, and the threshold was acting as a permanent switch-off rather than as the
+         * safety abort it was written to be.
+         * </p>
+         * <p>
+         * Exposed as a parameter so that lifetime can be varied. The default preserves the original behaviour.
+         * </p>
+         */
+        public static final ParameterTypeAcceleration RELAXATION_ABORT_DECELERATION =
+                        new ParameterTypeAcceleration("aRelaxAbort", "Leader deceleration abandoning a relaxation",
+                                        Acceleration.instantiateSI(-1.0));
 
         /** Time To Collision (TTC) threshold for emergency braking. */
         public static final ParameterTypeDuration ttc_emergency_braking = new ParameterTypeDuration("TTC_EMERGENCY_BRAKING",
