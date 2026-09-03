@@ -25,9 +25,6 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Mane
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.MandatoryLaneChangePattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.PreventUndercuttingPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.SimpleLaneChangePattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.old.exclusive.GapSearchPattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.old.parallel.AnticipatingUpstreamMergingSpeedPattern;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.old.parallel.MergeCooperationPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.util.ConflictUtil;
 import org.opentrafficsim.road.gtu.lane.tactical.util.TrafficLightUtil;
 import org.opentrafficsim.road.gtu.lane.tactical.util.lmrs.LmrsParameters;
@@ -158,7 +155,6 @@ public class MirovaTacticalPlannerFactory extends AbstractLaneBasedTacticalPlann
     protected void setIntentionLayer(final MirovaTacticalPlanner planner) throws ParameterException
     {
         // Exclusive maneuvers (one at a time)
-        // planner.addManeuverPattern(new GapSearchPattern(planner));
         planner.addManeuverPattern(new SimpleLaneChangePattern(planner));
 
         // Parallel maneuvers (can run simultaneously alongside standard car-following)
