@@ -156,7 +156,7 @@ public class AnticipateAdjacentCongestionPattern extends ManeuverPattern impleme
         }
 
         @Override
-        public SimpleOperationalPlan next()
+        public ActionState next()
         {
             return null;
         }
@@ -184,7 +184,7 @@ public class AnticipateAdjacentCongestionPattern extends ManeuverPattern impleme
         }
 
         @Override
-        public SimpleOperationalPlan abort() throws ParameterException, GtuException, NetworkException
+        public ActionState abort() throws ParameterException, GtuException, NetworkException
         {
             MacroTrafficContext macro = this.vehicle.getContextManager().getCategory("MacroTraffic", MacroTrafficContext.class);
             Speed vCong = this.vehicle.getParams().vCongScalar;
@@ -199,7 +199,7 @@ public class AnticipateAdjacentCongestionPattern extends ManeuverPattern impleme
                     return null;
                 }
             }
-            return finishManeuver();
+            return FINISHED;
         }
 
         @Override

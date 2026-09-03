@@ -227,13 +227,13 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
         }
 
         @Override
-        public SimpleOperationalPlan abort() throws ParameterException, GtuException, NetworkException
+        public ActionState abort() throws ParameterException, GtuException, NetworkException
         {
             return null;
         }
 
         @Override
-        public SimpleOperationalPlan next() throws OperationalPlanException, ParameterException, GtuException, NetworkException
+        public ActionState next() throws OperationalPlanException, ParameterException, GtuException, NetworkException
         {
             if (this.mergePattern.listLanesWithCooperationNeeds.isEmpty())
             {
@@ -255,7 +255,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
                 if (this.vehicle.getLaneChangeDesire().getMandatoryDesire(oppositeDir) >= 0
                         && neighbors.checkIfLaneChangeIsPossible(oppositeDir))
                 {
-                    return transitionTo(new PerformLaneChangeState(this.mergePattern, oppositeDir, true));
+                    return new PerformLaneChangeState(this.mergePattern, oppositeDir, true);
                 }
             }
 
@@ -266,7 +266,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
             // Ramp is now directly adjacent — hand off to the near-range state.
             if (infra != null && !infra.getPhysicalDistanceToLaneEnd(relativeLane).eq(Length.POSITIVE_INFINITY))
             {
-                return transitionTo(new NearAnticipationState(this.mergePattern));
+                return new NearAnticipationState(this.mergePattern);
             }
 
             return null;
@@ -408,7 +408,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
         }
 
         @Override
-        public SimpleOperationalPlan abort() throws ParameterException, GtuException, NetworkException
+        public ActionState abort() throws ParameterException, GtuException, NetworkException
         {
             // PatternSelector only calls checkContext() when isRunning() == false. Because NearAnticipationState
             // keeps the pattern running, we must refresh listLanesWithCooperationNeeds manually here each tick.
@@ -416,19 +416,19 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
             {
                 if (!this.mergePattern.checkContext())
                 {
-                    return finishManeuver();
+                    return FINISHED;
                 }
             }
             catch (Exception e)
             {
                 // If context evaluation fails, terminate conservatively rather than running blind.
-                return finishManeuver();
+                return FINISHED;
             }
             return null;
         }
 
         @Override
-        public SimpleOperationalPlan next() throws OperationalPlanException, ParameterException, GtuException, NetworkException
+        public ActionState next() throws OperationalPlanException, ParameterException, GtuException, NetworkException
         {
             // Termination is handled by abort(); no internal FSM transition needed from the near state.
             return null;

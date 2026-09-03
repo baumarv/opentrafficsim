@@ -217,24 +217,24 @@ public class SimpleLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public SimpleOperationalPlan next()
+        public ActionState next()
                 throws ParameterException, NullPointerException, IllegalArgumentException, GtuException, NetworkException
         {
             if (LateralExecution.lateralMoveFinished(this.vehicle, this.originLane))
             {
-                return finishManeuver();
+                return FINISHED;
             }
             return null;
         }
 
         @Override
-        public SimpleOperationalPlan abort() throws ParameterException, GtuException, NetworkException
+        public ActionState abort() throws ParameterException, GtuException, NetworkException
         {
             // If the start condition failed before the move began, terminate the pattern
             if (!this.startCondition)
             {
                 //
-                return finishManeuver();
+                return FINISHED;
             }
             return null;
         }

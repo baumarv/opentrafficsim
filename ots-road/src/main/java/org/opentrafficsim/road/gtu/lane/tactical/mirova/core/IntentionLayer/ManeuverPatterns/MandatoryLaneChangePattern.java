@@ -727,7 +727,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public SimpleOperationalPlan abort() throws ParameterException, OperationalPlanException, NullPointerException,
+        public ActionState abort() throws ParameterException, OperationalPlanException, NullPointerException,
                 IllegalArgumentException, GtuException, NetworkException
         {
             try
@@ -735,7 +735,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 if (this.vehicle.getLaneChangeDesire().magnitude() < this.vehicle.getParameters()
                         .getParameter(MirovaParameters.DMAND))
                 {
-                    return finishManeuver();
+                    return FINISHED;
                 }
             }
             catch (Exception exception)
@@ -751,7 +751,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
          * @param dir the target direction
          * @return plan if transitioned, null otherwise
          */
-        protected SimpleOperationalPlan checkCommonTransitions(final NeighborsContext neigh, final LateralDirectionality dir)
+        protected ActionState checkCommonTransitions(final NeighborsContext neigh, final LateralDirectionality dir)
                 throws ParameterException, OperationalPlanException, GtuException, NetworkException
         {
             // Two independent questions, deliberately kept apart: whether the gap physically permits the manoeuvre,
@@ -759,7 +759,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             // state it is in, so it is enforced here -- on every path to the execution -- rather than on a single edge.
             if (neigh.getIfLaneChangePossible(dir) && mayExecuteLaneChange(this.vehicle, dir))
             {
-                return transitionTo(new ExecuteLaneChangeState(this.maneuverPattern, dir));
+                return new ExecuteLaneChangeState(this.maneuverPattern, dir);
             }
 
             Length distToLaneEnd = this.vehicle.getContext(InfrastructureContext.class).getRouteDistanceToLaneEnd();
@@ -769,7 +769,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                         MirovaCarFollowingUtil.stop(this.vehicle, distToLaneEnd.minus(RAMP_END_BUFFER));
                 if (requiredStopAccel.si < -5.0)
                 {
-                    return transitionTo(new EmergencyStopState(this.maneuverPattern));
+                    return new EmergencyStopState(this.maneuverPattern);
                 }
             }
             return null;
@@ -804,11 +804,11 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
          * @throws GtuException if GTU limits fail
          * @throws NetworkException if network queries fail
          */
-        protected SimpleOperationalPlan checkMergeTransitions(final NeighborsContext neigh,
+        protected ActionState checkMergeTransitions(final NeighborsContext neigh,
                 final LateralDirectionality dir)
                 throws ParameterException, OperationalPlanException, GtuException, NetworkException
         {
-            SimpleOperationalPlan commonTransition = checkCommonTransitions(neigh, dir);
+            ActionState commonTransition = checkCommonTransitions(neigh, dir);
             if (commonTransition != null)
             {
                 return commonTransition;
@@ -829,14 +829,14 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
             if (egoSpeed.si < CONGESTED_EGO_SPEED.si)
             {
-                return transitionTo(new CongestedMergeState(this.maneuverPattern));
+                return new CongestedMergeState(this.maneuverPattern);
             }
 
             // Check for parallel vehicle (physically overlapping)
             HeadwayGtu parallel = getPhysicallyOverlappingVehicle(neigh, dir);
             if (parallel != null)
             {
-                return transitionTo(new SolveParallelVehicleState(this.maneuverPattern, parallel));
+                return new SolveParallelVehicleState(this.maneuverPattern, parallel);
             }
 
             // Get the actual follower behind the gap (must not be parallel/overlapping)
@@ -930,7 +930,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 // Still require kinematic reachability of the downstream gap.
                 if (downstreamGapReachable)
                 {
-                    return transitionTo(new MatchLeaderSpeedState(this.maneuverPattern));
+                    return new MatchLeaderSpeedState(this.maneuverPattern);
                 }
                 // Leader is kinematically unreachable: wait – upstream gap will open as leader pulls away.
                 return null;
@@ -943,7 +943,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 if (followerInducedDecel.si > followerDecelThreshold.si && downstreamGapReachable)
                 {
                     // Follower decel acceptable AND downstream gap kinematically reachable → merge ahead
-                    return transitionTo(new MatchLeaderSpeedState(this.maneuverPattern));
+                    return new MatchLeaderSpeedState(this.maneuverPattern);
                 }
             }
             return null; // no resolvable obstacle found; wait for the gap to open
@@ -1090,7 +1090,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public SimpleOperationalPlan next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
+        public ActionState next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
         {
             InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
             if (!infra.getIfLaneAvailable(this.pattern.getTargetDirection()))
@@ -1104,7 +1104,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                             MirovaCarFollowingUtil.stop(this.vehicle, routeDistToEnd.minus(RAMP_END_BUFFER));
                     if (requiredStopAccel.si < -5.0)
                     {
-                        return transitionTo(new EmergencyStopState(this.maneuverPattern));
+                        return new EmergencyStopState(this.maneuverPattern);
                     }
                 }
                 return null;
@@ -1113,13 +1113,13 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             // The acceleration lane has been reached. This is a change of phase, not a decision to merge: the ego now
             // accelerates towards the speed of the traffic it is joining and resolves any merge conflicts, while
             // permission to actually execute the change rests with mayExecuteLaneChange() on the execution path.
-            return transitionTo(new SynchroniseMergeSpeedState(this.maneuverPattern));
+            return new SynchroniseMergeSpeedState(this.maneuverPattern);
         }
 
 
 
         @Override
-        public SimpleOperationalPlan abort() throws ParameterException, GtuException, NetworkException
+        public ActionState abort() throws ParameterException, GtuException, NetworkException
         {
             try
             {
@@ -1127,12 +1127,12 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 if (infra.getDistanceToLaneChangeExtendedLookahead().si >= this.vehicle.getParameters()
                         .getParameter(MirovaParameters.extendedLookAheadDistance).si)
                 {
-                    return finishManeuver();
+                    return FINISHED;
                 }
             }
             catch (Exception exception)
             {
-                return finishManeuver();
+                return FINISHED;
             }
             return null;
         }
@@ -1232,7 +1232,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public SimpleOperationalPlan next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
+        public ActionState next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
         {
             return checkMergeTransitions(this.vehicle.getContext(NeighborsContext.class),
                     this.pattern.getTargetDirection());
@@ -1350,12 +1350,12 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public SimpleOperationalPlan next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
+        public ActionState next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
         {
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
             LateralDirectionality dir = this.pattern.getTargetDirection();
 
-            SimpleOperationalPlan commonTransition = checkCommonTransitions(neigh, dir);
+            ActionState commonTransition = checkCommonTransitions(neigh, dir);
             if (commonTransition != null)
             {
                 return commonTransition;
@@ -1367,7 +1367,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
             if (egoSpeed.si < CONGESTED_EGO_SPEED.si)
             {
-                return transitionTo(new CongestedMergeState(this.maneuverPattern));
+                return new CongestedMergeState(this.maneuverPattern);
             }
 
             HeadwayGtu leader = neigh.getLeader(dir);
@@ -1414,7 +1414,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 if (!reachable)
                 {
                     // Leader is no longer reachable – abandon downstream merge, wait for upstream gap
-                    return transitionTo(new SynchroniseMergeSpeedState(this.maneuverPattern));
+                    return new SynchroniseMergeSpeedState(this.maneuverPattern);
                 }
             }
 
@@ -1423,7 +1423,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             // --> NEU: Wenn ein paralleles Fahrzeug existiert, in den neuen State wechseln
             if (parallel != null)
             {
-                return transitionTo(new SolveParallelVehicleState(this.maneuverPattern, parallel));
+                return new SolveParallelVehicleState(this.maneuverPattern, parallel);
             }
 
             return null; // Keep braking
@@ -1549,12 +1549,12 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public SimpleOperationalPlan next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
+        public ActionState next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
         {
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
             LateralDirectionality dir = this.pattern.getTargetDirection();
 
-            SimpleOperationalPlan commonTransition = checkCommonTransitions(neigh, dir);
+            ActionState commonTransition = checkCommonTransitions(neigh, dir);
             if (commonTransition != null)
             {
                 return commonTransition;
@@ -1564,7 +1564,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
             if (egoSpeed.si < CONGESTED_EGO_SPEED.si)
             {
-                return transitionTo(new CongestedMergeState(this.maneuverPattern));
+                return new CongestedMergeState(this.maneuverPattern);
             }
 
             // 3. Check if the parallel vehicle is still blocking us
@@ -1577,9 +1577,9 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 if (targetLeader != null && targetLeader.getDistance().si > 0.0)
                 {
                     // The vehicle is now ahead of us. Transition to MatchLeaderSpeedState to follow it.
-                    return transitionTo(new MatchLeaderSpeedState(this.maneuverPattern));
+                    return new MatchLeaderSpeedState(this.maneuverPattern);
                 }
-                return transitionTo(new SynchroniseMergeSpeedState(this.maneuverPattern));
+                return new SynchroniseMergeSpeedState(this.maneuverPattern);
             }
 
             return null; // Stay in this state and continue resolving the conflict
@@ -1647,12 +1647,12 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public SimpleOperationalPlan next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
+        public ActionState next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
         {
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
             LateralDirectionality dir = this.pattern.getTargetDirection();
 
-            SimpleOperationalPlan commonTransition = checkCommonTransitions(neigh, dir);
+            ActionState commonTransition = checkCommonTransitions(neigh, dir);
             if (commonTransition != null)
             {
                 return commonTransition;
@@ -1662,17 +1662,17 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
             if (egoSpeed.gt(RECOVERY_SPEED_THRESHOLD))
             {
-                return transitionTo(new SynchroniseMergeSpeedState(this.maneuverPattern));
+                return new SynchroniseMergeSpeedState(this.maneuverPattern);
             }
 
             // 4. Parallel block present → creep alongside
             if (detectParallelBlock(neigh, dir, this.vehicle.getContext(EgoContext.class), this.vehicle.getParameters()))
             {
-                return transitionTo(new CongestedCreepState(this.maneuverPattern));
+                return new CongestedCreepState(this.maneuverPattern);
             }
 
             // 5. No parallel block → follow the putative leader at reduced target speed
-            return transitionTo(new CongestedFollowLeaderState(this.maneuverPattern));
+            return new CongestedFollowLeaderState(this.maneuverPattern);
         }
 
         @Override
@@ -1740,12 +1740,12 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public SimpleOperationalPlan next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
+        public ActionState next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
         {
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
             LateralDirectionality dir = this.pattern.getTargetDirection();
 
-            SimpleOperationalPlan commonTransition = checkCommonTransitions(neigh, dir);
+            ActionState commonTransition = checkCommonTransitions(neigh, dir);
             if (commonTransition != null)
             {
                 return commonTransition;
@@ -1754,7 +1754,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             // 3. Parallel block resolved → return to dispatcher
             if (!detectParallelBlock(neigh, dir, this.vehicle.getContext(EgoContext.class), this.vehicle.getParameters()))
             {
-                return transitionTo(new CongestedMergeState(this.maneuverPattern));
+                return new CongestedMergeState(this.maneuverPattern);
             }
 
             return null; // Stay: parallel vehicle still blocking
@@ -1851,12 +1851,12 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public SimpleOperationalPlan next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
+        public ActionState next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
         {
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
             LateralDirectionality dir = this.pattern.getTargetDirection();
 
-            SimpleOperationalPlan commonTransition = checkCommonTransitions(neigh, dir);
+            ActionState commonTransition = checkCommonTransitions(neigh, dir);
             if (commonTransition != null)
             {
                 return commonTransition;
@@ -1866,13 +1866,13 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
             if (egoSpeed.gt(CongestedMergeState.RECOVERY_SPEED_THRESHOLD))
             {
-                return transitionTo(new SynchroniseMergeSpeedState(this.maneuverPattern));
+                return new SynchroniseMergeSpeedState(this.maneuverPattern);
             }
 
             // 4. Parallel block appeared → back to dispatcher (will route to CongestedCreepState)
             if (detectParallelBlock(neigh, dir, this.vehicle.getContext(EgoContext.class), this.vehicle.getParameters()))
             {
-                return transitionTo(new CongestedMergeState(this.maneuverPattern));
+                return new CongestedMergeState(this.maneuverPattern);
             }
 
             return null; // Stay: still congested, no parallel block
@@ -2047,12 +2047,12 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public SimpleOperationalPlan next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
+        public ActionState next() throws ParameterException, OperationalPlanException, NetworkException, GtuException
         {
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
             if (neigh.getIfLaneChangePossible(this.pattern.getTargetDirection()))
             {
-                return transitionTo(new ExecuteLaneChangeState(this.maneuverPattern, this.pattern.getTargetDirection()));
+                return new ExecuteLaneChangeState(this.maneuverPattern, this.pattern.getTargetDirection());
             }
             return null;
         }
@@ -2135,7 +2135,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         @Override
-        public SimpleOperationalPlan next()
+        public ActionState next()
                 throws ParameterException, NullPointerException, IllegalArgumentException, GtuException, NetworkException
         {
             if (LateralExecution.lateralMoveFinished(this.vehicle, this.originLane))
@@ -2145,13 +2145,13 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 // this.vehicle.getParameters().resetParameter(ParameterTypes.LCDUR);
                 // }
                 this.vehicle.releaseActionLock();
-                return finishManeuver();
+                return FINISHED;
             }
             return null;
         }
 
         @Override
-        public SimpleOperationalPlan abort() throws ParameterException, OperationalPlanException
+        public ActionState abort() throws ParameterException, OperationalPlanException
         {
             if (this.vehicle.getLaneChange().isChangingLane())
             {
@@ -2169,7 +2169,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                     // }
 
                     this.vehicle.releaseActionLock(); // HIER EINFÜGEN
-                    return finishManeuver();
+                    return FINISHED;
                 }
             }
             catch (Exception e)

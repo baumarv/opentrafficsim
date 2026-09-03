@@ -395,7 +395,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
         }
 
         @Override
-        public SimpleOperationalPlan next() throws OperationalPlanException, ParameterException, GtuException, NetworkException
+        public ActionState next() throws OperationalPlanException, ParameterException, GtuException, NetworkException
         {
 
             EgoContext ego = this.vehicle.getContextManager().getCategory("Ego", EgoContext.class);
@@ -409,7 +409,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
                 if (this.vehicle.getMandatoryLaneChangeDesire().getMandatoryDesire(oppositeDir) >= 0.0
                         && neighbors.checkIfLaneChangeIsPossible(oppositeDir))
                 {
-                    return transitionTo(new PerformLaneChangeState(this.maneuverPattern, oppositeDir, true));
+                    return new PerformLaneChangeState(this.maneuverPattern, oppositeDir, true);
                 }
             }
 
@@ -461,14 +461,14 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
         }
 
         @Override
-        public SimpleOperationalPlan abort() throws ParameterException, GtuException, NetworkException
+        public ActionState abort() throws ParameterException, GtuException, NetworkException
         {
             this.maneuverPattern.activeMergeCandidate = this.maneuverPattern.getActiveMergeCandidate();
             HeadwayGtu candidate = this.maneuverPattern.activeMergeCandidate;
             EgoContext ego = this.vehicle.getContextManager().getCategory("Ego", EgoContext.class);
             if (candidate == null || (!candidate.isLeftTurnIndicatorOn() && !candidate.isRightTurnIndicatorOn()))
             {
-                return finishManeuver();
+                return FINISHED;
             }
 
             NeighborsContext neighbors = this.vehicle.getContextManager().getCategory("Neighbors", NeighborsContext.class);
@@ -481,7 +481,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
             // Leader of Ego vehicle can cooperate to open a gap for the candidate
             if (this.maneuverPattern.leaderCanCooperate(candidate))
             {
-                return finishManeuver();
+                return FINISHED;
             }
 
             if (candidate.getDistance().lt(this.vehicle.getParams().s0Scalar))
@@ -489,7 +489,7 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
                 if (ego.getEgoSpeed().ge(COOPERATION_STANDSTILL_SPEED) || egoFrontGap.si >= 15.0)
                 {
                     // Parallel cooperation is aborted once we have enough space to drive forward
-                    return finishManeuver();
+                    return FINISHED;
                 }
             }
             this.maneuverPattern.setRunning(false);
