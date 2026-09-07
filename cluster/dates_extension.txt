@@ -1,0 +1,18 @@
+# The seven dates added after the final ensemble was reported (study 'final').
+#
+# They exist as a separate list because the other nine already have 50 seeds each from
+# final_v1 under an unchanged model and an unchanged parameter set, so re-running them
+# would buy nothing. Point MIROVA_DATES_FILE at this file to simulate only what is missing;
+# point it at dates.txt to reproduce all sixteen from scratch.
+#
+# None of these days took part in choosing any parameter, which is what makes them useful:
+# the nine were the set the headway pair, the comfortable deceleration and the relaxation
+# corrections were selected on. These seven are the first out-of-sample test.
+#
+2025-09-16
+2025-09-17
+2025-09-25
+2025-09-26
+2025-10-14
+2025-10-15
+2025-10-16
