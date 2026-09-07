@@ -20,9 +20,12 @@ sources.txt
 **/sources.txt
 
 # MiRoVA cluster: generated demand inputs and run artifacts.
-# Demand CSVs are regenerated from field data by the offline Python pipeline and are
-# too large / too derived to track; the cluster workflow expects them under cluster/demand.
-cluster/demand/
+# The demand CSVs themselves ARE tracked. They are derived - the offline Python pipeline
+# rebuilds them from the detector database - but that database is not public, so without
+# them in the repository a study is not reproducible by anyone who cannot reach it. All
+# thirty-two together are under two megabytes. The comparison PNGs beside them stay out:
+# they are pure control plots, twice the size of the data, and regenerable from the CSVs.
+cluster/demand/*.png
 cluster/cp.txt
 cluster/run_list.txt
 cluster/logs/
