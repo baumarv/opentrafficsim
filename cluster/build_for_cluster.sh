@@ -69,9 +69,21 @@ echo
 echo "[4/4] Preparing workspace directory layout"
 mkdir -p "${WORKSPACE}/demand" "${WORKSPACE}/output" "${WORKSPACE}/logs"
 
+# The demand CSVs live in the repository, so copy them rather than leaving it to the
+# submitter. Leaving it manual cost a whole job array once: seven dates were added to the
+# study, the workspace still held the previous nine, and every array task died in about
+# twenty seconds on the strict-mode check before a single simulation had started.
+# Existing files are overwritten, which is what makes a regenerated demand set take effect;
+# anything in the workspace that the repository does not know about is left alone.
+if compgen -G "${CLUSTER_DIR}/demand/demand_*.csv" > /dev/null; then
+  cp -p "${CLUSTER_DIR}"/demand/demand_*.csv "${WORKSPACE}/demand/"
+  echo "Copied $(ls -1 "${CLUSTER_DIR}"/demand/demand_*.csv | wc -l) demand CSV(s) to ${WORKSPACE}/demand"
+else
+  echo "WARNING: no demand CSVs found in ${CLUSTER_DIR}/demand - the study will abort in strict mode."
+fi
+
 echo
 echo "Done. Classpath written to ${CP_FILE} ($(wc -c < "${CP_FILE}") bytes)."
-echo "Put the pre-generated demand CSVs into: ${WORKSPACE}/demand"
 echo
 echo "Next: determine the array size for the study you want to run, e.g."
 echo "  java -cp \"\$(cat ${CP_FILE})\" \\"

@@ -69,7 +69,7 @@ The build script creates this layout inside the workspace:
 ```
 $(ws_find mirova)/
 ├── cp.txt        # runtime classpath
-├── demand/       # pre-generated demand CSVs  <- put yours here
+├── demand/       # demand CSVs, copied here from cluster/demand by the build script
 ├── output/       # simulation results, per study
 └── logs/         # SLURM job logs
 ```
