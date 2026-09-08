@@ -91,9 +91,18 @@ public final class RunFreiburgMergeWatch
 
         // ---- Cars ------------------------------------------------------------------------------------------------------
 
-        /** Desired time headway of cars [s]. Study baseline via FreiburgStudyParameters; the tighter sweep uses 0.90. */
+        /**
+         * Desired time headway of cars [s].
+         * <p>
+         * Taken from {@link FreiburgFinalStudy}, the set the cluster campaigns and the reported results run on, rather
+         * than from {@code FreiburgStudyParameters}, which still holds the superseded production values. A local run
+         * that answers a question about the campaign has to be at the campaign's operating point; the two had drifted
+         * apart by 0.10 s of headway, 0.25 m/s^2 of comfortable deceleration, a metre of stopped distance and five
+         * hundredths of the safety-distance factor.
+         * </p>
+         */
         private static final double CAR_T = Double.parseDouble(
-                        System.getProperty("mirova.carT", Double.toString(FreiburgStudyParameters.CAR_T)));
+                        System.getProperty("mirova.carT", Double.toString(FreiburgFinalStudy.HEADWAY.carT())));
 
         /**
          * Leader deceleration at which an active relaxation is abandoned, in m/s^2.
@@ -121,7 +130,7 @@ public final class RunFreiburgMergeWatch
          * </p>
          */
         private static final double CAR_A = Double.parseDouble(
-                        System.getProperty("mirova.carA", Double.toString(FreiburgStudyParameters.CAR_A)));
+                        System.getProperty("mirova.carA", Double.toString(FreiburgFinalStudy.A_CAR)));
 
         /**
          * Stopped bumper-to-bumper distance of cars, in m.
@@ -131,7 +140,7 @@ public final class RunFreiburgMergeWatch
          * </p>
          */
         private static final double CAR_S0 = Double.parseDouble(
-                        System.getProperty("mirova.carS0", Double.toString(FreiburgStudyParameters.CAR_S0)));
+                        System.getProperty("mirova.carS0", Double.toString(FreiburgFinalStudy.S0_CAR)));
 
         /**
          * Comfortable deceleration of both vehicle types, in m/s^2.
@@ -143,7 +152,7 @@ public final class RunFreiburgMergeWatch
          * </p>
          */
         private static final double COMFORTABLE_DECELERATION = Double.parseDouble(System.getProperty(
-                        "mirova.b", Double.toString(FreiburgStudyParameters.COMFORTABLE_DECELERATION)));
+                        "mirova.b", Double.toString(FreiburgFinalStudy.B)));
 
         /** Speed gain of cars, driving the socio-speed sensitivity [km/h]. Study baseline: 15.0. */
         private static final double CAR_V_GAIN = 15.0;
@@ -185,14 +194,14 @@ public final class RunFreiburgMergeWatch
         private static final boolean CAR_FAR_ANTICIPATION = false;
 
         /** Lane-change safety distance reduction factor of cars. Study baseline; the sweep also uses 0.50. */
-        private static final double CAR_SAFETY_DISTANCE_FACTOR = 0.45;
+        private static final double CAR_SAFETY_DISTANCE_FACTOR = FreiburgFinalStudy.SAFETY_DISTANCE_FACTOR;
 
         /** Capacity drop modelling for cars. Study baseline: false. */
         private static final boolean CAR_CAPACITY_DROP = false;
 
         /** Relaxation acceleration damping factor of cars. Study baseline: 0.80; the sweep also uses 0.60. */
         private static final double CAR_RELAXATION_DAMPING_FACTOR =
-                        Double.parseDouble(System.getProperty("mirova.damping", "0.70"));
+                        Double.parseDouble(System.getProperty("mirova.damping", Double.toString(FreiburgFinalStudy.DAMPING)));
 
         /** Whether relaxation acceleration damping is active for cars. Study baseline: true. */
         private static final boolean CAR_RELAXATION_DAMPING_ENABLED = true;
@@ -201,7 +210,7 @@ public final class RunFreiburgMergeWatch
 
         /** Desired time headway of trucks [s]. Study baseline via FreiburgStudyParameters; the tighter sweep uses 1.20. */
         private static final double TRUCK_T = Double.parseDouble(
-                        System.getProperty("mirova.truckT", Double.toString(FreiburgStudyParameters.TRUCK_T)));
+                        System.getProperty("mirova.truckT", Double.toString(FreiburgFinalStudy.HEADWAY.truckT())));
 
         /**
          * Car-following acceleration of trucks [m/s^2]. Override with {@code -Dmirova.truckA}.
@@ -217,7 +226,7 @@ public final class RunFreiburgMergeWatch
 
         /** Stopping distance of trucks [m]. Override with {@code -Dmirova.truckS0}. */
         private static final double TRUCK_S0 = Double.parseDouble(
-                        System.getProperty("mirova.truckS0", Double.toString(FreiburgStudyParameters.TRUCK_S0)));
+                        System.getProperty("mirova.truckS0", Double.toString(2.0 * FreiburgFinalStudy.S0_CAR)));
 
         /** Speed gain of trucks [km/h]. Study baseline: 30.0. */
         private static final double TRUCK_V_GAIN = 30.0;
@@ -236,14 +245,14 @@ public final class RunFreiburgMergeWatch
         private static final boolean TRUCK_FAR_ANTICIPATION = false;
 
         /** Lane-change safety distance reduction factor of trucks. Study baseline; the sweep also uses 0.50. */
-        private static final double TRUCK_SAFETY_DISTANCE_FACTOR = 0.45;
+        private static final double TRUCK_SAFETY_DISTANCE_FACTOR = FreiburgFinalStudy.SAFETY_DISTANCE_FACTOR;
 
         /** Capacity drop modelling for trucks. Study baseline: false. */
         private static final boolean TRUCK_CAPACITY_DROP = false;
 
         /** Relaxation acceleration damping factor of trucks. Study baseline: 0.80; the sweep also uses 0.60. */
         private static final double TRUCK_RELAXATION_DAMPING_FACTOR =
-                        Double.parseDouble(System.getProperty("mirova.damping", "0.70"));
+                        Double.parseDouble(System.getProperty("mirova.damping", Double.toString(FreiburgFinalStudy.DAMPING)));
 
         /** Whether relaxation acceleration damping is active for trucks. Study baseline: true. */
         private static final boolean TRUCK_RELAXATION_DAMPING_ENABLED = true;
