@@ -57,7 +57,7 @@ import org.opentrafficsim.road.network.lane.Lane;
  *         <li><b>Faster Target Lane (Merge/Accel Scenario):</b> The vehicle accelerates towards target lane speed. If a parallel
  *             block is detected, it transitions to <i>SolveParallelVehicleState</i> to handle overtaking.</li>
  *       </ul>
- *       If speed drops below 15 km/h, it transitions to <i>CongestedMergeState</i>. If a gap is physically open,
+ *       If speed drops below 15 km/h, it transitions to the congested branch. If a gap is physically open,
  *       it transitions to <i>ExecuteLaneChangeState</i>.</li>
  *   <li><b>MatchLeaderSpeedState</b> (Active Braking Phase): Entered when the ego vehicle is too fast/close to the target leader.
  *       It actively decelerates the ego vehicle to safely match the target leader's speed and fall behind it.
@@ -66,15 +66,11 @@ import org.opentrafficsim.road.network.lane.Lane;
  *   <li><b>SolveParallelVehicleState</b> (Parallel Conflict Resolution): Resolves situations where a vehicle is driving
  *       parallel on the adjacent lane. If there is enough remaining ramp distance (>200m) and own lane headway, it accelerates
  *       maximally to overtake and merge ahead (Overtake Strategy). Otherwise, it decelerates to drop behind the blocker.</li>
- *   <li><b>CongestedMergeState</b> (Congested Flow Dispatcher): Activated under congested conditions (speed < 15 km/h).
- *       Acts as a pure routing dispatcher, transitioning to <i>CongestedCreepState</i> when a parallel vehicle is blocking,
- *       or <i>CongestedFollowLeaderState</i> when the target lane leader is clear but the lane change is not yet physically possible.
- *       If speed recovers above 30 km/h, it transitions back to <i>SynchroniseMergeSpeedState</i>.</li>
  *   <li><b>CongestedCreepState</b> (Congested Parallel Blocking): Creeps forward at a very low speed (3 km/h, max 0.3 m/s²)
- *       without accelerating alongside the blocking vehicle. It returns to <i>CongestedMergeState</i> when the block is resolved.</li>
+ *       without accelerating alongside the blocking vehicle. It hands over to <i>CongestedFollowLeaderState</i> when the block is resolved.</li>
  *   <li><b>CongestedFollowLeaderState</b> (Congested Target Following): Follows the leader in the target lane at a speed
- *       scaling down from 15 km/h to 5 km/h as the end of the ramp approaches. If a parallel block appears, it transitions back
- *       to <i>CongestedMergeState</i>.</li>
+ *       scaling down from 15 km/h to 5 km/h as the end of the ramp approaches. If a parallel block appears, it hands over
+ *       to <i>CongestedCreepState</i>.</li>
  *   <li><b>EmergencyStopState</b> (Emergency Stop & Last-Minute Overtake): Triggered when approaching the end of the lane
  *       without finding a gap (e.g. at the end of a merge ramp or when approaching a highway exit on the main road).
  *       It stops the vehicle before the lane end buffer. While decelerating, it continuously checks if a last-minute
@@ -634,6 +630,31 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     }
 
     /**
+     * Picks the congested sub-state that fits the situation.
+     * <p>
+     * This used to be a state of its own, {@code CongestedMergeState}, which routed on to one of the two below. It
+     * never produced a plan: its rule always answered with another state, so {@code update()} never came to rest on
+     * it and its {@code executeControl} was unreachable. Stating the choice as a function says the same thing without
+     * a state that has no behaviour, and lets the two sub-states name each other directly.
+     * </p>
+     * @param pattern MandatoryLaneChangePattern; the pattern the state belongs to
+     * @param vehicle MirovaTacticalPlanner; the ego vehicle
+     * @return ActionState; the creeping state while a vehicle is alongside, the following state otherwise
+     * @throws ParameterException if a parameter lookup fails
+     */
+    static ActionState congestedSubState(final MandatoryLaneChangePattern pattern,
+            final MirovaTacticalPlanner vehicle) throws ParameterException
+    {
+        NeighborsContext neigh = vehicle.getContext(NeighborsContext.class);
+        LateralDirectionality dir = pattern.getTargetDirection();
+        if (detectParallelBlock(neigh, dir, vehicle.getContext(EgoContext.class), vehicle.getParameters()))
+        {
+            return new CongestedCreepState(pattern);
+        }
+        return new CongestedFollowLeaderState(pattern);
+    }
+
+    /**
      * Returns the vehicle on the target lane that blocks the lane change, or {@code null} when none does.
      * <p>
      * This is the single implementation of a question that used to exist in three slightly different copies -
@@ -773,7 +794,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
          */
         protected Transition enterCongestedRule()
         {
-            return new Transition("ego has dropped into the congested regime", "CongestedMergeState", this::congestionEntered);
+            return new Transition("ego has dropped into the congested regime",
+                    "CongestedCreepState|CongestedFollowLeaderState", this::congestionEntered);
         }
 
         /**
@@ -788,12 +810,13 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         /**
          * Enters the congested branch once the ego has slowed to queue speeds, where there is no flow to synchronise with
          * and merging becomes a matter of creeping into a gap rather than matching a speed.
-         * @return the congested decision node, or {@code null} while the ego is still moving with the traffic
+         * @return the congested sub-state that fits, or {@code null} while the ego is still moving with the traffic
+         * @throws ParameterException if a parameter lookup fails
          */
-        private ActionState congestionEntered()
+        private ActionState congestionEntered() throws ParameterException
         {
             return this.vehicle.getContext(EgoContext.class).getEgoSpeed().si < CONGESTED_EGO_SPEED.si
-                    ? new CongestedMergeState(this.maneuverPattern) : null;
+                    ? congestedSubState(this.pattern, this.vehicle) : null;
         }
 
         /**
@@ -932,7 +955,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             Speed egoSpeed = this.vehicle.getContext(EgoContext.class).getEgoSpeed();
             if (egoSpeed.si < CONGESTED_EGO_SPEED.si)
             {
-                return new CongestedMergeState(this.maneuverPattern);
+                return congestedSubState(this.pattern, this.vehicle);
             }
 
             // Check for parallel vehicle (physically overlapping)
@@ -1298,7 +1321,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
      * <h4>Transitions:</h4>
      * <ul>
      *   <li>To <i>ExecuteLaneChangeState</i> when the gap permits the manoeuvre and the ego is ready to perform it.</li>
-     *   <li>To <i>CongestedMergeState</i> when the traffic is too slow for speed synchronisation to be meaningful.</li>
+     *   <li>To the congested branch when the traffic is too slow for speed synchronisation to be meaningful.</li>
      *   <li>To <i>MatchLeaderSpeedState</i> when the ego has to align with the target lane leader first.</li>
      *   <li>To <i>SolveParallelVehicleState</i> when a physically overlapping vehicle blocks access to the gap.</li>
      * </ul>
@@ -1361,7 +1384,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         {
             List<Transition> rules = new ArrayList<>(commonTransitions());
             rules.add(new Transition("something is in the way of the merge",
-                    "CongestedMergeState|SolveParallelVehicleState|MatchLeaderSpeedState", this::resolveObstacle));
+                    "CongestedCreepState|CongestedFollowLeaderState|SolveParallelVehicleState|MatchLeaderSpeedState",
+                    this::resolveObstacle));
             return rules;
         }
 
@@ -1413,7 +1437,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
      * <ul>
      *   <li>Transitions to <i>ExecuteLaneChangeState</i> if the lane change becomes physically possible.</li>
      *   <li>Transitions to <i>EmergencyStopState</i> if the end of the lane is critically close (emergency stop condition).</li>
-     *   <li>Transitions to <i>CongestedMergeState</i> if speed drops below 15 km/h.</li>
+     *   <li>Transitions to the congested branch if speed drops below 15 km/h.</li>
      *   <li>Transitions to <i>SynchroniseMergeSpeedState</i> if the downstream gap becomes kinematically unreachable,
      *       meaning the vehicle must stop and wait for an upstream gap instead.</li>
      *   <li>Transitions to <i>SolveParallelVehicleState</i> if a parallel blocking vehicle is detected.</li>
@@ -1610,7 +1634,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
      * <ul>
      *   <li>Transitions to <i>ExecuteLaneChangeState</i> if a gap becomes physically open.</li>
      *   <li>Transitions to <i>EmergencyStopState</i> if the end of the lane is critically close (emergency stop).</li>
-     *   <li>Transitions to <i>CongestedMergeState</i> if speed drops below 15 km/h.</li>
+     *   <li>Transitions to the congested branch if speed drops below 15 km/h.</li>
      *   <li>Transitions to <i>MatchLeaderSpeedState</i> once the parallel block is resolved, if the target leader is ahead.</li>
      *   <li>Transitions to <i>SynchroniseMergeSpeedState</i> once the parallel block is resolved and target lane is clear.</li>
      * </ul>
@@ -1748,100 +1772,6 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     }
 
     /*
-     * ========================================================================================= STATE: CONGESTED MERGE
-     * =========================================================================================
-     */
-
-    /**
-     * <b>State 5: Congested Flow Dispatcher (CongestedMergeState)</b>
-     * <p>
-     * Dispatcher state activated in slow or stop-and-go traffic (ego speed &lt; 15 km/h).
-     * It does not control longitudinal behavior itself, but immediately routes control to a specific
-     * congested sub-state based on immediate blocker presence.
-     * </p>
-     *
-     * <h4>Functional Behavior:</h4>
-     * <ul>
-     *   <li>Acts as a pure decision dispatcher evaluated on every simulation step.</li>
-     *   <li>Returns default own-lane car-following acceleration as a neutral fallback.</li>
-     * </ul>
-     *
-     * <h4>Transitions:</h4>
-     * <ul>
-     *   <li>Transitions to <i>ExecuteLaneChangeState</i> if a gap becomes physically open.</li>
-     *   <li>Transitions to <i>EmergencyStopState</i> if the end of the lane is critically close (emergency stop).</li>
-     *   <li>Transitions to <i>SynchroniseMergeSpeedState</i> if speed recovers above 30 km/h, returning to normal evaluation.</li>
-     *   <li>Transitions to <i>CongestedCreepState</i> if a parallel vehicle is blocking the adjacent gap.</li>
-     *   <li>Transitions to <i>CongestedFollowLeaderState</i> if no parallel blocker is present but a target leader exists.</li>
-     * </ul>
-     */
-    public static class CongestedMergeState extends MandatoryLaneChangeState
-    {
-        /** Speed threshold above which the vehicle returns to normal gap evaluation. */
-        /**
-         * Constructor for the congested merge state.
-         * @param p the parent maneuver pattern
-         */
-        public CongestedMergeState(final ManeuverPattern p)
-        {
-            super(p);
-            this.active = true;
-        }
-
-        @Override
-        public SimpleOperationalPlan executeControl() throws ParameterException, GtuException, NetworkException
-        {
-            // Pure routing state: return neutral car-following acceleration for this tick.
-            // next() will dispatch to the appropriate sub-state on the same or next tick.
-            Acceleration aCf = this.vehicle.getContext(EgoContext.class).getCurrentCarFollowingAcceleration();
-            SimpleOperationalPlan plan = new SimpleOperationalPlan(aCf, this.pattern.getPatternSpecificTimestep());
-            setIndicators(plan, this.pattern.getTargetDirection());
-            return plan;
-        }
-
-        @Override
-        protected List<Transition> transitions()
-        {
-            List<Transition> rules = new ArrayList<>(commonTransitions());
-            rules.add(leaveCongestedRule());
-            rules.add(new Transition("pick the congested sub-state", "CongestedCreepState|CongestedFollowLeaderState",
-                    this::routeCongested));
-            return rules;
-        }
-
-        /**
-         * Picks the congested sub-state that fits the situation. This state produces no plan of its own: it always answers with
-         * another state, which is what makes it a decision node rather than a phase of the manoeuvre.
-         * @return the state to move to, or {@code null} to stay in this one
-         * @throws ParameterException if a parameter lookup fails
-         * @throws OperationalPlanException if plan construction fails
-         * @throws GtuException if a GTU query fails
-         * @throws NetworkException if a network query fails
-         */
-        private ActionState routeCongested()
-                throws ParameterException, OperationalPlanException, GtuException, NetworkException
-        {
-            NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
-            LateralDirectionality dir = this.pattern.getTargetDirection();
-
-            // Parallel block present → creep alongside
-            if (detectParallelBlock(neigh, dir, this.vehicle.getContext(EgoContext.class), this.vehicle.getParameters()))
-            {
-                return new CongestedCreepState(this.maneuverPattern);
-            }
-
-            // 5. No parallel block → follow the putative leader at reduced target speed
-            return new CongestedFollowLeaderState(this.maneuverPattern);
-        }
-
-        @Override
-        public String toString()
-        {
-            return "CongestedMergeState";
-        }
-    }
-
-    /*
      * ========================================================================================= STATE: CONGESTED CREEP
      * =========================================================================================
      */
@@ -1864,7 +1794,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
      * <ul>
      *   <li>Transitions to <i>ExecuteLaneChangeState</i> if a gap becomes physically open.</li>
      *   <li>Transitions to <i>EmergencyStopState</i> if the end of the lane is critically close (emergency stop).</li>
-     *   <li>Transitions back to <i>CongestedMergeState</i> as soon as the parallel block is resolved.</li>
+     *   <li>Transitions back to the congested branch as soon as the parallel block is resolved.</li>
      * </ul>
      *
      * <h4>Why this state has no recovery rule:</h4>
@@ -1872,7 +1802,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
      * Every other state in the congested branch carries {@code leaveCongestedRule()} and leaves the branch the moment the
      * ego is moving again. This one deliberately does not. Creeping is a commitment made in the expectation that the
      * vehicle alongside will clear shortly, and abandoning it the instant the ego picks up speed would throw that away
-     * while the block is still there. The vehicle leaves through {@link CongestedMergeState} once the block has gone, one
+     * while the block is still there. The vehicle leaves through {@code CongestedCreepState} once the block has gone, one
      * transition later, and the recovery rule applies there.
      * </p>
      * <p>
@@ -1916,7 +1846,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         protected List<Transition> transitions()
         {
             List<Transition> rules = new ArrayList<>(commonTransitions());
-            rules.add(new Transition("the vehicle alongside has cleared", "CongestedMergeState", this::parallelBlockCleared));
+            rules.add(new Transition("the vehicle alongside has cleared", "CongestedFollowLeaderState", this::parallelBlockCleared));
             return rules;
         }
 
@@ -1934,10 +1864,10 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
             LateralDirectionality dir = this.pattern.getTargetDirection();
 
-            // 3. Parallel block resolved → return to dispatcher
+            // Parallel block resolved: nothing is alongside any more, so follow the leader on the target lane.
             if (!detectParallelBlock(neigh, dir, this.vehicle.getContext(EgoContext.class), this.vehicle.getParameters()))
             {
-                return new CongestedMergeState(this.maneuverPattern);
+                return new CongestedFollowLeaderState(this.maneuverPattern);
             }
 
             return null; // Stay: parallel vehicle still blocking
@@ -1976,7 +1906,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
      *   <li>Transitions to <i>ExecuteLaneChangeState</i> if a gap becomes physically open.</li>
      *   <li>Transitions to <i>EmergencyStopState</i> if the end of the lane is critically close (emergency stop).</li>
      *   <li>Transitions to <i>SynchroniseMergeSpeedState</i> if traffic speed recovers above 30 km/h.</li>
-     *   <li>Transitions back to <i>CongestedMergeState</i> (dispatcher) if a parallel block appears.</li>
+     *   <li>Transitions back to the congested branch (dispatcher) if a parallel block appears.</li>
      * </ul>
      */
     public static class CongestedFollowLeaderState extends MandatoryLaneChangeState
@@ -2038,7 +1968,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         {
             List<Transition> rules = new ArrayList<>(commonTransitions());
             rules.add(leaveCongestedRule());
-            rules.add(new Transition("a vehicle appeared alongside", "CongestedMergeState", this::congestionChanged));
+            rules.add(new Transition("a vehicle appeared alongside", "CongestedCreepState", this::congestionChanged));
             return rules;
         }
 
@@ -2056,10 +1986,10 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             NeighborsContext neigh = this.vehicle.getContext(NeighborsContext.class);
             LateralDirectionality dir = this.pattern.getTargetDirection();
 
-            // Parallel block appeared → back to the decision node, which will route to creeping
+            // Parallel block appeared: creep alongside it instead of following the leader.
             if (detectParallelBlock(neigh, dir, this.vehicle.getContext(EgoContext.class), this.vehicle.getParameters()))
             {
-                return new CongestedMergeState(this.maneuverPattern);
+                return new CongestedCreepState(this.maneuverPattern);
             }
 
             return null; // Stay: still congested, no parallel block
