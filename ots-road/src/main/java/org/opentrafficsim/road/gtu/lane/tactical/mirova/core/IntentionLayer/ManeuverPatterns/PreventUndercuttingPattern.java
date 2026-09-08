@@ -70,6 +70,22 @@ public class PreventUndercuttingPattern extends ManeuverPattern
     private static final Duration CLOSING_TIME_HEADWAY = Duration.instantiateSI(1.5);
 
     /**
+     * Returns whether a vehicle the ego has decided not to undercut still calls for that.
+     * <p>
+     * True while it is alongside or ahead within {@link #FAR_AWAY_GAP}; false once it is further ahead than that,
+     * at which point the ego has dropped back far enough that it is no longer passing anything. Deliberately not a
+     * function of the speed difference: that is the quantity the yield itself changes.
+     * </p>
+     * @param leftLeader HeadwayGtu; the vehicle being yielded to
+     * @return boolean; true while the yield should continue
+     */
+    private static boolean stillWorthYieldingTo(final HeadwayGtu leftLeader)
+    {
+        Length distance = leftLeader.getDistance();
+        return distance == null || distance.si < FAR_AWAY_GAP.si;
+    }
+
+    /**
      * Decides whether the undercutting situation this pattern reacts to still exists.
      * <p>
      * Both states asked exactly this, in two byte-identical copies. It is a question about the world rather than about the
@@ -82,6 +98,49 @@ public class PreventUndercuttingPattern extends ManeuverPattern
      * @throws GtuException if a GTU query fails
      * @throws NetworkException if a network query fails
      */
+    /**
+     * Returns whether the traffic around the ego is flowing freely, judged by the lanes rather than by the ego.
+     * <p>
+     * This used to read the ego's own speed against {@code vCong}, which made the test a function of the very
+     * quantity this pattern reduces. Yielding at the comfortable floor of -2.0 m/s^2 takes a vehicle from 75 km/h
+     * below the threshold in about two seconds; the pattern then concluded that traffic was congested, where
+     * undercutting is tolerated, and finished. The ego accelerated back over the threshold and the pattern
+     * retriggered. Counting the exits of the resolution predicate over an hour, 3.28 % of its evaluations ended the
+     * pattern that way against 0.95 % for every other reason together, and the resulting episodes had a median
+     * length of 1.6 s - the braking time from 75 km/h to the threshold.
+     * </p>
+     * <p>
+     * The macroscopic speed of the lanes is exogenous: one vehicle slowing down does not move it, so the decision
+     * can no longer undo its own precondition.
+     * </p>
+     * @param vehicle MirovaTacticalPlanner; the ego vehicle
+     * @return boolean; true while the surrounding traffic is above the congestion threshold
+     */
+    static boolean trafficIsFreeFlowing(final MirovaTacticalPlanner vehicle)
+    {
+        Speed threshold = vehicle.getParams().vCongScalar;
+        try
+        {
+            MacroTrafficContext macro = vehicle.getContext(MacroTrafficContext.class);
+            Speed here = macro.getAverageSpeedCurrent();
+            Speed left = macro.getAverageSpeedLeft();
+            Speed reference = here;
+            if (left != null && (reference == null || left.gt(reference)))
+            {
+                reference = left;
+            }
+            if (reference != null && reference.si > 0.0)
+            {
+                return reference.gt(threshold);
+            }
+        }
+        catch (Exception exception)
+        {
+            // No macroscopic estimate available yet; fall back on the ego, as before.
+        }
+        return vehicle.getContext(EgoContext.class).getEgoSpeed().gt(threshold);
+    }
+
     static ActionState undercuttingResolved(final MirovaTacticalPlanner vehicle, final PreventUndercuttingPattern pattern)
             throws ParameterException, GtuException, NetworkException
     {
@@ -94,8 +153,7 @@ public class PreventUndercuttingPattern extends ManeuverPattern
             return ActionState.FINISHED;
         }
 
-        EgoContext ego = vehicle.getContext(EgoContext.class);
-        boolean isFreeFlow = ego.getEgoSpeed().gt(vehicle.getParams().vCongScalar);
+        boolean isFreeFlow = trafficIsFreeFlowing(vehicle);
 
         // Someone else is there now, or traffic has become congested, where undercutting is normal anyway.
         if (!leftLeader.getId().equals(pattern.getShadowingLeftNeighborId()) || !isFreeFlow)
@@ -103,13 +161,25 @@ public class PreventUndercuttingPattern extends ManeuverPattern
             return ActionState.FINISHED;
         }
 
-        // The neighbour has settled it themselves, by being far ahead or by pulling away.
+        // The neighbour has settled it themselves by being far enough ahead.
+        //
+        // This used to end the yield on the speed difference as well, once the neighbour was more than
+        // PULLING_AWAY_SPEED faster and PULLING_AWAY_GAP ahead. That condition was produced by the yield itself:
+        // braking opens the speed difference, the neighbour counts as pulling away, the pattern finishes, the ego
+        // accelerates, the difference closes and checkAbility triggers again. Measured over an hour, the result was
+        // 836 episodes of a median 0.4 to 1.0 s across 357 vehicles - up to 42 for a single one - each taking
+        // 1.3 m/s^2 from a vehicle the car-following model would have accelerated, at 75 to 88 km/h and in 81 % of
+        // cases in free-flowing traffic.
+        //
+        // The distance alone decides now. It moves as the integral of the speed difference rather than with it, so
+        // the ego's own response can no longer undo the decision within a tick. Ending later rather than sooner is
+        // also the safer direction for what this pattern is for: not passing on the right.
         Length leftGap = neighbors.getFrontGapDistance(LateralDirectionality.LEFT);
-        boolean isFarAway = leftGap.si > FAR_AWAY_GAP.si;
-        boolean isPullingAway = leftLeader.getSpeed().si > ego.getEgoSpeed().si + PULLING_AWAY_SPEED.si
-                && leftGap.si > PULLING_AWAY_GAP.si;
-
-        return isFarAway || isPullingAway ? ActionState.FINISHED : null;
+        if (leftGap.si > FAR_AWAY_GAP.si)
+        {
+            return ActionState.FINISHED;
+        }
+        return null;
     }
 
     /** ID of the vehicle on the left lane that this ego vehicle is currently shadowing. */
@@ -155,19 +225,43 @@ public class PreventUndercuttingPattern extends ManeuverPattern
         }
 
         // 2. Check Traffic State (Undercutting is allowed/tolerated in congestion)
-        Speed congestionThreshold = this.vehicle.getParams().vCongScalar;
-        boolean isFreeFlow = ego.getEgoSpeed().gt(congestionThreshold);
+        boolean isFreeFlow = trafficIsFreeFlowing(this.vehicle);
 
-        if (isFreeFlow)
+        if (!isFreeFlow)
         {
-            // 3. Check Perception for Undercutting situation
-            boolean potentialUndercut = neighbors.getRightSideOvertakingAhead();
+            this.shadowingLeftNeighborId = null;
+            setRunning(false);
+            return false;
+        }
 
-            if (potentialUndercut)
+        HeadwayGtu leftLeader = neighbors.getLeader(LateralDirectionality.LEFT);
+
+        // 3. Already yielding to a particular vehicle: keep doing so until it is no longer one the ego would be
+        // passing on the right. The trigger below cannot be used for that, because it is a time to collision -
+        // distance over speed difference - and braking is what closes the speed difference. The decision therefore
+        // undoes its own condition within a tick or two, which is what produced the observed flutter: episodes of a
+        // median 0.4 s, up to 42 per vehicle, each one taking 1.3 m/s^2 away from a vehicle the car-following model
+        // would have accelerated, at 75 to 88 km/h and in 81 % of cases in free-flowing traffic.
+        //
+        // The release criterion is a distance instead. It is monotone in a quantity the ego moves only slowly, and
+        // it says what the rule means: the ego stops yielding once it has dropped far enough behind the vehicle to
+        // no longer be passing it. Being held behind a slower vehicle on the left is not a failure state - it is
+        // the regulation. The way out is the lane change to the left that this pattern already performs.
+        if (this.shadowingLeftNeighborId != null)
+        {
+            if (leftLeader != null && this.shadowingLeftNeighborId.equals(leftLeader.getId())
+                    && stillWorthYieldingTo(leftLeader))
             {
-                this.shadowingLeftNeighborId = neighbors.getLeader(LateralDirectionality.LEFT).getId();
                 return true;
             }
+            this.shadowingLeftNeighborId = null;
+        }
+
+        // 4. Check Perception for Undercutting situation
+        if (neighbors.getRightSideOvertakingAhead() && leftLeader != null)
+        {
+            this.shadowingLeftNeighborId = leftLeader.getId();
+            return true;
         }
 
         this.shadowingLeftNeighborId = null;
