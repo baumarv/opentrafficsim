@@ -27,6 +27,7 @@ import org.djunits.value.vdouble.vector.data.DoubleVectorData;
 import org.djutils.immutablecollections.ImmutableIterator;
 import org.djutils.immutablecollections.ImmutableMap;
 import org.djutils.io.URLResource;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.GtuDeletionDiagnostics;
 import org.opentrafficsim.animation.GraphLaneUtil;
 import org.opentrafficsim.base.parameters.ParameterException;
 import org.opentrafficsim.base.parameters.ParameterType;
@@ -418,7 +419,10 @@ public class FreiburgNord extends ScenarioGenerator
 
         OdOptions odOptions = new OdOptions();
         odOptions.set(OdOptions.GTU_TYPE, characteristicsGenerator);
-        odOptions.set(OdOptions.ERROR_HANDLER, GtuErrorHandler.DELETE);
+        // Same behaviour as GtuErrorHandler.DELETE - the vehicle is destroyed either way - but the exception
+        // is recorded instead of discarded, so that the removals can be attributed to a cause rather than to the
+        // position they happen to occur at.
+        odOptions.set(OdOptions.ERROR_HANDLER, GtuDeletionDiagnostics.INSTANCE);
         odOptions.set(OdOptions.LANE_BIAS, getLaneBiases());
         applyHeadwayDistributions(odOptions);
 
