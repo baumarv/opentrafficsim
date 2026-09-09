@@ -527,7 +527,173 @@ picture the empirical target set shows in §2.
 
 ---
 
-## 9. Open questions
+## 9. The merge mechanism: six changes that measurement rejected
+
+The screen in §4 varies parameters. This section records what happens when the *mechanism*
+is changed instead, because the obvious readings of the merge code are wrong in a way that
+repeats: every attempt to make merging vehicles brake less made the standstill share worse.
+All figures are one 300-minute run on 2025-10-13 unless a paired seed count is given; paired
+means ten seeds run in both arms and compared per seed with a paired t-test.
+
+**The pattern behind all of them.** Yielding looks like wasted time and is not. It is how the
+ego gets *into* a gap: it drops back, the gap it was alongside becomes the gap ahead, and it
+merges behind. Shorten that -- at the entry, in the magnitude, or in the duration -- and
+vehicles reach the end of the acceleration lane faster, without a gap, and stop there. Mean
+ramp speed and the standstill share moved in **opposite** directions in every one of these
+experiments, which is the signature to watch for.
+
+### 9.1 The ego deceleration threshold is not a gap-acceptance criterion
+
+`MIN/MAX_EGO_DECELERATION_THRESHOLD` (-2.0 to -4.0 over the lane-change desire, the same band
+the follower gets) reads as the deceleration a merging driver will accept. In the yield branch
+of `SolveParallelVehicleState` it is also applied through `Acceleration.min`, which selects the
+*more* negative of two values and so turns it into a **floor on the commanded braking** rather
+than a ceiling on what is acceptable. Measured across the acceleration lane, the commanded
+deceleration steps from a median of -1.00 m/s2 just outside 100 m of remaining lane to
+-3.75 m/s2 just inside it, and the share of ticks below -3.5 m/s2 from 14 % to 77 %.
+
+This inverts the meaning of a sweep over it. Widening the threshold does not make the vehicles
+more willing to merge, it makes them brake harder:
+
+| Ego band | Stranded at the ramp end | Standstill share |
+|---|---|---|
+| -2.0 / -4.0 (campaign) | 3.9 % | 9.74 % |
+| -3.0 / -5.0 | 3.8 % | 11.90 % |
+| -3.0 / -6.0 | 3.7 % | 9.37 % |
+| -4.0 / -8.0 | 3.1 % | 5.08 % |
+
+The best row is unusable: -8.0 m/s2 is not a deceleration a driver applies in order to merge.
+It improves the outcome because a harder yield ends sooner, not because more gaps are accepted.
+There is no defensible value of this parameter that addresses the stranded vehicles, because
+the parameter is not what holds them back.
+
+### 9.2 Capping the yield instead of forcing it
+
+Reading the `min` above as a sign error and changing it to `Acceleration.max`, so that the
+threshold caps the braking as the comment beside it claims:
+
+| | Stranded | Standstill | Ramp speed |
+|---|---|---|---|
+| Campaign | 3.9 % | 9.74 % | 14.5 m/s |
+| Capped | 6.3 % | 12.38 % | 11.1 m/s |
+
+Rejected. Dropping back has to be decisive; a gentle yield leaves the ego alongside until the
+lane runs out.
+
+### 9.3 Leaving the parallel state once the blocker is ahead
+
+`SolveParallelVehicleState` is entered on a physical overlap (threshold zero) but left only
+once the blocker is a full desired headway clear. The asymmetry is real and measurable with
+in-model counters: of 44 887 ticks in the state, **21 439 (47.8 %)** are held by the wide exit
+criterion after the overlap has gone, and **every one of them commands a deceleration**. The
+blocker is already ahead in 50.3 % of the branch evaluations, which is the case in which the
+state has nothing left to resolve.
+
+Handing over to `MatchLeaderSpeedState` in exactly that case halved the time spent in the state
+and raised mean ramp speed from 14.5 to 18.5 m/s -- and:
+
+| | Stranded | Standstill | Vehicles deleted |
+|---|---|---|---|
+| Campaign | 3.9 % | 9.74 % | -- |
+| Early exit | 4.8 % | 17.72 % | +50 |
+
+Rejected, and the clearest instance of the signature: faster ramp, far more standing.
+
+An earlier attempt at the *entry* criterion -- ignoring an overlap that is about to resolve,
+since in 91 % of entries the blocker is overtaking at 11.5 km/h and gone within a median of
+1.4 s -- was rejected the same way (23 to 29 stranded vehicles, 366 to 435 standstill seconds).
+Entry, magnitude and duration have now each been tried once.
+
+### 9.4 What actually separates the vehicles that strand
+
+Not how the conflict is handled, but when it arises. Vehicles that later stop enter
+`SolveParallelVehicleState` at a median of **x = 68 m** on the acceleration lane against
+**x = 4 m** for the rest, and leave it with 59 m of lane remaining against 116 m. The episode
+is unproductive for them -- 0.6 % merge within 3 s of leaving it, against 68.5 % -- and they
+lose 37 km/h in it against 15 km/h. 73.5 % of the stranded pass through the state at all,
+against 25.5 % of the others.
+
+The question this raises is upstream of the pattern: why these vehicles first meet a blocker
+only at x = 68 m. It is open.
+
+### 9.5 `B_CRIT` supplies anticipation, not comfort
+
+`MirovaIdmPlus` bounds the interaction term twice. Counted over 12 287 589 calls of one run:
+
+| Branch | Share |
+|---|---|
+| IDM+ returned unchanged | **99.57 %** |
+| held at `B_CRIT` (-3.5) | 0.31 % |
+| kinematic requirement, capped by `B_MAX` (-6.0) | 0.12 % |
+
+The bounds are exception handling; ordinary following runs entirely on IDM+ including its
+anticipatory term. On the `B_CRIT` branch IDM+ asks for a mean of **-200 m/s2** -- the term
+diverges as the gap closes and the value is not meaningful -- while the kinematics ask for a
+mean of -1.01 m/s2, and for **less than 1 m/s2 in 63.3 %** of the cases.
+
+Returning the kinematic requirement there instead is therefore the obvious change, and it is
+wrong:
+
+| | Held at `B_CRIT` | Kinematic | p (10 paired seeds) |
+|---|---|---|---|
+| Stranded | 3.39 % | 4.55 % | **< 0.001** |
+| Standstill | 10.00 % | 11.85 % | **0.008** |
+| Ramp speed | 11.29 m/s | 11.32 m/s | 0.86 |
+
+It does remove the artefact it was aimed at -- the spike of commanded accelerations sitting
+exactly on -3.5 falls from 0.600 % to 0.251 % of all ticks -- but the share below -5 m/s2
+**doubles**, from 0.191 % to 0.353 %, and the -6 to -8 m/s2 range grows eighteenfold. The
+requirement is a single-step collision criterion with no anticipation: braking only as hard as
+it demands closes the gap faster and forces a harder brake shortly after. The distribution does
+not become more realistic, it moves mass from a visible artefact into a physically worse tail.
+
+`B_MAX` is load-bearing for a different reason: 46.9 % of the kinematic branch demands more
+than -6.0 m/s2, and a further 8.5 % of it is the `s <= s0` case, which is negative infinity by
+construction. It bounds an infinity and cannot simply be removed.
+
+Two caveats on the `B_CRIT` branch. In **11.2 %** of it the ego is not closing on the leader, so
+the kinematic requirement is exactly zero -- not a statement that no braking is needed, but that
+the collision criterion does not apply while the gap may still be far below the desired headway.
+Any future attempt here has to treat that case separately. And the branch is 0.31 % of calls: an
+effect this size was not expected to be measurable at all, which is why the significant result
+is worth recording.
+
+### 9.6 The acceleration-lane guard in `PreventUndercuttingPattern`
+
+`e958ed365` stands the right-overtaking ban down while the ego's own lane ends within the
+extended lookahead, on the grounds that a vehicle on an acceleration lane passing a slower one
+beside it is merging rather than overtaking. A single seed suggested flow +4.0 % and vehicles
+coming to a stop -10.0 %. Over ten paired seeds none of it survives:
+
+| | Without guard | With guard | p |
+|---|---|---|---|
+| Stranded | 3.29 % | 3.39 % | 0.38 |
+| Standstill | 10.10 % | 10.00 % | 0.72 |
+| Ramp speed | 11.65 m/s | 11.29 m/s | 0.054 |
+| Time on the ramp | 8.36 s | 8.64 s | 0.056 |
+
+Seed-to-seed spread in the standstill share (-1.15 to +1.37 percentage points) exceeds the mean
+difference several times over, and the two marginal quantities point the wrong way. The case for
+the change is correctness -- the regulation exempts merging -- not performance, which is the
+same conclusion `f6b13ca37` reached for the congestion test in the same pattern. **The flow
+figure itself was not re-measured here**; the paired comparison covers ramp-side quantities only.
+
+The guard is also broader than its justification. `EXTENDED_LOOK_AHEAD_DISTANCE` is 1000 m, so
+the pattern stands down over the last kilometre of *any* ending lane, including a mainline lane
+before a lane drop, where the ban does apply. It is a hard edge as well: the ban is in full force
+at 1000.1 m and absent at 999.9 m. Neither shows on this network, where the ramp is short.
+
+### 9.7 What this means for a capacity chapter
+
+Six mechanism changes, all rejected on measurement, five of them in the same direction. Together
+with §6 -- no parameter reaches the capacity drop -- the reading is that throughput at this
+bottleneck is not limited by how willing the model's drivers are to merge. Making them more
+willing costs standstills without buying flow. That is a result about the facility rather than
+about the calibration, and it belongs in the chapter as one.
+
+---
+
+## 10. Open questions
 
 - **The grid is not yet run.** `b` × `s0` × `a`, 18 cells over nine days, is defined
   (study `congested`) but unevaluated. Whether a combination reaches all four targets
@@ -569,7 +735,7 @@ picture the empirical target set shows in §2.
 
 ---
 
-## 10. Provenance
+## 11. Provenance
 
 | Result | Source |
 |---|---|
@@ -586,10 +752,13 @@ picture the empirical target set shows in §2.
 | §6.3 headway effect | study `capacity`, 432 runs (9 days x 6 cells x 8 seeds) |
 | §6.3 capacity-drop addon | study `capdrop`, 432 runs (9 days x 6 cells x 8 seeds) |
 | §8 sample sizes | Wilson and Student-t on the measured coefficients of variation |
+| §9.1-9.4 merge mechanism | single 300-minute runs, 2025-10-13, seed 4242, sampler on L3a and L4a |
+| §9.3, §9.5 branch and tick counts | in-model counters behind `-Dmirova.gateDiag`, verified to leave every outcome metric unchanged |
+| §9.5, §9.6 paired comparisons | 10 seeds per arm, same demand window, paired t-test |
 
 Raw per-run records: `docs/mirova/results/`.
 
-## 11. Related documents
+## 12. Related documents
 
 - [calibration_status_briefing.md](calibration_status_briefing.md) — the calibration as a
   whole: empirical reference, validation result, per-day errors, the specificity test, and
