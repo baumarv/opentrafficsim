@@ -322,6 +322,74 @@ public final class MergeGateDiagnostics
         }
     }
 
+    /** Per vehicle, what the parallel state saw: see the index constants below. */
+    private static final Map<String, double[]> PAR_ROWS = new LinkedHashMap<>();
+
+    /** Number of values held per vehicle for the parallel state. */
+    private static final int PAR_FIELDS = 8;
+
+    /** Ticks with the blocker ahead of the ego. */
+    private static final int P_AHEAD = 0;
+
+    /** Ticks with the blocker behind the ego, where yielding brakes towards it. */
+    private static final int P_BEHIND = 1;
+
+    /** Ticks on the overtake branch. */
+    private static final int P_OVERTAKE = 2;
+
+    /** Ticks with the blocker behind on which the yield branch was taken anyway. */
+    private static final int P_YIELD_TO_FOLLOWER = 3;
+
+    /** Smallest remaining lane seen on the overtake branch, in metres. */
+    private static final int P_MIN_REST = 4;
+
+    /** Speed difference to the blocker on the overtake branch, summed, in m/s. */
+    private static final int P_DV_SUM = 5;
+
+    /** Most adverse speed difference seen on the overtake branch, in m/s. */
+    private static final int P_DV_WORST = 6;
+
+    /** Smallest remaining lane seen while the state was active at all, in metres. */
+    private static final int P_MIN_REST_ANY = 7;
+
+    /**
+     * Records one tick of the parallel state from the point of view of the blocker.
+     * @param gtuId String; the merging vehicle
+     * @param ahead boolean; whether the blocker is ahead of the ego
+     * @param overtaking boolean; whether the overtake branch was taken this tick
+     * @param dvSi double; the blocker's speed minus the ego's, in m/s; positive means it is pulling away
+     * @param restSi double; the remaining lane, in metres
+     */
+    public static void parallelBlocker(final String gtuId, final boolean ahead, final boolean overtaking,
+            final double dvSi, final double restSi)
+    {
+        if (!ENABLED)
+        {
+            return;
+        }
+        double[] r = PAR_ROWS.computeIfAbsent(gtuId, k ->
+        {
+            double[] fresh = new double[PAR_FIELDS];
+            fresh[P_MIN_REST] = Double.NaN;
+            fresh[P_DV_WORST] = Double.NaN;
+            fresh[P_MIN_REST_ANY] = Double.MAX_VALUE;
+            return fresh;
+        });
+        r[ahead ? P_AHEAD : P_BEHIND]++;
+        r[P_MIN_REST_ANY] = Math.min(r[P_MIN_REST_ANY], restSi);
+        if (overtaking)
+        {
+            r[P_OVERTAKE]++;
+            r[P_MIN_REST] = Double.isNaN(r[P_MIN_REST]) ? restSi : Math.min(r[P_MIN_REST], restSi);
+            r[P_DV_SUM] += dvSi;
+            r[P_DV_WORST] = Double.isNaN(r[P_DV_WORST]) ? dvSi : Math.max(r[P_DV_WORST], dvSi);
+        }
+        else if (!ahead)
+        {
+            r[P_YIELD_TO_FOLLOWER]++;
+        }
+    }
+
     /**
      * Records the readiness test, which is asked on every path into the execution.
      * @param gtuId String; the merging vehicle
@@ -343,6 +411,30 @@ public final class MergeGateDiagnostics
         {
             c[BOTH]++;
         }
+    }
+
+    /** Writes the per-vehicle view of the parallel state, beside the gate file. */
+    private static void writeParallel() throws IOException
+    {
+        Path target = Paths.get(TARGET.toString().replace(".csv", "_parallel.csv"));
+        try (BufferedWriter w = Files.newBufferedWriter(target, StandardCharsets.UTF_8))
+        {
+            w.write("gtuId,ahead,behind,overtake,yieldToFollower,minRestOvertake,dvSum,dvWorst,minRest");
+            w.newLine();
+            for (Map.Entry<String, double[]> e : PAR_ROWS.entrySet())
+            {
+                double[] r = e.getValue();
+                StringBuilder sb = new StringBuilder(e.getKey());
+                for (double v : r)
+                {
+                    sb.append(',').append(Double.isNaN(v) || v == Double.MAX_VALUE ? ""
+                            : String.format(Locale.ROOT, "%.3f", v));
+                }
+                w.write(sb.toString());
+                w.newLine();
+            }
+        }
+        System.out.println("[GATE] wrote " + PAR_ROWS.size() + " parallel rows to " + target.toAbsolutePath());
     }
 
     /** Writes the collected rows. Called explicitly at the end of a run, because a shutdown hook never fires here. */
@@ -379,6 +471,7 @@ public final class MergeGateDiagnostics
                     w.newLine();
                 }
             }
+            writeParallel();
             System.out.println("[GATE] wrote " + ROWS.size() + " vehicles to " + TARGET.toAbsolutePath());
             System.out.println("[PARALLEL] ticks=" + PARALLEL[0] + " overlapping=" + PARALLEL[1]
                     + " heldByHysteresisOnly=" + PARALLEL[2] + " ofThoseBraking=" + PARALLEL[3]);
