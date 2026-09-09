@@ -328,6 +328,70 @@ public final class MirovaCarFollowingUtil
      */
 
     /**
+     * Follows a leader while tolerating a shorter headway than the ego would otherwise want.
+     * <p>
+     * A vehicle yielding to one alongside it is not following that vehicle in the ordinary sense: it accepts a
+     * closer gap for the duration of the manoeuvre. The car-following model reads the desired headway from the
+     * parameter set, so expressing that means overriding {@code T} for the one call.
+     * </p>
+     * <p>
+     * The override lives here rather than in the tactical states that need it. It was written out twice in
+     * {@code PreventUndercuttingPattern}, in both cases with several statements between setting the parameter and
+     * resetting it, including the car-following call itself: anything thrown in between left the ego with a
+     * permanently reduced headway. The reset is in a {@code finally} block here, and the states no longer touch
+     * the parameter at all, which the project rules forbid them to do.
+     * </p>
+     * @param vehicle MirovaTacticalPlanner; the tactical planner of the ego vehicle
+     * @param leader HeadwayGtu; the vehicle being yielded to
+     * @param headwayFactor double; the fraction of the desired time headway to require, in (0, 1]
+     * @return Acceleration; the acceleration from the car-following model under the reduced headway
+     * @throws ParameterException if a required parameter is missing
+     * @throws GtuException if GTU state cannot be accessed
+     */
+    public static Acceleration followWithReducedHeadway(final MirovaTacticalPlanner vehicle, final HeadwayGtu leader,
+            final double headwayFactor) throws ParameterException, GtuException
+    {
+        Parameters parameters = vehicle.getParameters();
+        parameters.setParameterResettable(ParameterTypes.T,
+                parameters.getParameter(ParameterTypes.T).times(headwayFactor));
+        try
+        {
+            return followSingleLeader(vehicle, leader);
+        }
+        finally
+        {
+            parameters.resetParameter(ParameterTypes.T);
+        }
+    }
+
+    /**
+     * The same for a distance and speed that belong to no perceived vehicle.
+     * @param vehicle MirovaTacticalPlanner; the tactical planner of the ego vehicle
+     * @param distance Length; the distance to follow
+     * @param leaderSpeed Speed; the speed to follow
+     * @param headwayFactor double; the fraction of the desired time headway to require, in (0, 1]
+     * @return Acceleration; the acceleration from the car-following model under the reduced headway
+     * @throws ParameterException if a required parameter is missing
+     * @throws GtuException if GTU state cannot be accessed
+     */
+    public static Acceleration followDistanceAndSpeedWithReducedHeadway(final MirovaTacticalPlanner vehicle,
+            final Length distance, final Speed leaderSpeed, final double headwayFactor)
+            throws ParameterException, GtuException
+    {
+        Parameters parameters = vehicle.getParameters();
+        parameters.setParameterResettable(ParameterTypes.T,
+                parameters.getParameter(ParameterTypes.T).times(headwayFactor));
+        try
+        {
+            return followDistanceAndSpeed(vehicle, distance, leaderSpeed);
+        }
+        finally
+        {
+            parameters.resetParameter(ParameterTypes.T);
+        }
+    }
+
+    /**
      * Follows an arbitrary distance and speed without a specific GTU ID.
      * <p>
      * Note: No relaxation is applied here, as relaxation requires tracking a specific vehicle ID over time.

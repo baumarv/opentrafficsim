@@ -53,6 +53,16 @@ public class PreventUndercuttingPattern extends ManeuverPattern
     /** Distance over which the left lane speed is approached while shadowing. */
     private static final Length SHADOW_APPROACH_DISTANCE = Length.instantiateSI(50.0);
 
+    /**
+     * How much of the lane-change safety distance reduction the shadowing headway keeps.
+     * <p>
+     * The reduced headway a yield accepts is the lane-change reduction factor scaled by this: slightly less of a
+     * reduction than a lane change itself takes, because the ego stays in its own lane here. It was written as a
+     * bare 1.1 at both call sites.
+     * </p>
+     */
+    private static final double SHADOW_HEADWAY_TOLERANCE = 1.1;
+
     /** Comfortable deceleration floor applied while opening space for the lane change. */
     private static final Acceleration COMFORTABLE_DECELERATION_FLOOR = Acceleration.instantiateSI(-2.0);
 
@@ -343,18 +353,14 @@ public class PreventUndercuttingPattern extends ManeuverPattern
                 Length leftLeaderLength = leftLeader.getLength();
 
                 // Calculate acceleration required to stay behind the left vehicle
-                Double safetyDistanceReductionFactorLaneChange =
-                        this.vehicle.getParams().safetyDistanceReductionFactorLaneChange
-                                * 1.1;
-                Duration timeHeadwayReduced = this.vehicle.getParameters().getParameter(ParameterTypes.T)
-                        .times(safetyDistanceReductionFactorLaneChange);
-                this.vehicle.getParameters().setParameterResettable(ParameterTypes.T, timeHeadwayReduced);
+                // Yielding accepts a closer gap than ordinary following, which the utility expresses by
+                // overriding the desired headway for the one call and restoring it in a finally block.
+                double headwayFactor = this.vehicle.getParams().safetyDistanceReductionFactorLaneChange
+                        * SHADOW_HEADWAY_TOLERANCE;
 
-                // 1. Berechnung für den linken Zielfahrstreifen
-                Acceleration aShadowLeft = MirovaCarFollowingUtil.followDistanceAndSpeed(this.vehicle,
-                        leftDistHeadway.minus(leftLeaderLength), leftLeaderSpeed);
-
-                this.vehicle.getParameters().resetParameter(ParameterTypes.T);
+                // 1. Acceleration for the left target lane
+                Acceleration aShadowLeft = MirovaCarFollowingUtil.followDistanceAndSpeedWithReducedHeadway(this.vehicle,
+                        leftDistHeadway.minus(leftLeaderLength), leftLeaderSpeed, headwayFactor);
 
                 // Emergency break logic für die Ziellücke
                 if (aShadowLeft.lt(SHADOW_ABORT_DECELERATION))
@@ -530,11 +536,8 @@ public class PreventUndercuttingPattern extends ManeuverPattern
             }
 
             // Calculate acceleration required to stay behind the left vehicle
-            Double safetyDistanceReductionFactorLaneChange =
-                    this.vehicle.getParams().safetyDistanceReductionFactorLaneChange * 1.1;
-            Duration timeHeadwayReduced =
-                    this.vehicle.getParameters().getParameter(ParameterTypes.T).times(safetyDistanceReductionFactorLaneChange);
-            this.vehicle.getParameters().setParameterResettable(ParameterTypes.T, timeHeadwayReduced);
+            double headwayFactor =
+                    this.vehicle.getParams().safetyDistanceReductionFactorLaneChange * SHADOW_HEADWAY_TOLERANCE;
 
             Acceleration aDecel;
 
@@ -547,10 +550,9 @@ public class PreventUndercuttingPattern extends ManeuverPattern
             // answer is unchanged and only its provenance is: an intended yield rather than a division by a
             // negative gap. GapOpenerPattern guards its equivalent call the same way.
             aDecel = leftLeader.getDistance() != null && leftLeader.getDistance().si > 0.0
-                    ? MirovaCarFollowingUtil.followSingleLeader(this.vehicle, leftLeader)
+                    ? MirovaCarFollowingUtil.followWithReducedHeadway(this.vehicle, leftLeader, headwayFactor)
                     : COMFORTABLE_DECELERATION_FLOOR;
 
-            this.vehicle.getParameters().resetParameter(ParameterTypes.T);
             aDecel = Acceleration.max(aDecel, COMFORTABLE_DECELERATION_FLOOR); // Limit deceleration to a comfortable level
 
             aDecel = Acceleration.min(aDecel, ego.getCurrentCarFollowingAcceleration()); // Do not decelerate more than current
