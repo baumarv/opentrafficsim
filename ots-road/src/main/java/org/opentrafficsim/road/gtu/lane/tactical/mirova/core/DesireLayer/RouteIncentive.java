@@ -94,11 +94,17 @@ public class RouteIncentive extends DesireIncentive
         for (RelativeLane lane : lanesToCheck)
         {
             double d_r = 0.0;
-            SpeedLimitInfo speedLimitInfo = infraPerc.getSpeedLimitProspect(lane).getSpeedLimitInfo(Length.ZERO);
-            Speed desiredSpeed = this.vehicle.getCarFollowingModel().desiredSpeed(p, speedLimitInfo);
-            // Check if lane exists in cross-section
+            // Check if lane exists in cross-section. The speed limit has to be read inside this test, not before it:
+            // the prospect is computed from the root record of the relative lane, and for a lane that is not in the
+            // cross-section there is none, so the query dereferences null. Both values it produces are used only
+            // here, and a lane that does not exist carries no desire to leave it, which is the zero already set
+            // above. On the right shoulder of L5a this killed 12 vehicles per 300-minute run, all within the first
+            // four metres, where the lane structure has no lane to the right.
             if (perception.getLaneStructure().exists(lane))
             {
+                SpeedLimitInfo speedLimitInfo = infraPerc.getSpeedLimitProspect(lane).getSpeedLimitInfo(Length.ZERO);
+                Speed desiredSpeed = this.vehicle.getCarFollowingModel().desiredSpeed(p, speedLimitInfo);
+
                 // Calculate desire based on remaining distance
                 SortedSet<LaneChangeInfo> info = infraPerc.getLegalLaneChangeInfo(lane);
 
