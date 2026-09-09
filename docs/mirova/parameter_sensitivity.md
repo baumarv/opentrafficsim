@@ -527,11 +527,12 @@ picture the empirical target set shows in §2.
 
 ---
 
-## 9. The merge mechanism: six changes that measurement rejected
+## 9. The merge mechanism: seven changes measured, one kept
 
 The screen in §4 varies parameters. This section records what happens when the *mechanism*
 is changed instead, because the obvious readings of the merge code are wrong in a way that
-repeats: every attempt to make merging vehicles brake less made the standstill share worse.
+repeats: every attempt to make merging vehicles brake less made the standstill share worse. The
+one change that did help, in §9.7, works the other way round.
 All figures are one 300-minute run on 2025-10-13 unless a paired seed count is given; paired
 means ten seeds run in both arms and compared per seed with a paired t-test.
 
@@ -683,13 +684,57 @@ the pattern stands down over the last kilometre of *any* ending lane, including 
 before a lane drop, where the ban does apply. It is a hard edge as well: the ban is in full force
 at 1000.1 m and absent at 999.9 m. Neither shows on this network, where the ramp is short.
 
-### 9.7 What this means for a capacity chapter
+### 9.7 The one that worked: judging room by the speed the ego wants
 
-Six mechanism changes, all rejected on measurement, five of them in the same direction. Together
-with §6 -- no parameter reaches the capacity drop -- the reading is that throughput at this
-bottleneck is not limited by how willing the model's drivers are to merge. Making them more
-willing costs standstills without buying flow. That is a result about the facility rather than
-about the calibration, and it belongs in the chapter as one.
+The overtake branch of `SolveParallelVehicleState` asks whether enough lane remains by dividing
+the remaining distance by the **current** speed. The yield branch of the same state is what
+reduces that speed, so every second of yielding makes the condition easier to satisfy. The branch
+therefore fired most often where it could least be carried out:
+
+| Remaining lane | Ticks commanding an overtake | Median speed |
+|---|---|---|
+| 50-75 m | **27.3 %** | 7.5 m/s |
+| 75-100 m | 21.6 % | 10.2 m/s |
+| 100-125 m | 6.2 % | 13.9 m/s |
+| 125-150 m | 5.1 % | 15.1 m/s |
+| 175-210 m | 15.6 % | 17.5 m/s |
+
+A vehicle at 27 km/h with 60 m of lane left "has 8 seconds" to pull past a blocker and change
+lane. This is the shape corrected in `f6b13ca37` for the congestion test: a condition describing
+the situation computed from the quantity the behaviour itself changes.
+
+The branch is not the problem - it is the more successful of the two. Episodes containing an
+overtake attempt merge within 3 s in 75.5 % of cases against 47.9 % for yield-only episodes, and
+their vehicles strand in 10.7 % against 16.5 %. What was wrong is only where it fired.
+
+Measuring the time at the desired speed, and keeping the current speed when it is the higher of
+the two, leaves the reason the branch was expressed as a duration rather than the fixed 200 m it
+used to be - not encoding one facility's geometry - and removes the feedback. Over ten paired
+seeds:
+
+| | Current speed | Desired speed | p |
+|---|---|---|---|
+| Stranded | 3.42 % | **3.04 %** | **< 0.001** |
+| Time on the ramp | 8.70 s | **8.29 s** | **0.005** |
+| Ramp speed | 11.24 m/s | 11.43 m/s | 0.13 |
+| Standstill | 9.79 % | 9.67 % | 0.75 |
+
+Lower in all ten seeds for the stranded vehicles, and the standstill share is unmoved - the
+constraint that rejected everything else in this section.
+
+### 9.8 What this means for a capacity chapter
+
+Six mechanism changes rejected on measurement and one accepted. The six divide cleanly: every
+one of them shortened the yield, at the entry, in the magnitude or in the duration, and every one
+raised the standstill share while raising mean ramp speed. The one that worked did the opposite
+thing - it removed a feedback that made the model *overtake* where it should have yielded.
+
+Read together with §6, where no parameter reaches the capacity drop, the picture is that
+throughput at this bottleneck is not limited by how willing the model's drivers are to merge.
+Making them more willing costs standstills without buying flow. What is worth correcting are
+conditions computed from quantities the behaviour itself moves, of which three have now been
+found - `PULLING_AWAY`, the congestion test in `PreventUndercuttingPattern`, and this one - and
+which produce a limit cycle rather than a calibration error.
 
 ---
 
@@ -755,6 +800,7 @@ about the calibration, and it belongs in the chapter as one.
 | §9.1-9.4 merge mechanism | single 300-minute runs, 2025-10-13, seed 4242, sampler on L3a and L4a |
 | §9.3, §9.5 branch and tick counts | in-model counters behind `-Dmirova.gateDiag`, verified to leave every outcome metric unchanged |
 | §9.5, §9.6 paired comparisons | 10 seeds per arm, same demand window, paired t-test |
+| §9.7 branch position and outcome | one 300-minute run, 2025-10-13, seed 4242, plus 10 paired seeds |
 
 Raw per-run records: `docs/mirova/results/`.
 
