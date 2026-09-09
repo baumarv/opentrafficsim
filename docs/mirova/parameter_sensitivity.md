@@ -527,7 +527,7 @@ picture the empirical target set shows in §2.
 
 ---
 
-## 9. The merge mechanism: seven changes measured, one kept
+## 9. The merge mechanism: eight changes measured, one kept
 
 The screen in §4 varies parameters. This section records what happens when the *mechanism*
 is changed instead, because the obvious readings of the merge code are wrong in a way that
@@ -684,7 +684,7 @@ the pattern stands down over the last kilometre of *any* ending lane, including 
 before a lane drop, where the ban does apply. It is a hard edge as well: the ban is in full force
 at 1000.1 m and absent at 999.9 m. Neither shows on this network, where the ramp is short.
 
-### 9.7 The one that worked: judging room by the speed the ego wants
+### 9.7 The one that worked: not chasing a blocker that is pulling away
 
 The overtake branch of `SolveParallelVehicleState` asks whether enough lane remains by dividing
 the remaining distance by the **current** speed. The yield branch of the same state is what
@@ -707,34 +707,80 @@ The branch is not the problem - it is the more successful of the two. Episodes c
 overtake attempt merge within 3 s in 75.5 % of cases against 47.9 % for yield-only episodes, and
 their vehicles strand in 10.7 % against 16.5 %. What was wrong is only where it fired.
 
-Measuring the time at the desired speed, and keeping the current speed when it is the higher of
-the two, leaves the reason the branch was expressed as a duration rather than the fixed 200 m it
-used to be - not encoding one facility's geometry - and removes the feedback. Over ten paired
-seeds:
+Measuring the time at the desired speed was tried first and **withdrawn**. It measured well -
+stranded vehicles 3.42 to 3.04 %, p < 0.001 - but not for the stated reason. On a 200 m
+acceleration lane at a desired speed of some 28 m/s the condition yields 7.2 s and can never
+exceed the eight seconds required, so the branch was not rebalanced but disabled on the ramp
+entirely: the state an earlier commit had deliberately moved away from, having found the fixed
+200 m threshold unreachable on a 184 m weaving section. A change that measures well through a
+mechanism its author did not intend is not a result, and the numbers are recorded here only so
+that the same route is not taken again.
 
-| | Current speed | Desired speed | p |
+What the branch was actually missing is a condition it never asked. It tested for time, for
+acceleration headroom and for the blocker not being ahead, never whether the ego was **gaining**
+on it, so it accelerated after vehicles that were pulling away. Of the overtake attempts made by
+vehicles that later ran out of lane, **91.7 %** were against a blocker travelling faster than
+they were - a median of 15 km/h faster, with 106 m of lane left - against 79.7 % for the rest.
+
+Requiring the blocker to be no faster than the ego, over ten paired seeds:
+
+| | Baseline | Blocker must be catchable | p |
 |---|---|---|---|
-| Stranded | 3.42 % | **3.04 %** | **< 0.001** |
-| Time on the ramp | 8.70 s | **8.29 s** | **0.005** |
-| Ramp speed | 11.24 m/s | 11.43 m/s | 0.13 |
-| Standstill | 9.79 % | 9.67 % | 0.75 |
+| Stranded | 3.42 % | **3.09 %** | **< 0.001** |
+| Time on the ramp | 8.70 s | **8.18 s** | **0.017** |
+| Ramp speed | 11.24 m/s | 11.71 m/s | 0.067 |
+| Standstill | 9.79 % | 9.61 % | 0.63 |
 
-Lower in all ten seeds for the stranded vehicles, and the standstill share is unmoved - the
-constraint that rejected everything else in this section.
+The standstill share is unmoved, which is the constraint that rejected everything else in this
+section, and throughput is unchanged as it is for every change measured here.
+
+Two alternatives were measured rather than argued. A feasibility form - can the ego still gain
+both vehicles' lengths under maximum acceleration in the time the lane affords - is vacuous once
+the eight seconds hold, because it credits the ego with maximum acceleration throughout, and it
+changed nothing (-0.3 %, p = 0.92). And the comparison of the two speeds as they stand, which is
+the self-referential shape of §9.9, does not flutter here: episodes switching branches more than
+twice fall from 20.1 % to 7.1 % and the worst case from 54 switches to 22, because the attempts
+that were flipping back and forth are the hopeless ones it removes.
+
+### 9.9 Conditions computed from what the behaviour changes
+
+Four conditions in this pattern family read a quantity that the behaviour they gate is itself
+moving. They are worth naming as one defect rather than four, because the signature is
+recognisable and two of them were found only after a fix had been attempted on the wrong suspect.
+
+| Condition | Reads | Moved by | Outcome |
+|---|---|---|---|
+| `PULLING_AWAY` | the closing speed | the yield that closes it | removed |
+| congestion test, `PreventUndercuttingPattern` | the ego's own speed | the yield that reduces it | `f6b13ca37` |
+| room to overtake | the ego's own speed | the yield of the same state | §9.7 |
+| blocker catchable | the speed difference | the yield of the same state | §9.7, measured harmless |
+
+The shape is a loop of two steps: the behaviour fires, the behaviour moves the quantity, the
+quantity ends the behaviour, the quantity recovers, the behaviour fires again. It shows as flutter
+when recovery is fast - 555 episodes of a median 1.0 s across 300 vehicles in the undercutting
+case - and as a misplaced decision when it is not, as in the overtake branch, which fired most
+often exactly where it could least be carried out.
+
+The fourth row is the caution against treating this as a rule to apply mechanically. The
+catchability test has the same shape and was expected to flutter for it; measured, it does the
+opposite, because what it suppresses is precisely what was oscillating. The shape is a reason to
+measure, not a verdict.
 
 ### 9.8 What this means for a capacity chapter
 
-Six mechanism changes rejected on measurement and one accepted. The six divide cleanly: every
-one of them shortened the yield, at the entry, in the magnitude or in the duration, and every one
-raised the standstill share while raising mean ramp speed. The one that worked did the opposite
-thing - it removed a feedback that made the model *overtake* where it should have yielded.
+Seven mechanism changes rejected on measurement and one kept. The rejected ones divide cleanly:
+every one shortened the yield, at the entry, in the magnitude or in the duration, and every one
+raised the standstill share while raising mean ramp speed. The one that worked did the opposite -
+it stopped the model *overtaking* where it could not succeed.
 
 Read together with §6, where no parameter reaches the capacity drop, the picture is that
 throughput at this bottleneck is not limited by how willing the model's drivers are to merge.
-Making them more willing costs standstills without buying flow. What is worth correcting are
-conditions computed from quantities the behaviour itself moves, of which three have now been
-found - `PULLING_AWAY`, the congestion test in `PreventUndercuttingPattern`, and this one - and
-which produce a limit cycle rather than a calibration error.
+Making them more willing costs standstills without buying flow, and the change that was kept buys
+no flow either: over ten paired seeds it moves not one vehicle through the cross-section, and
+neither the flow before breakdown nor the discharge rate during it shifts measurably. What it
+improves is the quality of the manoeuvre - fewer vehicles stranded, less time on the ramp, a
+slightly higher speed level - which is a claim about the plausibility of the model's behaviour,
+not about capacity.
 
 ---
 
@@ -800,7 +846,7 @@ which produce a limit cycle rather than a calibration error.
 | §9.1-9.4 merge mechanism | single 300-minute runs, 2025-10-13, seed 4242, sampler on L3a and L4a |
 | §9.3, §9.5 branch and tick counts | in-model counters behind `-Dmirova.gateDiag`, verified to leave every outcome metric unchanged |
 | §9.5, §9.6 paired comparisons | 10 seeds per arm, same demand window, paired t-test |
-| §9.7 branch position and outcome | one 300-minute run, 2025-10-13, seed 4242, plus 10 paired seeds |
+| §9.7 branch position, blocker side and outcome | one 300-minute run, 2025-10-13, seed 4242, plus three arms of 10 paired seeds |
 
 Raw per-run records: `docs/mirova/results/`.
 
