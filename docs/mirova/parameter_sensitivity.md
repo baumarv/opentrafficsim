@@ -738,11 +738,11 @@ Two alternatives were measured rather than argued. A feasibility form - can the 
 both vehicles' lengths under maximum acceleration in the time the lane affords - is vacuous once
 the eight seconds hold, because it credits the ego with maximum acceleration throughout, and it
 changed nothing (-0.3 %, p = 0.92). And the comparison of the two speeds as they stand, which is
-the self-referential shape of §9.9, does not flutter here: episodes switching branches more than
+the self-referential shape of §9.8, does not flutter here: episodes switching branches more than
 twice fall from 20.1 % to 7.1 % and the worst case from 54 switches to 22, because the attempts
 that were flipping back and forth are the hopeless ones it removes.
 
-### 9.9 Conditions computed from what the behaviour changes
+### 9.8 Conditions computed from what the behaviour changes
 
 Four conditions in this pattern family read a quantity that the behaviour they gate is itself
 moving. They are worth naming as one defect rather than four, because the signature is
@@ -766,7 +766,7 @@ catchability test has the same shape and was expected to flutter for it; measure
 opposite, because what it suppresses is precisely what was oscillating. The shape is a reason to
 measure, not a verdict.
 
-### 9.8 What this means for a capacity chapter
+### 9.9 What this means for a capacity chapter
 
 Seven mechanism changes rejected on measurement and one kept. The rejected ones divide cleanly:
 every one shortened the yield, at the entry, in the magnitude or in the duration, and every one
