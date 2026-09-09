@@ -1699,8 +1699,16 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             if (distToLaneEnd != null)
             {
                 // Strategy: Check if we have enough room and momentum to overtake the parallel vehicle
+                // Measured at the speed the ego would drive at, not the one it is driving at. Dividing by the
+                // current speed makes the condition easier the more the ego has already braked, which is the
+                // yield of this very state: the branch then fires most often just before the lane ends, where
+                // it can least be carried out. Over one run 27.3 % of the ticks with 50 to 75 m of lane left
+                // commanded an overtake, at a median speed of 7.5 m/s, against 5.1 % in the 125 to 150 m band
+                // at 15.1 m/s. A condition meant to ask whether there is room must not be computed from a
+                // quantity the state itself reduces.
+                double referenceSpeed = Math.max(ego.getCurrentDesiredSpeed().si, ego.getEgoSpeed().si);
                 double timeToLaneEnd = (distToLaneEnd != null)
-                        ? distToLaneEnd.si / Math.max(ego.getEgoSpeed().si, 1.0) : 0.0;
+                        ? distToLaneEnd.si / Math.max(referenceSpeed, 1.0) : 0.0;
                 MergeGateDiagnostics.parallelBranch(timeToLaneEnd > SUFFICIENT_TIME_THRESHOLD, aCf.si > 1.0,
                         parallelVehicle != null && !parallelVehicle.isAhead());
                 if (timeToLaneEnd > SUFFICIENT_TIME_THRESHOLD && aCf.si > 1.0
