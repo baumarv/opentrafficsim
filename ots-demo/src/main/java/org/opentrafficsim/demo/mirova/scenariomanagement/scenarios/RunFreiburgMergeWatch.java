@@ -190,6 +190,22 @@ public final class RunFreiburgMergeWatch
         private static final double FOLLOWER_DECEL_MAX = Double.parseDouble(System.getProperty("mirova.folMax",
                         Double.toString(FreiburgStudyParameters.CAR_FOLLOWER_DECELERATION_MAX)));
 
+        /**
+         * Deceleration the merging vehicle itself is expected to accept at the lowest mandatory desire [m/s^2].
+         * <p>
+         * The counterpart of {@link #FOLLOWER_DECEL_MIN} on the ego side, interpolated the same way by
+         * {@code EgoContext.computeEgoDecelerationThreshold}. Both sides carry the same value in the campaigns,
+         * although one is a deceleration a driver chooses and the other one imposed on a stranger. Override with
+         * {@code -Dmirova.egoMin=<value>}.
+         * </p>
+         */
+        private static final double EGO_DECEL_MIN = Double.parseDouble(System.getProperty("mirova.egoMin",
+                        Double.toString(FreiburgStudyParameters.CAR_FOLLOWER_DECELERATION_MIN)));
+
+        /** Deceleration the merging vehicle accepts at full desire [m/s^2]. Override {@code -Dmirova.egoMax}. */
+        private static final double EGO_DECEL_MAX = Double.parseDouble(System.getProperty("mirova.egoMax",
+                        Double.toString(FreiburgStudyParameters.CAR_FOLLOWER_DECELERATION_MAX)));
+
         /** Long-range anticipation for cars. Study baseline: false. */
         private static final boolean CAR_FAR_ANTICIPATION = false;
 
@@ -273,6 +289,15 @@ public final class RunFreiburgMergeWatch
          */
         public static void main(final String[] args) throws Exception
         {
+                if (!SHOW_GUI)
+                {
+                        // Without this the toolkit starts its event queue as soon as anything touches a Swing class,
+                        // and that thread is not a daemon: the run finishes, the output is written, and the process
+                        // stays. Batches then block on the first arm forever. Set before any AWT class is loaded,
+                        // because the toolkit reads it once.
+                        System.setProperty("java.awt.headless", "true");
+                }
+
                 File outputDir = new File(OUTPUT_DIR);
                 outputDir.mkdirs();
 
@@ -290,6 +315,18 @@ public final class RunFreiburgMergeWatch
                 // The JVM does not exit on its own after a headless run - AWT threads keep it alive - so a shutdown
                 // hook would never fire. Report here instead, once the run has finished writing its output.
                 RelaxationDiagnostics.report();
+                org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.GtuDeletionDiagnostics.report();
+                org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.MergeGateDiagnostics.write();
+
+                if (!SHOW_GUI)
+                {
+                        // Everything this run produces has been written by now. Headless mode alone does not always
+                        // suffice - the simulator's own worker threads outlive the replication - so end the process
+                        // explicitly rather than leave it for someone to notice and kill. With a GUI the window is
+                        // the point of the run, so it stays.
+                        System.out.flush();
+                        System.exit(0);
+                }
         }
 
 
@@ -344,6 +381,8 @@ public final class RunFreiburgMergeWatch
                 params.set("car." + MirovaParameters.preemptiveCooperativeDeceleration.getId(), COOP_DECEL_FAR);
                 params.set("car." + MirovaParameters.minFollowerDecelerationThreshold.getId(), FOLLOWER_DECEL_MIN);
                 params.set("car." + MirovaParameters.maxFollowerDecelerationThreshold.getId(), FOLLOWER_DECEL_MAX);
+                params.set("car." + MirovaParameters.minEgoDecelerationThreshold.getId(), EGO_DECEL_MIN);
+                params.set("car." + MirovaParameters.maxEgoDecelerationThreshold.getId(), EGO_DECEL_MAX);
 
                 params.set("truck." + ParameterTypes.T.getId(), TRUCK_T);
                 params.set("truck." + ParameterTypes.A.getId(), TRUCK_A);
@@ -382,7 +421,8 @@ public final class RunFreiburgMergeWatch
                 System.out.println("[MergeWatch] window " + DEMAND_START + " .. " + DEMAND_END + ", " + SIMULATED_MINUTES
                                 + " min simulated, seed " + SEED + ", gui=" + SHOW_GUI);
                 System.out.println("[MergeWatch] cooperation: near=" + CAR_COOPERATIVE_DECELERATION_THRESHOLD + ", far="
-                                + COOP_DECEL_FAR + " | follower: min=" + FOLLOWER_DECEL_MIN + ", max=" + FOLLOWER_DECEL_MAX);
+                                + COOP_DECEL_FAR + " | follower: min=" + FOLLOWER_DECEL_MIN + ", max=" + FOLLOWER_DECEL_MAX
+                                + " | ego: min=" + EGO_DECEL_MIN + ", max=" + EGO_DECEL_MAX);
                 System.out.println("[MergeWatch] truck: a=" + TRUCK_A + ", T=" + TRUCK_T + ", s0=" + TRUCK_S0);
                 System.out.println("[MergeWatch] relaxation abort at " + RELAXATION_ABORT_DECELERATION
                                 + " m/s2, fade " + RELAXATION_FADE_SECONDS + " s, max life "
