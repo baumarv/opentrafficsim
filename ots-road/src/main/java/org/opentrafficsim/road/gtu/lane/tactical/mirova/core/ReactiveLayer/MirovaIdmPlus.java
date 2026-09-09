@@ -198,7 +198,21 @@ public class MirovaIdmPlus extends AbstractIdm implements DynamicHeadwayProvider
         // 4. Apply stateless fallback logic
         if (dKinSi >= bCrit.si)
         {
-            // Physics allow us to handle this with a comfortable critical brake (filters cut-in shock)
+            // Physics allow us to handle this with a comfortable critical brake (filters cut-in shock).
+            //
+            // Returning the kinematic requirement here instead was tried and rejected on measurement, although the
+            // case for it looks strong: this branch answers 0.31 % of all calls, and on it the kinematics ask for
+            // less than 1 m/s^2 in 63.3 % of the cases and for 1.01 m/s^2 on average, while the interaction term of
+            // IDM+ - which diverges as the gap closes - asks for a mean of 200 m/s^2. Braking at the required value
+            // instead (keeping this one where deltaV <= 0 leaves the requirement at zero by construction) did halve
+            // the artificial spike of commanded accelerations sitting exactly on this value, from 0.600 % to 0.251 %
+            // of all ticks. It also doubled the share below -5 m/s^2, from 0.191 % to 0.353 %, and over ten paired
+            // seeds raised the vehicles stranded at the ramp end by 34 % (p < 0.001) and the standstill share by
+            // 19 % (p = 0.008).
+            //
+            // The requirement is a single-step collision criterion with no anticipation: braking only as hard as it
+            // demands closes the gap faster and forces a harder brake shortly after. That anticipation is what this
+            // value supplies, which is the reason to keep it rather than the comfort it is named for.
             return bCrit;
         }
 

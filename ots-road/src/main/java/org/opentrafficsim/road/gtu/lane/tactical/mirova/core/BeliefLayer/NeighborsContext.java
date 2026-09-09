@@ -22,6 +22,7 @@ import org.opentrafficsim.road.gtu.lane.perception.RelativeLane;
 import org.opentrafficsim.road.gtu.lane.perception.categories.neighbors.NeighborsPerception;
 import org.opentrafficsim.road.gtu.lane.perception.headway.HeadwayGtu;
 import org.opentrafficsim.road.gtu.lane.tactical.following.CarFollowingModel;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.MergeGateDiagnostics;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameterSnapshot;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
@@ -1286,8 +1287,21 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         // System.out.println(" Front headway: " + frontHeadway + " (desired: " + desiredFrontHeadway + ")");
         // }
 
-        return laneChangeLegal && egoDecel.gt(egoDecelThreshold) && followerDecel.gt(followerDecelThreshold)
-                && rearHeadway.gt(desiredRearHeadway) && frontHeadway.gt(desiredFrontHeadway);
+        boolean egoOk = egoDecel.gt(egoDecelThreshold);
+        boolean followerOk = followerDecel.gt(followerDecelThreshold);
+        boolean rearOk = rearHeadway.gt(desiredRearHeadway);
+        boolean frontOk = frontHeadway.gt(desiredFrontHeadway);
+        if (MergeGateDiagnostics.ENABLED)
+        {
+            org.opentrafficsim.road.network.lane.LanePosition ref = this.vehicle.getGtu().getReferencePosition();
+            if (ref != null && ref.lane() != null && "Ramp".equals(ref.lane().getId()))
+            {
+                MergeGateDiagnostics.gapEvaluated(this.vehicle.getGtu().getId(),
+                        (int) Math.round(ref.position().si * 10.0), laneChangeLegal, egoOk, followerOk, rearOk,
+                        frontOk, egoDecel.si, followerDecel.si);
+            }
+        }
+        return laneChangeLegal && egoOk && followerOk && rearOk && frontOk;
     }
 
     /**
