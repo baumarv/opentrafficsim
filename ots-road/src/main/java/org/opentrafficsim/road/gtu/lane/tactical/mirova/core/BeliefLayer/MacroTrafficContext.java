@@ -173,6 +173,14 @@ public class MacroTrafficContext extends ContextCategory implements UpdatableCon
      */
     private Speed computeAverageSpeed(final RelativeLane lane) throws ParameterException, OperationalPlanException
     {
+        // BC-5. AnticipationTrafficPerception is a perception model in its own right, with its own parameters, and
+        // InfrastructureContext.getAnticipatedSpeed already computes the same quantity from the leaders this vehicle
+        // perceives. Under the switch the second answers for both, so the model holds one notion of the speed of a
+        // neighbouring lane rather than two that can disagree.
+        if (this.vehicle.getParams().bcMeanSpeedFromLeaders)
+        {
+            return this.vehicle.getContext(InfrastructureContext.class).getAnticipatedSpeed(lane);
+        }
         TrafficPerception trafficPerception = this.vehicle.getPerception().getPerceptionCategory(TrafficPerception.class);
 
         if (trafficPerception == null)

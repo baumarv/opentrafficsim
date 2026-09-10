@@ -356,6 +356,79 @@ public final class MirovaParameters implements ConstraintInterface
         public static final ParameterTypeDouble RELAXATION_ACC_DAMPING_FACTOR = new ParameterTypeDouble("aRelaxDamping",
                         "Acceleration scaling factor during active headway relaxation", 0.40, POSITIVE);
 
+        // ----------------------------------------------------------------------
+        // Phase 0.5 behaviour switches
+        //
+        // Each of these selects between the behaviour every published result was produced with (the default) and a
+        // correction identified by the decoupling inventory. They exist so that the two can be compared on the same
+        // scenario rather than changed under it; see docs/decoupling/phase05-report.md. Every default is false and
+        // reproduces the current model exactly.
+        // ----------------------------------------------------------------------
+
+        /**
+         * BC-1. Derive the merge anticipation filter from the interval the planner is actually called with.
+         * <p>
+         * {@code AnticipateMergeState} smooths the merge reference speed with an exponential moving average whose
+         * coefficient is fixed in the constructor as {@code 0.25 * DT}: taken from the parameter rather than from the
+         * step actually taken, linear in dt rather than {@code 1 - exp(-dt/tau)}, and never revisited afterwards.
+         * With this set the coefficient is recomputed per call from the elapsed time and a 4 s time constant, which
+         * is the same filter at the configured 0.2 s step and the intended one at any other.
+         * </p>
+         */
+        public static final ParameterTypeBoolean EMA_ALPHA_FROM_ACTUAL_DT = new ParameterTypeBoolean("bcEmaActualDt",
+                        "BC-1: merge anticipation filter uses the actual time step", false);
+
+        /**
+         * BC-2. Judge the leader's cooperation by the ego's own car-following model rather than the leader's.
+         * <p>
+         * {@code GapOpenerPattern.leaderCanCooperate} evaluates the front leader's own car-following model against
+         * the front leader's own parameter set to decide whether that vehicle could open the gap instead. With this
+         * set the ego uses its own model and parameters, on the assumption that drivers expect others to behave as
+         * they do.
+         * </p>
+         */
+        public static final ParameterTypeBoolean LEADER_HEADWAY_FROM_OWN_MODEL =
+                        new ParameterTypeBoolean("bcLeaderOwnModel",
+                                        "BC-2: leader cooperation judged with the ego's own model", false);
+
+        /**
+         * BC-5. Take the mean speed of a lane from the leaders the ego perceives.
+         * <p>
+         * {@code MacroTrafficContext} answers from OTS {@code AnticipationTrafficPerception}, which is a perception
+         * model in its own right with its own parameters. {@code InfrastructureContext.getAnticipatedSpeed} already
+         * computes the same quantity from the perceived leaders. With this set the second answers for both, so the
+         * model has one notion of the speed of a neighbouring lane instead of two.
+         * </p>
+         */
+        public static final ParameterTypeBoolean MEAN_SPEED_FROM_PERCEIVED_LEADERS =
+                        new ParameterTypeBoolean("bcMeanSpeedFromLeaders",
+                                        "BC-5: lane mean speed from perceived leaders", false);
+
+        /**
+         * BC-6. Bound the merge reference speed scan to what the ego could see.
+         * <p>
+         * Step three of the merge reference cascade scans a lane found up to 1000 m downstream and reads the speed
+         * and position of every vehicle on it. With this set the scan is bounded by the ego's own look-ahead and
+         * answers "unknown" when nothing is visible within it, which falls through to the speed-limit fallback the
+         * cascade already has.
+         * </p>
+         */
+        public static final ParameterTypeBoolean MERGE_REFERENCE_RANGE_LIMITED =
+                        new ParameterTypeBoolean("bcMergeRefRangeLimited",
+                                        "BC-6: merge reference speed scan bounded by the look-ahead", false);
+
+        /**
+         * BC-8. Update the contexts in the order their dependencies call for.
+         * <p>
+         * The categories refresh in the order a hash table produced -- MacroTraffic, Infrastructure, Neighbors, Ego
+         * -- while Neighbors opens relaxations on Ego and Ego collects expired ones, so the collection runs before
+         * the creation. With this set the order is Ego, Neighbors, Infrastructure, MacroTraffic.
+         * </p>
+         */
+        public static final ParameterTypeBoolean CONTEXT_UPDATE_ORDER_FIXED =
+                        new ParameterTypeBoolean("bcContextOrderFixed",
+                                        "BC-8: contexts update in dependency order", false);
+
         /** Whether acceleration damping during active headway relaxation is enabled. */
         public static final ParameterTypeBoolean RELAXATION_ACC_DAMPING_ENABLED =
                         new ParameterTypeBoolean("aRelaxDampingEnabled",
