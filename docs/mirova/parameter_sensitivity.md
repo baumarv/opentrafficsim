@@ -870,6 +870,33 @@ Traffic outcomes do not move - standstill share on the ramp −6.5 % (p = 0.099)
 throughput, and a chapter should present it as one: a driver approaching a queue does not
 re-decide between creeping and following forty times in nine seconds.
 
+**The factor is a convention, not a calibration.** Five values on four paired seeds, with the
+share of time spent creeping as the guard against the damping turning into a different behaviour:
+
+| Factor | 1.00 | 1.25 | 1.50 | 2.00 | 3.00 |
+|---|---|---|---|---|---|
+| Switches per vehicle | 5.07 | 2.78 | 1.71 | 0.94 | 0.53 |
+| Switching more than four times | 33.3 % | 22.6 % | 11.8 % | 2.2 % | 0.0 % |
+| Worst case | 50 | 26 | 16 | 8 | 4 |
+| **Creep share** | 28.7 % | 30.1 % | 31.3 % | 38.6 % | **65.4 %** |
+| Stranded | 2.50 % | 2.41 % | 2.41 % | 2.33 % | 2.11 % |
+| Ramp speed | 11.82 | 11.87 | 11.87 | 11.90 | **10.58** |
+
+Two things follow. The upper bound is sharp: at 3.0 the creeping state is one the vehicle no
+longer leaves - its share more than doubles and ramp speed falls 10 % - which is the same mistake
+the five rejected rewrites made, reached gradually instead of structurally. And **every traffic
+quantity is flat from 1.0 to 2.0**, so the factor decides nothing about the traffic. The
+oscillation costs nothing measurable; it is a defect of the state machine, and removing it neither
+helps nor harms the flow.
+
+1.50 was kept over 2.00 on ten paired seeds, where 2.00 damps the oscillation considerably better
+(switches −46 %, p < 0.001; the tail switching more than four times −86 %, p < 0.001) at the cost
+of a significantly larger creep share (+21.7 %, p = 0.011) and no traffic difference at all
+(p ≥ 0.39 throughout). The gain sits on a quantity with no measured consequence and the cost on a
+real shift in behaviour, so the smaller value carries. Neither number has an empirical anchor -
+there is no field measurement of how often a driver re-decides, nor of how long they creep - and
+the choice should be read as a convention that a chapter states rather than defends.
+
 A note on where this sits. The dispatcher `CongestedMergeState` that used to route into these two
 was removed earlier as dead: its rule always answered with another state, so `update()` never came
 to rest on it and its `executeControl` was unreachable. The branch has been two states since, and
