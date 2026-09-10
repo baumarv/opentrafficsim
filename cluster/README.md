@@ -7,7 +7,8 @@ executes global run indices **2·T** and **2·T+1**.
 
 ## Why two runs per task
 
-A run is single-threaded and takes **90–120 minutes**, while JVM startup costs seconds, so
+A run is single-threaded and takes **well under an hour** since the performance work, while JVM
+startup costs seconds, so
 bundling buys nothing in startup terms — the earlier design deliberately ran one run per task
 for maximum scheduling elasticity.
 
@@ -284,8 +285,17 @@ than assuming CPUs 0 and 1). Without `taskset`, placement is left to the OS sche
 spreads two runnable single-threaded processes across two free cores by itself; the log line
 per slot states which of the two applied.
 
-`--time=03:00:00` gives ~50% headroom over the measured 90–120 min. Because the two runs are
-**concurrent**, this stays a per-run budget rather than a sum.
+`--time=02:00:00` is the budget. The 90–120 min this file used to quote is from before the
+performance work documented in
+[performance_investigation_synthesis.md](../docs/mirova/performance_investigation_synthesis.md);
+a run is well inside an hour now, so two hours keeps ample headroom while leaving the task small
+enough to backfill. Because the two runs are **concurrent**, this stays a per-run budget rather
+than a sum - the second run does not extend the wall clock, it fills the second core that the
+partition allocates anyway.
+
+If a task ever hits the limit, raise this before suspecting the model: a `TIMEOUT` in `sacct` and
+an `OUT_OF_MEMORY` look alike from a distance and are diagnosed differently (see the
+troubleshooting section).
 
 ### Memory: calibrate for two JVMs, not one
 
@@ -396,7 +406,9 @@ combinations, both damping factors, both safety distance factors, ten replicatio
 720
 ```
 
-⚠️ At 90–120 min per run, the full 32-date grid is roughly **2300–3100 core-hours**. Consider
+⚠️ At the pre-performance-work figure of 90–120 min per run, the full 32-date grid was roughly
+**2300–3100 core-hours**; it is a fraction of that now, and the numbers below are upper bounds
+rather than estimates. Consider
 running the grid on a subset of dates and the full date list only for the baseline cell. The
 720-run campaign is **1100–1400 core-hours**; at two runs per task that is 360 tasks, so roughly
 **13 tasks running concurrently** finish it inside a weekend, and anything more is headroom against
@@ -820,12 +832,13 @@ campaigns:
   first `mergegrid` campaign produced no files at all, always both runs of a task and
   concentrated on the highest-demand date at low damping. `sacct -j <jobid>
   --format=JobID,State,ExitCode,MaxRSS,Elapsed` separates `TIMEOUT` from
-  `OUT_OF_MEMORY` in one look; the former argues for `--time=04:00:00`, the latter for a
-  higher `--mem-per-cpu`.
+  `OUT_OF_MEMORY` in one look; the former argues for a longer `--time`, the latter for a
+  higher `--mem-per-cpu`. Those campaigns ran under the pre-performance-work timings, so a
+  `TIMEOUT` today means something has genuinely gone wrong rather than that the budget is tight.
 - **Whether tasks report `COMPLETED` at all.** The local merge-watch runner leaves its JVM
   alive after finishing, because AWT threads are not daemons. `run_mirova.sbatch` waits on
   the run PIDs, so if `RunMirovaClusterStudy` shared that behaviour every task would burn
-  its full three hours regardless of when the simulation ended. It does not - a local run
+  its full wall clock regardless of when the simulation ended. It does not - a local run
   of it exits cleanly - but a campaign whose tasks all report `TIMEOUT` while their output
   is complete would be the symptom, and `System.exit(0)` at the end of `main` the fix.
 
@@ -918,7 +931,7 @@ Post-processing and plotting happen afterwards, off the cluster, on the copied-b
 
 `RunMirovaClusterStudy` executes exactly one run per invocation. There used to be a second,
 batched entry point for cases where per-run overhead might matter; it has been removed, because
-that concern turned out not to exist here — a run takes 90–120 minutes against seconds of JVM
+that concern turned out not to exist here — a run takes tens of minutes against seconds of JVM
 startup, and the two-runs-per-task bundling in `run_mirova.sbatch` already fills the allocation
 (49.8% CPU efficiency with one run per task, 95.4% with two).
 

@@ -50,7 +50,8 @@
 #                Measure the peak RSS of a single run first, then set both accordingly:
 #                exceeding the limit gets the whole task OOM-killed, taking down the healthy
 #                run alongside the greedy one.
-# --time         03:00:00 gives ~50% headroom over the measured 90-120 min per run. The two
+# --time         02:00:00 is the budget. The 90-120 min per run this once quoted is from before
+#                the performance work; a run is well inside an hour now. The two
 #                runs are concurrent, so this stays a per-run budget, not a sum.
 # --partition    choose per bwUniCluster 3.0 queue documentation.
 # ---------------------------------------------------------------------------------------
@@ -62,7 +63,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem-per-cpu=8G
-#SBATCH --time=03:00:00
+#SBATCH --time=02:00:00
 #SBATCH --output=logs/mirova_%A_%a.out
 #SBATCH --error=logs/mirova_%A_%a.err
 #
@@ -177,7 +178,7 @@ mkdir -p "${OUTPUT_ROOT}" "${WORKSPACE}/logs"
 
 # Total number of runs in this study, asked of the study itself rather than assumed, so that
 # an odd total does not make the last task launch a nonexistent index. Costs one JVM start
-# (seconds) against a 90-120 minute task. Set MIROVA_TOTAL_RUNS to skip it.
+# (seconds) against a task of tens of minutes. Set MIROVA_TOTAL_RUNS to skip it.
 TOTAL_RUNS="${MIROVA_TOTAL_RUNS:-}"
 if [ -z "${TOTAL_RUNS}" ]; then
     TOTAL_RUNS="$(java -cp "${CLASSPATH_VALUE}" "${MAIN_CLASS}" \
