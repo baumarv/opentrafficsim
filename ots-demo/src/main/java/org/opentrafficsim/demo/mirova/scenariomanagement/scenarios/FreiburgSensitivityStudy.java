@@ -1,5 +1,8 @@
 package org.opentrafficsim.demo.mirova.scenariomanagement.scenarios;
 
+import org.djunits.value.vdouble.scalar.Length;
+import org.djunits.value.vdouble.scalar.Duration;
+import org.djunits.value.vdouble.scalar.Acceleration;
 import java.io.File;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -91,15 +94,15 @@ public class FreiburgSensitivityStudy implements StudyDefinition
 
         // Maximum acceleration of cars only: the truck value is a vehicle property rather than a driver one, and was
         // already validated separately at 0.71 m/s^2 measured in a jam.
-        cells.put("aCar1.0", p -> p.set("car." + ParameterTypes.A.getId(), 1.0));
-        cells.put("aCar2.0", p -> p.set("car." + ParameterTypes.A.getId(), 2.0));
+        cells.put("aCar1.0", p -> p.set("car." + ParameterTypes.A.getId(), Acceleration.instantiateSI(1.0)));
+        cells.put("aCar2.0", p -> p.set("car." + ParameterTypes.A.getId(), Acceleration.instantiateSI(2.0)));
 
         // Reference rows: expected to move nothing, present so a null result on the candidates can be told apart
         // from a screen that cannot detect anything at all.
         cells.put("T1.00", p ->
         {
-            p.set("car." + ParameterTypes.T.getId(), 1.00);
-            p.set("truck." + ParameterTypes.T.getId(), 1.30);
+            p.set("car." + ParameterTypes.T.getId(), Duration.instantiateSI(1.00));
+            p.set("truck." + ParameterTypes.T.getId(), Duration.instantiateSI(1.30));
         });
         cells.put("damp0.90", p -> setBoth(p,
                 org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters
@@ -126,8 +129,8 @@ public class FreiburgSensitivityStudy implements StudyDefinition
      */
     private static void setS0(final ScenarioParameters params, final double carS0)
     {
-        params.set("car." + ParameterTypes.S0.getId(), carS0);
-        params.set("truck." + ParameterTypes.S0.getId(), 2.0 * carS0);
+        params.set("car." + ParameterTypes.S0.getId(), Length.instantiateSI(carS0));
+        params.set("truck." + ParameterTypes.S0.getId(), Length.instantiateSI(2.0 * carS0));
     }
 
     @Override

@@ -1,5 +1,7 @@
 package org.opentrafficsim.demo.mirova.scenariomanagement.scenarios;
 
+import org.djunits.value.vdouble.scalar.Length;
+import org.djunits.value.vdouble.scalar.Acceleration;
 import java.io.File;
 import java.util.List;
 import java.util.Locale;
@@ -178,11 +180,11 @@ public class FreiburgCongestedBranchStudy implements StudyDefinition
     {
         ScenarioParameters params = FreiburgCombinationStudy.forCombination(facility, date, demandCsvPath, strict,
                 BASE_HEADWAY, BASE_DAMPING, SAFETY_DISTANCE_FACTOR);
-        params.set("car." + ParameterTypes.B.getId(), b);
-        params.set("truck." + ParameterTypes.B.getId(), b);
-        params.set("car." + ParameterTypes.S0.getId(), s0Car);
-        params.set("truck." + ParameterTypes.S0.getId(), 2.0 * s0Car);
-        params.set("car." + ParameterTypes.A.getId(), aCar);
+        params.set("car." + ParameterTypes.B.getId(), Acceleration.instantiateSI(b));
+        params.set("truck." + ParameterTypes.B.getId(), Acceleration.instantiateSI(b));
+        params.set("car." + ParameterTypes.S0.getId(), Length.instantiateSI(s0Car));
+        params.set("truck." + ParameterTypes.S0.getId(), Length.instantiateSI(2.0 * s0Car));
+        params.set("car." + ParameterTypes.A.getId(), Acceleration.instantiateSI(aCar));
 
         params.set(KEY_B, b);
         params.set(KEY_S0, s0Car);

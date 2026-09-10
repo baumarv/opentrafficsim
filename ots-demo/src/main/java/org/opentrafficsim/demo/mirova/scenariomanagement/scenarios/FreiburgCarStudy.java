@@ -1,5 +1,7 @@
 package org.opentrafficsim.demo.mirova.scenariomanagement.scenarios;
 
+import org.djunits.value.vdouble.scalar.Length;
+import org.djunits.value.vdouble.scalar.Acceleration;
 import java.io.File;
 import java.util.List;
 import java.util.Locale;
@@ -173,8 +175,8 @@ public class FreiburgCarStudy implements StudyDefinition
         ScenarioParameters params = FreiburgCombinationStudy.forCombination(facility, date, demandCsvPath, strict,
                 combination, ACC_DAMPING_FACTOR, SAFETY_DISTANCE_FACTOR);
 
-        params.set("car." + ParameterTypes.A.getId(), carA);
-        params.set("car." + ParameterTypes.S0.getId(), carS0);
+        params.set("car." + ParameterTypes.A.getId(), Acceleration.instantiateSI(carA));
+        params.set("car." + ParameterTypes.S0.getId(), Length.instantiateSI(carS0));
 
         // Recorded so runParams.txt names the cell rather than only carrying the values it derives from.
         params.set(KEY_CAR_A, carA);

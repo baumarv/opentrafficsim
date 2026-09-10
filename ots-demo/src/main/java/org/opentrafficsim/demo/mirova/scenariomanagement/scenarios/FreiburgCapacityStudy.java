@@ -1,5 +1,7 @@
 package org.opentrafficsim.demo.mirova.scenariomanagement.scenarios;
 
+import org.djunits.value.vdouble.scalar.Length;
+import org.djunits.value.vdouble.scalar.Acceleration;
 import java.io.File;
 import java.util.List;
 import java.util.Locale;
@@ -168,11 +170,11 @@ public class FreiburgCapacityStudy implements StudyDefinition
 
                     ScenarioParameters params = FreiburgCombinationStudy.forCombination(facility, date,
                             demandCsvPath, strict, combination, damping, SAFETY_DISTANCE_FACTOR);
-                    params.set("car." + ParameterTypes.B.getId(), B);
-                    params.set("truck." + ParameterTypes.B.getId(), B);
-                    params.set("car." + ParameterTypes.S0.getId(), S0_CAR);
-                    params.set("truck." + ParameterTypes.S0.getId(), 2.0 * S0_CAR);
-                    params.set("car." + ParameterTypes.A.getId(), A_CAR);
+                    params.set("car." + ParameterTypes.B.getId(), Acceleration.instantiateSI(B));
+                    params.set("truck." + ParameterTypes.B.getId(), Acceleration.instantiateSI(B));
+                    params.set("car." + ParameterTypes.S0.getId(), Length.instantiateSI(S0_CAR));
+                    params.set("truck." + ParameterTypes.S0.getId(), Length.instantiateSI(2.0 * S0_CAR));
+                    params.set("car." + ParameterTypes.A.getId(), Acceleration.instantiateSI(A_CAR));
                     params.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), damping);
                     params.set("truck." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), damping);
                     params.set(KEY_HEADWAY, combination.label());

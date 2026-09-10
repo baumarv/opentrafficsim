@@ -1,5 +1,7 @@
 package org.opentrafficsim.demo.mirova.scenariomanagement.scenarios;
 
+import org.djunits.value.vdouble.scalar.Length;
+import org.djunits.value.vdouble.scalar.Acceleration;
 import java.io.File;
 import java.util.List;
 import java.util.Locale;
@@ -165,11 +167,11 @@ public class FreiburgRelaxationStudy implements StudyDefinition
 
                     ScenarioParameters params = FreiburgCombinationStudy.forCombination(facility, date,
                             demandCsvPath, strict, HEADWAY, DAMPING, SAFETY_DISTANCE_FACTOR);
-                    params.set("car." + ParameterTypes.B.getId(), B);
-                    params.set("truck." + ParameterTypes.B.getId(), B);
-                    params.set("car." + ParameterTypes.S0.getId(), S0_CAR);
-                    params.set("truck." + ParameterTypes.S0.getId(), 2.0 * S0_CAR);
-                    params.set("car." + ParameterTypes.A.getId(), A_CAR);
+                    params.set("car." + ParameterTypes.B.getId(), Acceleration.instantiateSI(B));
+                    params.set("truck." + ParameterTypes.B.getId(), Acceleration.instantiateSI(B));
+                    params.set("car." + ParameterTypes.S0.getId(), Length.instantiateSI(S0_CAR));
+                    params.set("truck." + ParameterTypes.S0.getId(), Length.instantiateSI(2.0 * S0_CAR));
+                    params.set("car." + ParameterTypes.A.getId(), Acceleration.instantiateSI(A_CAR));
                     for (String type : new String[] {"car.", "truck."})
                     {
                         params.set(type + MirovaParameters.RELAXATION_FADE_DURATION.getId(),

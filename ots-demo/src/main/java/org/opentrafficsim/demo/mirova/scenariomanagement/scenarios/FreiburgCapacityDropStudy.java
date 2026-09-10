@@ -1,5 +1,7 @@
 package org.opentrafficsim.demo.mirova.scenariomanagement.scenarios;
 
+import org.djunits.value.vdouble.scalar.Length;
+import org.djunits.value.vdouble.scalar.Acceleration;
 import java.io.File;
 import java.util.List;
 import java.util.Locale;
@@ -182,11 +184,11 @@ public class FreiburgCapacityDropStudy implements StudyDefinition
 
                     ScenarioParameters params = FreiburgCombinationStudy.forCombination(facility, date,
                             demandCsvPath, strict, HEADWAY, DAMPING, SAFETY_DISTANCE_FACTOR);
-                    params.set("car." + ParameterTypes.B.getId(), B);
-                    params.set("truck." + ParameterTypes.B.getId(), B);
-                    params.set("car." + ParameterTypes.S0.getId(), S0_CAR);
-                    params.set("truck." + ParameterTypes.S0.getId(), 2.0 * S0_CAR);
-                    params.set("car." + ParameterTypes.A.getId(), A_CAR);
+                    params.set("car." + ParameterTypes.B.getId(), Acceleration.instantiateSI(B));
+                    params.set("truck." + ParameterTypes.B.getId(), Acceleration.instantiateSI(B));
+                    params.set("car." + ParameterTypes.S0.getId(), Length.instantiateSI(S0_CAR));
+                    params.set("truck." + ParameterTypes.S0.getId(), Length.instantiateSI(2.0 * S0_CAR));
+                    params.set("car." + ParameterTypes.A.getId(), Acceleration.instantiateSI(A_CAR));
 
                     // The zero row stays with the mechanism switched off rather than enabled at zero addon, so it
                     // reproduces the capacity study's T100 cell bit for bit and can be checked against it.

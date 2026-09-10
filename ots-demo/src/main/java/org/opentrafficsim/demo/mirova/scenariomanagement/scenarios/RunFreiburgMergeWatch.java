@@ -1,5 +1,8 @@
 package org.opentrafficsim.demo.mirova.scenariomanagement.scenarios;
 
+import org.djunits.value.vdouble.scalar.Speed;
+import org.djunits.value.vdouble.scalar.Length;
+import org.djunits.value.vdouble.scalar.Acceleration;
 import java.io.File;
 
 import org.djunits.unit.DurationUnit;
@@ -350,10 +353,10 @@ public final class RunFreiburgMergeWatch
                 ScenarioParameters params = scenario.getDefaultParameters().copy();
                 params.applyOverridesFrom(FreiburgStudyParameters.baseBehaviorParams());
 
-                params.set("car." + ParameterTypes.T.getId(), CAR_T);
-                params.set("car." + ParameterTypes.A.getId(), CAR_A);
-                params.set("car." + ParameterTypes.S0.getId(), CAR_S0);
-                params.set("car." + ParameterTypes.B.getId(), COMFORTABLE_DECELERATION);
+                params.set("car." + ParameterTypes.T.getId(), Duration.instantiateSI(CAR_T));
+                params.set("car." + ParameterTypes.A.getId(), Acceleration.instantiateSI(CAR_A));
+                params.set("car." + ParameterTypes.S0.getId(), Length.instantiateSI(CAR_S0));
+                params.set("car." + ParameterTypes.B.getId(), Acceleration.instantiateSI(COMFORTABLE_DECELERATION));
                 for (String type : new String[] {"car.", "truck."})
                 {
                         params.set(type + MirovaParameters.RELAXATION_FADE_DURATION.getId(),
@@ -367,30 +370,28 @@ public final class RunFreiburgMergeWatch
                 params.set("truck." + MirovaParameters.RELAXATION_ABORT_DECELERATION.getId(),
                                 org.djunits.value.vdouble.scalar.Acceleration
                                                 .instantiateSI(RELAXATION_ABORT_DECELERATION));
-                params.set("truck." + ParameterTypes.B.getId(), COMFORTABLE_DECELERATION);
-                params.set("car." + MirovaParameters.vGain.getId(), CAR_V_GAIN);
-                params.set("car." + MirovaParameters.A_MAX.getId(), CAR_A_MAX);
-                params.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(),
-                                CAR_COOPERATIVE_DECELERATION_THRESHOLD);
+                params.set("truck." + ParameterTypes.B.getId(), Acceleration.instantiateSI(COMFORTABLE_DECELERATION));
+                params.set("car." + MirovaParameters.vGain.getId(), Speed.instantiateSI(CAR_V_GAIN));
+                params.set("car." + MirovaParameters.A_MAX.getId(), Acceleration.instantiateSI(CAR_A_MAX));
+                params.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(), Acceleration.instantiateSI(CAR_COOPERATIVE_DECELERATION_THRESHOLD));
                 params.set("car." + MirovaParameters.farAnticipationEnabled.getId(), CAR_FAR_ANTICIPATION);
                 params.set("car." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(),
                                 CAR_SAFETY_DISTANCE_FACTOR);
                 params.set("car." + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), CAR_CAPACITY_DROP);
                 params.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), CAR_RELAXATION_DAMPING_FACTOR);
                 params.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_ENABLED.getId(), CAR_RELAXATION_DAMPING_ENABLED);
-                params.set("car." + MirovaParameters.preemptiveCooperativeDeceleration.getId(), COOP_DECEL_FAR);
-                params.set("car." + MirovaParameters.minFollowerDecelerationThreshold.getId(), FOLLOWER_DECEL_MIN);
-                params.set("car." + MirovaParameters.maxFollowerDecelerationThreshold.getId(), FOLLOWER_DECEL_MAX);
-                params.set("car." + MirovaParameters.minEgoDecelerationThreshold.getId(), EGO_DECEL_MIN);
-                params.set("car." + MirovaParameters.maxEgoDecelerationThreshold.getId(), EGO_DECEL_MAX);
+                params.set("car." + MirovaParameters.preemptiveCooperativeDeceleration.getId(), Acceleration.instantiateSI(COOP_DECEL_FAR));
+                params.set("car." + MirovaParameters.minFollowerDecelerationThreshold.getId(), Acceleration.instantiateSI(FOLLOWER_DECEL_MIN));
+                params.set("car." + MirovaParameters.maxFollowerDecelerationThreshold.getId(), Acceleration.instantiateSI(FOLLOWER_DECEL_MAX));
+                params.set("car." + MirovaParameters.minEgoDecelerationThreshold.getId(), Acceleration.instantiateSI(EGO_DECEL_MIN));
+                params.set("car." + MirovaParameters.maxEgoDecelerationThreshold.getId(), Acceleration.instantiateSI(EGO_DECEL_MAX));
 
-                params.set("truck." + ParameterTypes.T.getId(), TRUCK_T);
-                params.set("truck." + ParameterTypes.A.getId(), TRUCK_A);
-                params.set("truck." + ParameterTypes.S0.getId(), TRUCK_S0);
-                params.set("truck." + MirovaParameters.vGain.getId(), TRUCK_V_GAIN);
-                params.set("truck." + MirovaParameters.A_MAX.getId(), TRUCK_A_MAX);
-                params.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(),
-                                TRUCK_COOPERATIVE_DECELERATION_THRESHOLD);
+                params.set("truck." + ParameterTypes.T.getId(), Duration.instantiateSI(TRUCK_T));
+                params.set("truck." + ParameterTypes.A.getId(), Acceleration.instantiateSI(TRUCK_A));
+                params.set("truck." + ParameterTypes.S0.getId(), Length.instantiateSI(TRUCK_S0));
+                params.set("truck." + MirovaParameters.vGain.getId(), Speed.instantiateSI(TRUCK_V_GAIN));
+                params.set("truck." + MirovaParameters.A_MAX.getId(), Acceleration.instantiateSI(TRUCK_A_MAX));
+                params.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(), Acceleration.instantiateSI(TRUCK_COOPERATIVE_DECELERATION_THRESHOLD));
                 params.set("truck." + MirovaParameters.cooperativeLaneChangesEnabled.getId(), TRUCK_COOPERATIVE_LANE_CHANGES);
                 params.set("truck." + MirovaParameters.farAnticipationEnabled.getId(), TRUCK_FAR_ANTICIPATION);
                 params.set("truck." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(),
