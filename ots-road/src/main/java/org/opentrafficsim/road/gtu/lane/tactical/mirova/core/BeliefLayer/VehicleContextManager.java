@@ -44,6 +44,12 @@ public class VehicleContextManager
      */
     private static final String[] UPDATE_ORDER = {"MacroTraffic", "Infrastructure", "Neighbors", "Ego"};
 
+    /**
+     * The order the dependency between the categories calls for: Ego before Neighbors, so that the housekeeping
+     * which collects expired relaxations runs before the detection that opens new ones. Selected by BC-8.
+     */
+    private static final String[] UPDATE_ORDER_FIXED = {"Ego", "Neighbors", "Infrastructure", "MacroTraffic"};
+
     /** All registered context categories, keyed by name. */
     private final Map<String, ContextCategory> categories = new LinkedHashMap<>();
 
@@ -148,7 +154,9 @@ public class VehicleContextManager
     private List<ContextCategory> orderedCategories()
     {
         List<ContextCategory> ordered = new ArrayList<>(this.categories.size());
-        for (String name : UPDATE_ORDER)
+        boolean fixedOrder = this.vehicle != null && this.vehicle.getParams() != null
+                && this.vehicle.getParams().bcContextOrderFixed;
+        for (String name : fixedOrder ? UPDATE_ORDER_FIXED : UPDATE_ORDER)
         {
             ContextCategory category = this.categories.get(name);
             if (category != null)

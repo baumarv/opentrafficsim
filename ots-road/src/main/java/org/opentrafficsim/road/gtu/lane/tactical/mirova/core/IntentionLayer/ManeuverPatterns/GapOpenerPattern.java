@@ -288,8 +288,14 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
 
         double safetyDistanceReductionFactor =
                 this.vehicle.getParams().safetyDistanceReductionFactorLaneChange;
-        Length leaderDesiredHeadway = frontLeader.getCarFollowingModel()
-                .desiredHeadway(frontLeader.getParameters(), leaderSpeed).times(safetyDistanceReductionFactor);
+        // BC-2. The default reads the front leader's own car-following model and its own parameter set: the ego
+        // decides whether that vehicle could open the gap by evaluating that vehicle's mind. It is one of the three
+        // cross-agent reads the inventory found, and the decoupled core cannot offer it. Under the switch the ego
+        // uses its own model and parameters instead -- a driver assuming others behave as they do.
+        Length leaderDesiredHeadway = (this.vehicle.getParams().bcLeaderOwnModel
+                ? this.vehicle.getCarFollowingModel().desiredHeadway(this.vehicle.getParameters(), leaderSpeed)
+                : frontLeader.getCarFollowingModel().desiredHeadway(frontLeader.getParameters(), leaderSpeed))
+                        .times(safetyDistanceReductionFactor);
 
         if (leaderToCandidateDistance.si < leaderDesiredHeadway.si)
         {

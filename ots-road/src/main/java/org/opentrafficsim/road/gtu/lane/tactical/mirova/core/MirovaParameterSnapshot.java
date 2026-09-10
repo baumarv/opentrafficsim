@@ -293,6 +293,21 @@ public final class MirovaParameterSnapshot implements Serializable
     /** Capacity drop ramp threshold, as a fraction of the desired speed [-]. */
     public final double vCritDischargeFraction;
 
+    /** BC-1: merge anticipation filter uses the actual time step. */
+    public final boolean bcEmaActualDt;
+
+    /** BC-2: leader cooperation judged with the ego's own car-following model. */
+    public final boolean bcLeaderOwnModel;
+
+    /** BC-5: lane mean speed taken from the perceived leaders. */
+    public final boolean bcMeanSpeedFromLeaders;
+
+    /** BC-6: merge reference speed scan bounded by the look-ahead. */
+    public final boolean bcMergeRefRangeLimited;
+
+    /** BC-8: contexts update in dependency order. */
+    public final boolean bcContextOrderFixed;
+
     /**
      * Resolves every constant parameter of the given set exactly once.
      * @param p the parameter set of the vehicle, fully populated
@@ -375,6 +390,11 @@ public final class MirovaParameterSnapshot implements Serializable
         this.vCritDischargeSi = p.getParameter(MirovaParameters.V_CRIT_DISCHARGE).si;
         this.tDischargeFraction = p.getParameter(MirovaParameters.T_DISCHARGE_FRACTION);
         this.vCritDischargeFraction = p.getParameter(MirovaParameters.V_CRIT_DISCHARGE_FRACTION);
+        this.bcEmaActualDt = p.getParameter(MirovaParameters.EMA_ALPHA_FROM_ACTUAL_DT);
+        this.bcLeaderOwnModel = p.getParameter(MirovaParameters.LEADER_HEADWAY_FROM_OWN_MODEL);
+        this.bcMeanSpeedFromLeaders = p.getParameter(MirovaParameters.MEAN_SPEED_FROM_PERCEIVED_LEADERS);
+        this.bcMergeRefRangeLimited = p.getParameter(MirovaParameters.MERGE_REFERENCE_RANGE_LIMITED);
+        this.bcContextOrderFixed = p.getParameter(MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED);
     }
 
     /**

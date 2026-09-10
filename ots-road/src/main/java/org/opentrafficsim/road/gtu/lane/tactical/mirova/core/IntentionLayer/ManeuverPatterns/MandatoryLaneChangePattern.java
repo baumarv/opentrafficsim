@@ -372,7 +372,18 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 Lane targetLane = infra.getDownstreamAdjacentLane(dir);
                 if (targetLane != null)
                 {
-                    reference = infra.getLaneAverageSpeed(targetLane, Length.ZERO, REFERENCE_SPEED_SCAN_LENGTH,
+                    // BC-6. The scan reads the speed and position of every vehicle on a lane that may be a kilometre
+                    // downstream -- not something a driver can see, and not something a host with only near-field
+                    // traffic can answer. Under the switch the segment is bounded by the ego's own look-ahead, the
+                    // same range the rest of its perception uses, and an empty segment answers POSITIVE_INFINITY,
+                    // which isUsableReference rejects and the cascade carries on to the speed-limit fallback.
+                    Length scanLength = REFERENCE_SPEED_SCAN_LENGTH;
+                    if (vehicle.getParams().bcMergeRefRangeLimited)
+                    {
+                        Length visible = vehicle.getParameters().getParameter(ParameterTypes.LOOKAHEAD);
+                        scanLength = Length.min(scanLength, visible);
+                    }
+                    reference = infra.getLaneAverageSpeed(targetLane, Length.ZERO, scanLength,
                             REFERENCE_SPEED_SAMPLE_SIZE, ScanDirection.BACK_TO_FRONT);
                 }
             }
@@ -1294,6 +1305,12 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         /** Smoothing factor (alpha) for the Exponential Moving Average (EMA). 0.0 < alpha <= 1.0 */
         private double SPEED_SMOOTHING_FACTOR = 0.1;
 
+        /** Time constant of the anticipation filter under BC-1 [s]. Reproduces the current factor at dt = 0.2 s. */
+        private static final double SPEED_SMOOTHING_TAU = 4.0;
+
+        /** Simulation time at which the filter was last advanced, or NaN before the first update. */
+        private double lastSmoothedAtSi = Double.NaN;
+
         /**
          * Constructor for the anticipation state.
          * @param p the parent maneuver pattern
@@ -1328,12 +1345,25 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                     if (!isUsableReference(this.smoothedMergeSpeed))
                     {
                         this.smoothedMergeSpeed = actualSpeed;
+                        this.lastSmoothedAtSi = this.vehicle.getGtu().getSimulator().getSimulatorTime().si;
                     }
                     else
                     {
-                        this.smoothedMergeSpeed =
-                                Speed.instantiateSI((1.0 - this.SPEED_SMOOTHING_FACTOR) * this.smoothedMergeSpeed.si
-                                        + this.SPEED_SMOOTHING_FACTOR * actualSpeed.si);
+                        // BC-1. The stored factor is 0.25 * DT: taken from the parameter rather than from the step
+                        // actually taken, linear in dt where the filter it stands for is exponential, and fixed at
+                        // construction. Under the switch it is recomputed per call from the elapsed time, which is
+                        // the same filter at the configured 0.2 s step and the intended one at any other.
+                        double alpha = this.SPEED_SMOOTHING_FACTOR;
+                        if (this.vehicle.getParams().bcEmaActualDt)
+                        {
+                            double nowSi = this.vehicle.getGtu().getSimulator().getSimulatorTime().si;
+                            double elapsed = Double.isNaN(this.lastSmoothedAtSi) ? this.vehicle.getParams().dtSi
+                                    : nowSi - this.lastSmoothedAtSi;
+                            this.lastSmoothedAtSi = nowSi;
+                            alpha = elapsed <= 0.0 ? 0.0 : 1.0 - Math.exp(-elapsed / SPEED_SMOOTHING_TAU);
+                        }
+                        this.smoothedMergeSpeed = Speed.instantiateSI(
+                                (1.0 - alpha) * this.smoothedMergeSpeed.si + alpha * actualSpeed.si);
                     }
 
                     // Floor: never decelerate below this on the acceleration lane, even towards a congested target
