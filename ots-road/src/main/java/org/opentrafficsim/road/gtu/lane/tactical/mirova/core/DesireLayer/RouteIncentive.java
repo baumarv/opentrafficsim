@@ -134,9 +134,6 @@ public class RouteIncentive extends DesireIncentive
         // --- Step 2: Compute Directional Desires --------------------------------
 
         // Get constraints for changing FROM current lane
-        // Noted for the diagnostics: this query populates the per-tick memo that
-        // InfrastructureContext.distanceToLaneChangeExtendedLookahead later expects to be cold.
-        infraCtx.noteLegalLaneChangeInfoQuery();
         SortedSet<LaneChangeInfo> currentInfo = infraPerc.getLegalLaneChangeInfo(RelativeLane.CURRENT);
         Length currentReqDist = (currentInfo == null || currentInfo.isEmpty() || currentInfo.first().numberOfLaneChanges() == 0)
                 ? Length.POSITIVE_INFINITY : currentInfo.first().remainingDistance();
