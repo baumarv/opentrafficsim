@@ -181,9 +181,6 @@ public final class MirovaParameterSnapshot implements Serializable
     /** Sensitivity to speed-related social pressure [-]. */
     public final double socioSpeedSensitivity;
 
-    /** Waiting time before a lane change in the opposite direction [s]. */
-    public final double socialInteractionCooldownSi;
-
     // ----------------------------------------------------------------------
     // Lane change safety
     // ----------------------------------------------------------------------
@@ -348,7 +345,6 @@ public final class MirovaParameterSnapshot implements Serializable
         this.vGainSi = p.getParameter(MirovaParameters.vGain).si;
         this.vCritSi = p.getParameter(MirovaParameters.vCrit).si;
         this.socioSpeedSensitivity = p.getParameter(MirovaParameters.socioSpeedSensitivity);
-        this.socialInteractionCooldownSi = p.getParameter(MirovaParameters.socialInteractionCooldown).si;
 
         this.safetyDistanceReductionFactorLaneChange =
                 p.getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange);

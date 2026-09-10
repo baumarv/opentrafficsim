@@ -116,11 +116,6 @@ public final class MirovaParameters implements ConstraintInterface
         public static final ParameterTypeDouble socioSpeedSensitivity = new ParameterTypeDouble("SOCIO_SPEED_SENSITIVITY",
                         "Sensitivity to speed-related social pressure", 0.25, POSITIVE);
 
-        /** Waiting time for a next lane change in opposite direction. */
-        public static final ParameterTypeDuration socialInteractionCooldown = new ParameterTypeDuration(
-                        "SOCIAL_INTERACTION_COOLDOWN", "waiting time for a next lane change in opposite direction",
-                        Duration.instantiateSI(6.0), POSITIVE);
-
         // ----------------------------------------------------------------------
         // Lane change safety parameters
         // ----------------------------------------------------------------------
