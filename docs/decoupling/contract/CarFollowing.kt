@@ -55,8 +55,9 @@ interface CarFollowingModel {
      * @param parameters this driver's resolved parameters
      * @param headwayFactor factor on the desired time headway for this call; 1.0 for the driver's own
      *        headway, below 1 while yielding
-     * @return the acceleration; not clamped to the vehicle's physical limits, which the core applies
-     *         once, at the end of the tick
+     * @return the acceleration, **signed** — negative to brake. Not clamped to the vehicle's physical
+     *         limits, which the core applies once, at the end of the tick. The parameters it reads are
+     *         positive magnitudes; the sign is produced here.
      */
     fun followingAcceleration(
         speed: Speed,
