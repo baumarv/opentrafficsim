@@ -27,9 +27,9 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * <li><b>One variant per switch.</b> Each of the next six turns on exactly one behaviour change and nothing else,
  * so its effect can be read on its own rather than inferred from a combination. They are deliberately not crossed:
  * the question at this stage is what each correction does, not how they interact.</li>
- * <li><b>The core set.</b> One further variant, {@code coreset}, turns on the combination the decoupled core
- * reproduces by construction. It is the second baseline: the migration is compared against this, not against
- * {@code reference}.</li>
+ * <li><b>The core set.</b> Two further variants, {@code coreset} and {@code coreset-interp}, turn on the
+ * combination the decoupled core reproduces by construction, without and with BC-9. One of them is the second
+ * baseline: the migration is compared against it, not against {@code reference}.</li>
  * </ol>
  * <p>
  * The parameter set is {@link FreiburgProductionStudy}'s, unchanged, so the reference variant is comparable with the
@@ -60,21 +60,28 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * <li><b>bc8_ctxorder</b> -- the contexts update in dependency order, so the relaxation housekeeping runs before the
  * detection that opens new relaxations. The only difference is a relaxation opened on a space deficit below 0.1 m,
  * which currently dies in the tick it was born in. Expect almost nothing; the variant exists to confirm that.</li>
- * <li><b>coreset</b> -- the only variant that is not a single switch. It turns on BC-1, BC-2, BC-4, BC-6 and BC-8
+ * <li><b>bc9_interp</b> -- the discretionary weight is interpolated between DMAND and DSEARCH instead of
+ * stepping from 1 to 0 at DMAND. The default call site passes DFREE as the upper threshold, which lies below the
+ * lower one, so the interpolation branch is unreachable. Affects every vehicle whose mandatory and discretionary
+ * desires conflict while the mandatory one exceeds 0.577 -- on the ramp, the common case. Expect a real effect.</li>
+ * <li><b>coreset</b> -- the first of two variants that are not a single switch. It turns on BC-1, BC-2, BC-4, BC-6 and BC-8
  * together, because that combination is what the decoupled core reproduces by construction: BC-2 and BC-4 remove
  * fields no driver can observe, BC-6 bounds the merge scan to what one can see, BC-1 puts every time constant on
  * elapsed time, and BC-8 fixes the context update order. BC-5 is left out because it is still undecided. This is
  * the run the migration is measured against -- the {@code reference} variant is what the publications rest on, and
  * the two are not the same model. See {@code docs/decoupling/contract.md} section 0.</li>
+ * <li><b>coreset-interp</b> -- the core set plus BC-9. Which of the two is the core reference depends on whether
+ * BC-9 is adopted, and that is decided on this campaign; both are run so that the decision does not need a second
+ * one.</li>
  * </ul>
  * <h3>Running it</h3>
  * <pre>
  *   --study=phase05 --dates=cluster/dates.txt --demand=cluster/demand --replications=30
  * </pre>
  * <p>
- * With {@code --variants=reference} only the baseline is registered, and {@code --variants=reference,coreset} runs
- * the two baselines the migration needs; the default registers all eight. Enabling the defect counters is
- * orthogonal and done through the JVM:
+ * With {@code --variants=reference} only the baseline is registered, and
+ * {@code --variants=reference,coreset,coreset-interp} runs the three baselines the migration needs; the default
+ * registers all ten. Enabling the defect counters is orthogonal and done through the JVM:
  * {@code -Dmirova.defectDiag=true -Dmirova.defectDiagFile=<out>/defects.csv}.
  * </p>
  * <p>
@@ -94,6 +101,9 @@ public class Phase05ReferenceStudy implements StudyDefinition
     /** Label of the variant the decoupled core reproduces: every switch the contract embodies, together. */
     public static final String CORE_SET_LABEL = "coreset";
 
+    /** Label of the core set with BC-9 added, the second candidate core reference. */
+    public static final String CORE_SET_INTERP_LABEL = "coreset-interp";
+
     /**
      * The behaviour switches, by variant label, in registration order.
      * <p>
@@ -112,12 +122,20 @@ public class Phase05ReferenceStudy implements StudyDefinition
         VARIANTS.put("bc5_meanspeed", List.of(MirovaParameters.MEAN_SPEED_FROM_PERCEIVED_LEADERS.getId()));
         VARIANTS.put("bc6_mergerange", List.of(MirovaParameters.MERGE_REFERENCE_RANGE_LIMITED.getId()));
         VARIANTS.put("bc8_ctxorder", List.of(MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED.getId()));
+        VARIANTS.put("bc9_interp", List.of(MirovaParameters.DESIRE_INTERPOLATION_FIXED.getId()));
         VARIANTS.put(CORE_SET_LABEL,
                 List.of(MirovaParameters.EMA_ALPHA_FROM_ACTUAL_DT.getId(),
                         MirovaParameters.LEADER_HEADWAY_FROM_OWN_MODEL.getId(),
                         MirovaParameters.FOLLOWER_DESIRED_SPEED_ESTIMATED.getId(),
                         MirovaParameters.MERGE_REFERENCE_RANGE_LIMITED.getId(),
                         MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED.getId()));
+        VARIANTS.put(CORE_SET_INTERP_LABEL,
+                List.of(MirovaParameters.EMA_ALPHA_FROM_ACTUAL_DT.getId(),
+                        MirovaParameters.LEADER_HEADWAY_FROM_OWN_MODEL.getId(),
+                        MirovaParameters.FOLLOWER_DESIRED_SPEED_ESTIMATED.getId(),
+                        MirovaParameters.MERGE_REFERENCE_RANGE_LIMITED.getId(),
+                        MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED.getId(),
+                        MirovaParameters.DESIRE_INTERPOLATION_FIXED.getId()));
     }
 
     /** Parameter key recording which switches a cell had on, for {@code runParams.txt}. */
