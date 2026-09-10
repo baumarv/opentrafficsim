@@ -412,6 +412,54 @@ public final class MergeGateDiagnostics
         }
     }
 
+    /** Per vehicle: readiness evaluations, refusals, and the reference speed the refusals were judged against. */
+    private static final Map<String, double[]> READY_ROWS = new LinkedHashMap<>();
+
+    /** Number of values held per vehicle for the readiness test. */
+    private static final int READY_FIELDS = 6;
+
+    /**
+     * Records one evaluation of the readiness test and which of its grounds admitted the change.
+     * <p>
+     * The test asks whether the ego is up to the speed of the traffic it is joining, which is a merge question. At
+     * an exit the target is a deceleration lane, and when it is empty the reference falls back to the speed limit,
+     * so the ego can be held until it matches a speed nothing is travelling at. This records the reference the
+     * decision was made against so that reading can be confirmed or dropped.
+     * </p>
+     * @param gtuId String; the vehicle
+     * @param ready boolean; whether the change was permitted
+     * @param synchronised boolean; whether it was permitted because the speed was matched
+     * @param atLaneEnd boolean; whether it was permitted because the lane is about to end
+     * @param obstructedOrCongested boolean; whether it was permitted because the target lane is slow or blocked
+     * @param referenceSi double; the reference speed of the target lane, in m/s
+     * @param egoSi double; the ego's own speed, in m/s
+     */
+    public static void readinessDetail(final String gtuId, final boolean ready, final boolean synchronised,
+            final boolean atLaneEnd, final boolean obstructedOrCongested, final double referenceSi,
+            final double egoSi)
+    {
+        if (!ENABLED)
+        {
+            return;
+        }
+        double[] r = READY_ROWS.computeIfAbsent(gtuId, k -> new double[READY_FIELDS]);
+        r[0]++;
+        if (!ready)
+        {
+            r[1]++;
+            r[2] += referenceSi;
+            r[3] += egoSi;
+        }
+        else if (synchronised)
+        {
+            r[4]++;
+        }
+        else if (atLaneEnd || obstructedOrCongested)
+        {
+            r[5]++;
+        }
+    }
+
     /**
      * Records the readiness test, which is asked on every path into the execution.
      * @param gtuId String; the merging vehicle
@@ -433,6 +481,30 @@ public final class MergeGateDiagnostics
         {
             c[BOTH]++;
         }
+    }
+
+    /** Writes the per-vehicle view of the readiness test, beside the gate file. */
+    private static void writeReadiness() throws IOException
+    {
+        Path target = Paths.get(TARGET.toString().replace(".csv", "_ready.csv"));
+        try (BufferedWriter w = Files.newBufferedWriter(target, StandardCharsets.UTF_8))
+        {
+            w.write("gtuId,n,refused,refRefSum,refEgoSum,viaSpeed,viaLaneEndOrBlocked,where");
+            w.newLine();
+            for (Map.Entry<String, double[]> e : READY_ROWS.entrySet())
+            {
+                double[] r = e.getValue();
+                StringBuilder sb = new StringBuilder(e.getKey());
+                for (double v : r)
+                {
+                    sb.append(',').append(String.format(Locale.ROOT, "%.3f", v));
+                }
+                sb.append(',').append(WHERE.getOrDefault(e.getKey(), ""));
+                w.write(sb.toString());
+                w.newLine();
+            }
+        }
+        System.out.println("[GATE] wrote " + READY_ROWS.size() + " readiness rows to " + target.toAbsolutePath());
     }
 
     /** Writes the per-vehicle view of the parallel state, beside the gate file. */
@@ -495,6 +567,7 @@ public final class MergeGateDiagnostics
                 }
             }
             writeParallel();
+            writeReadiness();
             System.out.println("[GATE] wrote " + ROWS.size() + " vehicles to " + TARGET.toAbsolutePath());
             System.out.println("[PARALLEL] ticks=" + PARALLEL[0] + " overlapping=" + PARALLEL[1]
                     + " heldByHysteresisOnly=" + PARALLEL[2] + " ofThoseBraking=" + PARALLEL[3]);
