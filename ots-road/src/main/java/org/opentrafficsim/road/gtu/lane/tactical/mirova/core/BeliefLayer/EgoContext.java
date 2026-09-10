@@ -236,14 +236,15 @@ public class EgoContext extends ContextCategory implements UpdatableContext
     // =========================================================================================
 
     /**
-     * Evaluates a new cut-in situation and triggers the 2-parameter relaxation if the new leader violates the dynamic desired
-     * headway or has a significant speed difference.
+     * Evaluates a new cut-in situation and opens a relaxation if the new leader violates the desired headway.
      * <p>
-     * This method is typically called by the {@code NeighborsContext} when a change in the leader ID is detected (edge
-     * trigger). It leverages the {@link DynamicHeadwayProvider} to accurately assess the required spatial gap.
+     * Called by {@code NeighborsContext} when the identity of the leader on the current lane changes -- a cut-in, or a
+     * lane change of the ego's own. Where the cut-in also costs speed, the relaxation is seeded with a reduced headway
+     * rather than with the raw gap deficit: tolerating a speed difference directly is what produced the collisions
+     * this formulation replaced.
      * </p>
      * @param newLeader HeadwayGtu; the new headway object that just cut in
-     * @param oldLeaderSpeed Speed; the speed of the previous leader at the time of the cut-in (can be null)
+     * @param oldLeaderSpeed Speed; the speed of the previous leader at the time of the cut-in, may be {@code null}
      * @throws ParameterException if a required parameter is missing
      * @throws GtuException if GTU state cannot be accessed
      */
@@ -259,62 +260,40 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         CarFollowingModel cfModel = this.vehicle.getCarFollowingModel();
         Speed egoSpeed = this.getEgoSpeed();
 
-        // 1. Compute static equilibrium headway
+        // Static equilibrium headway, and the gap deficit against it.
         Length targetHeadway = cfModel.desiredHeadway(params, egoSpeed);
-
-        // 3. Calculate spatial deficit (gamma_s)
         Length gammaS = Length.ZERO;
         if (newLeader.getDistance().lt(targetHeadway))
         {
             gammaS = targetHeadway.minus(newLeader.getDistance());
         }
 
-        // 4. Calculate speed deficit (gamma_v)
         Speed gammaV = oldLeaderSpeed != null ? oldLeaderSpeed.minus(newLeader.getSpeed()) : Speed.ZERO;
 
-        // 5. Trigger relaxation if there is ANY deficit (space OR speed)
-        // Speed relaxation is dangerous: if there is a speed deficit, we target a lower headway instead of relaxing the speed
-        // buffer, which would cause unwanted crashes.
         Duration tauSpace = this.vehicle.getParams().relaxationTauSpaceScalar;
-        Duration tauSpeed = this.vehicle.getParams().relaxationTauSpeedScalar;
-        Double safetyDistanceReductionFactor = (this.vehicle.getParams().safetyDistanceReductionFactorLaneChange);
+        double safetyDistanceReductionFactor = this.vehicle.getParams().safetyDistanceReductionFactorLaneChange;
         if (gammaV.si > 0.0)
         {
+            // A speed deficit is routed into the headway buffer rather than tolerated as a speed difference.
             triggerRelaxation(newLeader.getId(), Length.max(targetHeadway.times(safetyDistanceReductionFactor), gammaS),
-                    Speed.ZERO, tauSpace, tauSpeed, false);
+                    tauSpace, false);
         }
         else if (gammaS.si > 0.0)
         {
-            triggerRelaxation(newLeader.getId(), gammaS, Speed.ZERO, tauSpace, tauSpeed, false);
+            triggerRelaxation(newLeader.getId(), gammaS, tauSpace, false);
         }
-
     }
 
     /**
-     * Explicitly registers a relaxation state for a specific target vehicle without overwriting an active state.
+     * Opens a relaxation towards a leader with a deliberately reduced safety distance.
      * <p>
-     * This is a legacy/convenience wrapper that defaults to {@code forceOverwrite = false}.
+     * Used when the ego is about to move into a gap it has chosen: it may accept the tighter headway the manoeuvre
+     * produces instead of braking for a gap it is deliberately taking.
      * </p>
-     * @param leaderId String; the ID of the target leader GTU
-     * @param initialSpaceDeficit Length; the initial space headway deficit [m]
-     * @param initialSpeedDeficit Speed; the speed difference (oldLeaderSpeed - newLeaderSpeed) [m/s]
-     * @param tauSpace Duration; the spatial relaxation time constant [s]
-     * @param tauSpeed Duration; the speed relaxation time constant [s]
+     * @param leader HeadwayGtu; the target leader to relax towards
+     * @throws ParameterException if a required parameter is missing
      */
-    public void triggerRelaxation(final String leaderId, final Length initialSpaceDeficit, final Speed initialSpeedDeficit,
-            final Duration tauSpace, final Duration tauSpeed)
-    {
-        triggerRelaxation(leaderId, initialSpaceDeficit, initialSpeedDeficit, tauSpace, tauSpeed, false);
-    }
-
-    /**
-     * We trigger a relaxation with a reduced safety distance (instead of a speed buffer) for proactive lane changes, where we
-     * want to safely accept closer gaps before the physical lane change starts. This method can be called by maneuver patterns
-     * when they iniate a proactive lane change and want to preemptively relax towards the target leader.
-     * @param leader the target leader GTU to relax towards
-     * @throws ParameterException if required relaxation parameters are missing
-     */
-    public void triggerRelaxationWithReducedSafetyDistance(HeadwayGtu leader) throws ParameterException
+    public void triggerRelaxationWithReducedSafetyDistance(final HeadwayGtu leader) throws ParameterException
     {
         if (leader == null)
         {
@@ -327,7 +306,7 @@ public class EgoContext extends ContextCategory implements UpdatableContext
 
         Length targetHeadway = cfModel.desiredHeadway(params, egoSpeed);
 
-        Double safetyDistanceReductionFactor = (this.vehicle.getParams().safetyDistanceReductionFactorLaneChange);
+        double safetyDistanceReductionFactor = this.vehicle.getParams().safetyDistanceReductionFactorLaneChange;
         Length gammaS = Length.ZERO;
         if (leader.getDistance().lt(targetHeadway))
         {
@@ -335,110 +314,33 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         }
         Length reducedHeadway = Length.max(targetHeadway.times(safetyDistanceReductionFactor), gammaS);
 
-        Duration tauSpace = this.vehicle.getParams().relaxationTauSpaceScalar;
-        Duration tauSpeed = this.vehicle.getParams().relaxationTauSpeedScalar;
-
-        triggerRelaxation(leader.getId(), reducedHeadway, Speed.ZERO, tauSpace, tauSpeed);
+        triggerRelaxation(leader.getId(), reducedHeadway, this.vehicle.getParams().relaxationTauSpaceScalar, false);
     }
 
     /**
-     * Explicitly registers or updates a relaxation state for a specific target vehicle.
-     * <p>
-     * If {@code forceOverwrite} is true, an ongoing relaxation is reset. This freezes the buffer at 100% while the maneuver is
-     * being prepared but not yet physically executed.
-     * </p>
+     * Registers or updates the relaxation state for a specific leader.
      * @param leaderId String; the ID of the target leader GTU
      * @param initialSpaceDeficit Length; the initial space headway deficit [m]
-     * @param initialSpeedDeficit Speed; the speed difference (oldLeaderSpeed - newLeaderSpeed) [m/s]
      * @param tauSpace Duration; the spatial relaxation time constant [s]
-     * @param tauSpeed Duration; the speed relaxation time constant [s]
      * @param forceOverwrite boolean; if true, any active relaxation state for this leader is overwritten
      */
-    public void triggerRelaxation(final String leaderId, final Length initialSpaceDeficit, final Speed initialSpeedDeficit,
-            final Duration tauSpace, final Duration tauSpeed, final boolean forceOverwrite)
+    public void triggerRelaxation(final String leaderId, final Length initialSpaceDeficit, final Duration tauSpace,
+            final boolean forceOverwrite)
     {
         if (forceOverwrite || !this.activeRelaxations.containsKey(leaderId))
         {
-            // Verify there is actually a deficit to relax
-            if ((initialSpaceDeficit != null && initialSpaceDeficit.si > 0.0)
-                    || (initialSpeedDeficit != null && initialSpeedDeficit.si > 0.0))
+            if (initialSpaceDeficit != null && initialSpaceDeficit.si > 0.0)
             {
                 Duration now = this.vehicle.getGtu().getSimulator().getSimulatorTime();
-                this.activeRelaxations.put(leaderId,
-                        new RelaxationState(now, initialSpaceDeficit, initialSpeedDeficit, tauSpace, tauSpeed));
+                this.activeRelaxations.put(leaderId, new RelaxationState(now, initialSpaceDeficit, tauSpace));
                 if (RelaxationDiagnostics.ENABLED)
                 {
-                    RelaxationDiagnostics.created(
-                            initialSpaceDeficit == null ? 0.0 : initialSpaceDeficit.si);
+                    RelaxationDiagnostics.created(initialSpaceDeficit.si);
                 }
 
-                // ARCHITECTURE-UPDATE: Targeted cache invalidation ensures the IDM immediately recalculates
+                // Targeted cache invalidation, so the car-following model recomputes against the new buffer.
                 this.tickAccelerationCache.remove(leaderId);
             }
-        }
-    }
-
-    /**
-     * Proactively calculates deficits and triggers relaxation for a specific target leader.
-     * <p>
-     * This method is designed for maneuver patterns to safely accept gaps on adjacent lanes. It leverages the
-     * {@link DynamicHeadwayProvider} and deliberately <b>overwrites</b> existing states to keep the buffer fresh while waiting
-     * for the physical lane change to start.
-     * </p>
-     * @param targetLeader HeadwayGtu; the target leader GTU to relax towards
-     * @throws ParameterException if required relaxation parameters are missing
-     */
-    public void triggerRelaxation(final HeadwayGtu targetLeader) throws ParameterException
-    {
-        // NOTE: We do NOT check !this.activeRelaxations.containsKey anymore, because we want to overwrite!
-        if (targetLeader == null)
-        {
-            return;
-        }
-
-        if (targetLeader.getAcceleration().ge(RELAXATION_MIN_LEADER_ACCELERATION)
-                && targetLeader.getSpeed().si >= RELAXATION_MIN_LEADER_SPEED.si)
-        {
-            // Only trigger proactive relaxation if the target leader is not braking hard and has a reasonable speed.
-            // This prevents dangerous relaxation
-
-            Parameters params = this.vehicle.getParameters();
-            CarFollowingModel cfModel = this.vehicle.getCarFollowingModel();
-            Speed egoSpeed = this.getEgoSpeed();
-
-            Length targetHeadway = cfModel.desiredHeadway(params, egoSpeed);
-
-            Length spaceDeficit = Length.ZERO;
-            if (targetLeader.getDistance().lt(targetHeadway))
-            {
-                spaceDeficit = targetHeadway.minus(targetLeader.getDistance());
-            }
-
-            // For proactive lane changes, speed deficit is Ego Speed minus Target Leader Speed
-            Speed speedDeficit = egoSpeed.minus(targetLeader.getSpeed());
-
-            Duration tauSpace = this.vehicle.getParams().relaxationTauSpaceScalar;
-            Duration tauSpeed = this.vehicle.getParams().relaxationTauSpeedScalar;
-            Double safetyDistanceReductionFactor =
-                    (this.vehicle.getParams().safetyDistanceReductionFactorLaneChange);
-            if (speedDeficit.si > 0.0)
-            {
-                triggerRelaxation(targetLeader.getId(),
-                        Length.max(targetHeadway.times(safetyDistanceReductionFactor), spaceDeficit), Speed.ZERO, tauSpace,
-                        tauSpeed, false);
-            }
-            else if (spaceDeficit.si > 0.0)
-            {
-                triggerRelaxation(targetLeader.getId(), spaceDeficit, Speed.ZERO, tauSpace, tauSpeed, false);
-            }
-            // if (spaceDeficit.si > 0.0 || speedDeficit.si > 0.0)
-            // {
-            // Duration tauSpace = this.vehicle.getParams().relaxationTauSpaceScalar;
-            // Duration tauSpeed = this.vehicle.getParams().relaxationTauSpeedScalar;
-
-            // // Force overwrite = true! Buffer will not decay until the trigger stops (i.e. physical LC starts).
-            // triggerRelaxation(targetLeader.getId(), spaceDeficit, speedDeficit, tauSpace, tauSpeed, false);
-            // }
         }
     }
 
@@ -886,9 +788,7 @@ public class EgoContext extends ContextCategory implements UpdatableContext
                 double maxLifeSi = this.vehicle.getParams().relaxationMaxLifetimeFactor
                         * state.getTauSpace().si;
                 boolean tooOld = maxLifeSi > 0.0 && (now.si - state.getStartTime().si) >= maxLifeSi;
-                if (state.isFadedOut(now) || tooOld
-                        || (state.getVirtualSpaceBuffer(now).si < 0.1
-                                && Math.abs(state.getVirtualSpeedBuffer(now).si) < 0.1))
+                if (state.isFadedOut(now) || tooOld || state.getVirtualSpaceBuffer(now).si < 0.1)
                 {
                     if (RelaxationDiagnostics.ENABLED)
                     {

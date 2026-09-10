@@ -133,7 +133,6 @@ public final class MirovaCarFollowingUtil
             if (!activeRelaxation.isFadedOut(now))
             {
                 perceivedDistance = perceivedDistance.plus(activeRelaxation.getVirtualSpaceBuffer(now));
-                perceivedLeaderSpeed = perceivedLeaderSpeed.plus(activeRelaxation.getVirtualSpeedBuffer(now));
                 perceptionRelaxed = true;
             }
             else
