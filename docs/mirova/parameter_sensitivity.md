@@ -527,7 +527,7 @@ picture the empirical target set shows in §2.
 
 ---
 
-## 9. The merge mechanism: eight changes measured, one kept
+## 9. The merge mechanism: nine changes measured, two kept
 
 The screen in §4 varies parameters. This section records what happens when the *mechanism*
 is changed instead, because the obvious readings of the merge code are wrong in a way that
@@ -738,11 +738,64 @@ Two alternatives were measured rather than argued. A feasibility form - can the 
 both vehicles' lengths under maximum acceleration in the time the lane affords - is vacuous once
 the eight seconds hold, because it credits the ego with maximum acceleration throughout, and it
 changed nothing (-0.3 %, p = 0.92). And the comparison of the two speeds as they stand, which is
-the self-referential shape of §9.8, does not flutter here: episodes switching branches more than
+the self-referential shape of §9.9, does not flutter here: episodes switching branches more than
 twice fall from 20.1 % to 7.1 % and the worst case from 54 switches to 22, because the attempts
 that were flipping back and forth are the hopeless ones it removes.
 
-### 9.8 Conditions computed from what the behaviour changes
+### 9.8 The cause: speed built with no notion of the lane ending
+
+Every change in §9.1 to §9.6 moderated the *response* to a merge conflict, and every one traded
+the standstill share against ramp speed. None of them asked why the vehicles arrive at the end of
+the acceleration lane in a state from which only an emergency stop remains.
+
+They arrive too fast, not too slow. Median speed on the acceleration lane, vehicles that end in an
+emergency stop against the rest:
+
+| Position | Stranded | Others | Difference |
+|---|---|---|---|
+| 50-75 m | 18.0 | 16.8 | +1.2 m/s |
+| **75-100 m** | **17.4** | **12.9** | **+4.5 m/s** |
+| 100-125 m | 13.4 | 9.0 | +4.3 m/s |
+| 125-150 m | 10.5 | 7.6 | +2.9 m/s |
+
+They are faster at every position, and in the last two seconds before the emergency they are
+still **accelerating at +1.11 m/s²**, at 13.7 m/s with 50 m of lane left. They enter the emergency
+state at 14.9 m/s with 38 m remaining; 87.3 % come to a full stop and stand a median of 14.8 s.
+
+`SynchroniseMergeSpeedState`, where they spend 42 % of the preceding ten seconds, never read
+`getRouteDistanceToLaneEnd()`. Its purpose is to build merge speed and it did so at physical
+capability regardless of the room left. Below it there was only `EmergencyStopState`, which
+triggers at a required deceleration of −5 m/s². Between free acceleration and an emergency there
+was nothing at all.
+
+Building speed only while the lane end could still be reached under comfortable braking - bounded
+by `ParameterTypes.B`, the calibrated campaign value, so no threshold is introduced - over ten
+paired seeds:
+
+| | Baseline | Bounded | p |
+|---|---|---|---|
+| Stranded | 3.09 % | **2.17 %** | **< 0.001** |
+| Standstill | 9.61 % | **7.07 %** | **< 0.001** |
+| Ramp speed | 11.71 m/s | **12.45 m/s** | **0.010** |
+| Time on the ramp | 8.18 s | **7.42 s** | **0.001** |
+
+Better in all ten seeds in both binding quantities, and the first change here that does not trade
+one against the other. The reason is that it removes the cause rather than moderating the
+response: a vehicle that never gets into the hopeless state does not have to be rescued from it.
+
+Throughput does not move (+0.01 %, p = 0.21), nor breakdown frequency (p = 0.88) nor the
+discharge rate, which is true of every change measured in this section. Mainline harmonic speed
+falls 3.2 %, from 97.7 to 94.6 km/h (p = 0.001). That is not more congestion - the breakdown
+counts are unchanged - but the vehicles that used to wait out the ramp now join the merging
+stream at moderate speed, which is what merging traffic does to a motorway.
+
+**The methodological point for the chapter.** Six changes moderating the response all failed, and
+the one addressing the cause improved everything at once. The failures were not noise: they
+consistently traded the two quantities, which is the signature of treating a symptom. A screen
+that had only varied parameters, or only softened responses, would have concluded that the
+standstills were irreducible.
+
+### 9.9 Conditions computed from what the behaviour changes
 
 Four conditions in this pattern family read a quantity that the behaviour they gate is itself
 moving. They are worth naming as one defect rather than four, because the signature is
@@ -766,12 +819,13 @@ catchability test has the same shape and was expected to flutter for it; measure
 opposite, because what it suppresses is precisely what was oscillating. The shape is a reason to
 measure, not a verdict.
 
-### 9.9 What this means for a capacity chapter
+### 9.10 What this means for a capacity chapter
 
-Seven mechanism changes rejected on measurement and one kept. The rejected ones divide cleanly:
+Seven mechanism changes rejected on measurement and two kept. The rejected ones divide cleanly:
 every one shortened the yield, at the entry, in the magnitude or in the duration, and every one
-raised the standstill share while raising mean ramp speed. The one that worked did the opposite -
-it stopped the model *overtaking* where it could not succeed.
+raised the standstill share while raising mean ramp speed. The two that worked both act before
+the conflict rather than on the response to it - one stops the model overtaking where it cannot
+succeed (§9.7), the other stops it building speed it cannot afford (§9.8).
 
 Read together with §6, where no parameter reaches the capacity drop, the picture is that
 throughput at this bottleneck is not limited by how willing the model's drivers are to merge.
@@ -847,6 +901,7 @@ not about capacity.
 | §9.3, §9.5 branch and tick counts | in-model counters behind `-Dmirova.gateDiag`, verified to leave every outcome metric unchanged |
 | §9.5, §9.6 paired comparisons | 10 seeds per arm, same demand window, paired t-test |
 | §9.7 branch position, blocker side and outcome | one 300-minute run, 2025-10-13, seed 4242, plus three arms of 10 paired seeds |
+| §9.10 approach to the lane end | one 300-minute run, 2025-10-13, seed 4242, plus 10 paired seeds |
 
 Raw per-run records: `docs/mirova/results/`.
 
