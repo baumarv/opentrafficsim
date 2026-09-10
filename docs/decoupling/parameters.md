@@ -16,13 +16,15 @@ A count of 0 means the parameter is resolved and stored and then never consulted
 ## 1. Snapshot or live — the rule
 
 `MirovaParameterSnapshot` resolves a parameter once, when the vehicle is constructed. That is only
-sound for a parameter nothing writes at runtime. After Phase 0.5 exactly **two** parameters are
+sound for a parameter nothing writes at runtime. After Phase 0.5 exactly **one** parameter is
 written at runtime anywhere in the tree:
 
 | Parameter | Written by | Why it must stay live |
 |---|---|---|
 | `ParameterTypes.T` | `MirovaCarFollowingUtil.followWithReducedHeadway` and `followDistanceAndSpeedWithReducedHeadway`, set and reset around one car-following call; also the OTS LMRS `Tailgating` class when a vehicle runs under an LMRS planner | A snapshot would freeze the desired headway at its construction value and the yield behaviour would silently stop working |
-| `ParameterTypes.LOOKAHEAD` | `InfrastructureContext.distanceToLaneChangeExtendedLookahead`, raised to the extended value and reset in a `finally` | Same |
+
+`ParameterTypes.LOOKAHEAD` was the second until decision A.1 removed the extended look-ahead. In the
+core even `T` stops being written: the headway factor becomes an argument to the car-following call.
 
 Everything else is constant for a vehicle's life and belongs in the snapshot. As of Phase 0.5 every
 constant parameter is read from it; see the commit *"read constant parameters from the snapshot
@@ -36,16 +38,13 @@ everywhere"*.
 |---|---|---|---|---|---|---|---|
 | `DFREE` | `DFREE` | Double | 0.365 | – | `MirovaTacticalPlanner.getDFree`, `SimpleLaneChangePattern`, `KeepRightIncentive`, `HybridPlanArbitrator`, `GapOpenerPattern` | snapshot `dFree` | no |
 | `DMAND` | `DMAND` | Double | 0.577 | – | `MirovaTacticalPlanner.getDMand`, `MandatoryLaneChangePattern` (3), `GapOpenerPattern`, `EgoContext` (2 thresholds) | snapshot `dMand` | no |
-| `DSEARCH` | `DSEARCH` | Double | 0.788 | – | **nowhere** | snapshot `dSearch` | no |
 | `EMERGENCY_STOPPING_DISTANCE` | `emergencyStoppingDistance` | Length | 5.0 | m | `DeadlockDiffusionWatchdog` | live (host-side safeguard) | no |
 | `VEHICLE_DIFFUSION_TIME` | `vehicleDiffusionTime` | Duration | 60.0 | s | `DeadlockDiffusionWatchdog` | live (host-side safeguard) | no |
-| `MANDATORY_LANE_CHANGE_LOOK_AHEAD_DISTANCE` | `mandatoryLaneChangeLookAheadDistance` | Length | 500.0 | m | **nowhere** | snapshot | no |
-| `EXTENDED_LOOK_AHEAD_DISTANCE` | `extendedLookAheadDistance` | Length | 1000.0 | m | `InfrastructureContext`, `MandatoryLaneChangePattern` (2) | snapshot | no |
-| `CONGESTED_LANE_CHANGE_DURATION` | `congestedLaneChangeDuration` | Duration | 1.5 | s | **only in commented-out code** (`MandatoryLaneChangePattern:2506`) | snapshot | no |
+| `EXTENDED_LOOK_AHEAD_DISTANCE` | `extendedLookAheadDistance` | Length | 1000.0 | m | `InfrastructureContext.computeDownstreamAdjacentLane` (the merge-lane projection), `MandatoryLaneChangePattern` (2 thresholds), `PreventUndercuttingPattern` | snapshot | no |
+| `CONGESTED_LANE_CHANGE_DURATION` | `congestedLaneChangeDuration` | Duration | 1.5 | s | **only in commented-out code** — kept by A.7 to become the per-manoeuvre lane-change duration in the contract | snapshot | no |
 | `bCritMirova` | `B_CRIT` | Acceleration | −3.5 | m/s² | `MirovaIdmPlus.combineInteractionTerm` | snapshot | no |
 | `bMaxMirova` | `B_MAX` | Acceleration | −6.0 | m/s² | `MirovaIdmPlus`, `MirovaCarFollowingUtil.requiredDeceleration` | snapshot | no |
 | `VGAIN` | `vGain` | Speed | 69.6 km/h | m/s | `CruisingSpeedIncentive`, `SocialInteractionsIncentives` (2), via `getVGain()` | **live** (snapshot has SI only) | **yes, 11×** |
-| `VCRIT` | `vCrit` | Speed | 60.0 km/h | m/s | **nowhere** (`getVCrit()` has no caller) | live | no |
 | `SOCIO_SPEED_SENSITIVITY` | `socioSpeedSensitivity` | Double | 0.25 | – | `SocialInteractionsIncentives` | snapshot | yes, 4× |
 | `SAFETY_DISTANCE_REDUCTION_FACTOR_LANE_CHANGE` | `safetyDistanceReductionFactorLaneChange` | Double | 0.5 | – | `EgoContext` (2), `NeighborsContext` (3), `GapOpenerPattern`, `MandatoryLaneChangePattern`, `PreventUndercuttingPattern` (2) | snapshot | yes, 10× |
 | `MIN_FOLLOWER_DECELERATION_THRESHOLD` | `minFollowerDecelerationThreshold` | Acceleration | −2.0 | m/s² | `EgoContext.computeFollowerDecelerationThreshold` | snapshot | yes, 5× |
@@ -55,7 +54,7 @@ everywhere"*.
 | `COOPERATIVE_DECELERATION_THRESHOLD` | `cooperativeDecelerationThreshold` | Acceleration | −3.0 | m/s² | `GapOpenerPattern`, `AnticipateDownstreamMergePattern` | snapshot | yes, 8× |
 | `PREEMPTIVE_COOPERATIVE_DECELERATION` | `preemptiveCooperativeDeceleration` | Acceleration | −1.0 | m/s² | `GapOpenerPattern`, `AnticipateDownstreamMergePattern` (4) | snapshot | yes, 1× |
 | `COOPERATIVE_LANE_CHANGES_ENABLED` | `cooperativeLaneChangesEnabled` | Boolean | true | – | `GapOpenerPattern`, `AnticipateDownstreamMergePattern` | snapshot | yes, 4× |
-| `FAR_ANTICIPATION_ENABLED` | `farAnticipationEnabled` | Boolean | true | – | `AnticipateDownstreamMergePattern` (3) — **all in the disabled pattern** | snapshot | yes, 6× |
+| `FAR_ANTICIPATION_ENABLED` | `farAnticipationEnabled` | Boolean | true | – | `AnticipateDownstreamMergePattern` (3) — **all in the disabled pattern** | snapshot | yes, 3 files |
 | `CONSIDER_GAP_OPENING_LOOKAHEAD_DISTANCE` | `considerGapOpeningLookaheadDistance` | Length | 100.0 | m | `GapOpenerPattern.findNewCandidate` | snapshot | no |
 | `UNDERCUTTING_TIME_HEADWAY` | `undercuttingTTCThreshold` | Duration | 5.0 | s | `NeighborsContext.checkRightSideOvertakingAhead` | snapshot | no |
 | `tau_relax_s` | `RELAXATION_TAU_SPACE` | Duration | **20.0** | s | `EgoContext` (2: trigger, lifetime cap) | snapshot | no |
@@ -65,9 +64,7 @@ everywhere"*.
 | `aRelaxDamping` | `RELAXATION_ACC_DAMPING_FACTOR` | Double | 0.40 | – | `EgoContext.getRelaxationAccelerationFactor` | snapshot | yes, 10× |
 | `aRelaxDampingEnabled` | `RELAXATION_ACC_DAMPING_ENABLED` | Boolean | true | – | same | snapshot | yes, 6× |
 | `CF_MAX_LEADERS` | `CF_MAX_LEADERS` | Double | 2 | count | `LongitudinalControl` | snapshot | no |
-| `aScale` | `ACCELERATION_SCALING_FACTOR` | Double | 1.0 | – | **nowhere** | snapshot | no |
 | `aMaxMirova` | `A_MAX` | Acceleration | 3.5 | m/s² | `EgoContext.computeMaxPhysicalAcceleration*` (2) | snapshot `aMaxSi` | yes, 6× |
-| `STANDSTILL_SPEED_THRESHOLD` | `standstill_speed_threshold` | Speed | 20.0 km/h | m/s | **nowhere** (its only reader, `CongestionIncentive`, was deleted) | snapshot | no |
 | `capDropEnabled` | `CAPACITY_DROP_ENABLED` | Boolean | false | – | `CapacityDrop.isEnabled` | snapshot + live fallback | yes, 9× |
 | `tDischargeAddon` | `T_DISCHARGE_ADDON` | Duration | 0.5 | s | `CapacityDrop.absoluteHeadwayTime` | snapshot + live fallback | no |
 | `vCritDischarge` | `V_CRIT_DISCHARGE` | Speed | 40.0 km/h | m/s | `CapacityDrop.absoluteHeadwayTime` | snapshot + live fallback | no |
@@ -82,6 +79,7 @@ with. See `phase05-report.md` for what each one changes.
 | ID | Java name | Read where |
 |---|---|---|
 | `bcEmaActualDt` | `EMA_ALPHA_FROM_ACTUAL_DT` | `MandatoryLaneChangePattern.AnticipateMergeState` |
+| `bcFollowerDesiredSpeedEstimated` | `FOLLOWER_DESIRED_SPEED_ESTIMATED` | `NeighborsContext`, `SocialInteractionsIncentives` |
 | `bcLeaderOwnModel` | `LEADER_HEADWAY_FROM_OWN_MODEL` | `GapOpenerPattern.leaderCanCooperate` |
 | `bcMeanSpeedFromLeaders` | `MEAN_SPEED_FROM_PERCEIVED_LEADERS` | `MacroTrafficContext.computeAverageSpeed` |
 | `bcMergeRefRangeLimited` | `MERGE_REFERENCE_RANGE_LIMITED` | `MandatoryLaneChangePattern.getMergeReferenceSpeed` |
@@ -174,6 +172,12 @@ several appear in study grids and removing them would break a scenario definitio
 
 | Parameter | Why |
 |---|---|
+| `DSEARCH` (0.788) | No reader anywhere (A.7) |
+| `aScale` / `ACCELERATION_SCALING_FACTOR` (1.0) | The acceleration curve scales on `aMaxMirova` (A.7) |
+| `STANDSTILL_SPEED_THRESHOLD` (20 km/h) | Its only reader, `CongestionIncentive`, was deleted (A.7) |
+| `MANDATORY_LANE_CHANGE_LOOK_AHEAD_DISTANCE` (500 m) | Superseded by `EXTENDED_LOOK_AHEAD_DISTANCE` (A.7) |
+| `VCRIT` (60 km/h) | `getVCrit()` had no caller; the accessor went with it (A.7) |
+| snapshot `bCritSi` | Nothing read it (A.7). **`bSi` was listed here in error and is retained** — `MandatoryLaneChangePattern` reads it for the ramp-end stop |
 | `SOCIAL_INTERACTION_COOLDOWN` (6 s) | Declared and snapshotted, never read. Its counter `timeSinceLastLaneChange` had no reader either and advanced by the `DT` parameter rather than the actual step. |
 | `TTC_EMERGENCY_BRAKING` (2 s) | Existed only to feed `MirovaCarFollowingUtil.getKinematicEmergencyBrake`, whose last call site was a comment. |
 | `RELAXATION_TAU_SPEED` (8 s) | The speed buffer it governed was never fed; see the relaxation commit. |
