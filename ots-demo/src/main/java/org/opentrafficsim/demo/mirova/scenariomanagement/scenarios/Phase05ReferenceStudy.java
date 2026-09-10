@@ -13,7 +13,7 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.TrafficFacility;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 
 /**
- * The Phase 0.5 reference run, and one variant per behaviour switch.
+ * The Phase 0.5 reference run, one variant per behaviour switch, and the set the decoupled core embodies.
  * <p>
  * Phase 0.5 repaired defects and deleted dead code without changing behaviour, and put every behaviour change behind
  * a switch whose default reproduces the model the published results were produced with. This study produces the two
@@ -24,9 +24,12 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * at its default. It is the baseline every later migration stage is compared against: once the model starts moving
  * into {@code mirova-core}, a deviation is only interpretable against a run of the code as it stood when the moving
  * began.</li>
- * <li><b>One variant per switch.</b> Each remaining variant turns on exactly one behaviour change and nothing else,
+ * <li><b>One variant per switch.</b> Each of the next six turns on exactly one behaviour change and nothing else,
  * so its effect can be read on its own rather than inferred from a combination. They are deliberately not crossed:
  * the question at this stage is what each correction does, not how they interact.</li>
+ * <li><b>The core set.</b> One further variant, {@code coreset}, turns on the combination the decoupled core
+ * reproduces by construction. It is the second baseline: the migration is compared against this, not against
+ * {@code reference}.</li>
  * </ol>
  * <p>
  * The parameter set is {@link FreiburgProductionStudy}'s, unchanged, so the reference variant is comparable with the
@@ -57,14 +60,21 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * <li><b>bc8_ctxorder</b> -- the contexts update in dependency order, so the relaxation housekeeping runs before the
  * detection that opens new relaxations. The only difference is a relaxation opened on a space deficit below 0.1 m,
  * which currently dies in the tick it was born in. Expect almost nothing; the variant exists to confirm that.</li>
+ * <li><b>coreset</b> -- the only variant that is not a single switch. It turns on BC-1, BC-2, BC-4, BC-6 and BC-8
+ * together, because that combination is what the decoupled core reproduces by construction: BC-2 and BC-4 remove
+ * fields no driver can observe, BC-6 bounds the merge scan to what one can see, BC-1 puts every time constant on
+ * elapsed time, and BC-8 fixes the context update order. BC-5 is left out because it is still undecided. This is
+ * the run the migration is measured against -- the {@code reference} variant is what the publications rest on, and
+ * the two are not the same model. See {@code docs/decoupling/contract.md} section 0.</li>
  * </ul>
  * <h3>Running it</h3>
  * <pre>
  *   --study=phase05 --dates=cluster/dates.txt --demand=cluster/demand --replications=30
  * </pre>
  * <p>
- * With {@code --variants=reference} only the baseline is registered, which is what the golden reference run should
- * use; the default registers all six. Enabling the defect counters is orthogonal and done through the JVM:
+ * With {@code --variants=reference} only the baseline is registered, and {@code --variants=reference,coreset} runs
+ * the two baselines the migration needs; the default registers all eight. Enabling the defect counters is
+ * orthogonal and done through the JVM:
  * {@code -Dmirova.defectDiag=true -Dmirova.defectDiagFile=<out>/defects.csv}.
  * </p>
  * <p>
@@ -81,26 +91,36 @@ public class Phase05ReferenceStudy implements StudyDefinition
     /** Replications per cell, matching the production study so the reference is comparable with it. */
     public static final int DEFAULT_REPLICATIONS = FreiburgProductionStudy.DEFAULT_REPLICATIONS;
 
+    /** Label of the variant the decoupled core reproduces: every switch the contract embodies, together. */
+    public static final String CORE_SET_LABEL = "coreset";
+
     /**
      * The behaviour switches, by variant label, in registration order.
      * <p>
-     * A {@code null} value means the baseline: no switch is set, so every parameter keeps its declared default.
+     * An empty list means the baseline: no switch is set, so every parameter keeps its declared default. Every other
+     * entry but {@link #CORE_SET_LABEL} holds exactly one switch, so that its effect can be read on its own.
      * </p>
      */
-    private static final Map<String, String> VARIANTS = new LinkedHashMap<>();
+    private static final Map<String, List<String>> VARIANTS = new LinkedHashMap<>();
 
     static
     {
-        VARIANTS.put(REFERENCE_LABEL, null);
-        VARIANTS.put("bc1_ema", MirovaParameters.EMA_ALPHA_FROM_ACTUAL_DT.getId());
-        VARIANTS.put("bc2_leadermodel", MirovaParameters.LEADER_HEADWAY_FROM_OWN_MODEL.getId());
-        VARIANTS.put("bc4_followerdesired", MirovaParameters.FOLLOWER_DESIRED_SPEED_ESTIMATED.getId());
-        VARIANTS.put("bc5_meanspeed", MirovaParameters.MEAN_SPEED_FROM_PERCEIVED_LEADERS.getId());
-        VARIANTS.put("bc6_mergerange", MirovaParameters.MERGE_REFERENCE_RANGE_LIMITED.getId());
-        VARIANTS.put("bc8_ctxorder", MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED.getId());
+        VARIANTS.put(REFERENCE_LABEL, List.of());
+        VARIANTS.put("bc1_ema", List.of(MirovaParameters.EMA_ALPHA_FROM_ACTUAL_DT.getId()));
+        VARIANTS.put("bc2_leadermodel", List.of(MirovaParameters.LEADER_HEADWAY_FROM_OWN_MODEL.getId()));
+        VARIANTS.put("bc4_followerdesired", List.of(MirovaParameters.FOLLOWER_DESIRED_SPEED_ESTIMATED.getId()));
+        VARIANTS.put("bc5_meanspeed", List.of(MirovaParameters.MEAN_SPEED_FROM_PERCEIVED_LEADERS.getId()));
+        VARIANTS.put("bc6_mergerange", List.of(MirovaParameters.MERGE_REFERENCE_RANGE_LIMITED.getId()));
+        VARIANTS.put("bc8_ctxorder", List.of(MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED.getId()));
+        VARIANTS.put(CORE_SET_LABEL,
+                List.of(MirovaParameters.EMA_ALPHA_FROM_ACTUAL_DT.getId(),
+                        MirovaParameters.LEADER_HEADWAY_FROM_OWN_MODEL.getId(),
+                        MirovaParameters.FOLLOWER_DESIRED_SPEED_ESTIMATED.getId(),
+                        MirovaParameters.MERGE_REFERENCE_RANGE_LIMITED.getId(),
+                        MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED.getId()));
     }
 
-    /** Parameter key recording which switch a cell had on, for {@code runParams.txt}. */
+    /** Parameter key recording which switches a cell had on, for {@code runParams.txt}. */
     public static final String KEY_SWITCH = "phase05.switch";
 
     @Override
@@ -112,7 +132,7 @@ public class Phase05ReferenceStudy implements StudyDefinition
     @Override
     public String getDescription()
     {
-        return "Phase 0.5 golden reference plus one variant per behaviour switch: " + VARIANTS.size()
+        return "Phase 0.5 golden reference, one variant per behaviour switch, and the core set: " + VARIANTS.size()
                 + " variations per date, on the production parameter set.";
     }
 
@@ -159,19 +179,19 @@ public class Phase05ReferenceStudy implements StudyDefinition
             String demandCsvPath = demandPerDate.get(date).getAbsolutePath();
             for (String label : wanted)
             {
-                String switchId = VARIANTS.get(label);
+                List<String> switchIds = VARIANTS.get(label);
                 String scenarioName = facility.scenarioName(date, label);
                 manager.addScenario(scenarioName, facility.getGeneratorClass());
 
                 ScenarioParameters params = FreiburgCongestedBranchStudy.forCell(facility, date, demandCsvPath, strict,
                         FreiburgProductionStudy.B, FreiburgProductionStudy.S0_CAR, FreiburgProductionStudy.A_CAR);
-                if (switchId != null)
+                for (String switchId : switchIds)
                 {
-                    // Both vehicle types, so a variant is one change and not two.
+                    // Both vehicle types, so a switch is one change and not two.
                     params.set("car." + switchId, Boolean.TRUE);
                     params.set("truck." + switchId, Boolean.TRUE);
                 }
-                params.set(KEY_SWITCH, switchId == null ? "none" : switchId);
+                params.set(KEY_SWITCH, switchIds.isEmpty() ? "none" : String.join("+", switchIds));
                 manager.addParameterVariation(scenarioName, params);
             }
         }
