@@ -38,6 +38,14 @@ import org.opentrafficsim.road.network.lane.Lane;
 
 /**
  * Anticipates a downstream lane drop and proactively adapts ego speed to avoid abrupt deceleration.
+ * </p>
+ * <p>
+ * <b>MIROVA-DISABLED.</b> Not registered by {@code MirovaTacticalPlannerFactory}, and therefore not part of
+ * contract v1 of the decoupled core. It is kept because its activation has a documented re-enabling
+ * condition: the check must establish that a lane actually drops -- the ego's own lane continuing past the
+ * point where the adjacent one ends -- and the running state must re-check it, since PatternSelector only
+ * calls checkContext() while a pattern is not running. Until then it is dead weight that compiles.
+ * <p>
  * <p>
  * This pattern activates when a lane-end on an adjacent lane is detected within the cooperation horizon: 30 s time-to-end at
  * free-flow speeds, or 250 m distance at slow speeds. It samples the average speed on the merging target lane far downstream
@@ -117,7 +125,7 @@ public class AnticipateDownstreamMergePattern extends ManeuverPattern implements
      * <p>
      * Checks both direct lane-end distances and anticipated lane drop info from the {@link InfrastructureContext}. Returns
      * {@code true} only when a lane drop is imminent — not for general adjacent congestion without a lane drop (that case is
-     * handled by {@link AnticipateAdjacentCongestionPattern}).
+     * was handled by AnticipateAdjacentCongestionPattern, now deleted).
      * </p>
      * @return {@code true} if a lane drop on an adjacent lane is within the cooperation horizon
      * @throws ParameterException if parameter retrieval fails

@@ -41,8 +41,6 @@ public final class MirovaCarFollowingUtil
     /** Leader speed below which relaxation against a new leader is not applied. */
     private static final Speed RELAXATION_MIN_LEADER_SPEED = new Speed(10.0, SpeedUnit.KM_PER_HOUR);
 
-    /** Deceleration reported when a collision is imminent or has already happened. */
-    private static final Acceleration COLLISION_DECELERATION = Acceleration.instantiateSI(-10.0);
     /**
      * Private constructor to prevent instantiation of this utility class.
      */
@@ -101,9 +99,6 @@ public final class MirovaCarFollowingUtil
             perceivedDistance = Length.instantiateSI(Math.max(perceivedDistance.si - reserve.si, 0.5));
         }
         Speed perceivedLeaderSpeed = leader.getSpeed();
-
-        // Acceleration aSafe =
-        // getKinematicEmergencyBrake(vehicle, leader.getSpeed(), leader.getDistance(), leader.getAcceleration());
 
         // 2. Check for and apply ID-based relaxation buffers
         boolean perceptionRelaxed = false;
@@ -265,63 +260,6 @@ public final class MirovaCarFollowingUtil
     }
 
     /**
-     * Calculates a strictly kinematic emergency deceleration if the gap is closing too fast.
-     * <p>
-     * Forms a central safety layer in the MiRoVA Car-Following logic. This bypasses any relaxed parameters of the psychological
-     * Car-Following models to prevent crashes, especially during the relaxation phase or in case of unexpected hard braking of
-     * a leading vehicle.
-     * </p>
-     * <p>
-     * Copyright (c) 2026 Marvin Baumann / KIT. All rights reserved. <br>
-     * BSD-style license. See <a href="https://opentrafficsim.org/docs/license.html">OpenTrafficSim License</a>.
-     * </p>
-     * @author <a href="https://github.com/baumarv">Marvin Baumann</a>
-     * @param vehicle the tactical planner of the ego vehicle
-     * @param leaderSpeed Speed; the speed of the leading vehicle
-     * @param gap Length; the net distance to the leading vehicle
-     * @param leaderAcceleration Acceleration; the current acceleration of the leader (can be null if unknown)
-     * @return Acceleration; the required emergency acceleration (or POSITIVE_INFINITY if safe)
-     * @throws ParameterException
-     */
-    public static Acceleration getKinematicEmergencyBrake(final MirovaTacticalPlanner vehicle, final Speed leaderSpeed,
-            final Length gap, final Acceleration leaderAcceleration) throws ParameterException
-    {
-        Speed egoSpeed = vehicle.getContext(EgoContext.class).getEgoSpeed();
-        if (gap == null || gap.si <= 0.0)
-        {
-            return COLLISION_DECELERATION; // Crash imminent or already happened
-        }
-
-        double aSafe = Double.POSITIVE_INFINITY;
-
-        // 1. Kinematic protection: Time-To-Collision (TTC) Check
-        if (egoSpeed.si > leaderSpeed.si)
-        {
-            double closingSpeed = egoSpeed.si - leaderSpeed.si;
-            double ttc = gap.si / closingSpeed;
-
-            // If TTC drops below 2.0 seconds, enforce physical braking limit
-            if (ttc < vehicle.getParams().ttcEmergencyBrakingSi)
-            {
-                double safeGap = vehicle.getParams().s0Si; // Minimum desired gap at
-                                                                                             // standstill
-                double distanceToDecel = Math.max(0.1, gap.si - safeGap);
-
-                // Physics: a = -(dv^2) / (2 * ds)
-                aSafe = -(closingSpeed * closingSpeed) / (2.0 * distanceToDecel);
-            }
-        }
-
-        // 2. Reactive protection: Take over hard braking maneuvers from the leader
-        if (leaderAcceleration != null && leaderAcceleration.si < -3.0)
-        {
-            aSafe = Math.min(aSafe, leaderAcceleration.si);
-        }
-
-        return Acceleration.instantiateSI(aSafe);
-    }
-
-    /*
      * ========================================================================================= 2) STANDARD METHODS (No
      * Relaxation - Target is virtual or lacks an ID)
      * =========================================================================================

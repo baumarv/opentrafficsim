@@ -14,12 +14,10 @@ import org.opentrafficsim.road.gtu.lane.tactical.AbstractLaneBasedTacticalPlanne
 import org.opentrafficsim.road.gtu.lane.tactical.following.CarFollowingModel;
 import org.opentrafficsim.road.gtu.lane.tactical.following.CarFollowingModelFactory;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.CongestionIncentive;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.CruisingSpeedIncentive;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.KeepRightIncentive;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.RouteIncentive;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.ProhibitDeadEndIncentive;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.AnticipateAdjacentCongestionPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.AnticipateDownstreamMergePattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.GapOpenerPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.MandatoryLaneChangePattern;
@@ -144,7 +142,6 @@ public class MirovaTacticalPlannerFactory extends AbstractLaneBasedTacticalPlann
         planner.addKnowledgeChunk(new KeepRightIncentive(planner));
         planner.addKnowledgeChunk(new RouteIncentive(planner));
         planner.addKnowledgeChunk(new ProhibitDeadEndIncentive(planner));
-        // planner.addKnowledgeChunk(new CongestionIncentive(planner));
     }
 
     /**
@@ -179,7 +176,6 @@ public class MirovaTacticalPlannerFactory extends AbstractLaneBasedTacticalPlann
         // lane continuing past the point where the adjacent one ends - and the running state to re-check
         // that, since PatternSelector only calls checkContext() while the pattern is not running.
         // planner.addManeuverPattern(new AnticipateDownstreamMergePattern(planner));
-        // planner.addManeuverPattern(new AnticipateAdjacentCongestionPattern(planner));
     }
 
 }
