@@ -1376,6 +1376,29 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                     // This is the phase whose entire purpose is to build up merge speed, so it uses the physical
                     // capability rather than the car-following comfort acceleration; see rampAcceleration.
                     Acceleration aToTarget = rampAcceleration(this.vehicle, targetSpeed, TARGET_SPEED_APPROACH_DISTANCE);
+
+                    // Building speed is only worth it while the lane end can still be reached under control.
+                    // Without this the state accelerates at physical capability however little lane is left, and
+                    // the only thing below it is the emergency stop, which triggers at a required deceleration of
+                    // -5 m/s^2 and stops the vehicle dead. Measured on the campaign build, the vehicles that end
+                    // there are faster than the ones that merge at every position on the acceleration lane - by
+                    // 16 km/h between 75 and 100 m - and are still accelerating at +1.11 m/s^2 with 50 m to go.
+                    //
+                    // The bound is the comfortable deceleration the model is calibrated with, so the vehicle
+                    // keeps building speed exactly as long as a driver could still bring it to a stop without
+                    // braking hard, and stops adding to a problem it cannot then solve.
+                    Length distToLaneEnd = infra.getRouteDistanceToLaneEnd();
+                    if (distToLaneEnd != null)
+                    {
+                        Acceleration stopAccel = MirovaCarFollowingUtil.stop(this.vehicle,
+                                Length.max(distToLaneEnd.minus(RAMP_END_BUFFER), Length.ZERO));
+                        Acceleration comfortable =
+                                Acceleration.instantiateSI(-this.vehicle.getParams().bSi);
+                        if (stopAccel.lt(comfortable))
+                        {
+                            aToTarget = Acceleration.min(aToTarget, stopAccel);
+                        }
+                    }
                     plan = new SimpleOperationalPlan(aToTarget, this.pattern.getPatternSpecificTimestep());
 
                 }
