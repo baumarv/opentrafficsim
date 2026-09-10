@@ -22,7 +22,36 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * A typed parameter key: its identity, its default, and its documentation.
+ * Where a default value came from.
+ *
+ * Carried per key so that a number nobody has ever justified says so at the point of use. Phase 1
+ * counted them: of the keys below, twelve rest on a Freiburg-Nord calibration, nine on a published
+ * source, thirteen on an assumption, one on an OTS default nobody chose, and three could not be
+ * classified at all — among them `vGain`, which scales every discretionary desire, and `tauRelax`,
+ * which is the relaxation. See `default-parameters.md`.
+ *
+ * The tag describes **the default this key carries**, not the value a given run uses. If the defaults
+ * are changed to the production set, these change with them in the same commit.
+ */
+enum class Provenance {
+    /** A published source is named for it. */
+    LITERATURE,
+
+    /** Chosen by a grid or factorial on Freiburg-Nord, with the evidence recorded. */
+    CALIBRATION,
+
+    /** A plausible value nobody has tested or sourced. */
+    ASSUMPTION,
+
+    /** Never set by anything; whatever OpenTrafficSim ships. */
+    OTS_DEFAULT,
+
+    /** Its origin could not be established from the code, and was not guessed. */
+    UNKNOWN,
+}
+
+/**
+ * A typed parameter key: its identity, its default, its provenance, and its documentation.
  *
  * Keys are declared once in [DriverParameterKeys] and compared by identity, so a key the core does
  * not know cannot be set. That is deliberate: the Java model let any scenario write any string-keyed
@@ -33,11 +62,13 @@ import kotlin.time.Duration.Companion.seconds
  * @param T the value type
  * @property id stable textual identifier, for configuration files and diagnostics
  * @property default the value used when nothing else supplies one
+ * @property provenance where that default came from
  * @property description what the parameter means, in one sentence
  */
 class ParameterKey<T : Any> internal constructor(
     val id: String,
     val default: T,
+    val provenance: Provenance,
     val description: String,
 ) {
     /**
@@ -159,33 +190,33 @@ object DriverParameterKeys {
     /** Desired time headway in free flow. */
     @JvmField
     val DESIRED_HEADWAY: ParameterKey<Duration> =
-        ParameterKey("T", 1.2.seconds, "Desired time headway in free flow")
+        ParameterKey("T", 1.2.seconds, Provenance.OTS_DEFAULT, "Desired time headway in free flow")
 
     /** Minimum bumper-to-bumper gap at standstill. */
     @JvmField
     val STANDSTILL_GAP: ParameterKey<Distance> =
-        ParameterKey("s0", 3.0.meters, "Minimum bumper-to-bumper gap at standstill")
+        ParameterKey("s0", 3.0.meters, Provenance.OTS_DEFAULT, "Minimum bumper-to-bumper gap at standstill")
 
     /** Desired acceleration in free flow. */
     @JvmField
     val DESIRED_ACCELERATION: ParameterKey<Acceleration> =
-        ParameterKey("a", 1.25.metersPerSecondSquared, "Desired acceleration in free flow")
+        ParameterKey("a", 1.25.metersPerSecondSquared, Provenance.OTS_DEFAULT, "Desired acceleration in free flow")
 
     /** Comfortable deceleration, used for planned stops such as the end of a ramp. */
     @JvmField
     val COMFORTABLE_DECELERATION: ParameterKey<Acceleration> =
-        ParameterKey("b", (-2.09).metersPerSecondSquared, "Comfortable deceleration")
+        ParameterKey("b", (-2.09).metersPerSecondSquared, Provenance.OTS_DEFAULT, "Comfortable deceleration")
 
     /** Deceleration the driver treats as the limit of ordinary braking. */
     @JvmField
     val CRITICAL_DECELERATION: ParameterKey<Acceleration> =
-        ParameterKey("bCrit", (-3.5).metersPerSecondSquared, "Critical deceleration")
+        ParameterKey("bCrit", (-3.5).metersPerSecondSquared, Provenance.ASSUMPTION, "Critical deceleration")
 
     /** Strongest deceleration the driver will ever apply, whatever the situation. */
     @JvmField
     val MAX_DECELERATION: ParameterKey<Acceleration> =
         ParameterKey("bMax", (-6.0).metersPerSecondSquared,
-            "Strongest deceleration the driver will apply")
+            Provenance.ASSUMPTION, "Strongest deceleration the driver will apply")
 
     /**
      * Strongest acceleration the driver will demand of the vehicle at standstill.
@@ -197,12 +228,12 @@ object DriverParameterKeys {
     @JvmField
     val MAX_ACCELERATION: ParameterKey<Acceleration> =
         ParameterKey("aMax", 3.5.metersPerSecondSquared,
-            "Strongest acceleration the driver will demand")
+            Provenance.LITERATURE, "Strongest acceleration the driver will demand")
 
     /** How many leaders longitudinal control evaluates; the most constraining one wins. */
     @JvmField
     val CAR_FOLLOWING_LEADERS: ParameterKey<Int> =
-        ParameterKey("cfMaxLeaders", 2, "Number of leaders longitudinal control evaluates")
+        ParameterKey("cfMaxLeaders", 2, Provenance.ASSUMPTION, "Number of leaders longitudinal control evaluates")
 
     // -----------------------------------------------------------------------------------------
     // Desired speed
@@ -215,12 +246,12 @@ object DriverParameterKeys {
      */
     @JvmField
     val SPEED_FACTOR: ParameterKey<Double> =
-        ParameterKey("fSpeed", 1.0, "Desired speed as a factor of the legal limit")
+        ParameterKey("fSpeed", 1.0, Provenance.OTS_DEFAULT, "Desired speed as a factor of the legal limit")
 
     /** Speed below which this driver considers traffic congested. */
     @JvmField
     val CONGESTED_SPEED: ParameterKey<Speed> =
-        ParameterKey("vCong", 60.0.kmh, "Speed below which traffic counts as congested")
+        ParameterKey("vCong", 60.0.kmh, Provenance.LITERATURE, "Speed below which traffic counts as congested")
 
     // -----------------------------------------------------------------------------------------
     // Desire thresholds (layer 2 into layer 3)
@@ -229,17 +260,17 @@ object DriverParameterKeys {
     /** Desire above which a voluntary lane change is considered at all. */
     @JvmField
     val DESIRE_FREE: ParameterKey<Double> =
-        ParameterKey("dFree", 0.365, "Desire threshold for a voluntary lane change")
+        ParameterKey("dFree", 0.365, Provenance.LITERATURE, "Desire threshold for a voluntary lane change")
 
     /** Desire above which a lane change counts as mandatory and gap acceptance relaxes. */
     @JvmField
     val DESIRE_MANDATORY: ParameterKey<Double> =
-        ParameterKey("dMand", 0.577, "Desire threshold above which a lane change is mandatory")
+        ParameterKey("dMand", 0.577, Provenance.LITERATURE, "Desire threshold above which a lane change is mandatory")
 
     /** Time horizon over which a required route lane change becomes urgent. */
     @JvmField
     val ROUTE_TIME_HORIZON: ParameterKey<Duration> =
-        ParameterKey("t0", 43.seconds, "Time horizon for route-following urgency")
+        ParameterKey("t0", 43.seconds, Provenance.OTS_DEFAULT, "Time horizon for route-following urgency")
 
     // -----------------------------------------------------------------------------------------
     // Social interaction
@@ -248,38 +279,41 @@ object DriverParameterKeys {
     /** Speed-difference scale in the cruising and social pressure desire terms. */
     @JvmField
     val SPEED_GAIN: ParameterKey<Speed> =
-        ParameterKey("vGain", 69.6.kmh, "Speed-difference scale for lane-change desire")
+        ParameterKey("vGain", 69.6.kmh, Provenance.OTS_DEFAULT, "Speed-difference scale for lane-change desire")
 
     /** How strongly this driver yields to a faster follower. */
     @JvmField
     val SOCIO_SPEED_SENSITIVITY: ParameterKey<Double> =
-        ParameterKey("socio", 0.25, "Sensitivity to pressure from a faster follower")
+        ParameterKey("socio", 0.25, Provenance.UNKNOWN, "Sensitivity to pressure from a faster follower")
 
     /** Whether this driver opens a gap for a merging neighbour at all. */
     @JvmField
     val COOPERATION_ENABLED: ParameterKey<Boolean> =
-        ParameterKey("cooperate", true, "Whether the driver cooperates with a merging neighbour")
+        ParameterKey("cooperate", true, Provenance.ASSUMPTION, "Whether the driver cooperates with a merging neighbour")
 
     /** Deceleration this driver will accept in order to open a gap. */
     @JvmField
     val COOPERATIVE_DECELERATION: ParameterKey<Acceleration> =
-        ParameterKey("bCoop", (-3.0).metersPerSecondSquared, "Deceleration accepted to open a gap")
+        ParameterKey("bCoop", (-3.0).metersPerSecondSquared,
+            Provenance.CALIBRATION, "Deceleration accepted to open a gap")
 
     /** Deceleration applied pre-emptively, before a neighbour has indicated. */
     @JvmField
     val PREEMPTIVE_COOPERATIVE_DECELERATION: ParameterKey<Acceleration> =
-        ParameterKey("bCoopPre", (-1.0).metersPerSecondSquared, "Deceleration applied pre-emptively")
+        ParameterKey("bCoopPre", (-1.0).metersPerSecondSquared,
+            Provenance.ASSUMPTION, "Deceleration applied pre-emptively")
 
     /** How far ahead this driver notices a neighbour who may need a gap. */
     @JvmField
     val COOPERATION_RANGE: ParameterKey<Distance> =
-        ParameterKey("dCoop", 100.0.meters, "Range within which a neighbour's need for a gap is noticed")
+        ParameterKey("dCoop", 100.0.meters,
+            Provenance.LITERATURE, "Range within which a neighbour's need for a gap is noticed")
 
     /** Time headway below which being overtaken on the right counts as undercutting. */
     @JvmField
     val UNDERCUTTING_HEADWAY: ParameterKey<Duration> =
         ParameterKey("tUndercut", 5.seconds,
-            "Headway below which right-side overtaking counts as undercutting")
+            Provenance.LITERATURE, "Headway below which right-side overtaking counts as undercutting")
 
     // -----------------------------------------------------------------------------------------
     // Gap acceptance
@@ -288,31 +322,31 @@ object DriverParameterKeys {
     /** How far the required safety gap may be reduced while changing lane under pressure. */
     @JvmField
     val GAP_REDUCTION_FACTOR: ParameterKey<Double> =
-        ParameterKey("fGap", 0.5, "Reduction of the required safety gap during a lane change")
+        ParameterKey("fGap", 0.5, Provenance.ASSUMPTION, "Reduction of the required safety gap during a lane change")
 
     /** Deceleration this driver will impose on a new follower at the least urgent desire. */
     @JvmField
     val MIN_FOLLOWER_DECELERATION: ParameterKey<Acceleration> =
         ParameterKey("bFollowerMin", (-2.0).metersPerSecondSquared,
-            "Deceleration imposed on a new follower at minimum urgency")
+            Provenance.CALIBRATION, "Deceleration imposed on a new follower at minimum urgency")
 
     /** Deceleration this driver will impose on a new follower at the most urgent desire. */
     @JvmField
     val MAX_FOLLOWER_DECELERATION: ParameterKey<Acceleration> =
         ParameterKey("bFollowerMax", (-4.0).metersPerSecondSquared,
-            "Deceleration imposed on a new follower at maximum urgency")
+            Provenance.CALIBRATION, "Deceleration imposed on a new follower at maximum urgency")
 
     /** Deceleration this driver will accept for itself at the least urgent desire. */
     @JvmField
     val MIN_EGO_DECELERATION: ParameterKey<Acceleration> =
         ParameterKey("bEgoMin", (-2.0).metersPerSecondSquared,
-            "Deceleration the driver accepts at minimum urgency")
+            Provenance.ASSUMPTION, "Deceleration the driver accepts at minimum urgency")
 
     /** Deceleration this driver will accept for itself at the most urgent desire. */
     @JvmField
     val MAX_EGO_DECELERATION: ParameterKey<Acceleration> =
         ParameterKey("bEgoMax", (-4.0).metersPerSecondSquared,
-            "Deceleration the driver accepts at maximum urgency")
+            Provenance.ASSUMPTION, "Deceleration the driver accepts at maximum urgency")
 
     // -----------------------------------------------------------------------------------------
     // Relaxation (Keane and Gao)
@@ -328,33 +362,33 @@ object DriverParameterKeys {
      */
     @JvmField
     val RELAXATION_TAU: ParameterKey<Duration> =
-        ParameterKey("tauRelax", 20.seconds, "Decay time constant of the headway deficit")
+        ParameterKey("tauRelax", 20.seconds, Provenance.UNKNOWN, "Decay time constant of the headway deficit")
 
     /** Lifetime cap on one relaxation, in multiples of [RELAXATION_TAU]. */
     @JvmField
     val RELAXATION_MAX_LIFETIME_FACTOR: ParameterKey<Double> =
-        ParameterKey("relaxLifetime", 3.0, "Lifetime cap on a relaxation, in multiples of tau")
+        ParameterKey("relaxLifetime", 3.0, Provenance.ASSUMPTION, "Lifetime cap on a relaxation, in multiples of tau")
 
     /** Whether the acceleration produced while relaxed is damped. */
     @JvmField
     val RELAXATION_DAMPING_ENABLED: ParameterKey<Boolean> =
-        ParameterKey("relaxDampingOn", true, "Whether acceleration is damped while relaxed")
+        ParameterKey("relaxDampingOn", true, Provenance.ASSUMPTION, "Whether acceleration is damped while relaxed")
 
     /** Damping factor applied to the acceleration while a relaxation is active. */
     @JvmField
     val RELAXATION_DAMPING: ParameterKey<Double> =
-        ParameterKey("relaxDamping", 0.40, "Damping factor applied while relaxed")
+        ParameterKey("relaxDamping", 0.40, Provenance.ASSUMPTION, "Damping factor applied while relaxed")
 
     /** Deceleration beyond which a relaxation is abandoned as no longer credible. */
     @JvmField
     val RELAXATION_ABORT_DECELERATION: ParameterKey<Acceleration> =
         ParameterKey("relaxAbortB", (-1.0).metersPerSecondSquared,
-            "Deceleration beyond which a relaxation is abandoned")
+            Provenance.ASSUMPTION, "Deceleration beyond which a relaxation is abandoned")
 
     /** Time over which an abandoned relaxation fades out, rather than vanishing. */
     @JvmField
     val RELAXATION_FADE: ParameterKey<Duration> =
-        ParameterKey("relaxFade", 1.seconds, "Fade-out time of an abandoned relaxation")
+        ParameterKey("relaxFade", 1.seconds, Provenance.ASSUMPTION, "Fade-out time of an abandoned relaxation")
 
     // -----------------------------------------------------------------------------------------
     // Lane change execution
@@ -363,7 +397,7 @@ object DriverParameterKeys {
     /** Duration of an unhurried lane change. */
     @JvmField
     val LANE_CHANGE_DURATION: ParameterKey<Duration> =
-        ParameterKey("lcDuration", 3.seconds, "Duration of an unhurried lane change")
+        ParameterKey("lcDuration", 3.seconds, Provenance.OTS_DEFAULT, "Duration of an unhurried lane change")
 
     /**
      * Duration of a lane change made in congestion.
@@ -375,7 +409,7 @@ object DriverParameterKeys {
     @JvmField
     val CONGESTED_LANE_CHANGE_DURATION: ParameterKey<Duration> =
         ParameterKey("lcDurationCongested", 1500.milliseconds,
-            "Duration of a lane change made in congestion")
+            Provenance.ASSUMPTION, "Duration of a lane change made in congestion")
 
     // -----------------------------------------------------------------------------------------
     // Capacity drop
@@ -384,28 +418,31 @@ object DriverParameterKeys {
     /** Whether the discharge-headway capacity drop is modelled. */
     @JvmField
     val CAPACITY_DROP_ENABLED: ParameterKey<Boolean> =
-        ParameterKey("capDropOn", false, "Whether the capacity drop is modelled")
+        ParameterKey("capDropOn", false, Provenance.ASSUMPTION, "Whether the capacity drop is modelled")
 
     /** Absolute headway added while discharging from a queue. */
     @JvmField
     val DISCHARGE_HEADWAY_ADDON: ParameterKey<Duration> =
-        ParameterKey("tDischargeAddon", 500.milliseconds, "Absolute headway added while discharging")
+        ParameterKey("tDischargeAddon", 500.milliseconds,
+            Provenance.ASSUMPTION, "Absolute headway added while discharging")
 
     /** Speed below which discharge behaviour applies. */
     @JvmField
     val DISCHARGE_CRITICAL_SPEED: ParameterKey<Speed> =
         ParameterKey("vCritDischarge", 40.0.kmh,
-            "Speed below which discharge behaviour applies")
+            Provenance.ASSUMPTION, "Speed below which discharge behaviour applies")
 
     /** Headway addition as a fraction of the desired headway, as an alternative to the absolute form. */
     @JvmField
     val DISCHARGE_HEADWAY_FRACTION: ParameterKey<Double> =
-        ParameterKey("tDischargeFraction", 0.0, "Headway addition as a fraction of the desired headway")
+        ParameterKey("tDischargeFraction", 0.0,
+            Provenance.ASSUMPTION, "Headway addition as a fraction of the desired headway")
 
     /** Speed threshold for the fractional form of the discharge addition. */
     @JvmField
     val DISCHARGE_CRITICAL_SPEED_FRACTION: ParameterKey<Double> =
-        ParameterKey("vCritDischargeFraction", 0.0, "Speed threshold for the fractional discharge addition")
+        ParameterKey("vCritDischargeFraction", 0.0,
+            Provenance.ASSUMPTION, "Speed threshold for the fractional discharge addition")
 
     /** Every key above, for configuration loaders and diagnostics to iterate. */
     @JvmField

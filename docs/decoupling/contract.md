@@ -4,9 +4,11 @@ What a host simulator must provide, and what it gets back. Drafted from the Phas
 decisions taken in Phase 0.5; the Kotlin drafts in [`contract/`](contract/) are the normative form,
 this document is the reasoning behind them.
 
-**Status: revised after the first review. Nothing here has been compiled** — kit-ifv/kotlin-units is
-not in this workspace, so the drafts are checked by eye only. No code has been migrated and no module
-has been created.
+**Status: revised after the first review. Nothing here has been compiled**, but the unit literals are
+now checked against the real library: kotlin-units is vendored in the standalone repository
+(`tactical-maneuver-architecture/third-party/kotlin-units`), and `.meters`, `.metersPerSecondSquared`
+and `.kmh` are its extensions, with `unaryMinus` defined on both `Distance` and `Acceleration`. No code
+has been migrated and no module has been created here.
 
 **Naming.** `mirova-core` and the package `edu.kit.ifv.mirova.api` are placeholders. The standalone
 library's name is not yet decided and nothing is renamed until it is.
@@ -48,12 +50,15 @@ all switches off.
 | BC-6 — merge reference range limited to perception | **yes** | §1: `expectedMergeSpeed` is bounded by what the driver can see. |
 | BC-7 — extended look-ahead | **n/a** | The mechanism was deleted in Phase 0.5 after it was measured to be inert. |
 | BC-8 — contexts updated in dependency order | **yes** | §4: the core fixes the order `Ego → Neighbors → Infrastructure → MacroTraffic`. The Java model inherited a `HashMap` iteration order, which is deterministic in practice but accidental, and a core whose belief layer depends on an accident is not a library. |
+| BC-9 — θ interpolated between `dMand` and `dSearch` | **undecided** | Q9. The core implements one or the other: either θ tapers as the model describes, or it steps at `dMand` as the code does. Adopting it adds `dSearch` to the key list as a 39th key — that the contract has no place for it today is itself the evidence that the step function is what the core would otherwise inherit. |
 
 **Consequences, each of which has to be acted on and not just noted.**
 
 1. **The equivalence reference for migration is an OTS run with exactly this set enabled**, not the
-   Phase 0.5 reference run. That variant is registered in `Phase05ReferenceStudy` as `coreset` and
-   runs in the pending campaign alongside the per-switch variants.
+   Phase 0.5 reference run. Two candidates are registered in `Phase05ReferenceStudy`, `coreset` and
+   `coreset-interp` (the same plus BC-9), and both run in the pending campaign alongside the
+   per-switch variants. **Which of the two is the core reference is decided on that campaign** —
+   which is why both are run.
 2. **Migration order.** Stages 0–2 — relaxation, parameters, IDM+ — are unaffected and can start
    whenever. The Desire and Intention layers, and the parts of Belief that BC-2, BC-4 and BC-8 touch,
    **cannot be migrated before the campaign has been evaluated**, because until then the target
@@ -337,9 +342,17 @@ mental module reads them), `FAR_ANTICIPATION_ENABLED` on a pattern that is not r
 | the eight parameters deleted in Phase 0.5 | Read nowhere — but see Q9: one of them, `DSEARCH`, turns out to have been orphaned by a bug rather than vestigial. |
 
 **The defaults are currently OTS's, and that is probably wrong.** `T = 1.2 s`, `a = 1.25 m/s²`,
-`vGain = 69.6 km/h` are what OTS ships, not what the paper calibrated (0.9 s, 1.2 m/s², 15 km/h) and
-not what the Freiburg studies run (1.10 s, 1.4 m/s², set per study). A standalone library whose
-defaults come from a simulator it no longer depends on is an accident waiting to be inherited. See Q8.
+`vGain = 69.6 km/h` are what OTS ships, not what the campaign ran (1.10 s, 1.4 m/s², 15 km/h). A
+standalone library whose defaults come from a simulator it no longer depends on is an accident waiting
+to be inherited. The production set is prepared as candidate defaults — resolved through all four
+override layers, with a provenance per key — in [`default-parameters.md`](default-parameters.md).
+**Q8, for decision.**
+
+**Every key carries its provenance in the code.** `ParameterKey` has a `provenance` field —
+`LITERATURE`, `CALIBRATION`, `ASSUMPTION`, `OTS_DEFAULT`, `UNKNOWN` — so that a number nobody has ever
+justified says so where it is read. The count today: twelve calibrated, nine sourced, thirteen assumed,
+one an OTS default nobody chose, and **three that could not be classified at all** — `vGain`, which
+scales every discretionary desire, `socio`, and `tauRelax`, which *is* the relaxation.
 
 **Distributions: shapes in the core, calibration in the host, entropy in the host.** The spread of the
 desired-speed factor across a population is driver heterogeneity and travels with the driver to any
@@ -456,7 +469,8 @@ Today's runs are single-threaded per JVM, so this is a promise about what the co
 distance is a named sentinel, `Distance.ABSENT`, resolved once in the Belief layer, so the hot path
 neither allocates nor unwraps. kotlin-units backs `Distance` with Long micrometres and has no infinity;
 the sentinel is a large value with headroom, with **no saturating arithmetic and no change to
-kit-ifv/kotlin-units** (decision A.4). **Arithmetic on the sentinel is guarded by an assertion, active
+kit-ifv/kotlin-units** (decision A.4). The library's own `Distance.MAX` is `Long.MAX_VALUE` and
+therefore has *no* headroom, so `ABSENT` must be a distinct, smaller sentinel rather than `MAX`. **Arithmetic on the sentinel is guarded by an assertion, active
 under `-ea` in tests and CI and free in a release build** (review decision, Q2). That is what
 `POSITIVE_INFINITY` never gave us: a wrong answer that announces itself.
 
@@ -498,25 +512,28 @@ migration must never be mixed, or a deviation in the equivalence tests cannot be
 | Q1 | `meanSpeed`: keep or drop? | Follows BC-5. Recorded in §0 and §1. |
 | Q2 | How much to defend `Distance.ABSENT`? | **Assertion**, active under `-ea` in tests and CI. §10. |
 | Q3 | The `_Modified` truck distributions | **Still open — Marvin decides.** |
+| Q8, Q9 | Defaults, and the θ interpolation | Prepared and implemented respectively; both **open for decision** — see §0 and below. |
 | Q4 | May `routeRequirement` answer `Unknown`? | **No.** Mandatory for every host; a host without routes answers `Absent`. §1. |
 | Q5 | What if the host calls back late? | A separate `EvaluationLate` event, not `LimitReached`. §5, §9. |
 | Q6 | `mirova_model_reference.md` | **Resolved** — supplied 2026-09-10, now in `docs/decoupling/`. Inventory §C.6 corrected against it. |
 | Q7 | `Side` beside `RelativeLane` | Two types confirmed; rationale in `CoreTypes.kt`, to become an ADR in the new repository. |
 
-**Q8 — should the core's defaults be the paper's calibration rather than OTS's?**
-`DriverParameterKeys` currently carries the OTS defaults, which are neither the published calibration
-nor anything the group has validated (§7, and the table in the check report). I lean towards the
-paper's values, so that a host that sets nothing gets a model someone has stood behind — but it
-changes what "default" means for every downstream study, so it is yours to decide.
+**Q8 — should the core's defaults be the production set rather than OTS's?**
+Prepared for decision in [`default-parameters.md`](default-parameters.md): every key with the value the
+published campaign actually ran, resolved through all four override layers, and tagged. Three things go
+with the decision — the sign convention for decelerations, the fact that one default set can only be
+the car set or the truck set, and that adopting it is a `major` step by §11 and belongs before v1 is
+tagged.
 
-**Q9 — the θ interpolation is a step function, and `DSEARCH` is why.**
-Found while checking the model reference against the code:
+**Q9 — the θ interpolation is a step function, and `DSEARCH` is why. Now an open core-reference
+decision; see §0.**
 `MirovaTacticalPlanner:398-402` passes `dFree` (0.365) where the LMRS weighting wants `d_search`
 (0.788). Since that is below `dSync` (0.577), the interpolation branch is unreachable and θ_v steps
 from 1.0 to 0.0 at `d_mand` instead of tapering. `DSEARCH` was deleted in Phase 0.5 as unread — it was
-unread *because of this bug*. **A switch `bcDesireInterpolation` would settle it, and it has to be
-decided before the campaign starts**, or evaluating it costs a second campaign. Full detail in
-[`bc4-and-reference-check.md`](bc4-and-reference-check.md) §2.1.
+unread *because of this bug*. `bcDesireInterpolation` is now implemented, default off, `DSEARCH` is
+restored, and the campaign runs `bc9_interp` and `coreset-interp`. **The core implements one of the two
+behaviours, so until this is decided, so is the core reference.** Adopting it makes `dSearch` the 39th
+key. Full detail in [`bc4-and-reference-check.md`](bc4-and-reference-check.md) §2.1.
 
 **Q10 — `Sequence` or an index-based accessor at the port boundary?**
 Open until a JMH benchmark of the tick path exists (§2).
