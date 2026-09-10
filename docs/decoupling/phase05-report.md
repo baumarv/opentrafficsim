@@ -8,6 +8,9 @@ measurement. Branch `decoupling_phase05`, thirteen commits, each labelled `[no b
 **Nothing in this branch changes what the model does at default settings.** Every behaviour change
 sits behind a parameter whose default reproduces the model the published results were produced with.
 
+**The instrumentation campaign has run** -- 15 runs, three calibration dates, five replications each,
+all successful. Its results are in §2.5, and they settle three of the open questions.
+
 ---
 
 ## 1. What was done, by step
@@ -56,6 +59,45 @@ for **E.5**: if the term never binds on Freiburg-Nord, query 12 of the contract 
 speed-limit *prospect* to a list of limits with distances, and curvature and bumps leave the contract.
 
 **4. A fourth counter, added on discovery** — see §4.1.
+
+### 2.5 What the campaign measured
+
+15 runs on 2025-10-27, 2025-09-22 and 2025-10-07, five replications each, all completed.
+
+| Counter | Result |
+|---|---|
+| `lookahead,calls` | 136 504 913 |
+| `lookahead,leaked` | **0** (0.0000 %) |
+| `lookahead,cacheWarm` | **136 504 913** (**100.0000 %**) |
+| `speedLimitTransition,evaluations` | 141 337 948 |
+| `speedLimitTransition,finite` | **0** (0.0000 %) |
+| `speedLimitTransition,binding` | **0** |
+| `swallowed`, over all 56 sites | **0 sites fired** |
+
+**The extended look-ahead has never had any effect.** Not "probably", as §4.1 argued from reading the
+code: every one of 136.5 million calls was answered from a memo computed under the normal 295 m.
+The 1000 m in `extendedLookAheadDistance` has never entered a decision. **BC-7 now needs a
+decision**, and option (c) — deleting the mechanism — is the truthful default, since it would make
+the code say what it has always done.
+
+**The look-ahead leak never fired.** Zero escapes in 136.5 million calls, so the `finally` guard
+changed nothing about any published result. It is insurance, not a correction.
+
+**The speed-limit transition term never produced even a finite candidate**, which settles E.5 — and
+a source check turns that from a property of this facility into a property of OTS: the term reacts
+only to `SpeedLimitTypes.CURVATURE` and `SPEED_BUMP`, and **nothing in the OTS source tree ever
+populates either**. Every `addSpeedInfo` call site uses `MAX_VEHICLE_SPEED` and `FIXED_SIGN` alone,
+so the loop runs zero iterations on any network the standard parser builds. Query 12 therefore loses
+the prospect and becomes a list of legal limits with distances; curvature and speed bumps leave the
+contract; and the call in `LongitudinalControl` is provably inert.
+
+**None of the 56 swallowed-exception sites fired.** They are unreachable defensive code, not failure
+paths the model runs on. The migration to Kotlin needs no per-site decision for them — which removes
+the concern §C.7 of the inventory raised. (The mechanism demonstrably works: the other two counters
+returned nine-figure numbers from the same instrumentation.)
+
+The remaining runs could not have changed any of this: exact zeros and an exact 100.0000 % over
+nine-figure call counts are not a small sample.
 
 ---
 
@@ -348,7 +390,14 @@ against decision 1.
 `Phase05ReferenceStudy`, registered as **`phase05`**, on the production parameter set so the reference
 is comparable with the published ensemble rather than being a new baseline.
 
-**The instrumentation run (step 1)** — one calibration day, counters on:
+**The instrumentation run (step 1)** — *executed; see §2.5 for the results.* Run locally on twelve
+cores with `cluster/run_local_parallel.sh`, which wraps the documented single-run entry point:
+
+```
+cluster/run_local_parallel.sh --study=phase05 --output=out/phase05-instr --slots=12 --diag --     --variants=reference --dates=2025-10-27,2025-09-22,2025-10-07     --demand=cluster/demand --replications=5 --strict=true
+```
+
+The underlying per-run invocation is:
 
 ```
 java -Dmirova.defectDiag=true -Dmirova.defectDiagFile=<out>/defects.csv \
@@ -360,10 +409,10 @@ java -Dmirova.defectDiag=true -Dmirova.defectDiagFile=<out>/defects.csv \
 Five replications is enough for counts that are either zero or large; nothing here needs a confidence
 interval. What to read from `defects.csv`:
 
-- `lookahead,leaked` — if 0, the try/finally changed nothing and every published result is unaffected by that defect.
-- `lookahead,cacheWarm` / `lookahead,calls` — **the decisive number.** At 100 %, the 1000 m anticipation has never taken effect and §4.1 needs a decision.
-- `speedLimitTransition,binding` and `material` — if both 0, **E.5 is settled**: curvature and bumps leave the contract and query 12 becomes a list of limits with distances.
-- `swallowed,*` — any site with a large count is a failure path the model has been running on routinely, and needs a decision before it becomes a Kotlin `?:`.
+- `lookahead,leaked` — **0.** The try/finally changed nothing; no published result is affected.
+- `lookahead,cacheWarm` / `lookahead,calls` — **100.0000 %.** The 1000 m anticipation has never taken effect; §4.1 needs a decision.
+- `speedLimitTransition,binding` and `material` — **both 0**, and structurally impossible. E.5 settled.
+- `swallowed,*` — **no site fired.** All 56 are unreachable defensive code.
 
 **The golden reference run (step 6)** — all dates, production replications:
 
@@ -438,7 +487,9 @@ saturating operators make "absent propagates" a property of the type rather than
 
 ## 9. Open questions
 
-1. **§4.1, BC-7** — options (a), (b) or (c) for the extended look-ahead, after the instrumentation run.
+1. **§4.1, BC-7** — options (a), (b) or (c) for the extended look-ahead. **The measurement is in:
+   100.0000 % of calls were answered from a stale memo**, so the mechanism has never worked. This is
+   now purely a decision about what the code should say.
 2. **§6, BC-4** — which estimator for the follower's desired speed, or the host-answers alternative.
 3. **§6, BC-6 / E.1** — the switch bounds the path projection to `LOOKAHEAD`, so a distant merge lane
    is not consulted at all. Confirm 295 m is the visibility range you want, or name another.
@@ -458,4 +509,5 @@ saturating operators make "absent propagates" a property of the type rather than
 
 ---
 
-*Phase 0.5 complete. Awaiting the instrumentation run, the BC defaults, and review before Phase 1.*
+*Phase 0.5 complete, instrumentation run included. Awaiting the BC defaults, the decisions in §9,
+and review before Phase 1.*
