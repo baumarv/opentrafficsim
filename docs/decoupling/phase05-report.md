@@ -387,6 +387,17 @@ against decision 1.
 
 ## 7. Step 6 — run configurations
 
+> **Added in Phase 1.** The study now carries an eighth variant, `coreset`, which turns on BC-1, BC-2,
+> BC-4, BC-6 and BC-8 **together**. That combination is not a curiosity: it is what the decoupled core
+> reproduces by construction, because BC-2 and BC-4 remove fields no driver can observe, BC-6 bounds
+> the merge scan to visible traffic, BC-1 puts every time constant on elapsed time and BC-8 fixes the
+> update order. BC-5 is left out while Q1 is open. **`reference` is the run the publications rest on;
+> `coreset` is the run the migration is measured against, and the two are not the same model.** See
+> [`contract.md`](contract.md) §0. Registration counts, verified against the built classes: 3840 runs
+> for all eight variants over sixteen dates at thirty replications, 960 for
+> `--variants=reference,coreset`.
+
+
 `Phase05ReferenceStudy`, registered as **`phase05`**, on the production parameter set so the reference
 is comparable with the published ensemble rather than being a new baseline.
 
