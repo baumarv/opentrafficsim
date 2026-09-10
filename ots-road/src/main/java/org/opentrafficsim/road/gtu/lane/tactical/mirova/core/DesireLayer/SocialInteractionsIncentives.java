@@ -12,6 +12,7 @@ import org.opentrafficsim.road.gtu.lane.perception.RelativeLane;
 import org.opentrafficsim.road.gtu.lane.perception.headway.HeadwayGtu;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoContext;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.NeighborsContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.DefectDiagnostics;
 
 /**
@@ -161,7 +162,12 @@ public class SocialInteractionsIncentives extends DesireIncentive
         Speed vLeader = egoContext.getEgoSpeed();
 
         HeadwayGtu follower = getNeighborsPerception().getFollowers(lane).first();
-        Speed followerDesiredSpeed = follower.getDesiredSpeed();
+        // BC-4. The default reads the follower's own desired speed, which is not observable and which the
+        // decoupled contract cannot offer. Under the switch it is estimated from what this driver has seen.
+        NeighborsContext neighbors = getMirovaTacticalPlanner().getContext(NeighborsContext.class);
+        Speed followerDesiredSpeed =
+                getMirovaTacticalPlanner().getParams().bcFollowerDesiredSpeedEstimated
+                        ? neighbors.estimatedFollowerDesiredSpeed(follower) : follower.getDesiredSpeed();
         Length headway = follower.getDistance();
         // The ego's own look-ahead, as egoSocialPressure already uses for the same argument. Reading the follower's
         // was a look into another driver's parameter set, which the decoupled core cannot offer and a driver does

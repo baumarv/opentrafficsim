@@ -2,6 +2,8 @@ package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer;
 
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.LinkedHashMap;
 
 import org.djunits.unit.SpeedUnit;
 import org.djunits.value.vdouble.scalar.Acceleration;
@@ -184,6 +186,174 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
 
     /** The speed of the leader in the current lane from the previous simulation tick. */
     private Speed lastLeaderSpeed = null;
+
+    // =========================================================================================
+    // BC-4: ESTIMATING A FOLLOWER'S DESIRED SPEED FROM OBSERVATION
+    // =========================================================================================
+
+    /**
+     * Speed last observed while a follower was unobstructed, by follower id, with the tick it was seen.
+     * <p>
+     * The social pressure term is defined on the follower's desired speed, which a driver cannot read. It can be
+     * observed, though: a vehicle that nothing is holding up travels at the speed it wants. This remembers that
+     * observation for as long as the follower stays in perception.
+     * </p>
+     */
+    private final Map<String, double[]> unobstructedSpeed = new LinkedHashMap<>();
+
+    /** Summed speed factors -- observed unobstructed speed over the legal limit -- that this driver has seen. */
+    private double observedFactorSum = 0.0;
+
+    /** Number of observations behind {@link #observedFactorSum}. */
+    private int observedFactorCount = 0;
+
+    /**
+     * Deceleration above which a follower still counts as unobstructed [m/s^2]. Requiring exactly zero would make
+     * the test fail on noise; a tenth of a metre per second squared is below what a driver would register.
+     */
+    private static final double UNOBSTRUCTED_MAX_DECELERATION = -0.1;
+
+    /** Ticks after which an observation is discarded, about 10 s at the configured step. */
+    private static final long UNOBSTRUCTED_EXPIRY_TICKS = 50;
+
+    /** Hard bound on the cache, so a long-lived vehicle cannot accumulate entries without limit. */
+    private static final int UNOBSTRUCTED_MAX_ENTRIES = 16;
+
+    /**
+     * Returns the current tick, or -1 when the context manager is not available.
+     * @return long; the current tick
+     */
+    private long currentTick()
+    {
+        return this.vehicle == null || this.vehicle.getContextManager() == null ? -1L
+                : this.vehicle.getContextManager().getCurrentTick();
+    }
+
+    /**
+     * Records the current-lane follower when it is demonstrably not being held up by the ego.
+     * <p>
+     * Only the follower on the ego's own lane can be judged, because only there is the ego its leader; on an
+     * adjacent lane the gap to the ego says nothing about what constrains it. The criterion uses observable
+     * quantities throughout: the net gap exceeds the spacing the follower would want at its own speed -- estimated
+     * with the ego's {@code s0} and {@code T}, since the follower's are not observable -- and the follower is not
+     * braking.
+     * </p>
+     */
+    private void observeUnobstructedFollower()
+    {
+        HeadwayGtu follower = getCurrentFollower();
+        if (follower == null || follower.getId() == null || follower.getDistance() == null)
+        {
+            return;
+        }
+        double followerSpeedSi = follower.getSpeed().si;
+        double desiredSpacingSi;
+        try
+        {
+            desiredSpacingSi = this.vehicle.getParams().s0Si
+                    + followerSpeedSi * this.vehicle.getParameters().getParameter(ParameterTypes.T).si;
+        }
+        catch (ParameterException exception)
+        {
+            return;
+        }
+        if (follower.getDistance().si <= desiredSpacingSi
+                || follower.getAcceleration().si < UNOBSTRUCTED_MAX_DECELERATION)
+        {
+            return;
+        }
+
+        long tick = currentTick();
+        double[] entry = this.unobstructedSpeed.get(follower.getId());
+        if (entry == null)
+        {
+            if (this.unobstructedSpeed.size() >= UNOBSTRUCTED_MAX_ENTRIES)
+            {
+                expireUnobstructedObservations(tick, true);
+            }
+            this.unobstructedSpeed.put(follower.getId(), new double[] {followerSpeedSi, tick});
+        }
+        else
+        {
+            entry[0] = followerSpeedSi;
+            entry[1] = tick;
+        }
+
+        // The same observation feeds this driver's notion of what road users in general want, which is all it has
+        // for a follower it has never seen running free.
+        Speed limit = this.vehicle.getContext(InfrastructureContext.class).getLegalSpeedLimit();
+        if (limit != null && limit.si > 0.0 && !Double.isInfinite(limit.si))
+        {
+            this.observedFactorSum += followerSpeedSi / limit.si;
+            this.observedFactorCount++;
+        }
+    }
+
+    /**
+     * Drops observations whose follower has not been seen for a while.
+     * @param tick long; the current tick
+     * @param force boolean; when true, also drop the oldest entry, to respect the size bound
+     */
+    private void expireUnobstructedObservations(final long tick, final boolean force)
+    {
+        if (this.unobstructedSpeed.isEmpty())
+        {
+            return;
+        }
+        Iterator<Map.Entry<String, double[]>> iterator = this.unobstructedSpeed.entrySet().iterator();
+        String oldestKey = null;
+        double oldestTick = Double.MAX_VALUE;
+        while (iterator.hasNext())
+        {
+            Map.Entry<String, double[]> entry = iterator.next();
+            double seen = entry.getValue()[1];
+            if (tick - seen > UNOBSTRUCTED_EXPIRY_TICKS)
+            {
+                iterator.remove();
+            }
+            else if (seen < oldestTick)
+            {
+                oldestTick = seen;
+                oldestKey = entry.getKey();
+            }
+        }
+        if (force && this.unobstructedSpeed.size() >= UNOBSTRUCTED_MAX_ENTRIES && oldestKey != null)
+        {
+            this.unobstructedSpeed.remove(oldestKey);
+        }
+    }
+
+    /**
+     * Returns what this driver takes the given follower's desired speed to be, from observation alone.
+     * <p>
+     * In order: the speed the follower was last seen holding while unobstructed; failing that, the legal limit
+     * scaled by the mean factor this driver has observed unobstructed vehicles keeping; failing that, the limit
+     * itself. The answer is never below the follower's current speed, which is a lower bound on what it wants.
+     * </p>
+     * <p>
+     * The fallback is deliberately a population value rather than the ego's own preference. Substituting the ego's
+     * desired speed would make a slow truck conclude that the car behind it wants no more than the truck does, and
+     * the social pressure would vanish in exactly the situation the term exists for.
+     * </p>
+     * @param follower HeadwayGtu; the follower
+     * @return Speed; the estimated desired speed
+     */
+    public Speed estimatedFollowerDesiredSpeed(final HeadwayGtu follower)
+    {
+        double currentSi = follower.getSpeed().si;
+        double[] entry = follower.getId() == null ? null : this.unobstructedSpeed.get(follower.getId());
+        if (entry != null)
+        {
+            return Speed.instantiateSI(Math.max(entry[0], currentSi));
+        }
+        Speed limit = this.vehicle.getContext(InfrastructureContext.class).getLegalSpeedLimit();
+        if (limit == null || limit.si <= 0.0 || Double.isInfinite(limit.si))
+        {
+            return follower.getSpeed();
+        }
+        double factor = this.observedFactorCount > 0 ? this.observedFactorSum / this.observedFactorCount : 1.0;
+        return Speed.instantiateSI(Math.max(limit.si * factor, currentSi));
+    }
 
     // ----------------------------------------------------------------------
     // Construction
@@ -1369,6 +1539,12 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
     {
         // 1. Clear the caches for the new tick first (reset lazy evaluation)
         markCacheValid();
+
+        if (vehicle.getParams().bcFollowerDesiredSpeedEstimated)
+        {
+            expireUnobstructedObservations(currentTick(), false);
+            observeUnobstructedFollower();
+        }
 
         try
         {
