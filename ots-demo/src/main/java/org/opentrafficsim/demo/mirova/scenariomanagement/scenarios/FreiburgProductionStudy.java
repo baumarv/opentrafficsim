@@ -1,5 +1,7 @@
 package org.opentrafficsim.demo.mirova.scenariomanagement.scenarios;
 
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
+import org.djunits.value.vdouble.scalar.Speed;
 import java.io.File;
 import java.util.List;
 import java.util.Map;
@@ -91,6 +93,31 @@ public class FreiburgProductionStudy implements StudyDefinition
     /** The label of the single variation, so the output directory names the set rather than only its numbers. */
     public static final String VARIANT_LABEL = "production";
 
+    /**
+     * Label of the variant that reproduces the published parameterisation explicitly.
+     * <p>
+     * The results published in TR-B and HEUREKA were produced with a speed gain of <b>15 m/s for cars and 30 m/s for
+     * trucks</b> -- 54 and 108 km/h. Those values arose from a bare number being read as SI where km/h was intended,
+     * and the intended values are now the model values. This variant sets the published pair back, explicitly, so that
+     * the published model stays runnable from the current code base without checking out the tag
+     * {@code published-model}.
+     * </p>
+     * <p>
+     * It is <b>not</b> part of the default variant set: selecting it takes {@code --variants=...,legacy}.
+     * </p>
+     */
+    public static final String LEGACY_LABEL = "legacy";
+
+    /**
+     * Applies the published speed gain to a cell, overriding whatever the production set carries.
+     * @param params ScenarioParameters; the cell to apply it to
+     */
+    public static void applyPublishedSpeedGain(final ScenarioParameters params)
+    {
+        params.set("car." + MirovaParameters.vGain.getId(), Speed.instantiateSI(15.0));
+        params.set("truck." + MirovaParameters.vGain.getId(), Speed.instantiateSI(30.0));
+    }
+
     @Override
     public String getName()
     {
@@ -127,16 +154,36 @@ public class FreiburgProductionStudy implements StudyDefinition
         int replications = Integer.parseInt(
                 options.getOrDefault("replications", String.valueOf(DEFAULT_REPLICATIONS)));
 
+        // The default is the production variant alone; --variants=production,legacy adds the published pair.
+        String variantOption = options.get("variants");
+        List<String> wanted = variantOption == null || variantOption.trim().isEmpty() ? List.of(VARIANT_LABEL)
+                : List.of(variantOption.trim().split("\\s*,\\s*"));
+        for (String label : wanted)
+        {
+            if (!VARIANT_LABEL.equals(label) && !LEGACY_LABEL.equals(label))
+            {
+                throw new IllegalArgumentException("Study 'production' has no variant '" + label + "'; known: "
+                        + VARIANT_LABEL + ", " + LEGACY_LABEL);
+            }
+        }
+
         Map<String, File> demandPerDate = DateStudy.resolveDemandCsvs(dates, demandLocation, pattern, strict);
 
         for (String date : dates)
         {
             String demandCsvPath = demandPerDate.get(date).getAbsolutePath();
-            String scenarioName = facility.scenarioName(date, VARIANT_LABEL);
-            manager.addScenario(scenarioName, facility.getGeneratorClass());
-            ScenarioParameters params = FreiburgCongestedBranchStudy.forCell(facility, date, demandCsvPath, strict,
-                    B, S0_CAR, A_CAR);
-            manager.addParameterVariation(scenarioName, params);
+            for (String label : wanted)
+            {
+                String scenarioName = facility.scenarioName(date, label);
+                manager.addScenario(scenarioName, facility.getGeneratorClass());
+                ScenarioParameters params = FreiburgCongestedBranchStudy.forCell(facility, date, demandCsvPath, strict,
+                        B, S0_CAR, A_CAR);
+                if (LEGACY_LABEL.equals(label))
+                {
+                    applyPublishedSpeedGain(params);
+                }
+                manager.addParameterVariation(scenarioName, params);
+            }
         }
         manager.setReplications(replications);
     }
