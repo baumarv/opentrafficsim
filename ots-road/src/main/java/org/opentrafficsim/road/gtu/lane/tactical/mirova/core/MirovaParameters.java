@@ -49,6 +49,33 @@ public final class MirovaParameters implements ConstraintInterface
         public static final ParameterTypeDouble DMAND =
                         new ParameterTypeDouble("DMAND", "Desire threshold for mandatory lane change", 0.577, POSITIVE);
 
+        /**
+         * Desire threshold for active gap search.
+         * <p>
+         * Restored in Phase 1. It was deleted in Phase 0.5 as unread, which was true but misleading: it is unread
+         * because {@code MirovaTacticalPlanner.combineDesires} passes {@code DFREE} where the LMRS weighting wants
+         * this threshold, which makes the interpolation branch unreachable. See {@link #DESIRE_INTERPOLATION_FIXED}.
+         * </p>
+         */
+        public static final ParameterTypeDouble DSEARCH =
+                        new ParameterTypeDouble("DSEARCH", "Desire threshold for active gap search", 0.788, POSITIVE);
+
+        /**
+         * BC-9. Interpolate the discretionary weight between DMAND and DSEARCH, as the model describes.
+         * <p>
+         * The LMRS weighting theta_v is 1 while the mandatory desire is weak, 0 once it is strong and conflicts with
+         * the discretionary one, and interpolated in between. {@code Desire.computeDiscLcWeight}
+         * implements exactly that, but the default call site passes
+         * {@code DFREE} (0.365) as the upper threshold, which lies <i>below</i> the lower one ({@code DMAND}, 0.577).
+         * Every mandatory desire that fails the lower test therefore passes the upper one, the interpolation branch
+         * is dead, and theta_v steps from 1 to 0 at {@code DMAND}. With this set the upper threshold is
+         * {@link #DSEARCH} and the taper exists.
+         * </p>
+         */
+        public static final ParameterTypeBoolean DESIRE_INTERPOLATION_FIXED =
+                        new ParameterTypeBoolean("bcDesireInterpolation",
+                                        "BC-9: discretionary weight interpolated between DMAND and DSEARCH", false);
+
         /** Additional distance required for emergency stopping maneuvers. */
         public static final ParameterTypeLength emergencyStoppingDistance = new ParameterTypeLength(
                         "EMERGENCY_STOPPING_DISTANCE", "Additional distance required for emergency stopping maneuvers",
