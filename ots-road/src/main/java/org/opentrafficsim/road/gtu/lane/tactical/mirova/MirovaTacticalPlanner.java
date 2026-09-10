@@ -94,8 +94,6 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     /** Socio-speed pressure experienced by the GTU. */
     private Double socioSpeedPressure = 0.0;
 
-    /** Time since last lane change maneuver started. */
-    private Duration timeSinceLastLaneChange = Duration.ZERO;
 
     /** GTU specific parameters. */
     private Parameters params;
@@ -235,7 +233,6 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     {
         // 1. Update perception and contextual information
         this.contextManager.advanceTick();
-        updateTimeSinceLastLaneChange();
         this.updateContext();
 
         // 1b. Check for deadlock diffusion (VISSIM-style vehicle removal)
@@ -633,27 +630,4 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
         return this.socioSpeedPressure;
     }
 
-    /**
-     * Retrieves the time duration since the last lane change started. * @return the duration since the last lane change
-     */
-    public Duration getTimeSinceLastLaneChange()
-    {
-        return this.timeSinceLastLaneChange;
-    }
-
-    /**
-     * Updates the tracker for the time since the last lane change. * @throws ParameterException if accessing the time step (DT)
-     * parameter fails
-     */
-    public void updateTimeSinceLastLaneChange() throws ParameterException
-    {
-        if (this.laneChange.isChangingLane())
-        {
-            this.timeSinceLastLaneChange = Duration.ZERO;
-        }
-        else
-        {
-            this.timeSinceLastLaneChange = this.timeSinceLastLaneChange.plus(getParameters().getParameter(ParameterTypes.DT));
-        }
-    }
 }
