@@ -1146,9 +1146,16 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
             // bounded by the ego's own look-ahead -- the same range the rest of its perception uses -- so a merge
             // lane further away than that is simply not found, and the reference speed cascade falls through to its
             // speed-limit fallback rather than being told a number from beyond the horizon.
-            Length lookahead = this.vehicle.getParams().bcMergeRefRangeLimited
-                    ? this.vehicle.getParameters().getParameter(ParameterTypes.LOOKAHEAD)
-                    : this.vehicle.getParams().extendedLookAheadDistanceScalar;
+            Length extended = this.vehicle.getParams().extendedLookAheadDistanceScalar;
+            Length lookahead = extended;
+            if (this.vehicle.getParams().bcMergeRefRangeLimited)
+            {
+                // getParameterOrNull rather than getParameter: this method declares no checked exception and
+                // catches only GtuException and NetworkException, and a look-ahead that cannot be read is not a
+                // reason to abandon the search -- falling back to the extended range reproduces the default.
+                Length visible = this.vehicle.getParameters().getParameterOrNull(ParameterTypes.LOOKAHEAD);
+                lookahead = visible == null ? extended : visible;
+            }
 
             LanePathInfo pathInfo = AbstractLaneBasedTacticalPlanner.buildLanePathInfo(egoGtu, lookahead);
             if (pathInfo == null || pathInfo.laneList().isEmpty())
