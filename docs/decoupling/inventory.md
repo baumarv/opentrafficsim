@@ -164,8 +164,8 @@ the core-side replacement plus the OTS-side adapter: **S** ≤ half a day, **M**
 | [MirovaIdmPlusFactory.java:21](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/MirovaIdmPlusFactory.java#L21), [:31](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/MirovaIdmPlusFactory.java#L31) | `extends AbstractIdmFactory`, `nl.tudelft…StreamInterface` | 4 | Other | Core factory + injected `RandomStream` (decision 6). | M | The RNG boundary. |
 | [CapacityDrop.java:169](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/CapacityDrop.java#L169) | `Parameters`, `ParameterTypes.T` | 4 | Parameter | Core keys. | S | Otherwise pure arithmetic; near-free to migrate. |
 | [DynamicHeadwayProvider.java:22](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/DynamicHeadwayProvider.java#L22) | `extends CarFollowingModel` | 4 | CF model | Core interface. | S | |
-| [Wiedemann99.java:226](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/Wiedemann99.java#L226), [:242](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/Wiedemann99.java#L242), [:270](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/Wiedemann99.java#L270), [:307](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/Wiedemann99.java#L307) | `p.setParameter(CURRENT_DRIVING_MODE, "A"/"B"/"f"/"w")` | 4 | Parameter | — | S | Writes driving mode into the parameter set as state. **Not in use**: only referenced from commented-out code in `MergeScenario`. |
-| `AbstractWiedemannModel`, `AbstractWiedemannFactory`, `Wiedemann99Factory`, `W99ParameterTypes` | `StreamInterface`, `DistContinuous`, `DistNormal`, `AbstractCarFollowingModel` | 4 | CF model, Other | **Do not migrate** unless W99 is revived. | M | 556 lines, disabled. `AbstractWiedemannFactory:74` writes `FSPEED` at construction. |
+| [Wiedemann99.java:226](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/Wiedemann99.java#L226), [:242](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/Wiedemann99.java#L242), [:270](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/Wiedemann99.java#L270), [:307](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/Wiedemann99.java#L307) | `p.setParameter(CURRENT_DRIVING_MODE, "A"/"B"/"f"/"w")` | 4 | Parameter | — | S | Writes driving mode into the parameter set as state. ~~Not in use: only referenced from commented-out code in `MergeScenario`.~~ **CORRECTION (Phase 1).** Wiedemann 99 is **not dead**: `SimpleHighwayScenario` builds a `Wiedemann99Factory` for cars and one for trucks and passes both to `MirovaTacticalPlannerFactory`. The claim here rests on a truncated grep. It stays in OTS as a host-configured car-following model (decision A.3); no MiRoVA layer depends on it, so it is still not a core migration candidate -- but it must not be deleted. |
+| `AbstractWiedemannModel`, `AbstractWiedemannFactory`, `Wiedemann99Factory`, `W99ParameterTypes` | `StreamInterface`, `DistContinuous`, `DistNormal`, `AbstractCarFollowingModel` | 4 | CF model, Other | **Do not migrate into the core; keep it in OTS** (A.3). | M | 556 lines. ~~disabled~~ -- see the correction in the row above. `AbstractWiedemannFactory:74` writes `FSPEED` at construction. |
 
 ### A.7 Utilities, watchdog and logging (`util/*`)
 
@@ -368,7 +368,7 @@ Three related mutations remain, none in a tactical state:
 
 Two further parameter writes exist outside the tactical cycle and are legitimate:
 `MirovaParameterSnapshot.install` ([:407](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/MirovaParameterSnapshot.java#L407), stores the snapshot in the parameter set so
-the CF models can reach it) and `AbstractWiedemannFactory:74` (`FSPEED` at construction, dead code).
+the CF models can reach it) and `AbstractWiedemannFactory:74` (`FSPEED` at construction; ~~dead code~~ -- live, see the A.6 correction).
 
 **One snapshot-consistency note**, relevant to the checklist rather than to decoupling: the
 snapshot carries `dFree` and `safetyDistanceReductionFactorLaneChange`, but
@@ -388,7 +388,7 @@ moves into `mirova-core`.
 | **Social pressure** | [SocialInteractionsIncentives.java:191-201](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/DesireLayer/SocialInteractionsIncentives.java#L191-L201) | The LMRS socio-speed formulation. |
 | **Anticipated speed blending** | [InfrastructureContext.java:439-480](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/BeliefLayer/InfrastructureContext.java#L439-L480) | Distance-weighted leader-speed blend; the same construction OTS's `AnticipationTrafficPerception` uses. Re-implemented rather than copied, but from the same source. |
 | **OTS utilities called, not copied** | `CarFollowingUtil` (6 methods), `SpeedLimitUtil.getLegalSpeedLimit` + `considerSpeedLimitTransitions`, `AbstractLaneBasedTacticalPlanner.buildLanePathInfo` | Each needs a core reimplementation; `considerSpeedLimitTransitions` is the substantial one. |
-| **Wiedemann 99** | [Wiedemann99.java](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/Wiedemann99.java), [W99ParameterTypes.java](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/W99ParameterTypes.java) | VISSIM-derived parameter naming (`CC0`–`CC9`). Not OTS copyright, but its own provenance question. Currently dead code. |
+| **Wiedemann 99** | [Wiedemann99.java](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/Wiedemann99.java), [W99ParameterTypes.java](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/W99ParameterTypes.java) | VISSIM-derived parameter naming (`CC0`–`CC9`). Not OTS copyright, but its own provenance question. Live in `SimpleHighwayScenario`; stays in OTS. |
 
 ### C.6 Relaxation model — what the code actually implements
 
@@ -442,10 +442,8 @@ Carrying a documented-but-inert parameter into a new API is the wrong moment to 
 - **Swallowed exceptions.** ~30 `catch (Exception e) { return <default>; }` blocks across the
   Belief layer. Migration must not silently convert a Kotlin failure into a plausible-looking
   default; each one needs a decision.
-- **Dead or disabled code, 2 671 lines.** Not migration candidates: `helpers/GapCandidate` +
-  `HeuristicGapSelector` (957 lines, unreferenced), `Wiedemann99` + `AbstractWiedemannModel` +
-  2 factories + `W99ParameterTypes` (~556 lines, only commented-out references),
-  `MaxUtilityArbitrator` + `PlanArbitrator` (superseded), `CongestionIncentive` (not registered),
+- **Dead or disabled code, 2 115 lines.** (Corrected in Phase 1: the 556 lines of Wiedemann 99 were counted here in error -- it is live; see A.6.) Not migration candidates: `helpers/GapCandidate` +
+  `HeuristicGapSelector` (957 lines, unreferenced), `MaxUtilityArbitrator` + `PlanArbitrator` (superseded), `CongestionIncentive` (not registered),
   `AnticipateDownstreamMergePattern` + `AnticipateAdjacentCongestionPattern` (not registered,
   [MirovaTacticalPlannerFactory.java:181-182](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/MirovaTacticalPlannerFactory.java#L181-L182), with a documented reason),
   `NeighborsContext.isGtuAlongside`, `MacroTrafficContext.getDensity*`,
