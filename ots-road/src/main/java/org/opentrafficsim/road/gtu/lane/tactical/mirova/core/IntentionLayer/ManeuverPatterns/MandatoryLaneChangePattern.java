@@ -653,9 +653,14 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             }
 
             InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
-            Length distToMerge = infra.getDistanceToLaneChangeExtendedLookahead();
+            // The ordinary route query. It used to be getDistanceToLaneChangeExtendedLookahead(), which raised
+            // LOOKAHEAD to 1000 m around the same perception call -- and never once took effect, because the
+            // perception memoises that answer per tick and the desires always ask first. Measured over 136.5
+            // million calls: 100.0000 % came from the memo. So this is the value the pattern has always seen.
+            Length distToMerge = infra.getRouteDistanceToLaneEnd();
 
-            // Trigger if within 1000m
+            // The threshold stays where it was. The query is capped at the driver's look-ahead, so any bound
+            // above it admits exactly the finite answers and refuses the infinite one, as before.
             boolean isApproachingMerge =
                     distToMerge.si > 0 && distToMerge.si < this.vehicle.getParams().extendedLookAheadDistanceSi;
 
@@ -1411,7 +1416,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             try
             {
                 InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
-                if (infra.getDistanceToLaneChangeExtendedLookahead().si >= this.vehicle.getParams().extendedLookAheadDistanceSi)
+                if (infra.getRouteDistanceToLaneEnd().si >= this.vehicle.getParams().extendedLookAheadDistanceSi)
                 {
                     return FINISHED;
                 }

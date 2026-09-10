@@ -14,20 +14,20 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Counts the three defects identified in the Phase 0 decoupling inventory, so that their effect on the published
+ * Counts defects identified in the Phase 0 decoupling inventory, so that their effect on the published
  * results can be judged before any of them is repaired.
  * <p>
- * The inventory named three places where the model may already be behaving differently from its description, and in
+ * The inventory named places where the model may already be behaving differently from its description, and in
  * each case the question is not whether the construction is wrong -- it is -- but whether it ever fired on the
  * facility the results were produced on. That cannot be answered by reading the code, so it is measured here first
  * and repaired afterwards.
  * </p>
+ * <p>
+ * The look-ahead counters that stood here are gone with the mechanism they measured: the extended look-ahead was
+ * answered from a stale per-tick memo in 100.0000 % of 136.5 million calls and never took effect, so it was removed
+ * rather than repaired. See {@code docs/decoupling/phase05-report.md}.
+ * </p>
  * <ol>
- * <li><b>The look-ahead leak.</b> {@code InfrastructureContext.distanceToLaneChangeExtendedLookahead} raises
- * {@code LOOKAHEAD} to the extended value, queries the lane-change information, and lowers it again. The two
- * statements are not guarded, so an exception from the query in between leaves that vehicle with a 1000 m look-ahead
- * for the rest of its life. {@link #lookaheadLeak()} counts exactly those escapes, {@link #lookaheadRestored()} the
- * calls that completed normally, so the two together give the rate.</li>
  * <li><b>Swallowed exceptions.</b> Some 56 {@code catch} blocks in the behavioural code substitute a plausible
  * default -- zero, infinity, {@code null}, {@code false} -- and continue. Each is a place where a modelling failure
  * is indistinguishable from a modelling decision. {@link #swallowed(String)} counts them per site.</li>
@@ -71,15 +71,6 @@ public final class DefectDiagnostics
      * Values are joined with a slash; a site rarely sees more than two.
      */
     private static final Map<String, Map<String, AtomicLong>> SWALLOWED_CAUSES = new ConcurrentHashMap<>();
-
-    /** Extended-look-ahead queries that returned normally and reset the parameter. */
-    private static final AtomicLong LOOKAHEAD_RESTORED = new AtomicLong();
-
-    /** Extended-look-ahead queries that threw, leaving the parameter raised for the rest of the vehicle's life. */
-    private static final AtomicLong LOOKAHEAD_LEAKED = new AtomicLong();
-
-    /** Extended-look-ahead queries that found the per-tick perception cache already populated. */
-    private static final AtomicLong LOOKAHEAD_CACHE_WARM = new AtomicLong();
 
     /** Evaluations of the speed-limit transition term. */
     private static final AtomicLong TRANSITION_CALLS = new AtomicLong();
@@ -135,52 +126,7 @@ public final class DefectDiagnostics
     }
 
     // =========================================================================================
-    // 1) The look-ahead leak
-    // =========================================================================================
-
-    /** Records an extended-look-ahead query that completed and reset the parameter. */
-    public static void lookaheadRestored()
-    {
-        LOOKAHEAD_RESTORED.incrementAndGet();
-    }
-
-    /**
-     * Records an extended-look-ahead query that escaped by exception, leaving {@code LOOKAHEAD} raised.
-     * <p>
-     * This is the defect itself: the vehicle keeps the extended look-ahead permanently, which widens every
-     * perception range it feeds and changes the route desire it computes.
-     * </p>
-     */
-    public static void lookaheadLeak()
-    {
-        LOOKAHEAD_LEAKED.incrementAndGet();
-    }
-
-    /**
-     * Records whether the extended-look-ahead query found the answer already computed for this tick.
-     * <p>
-     * The second, larger half of the same defect. {@code DirectInfrastructurePerception.getLegalLaneChangeInfo}
-     * memoises its answer per GTU per simulation step, and the memo is keyed by the relative lane alone -- not by
-     * the look-ahead the answer was computed under. Raising {@code LOOKAHEAD} around the call therefore has no
-     * effect whenever anything else has already asked the same question in the same tick, and conversely a query
-     * that runs first poisons the memo with the extended answer for everyone after it.
-     * </p>
-     * <p>
-     * Which of the two happens is decided by call order inside {@code MirovaTacticalPlanner.update}, so this
-     * counter says which one the model has actually been doing.
-     * </p>
-     * @param cacheWasWarm boolean; true when the same question had already been asked in this tick
-     */
-    public static void lookaheadCacheState(final boolean cacheWasWarm)
-    {
-        if (cacheWasWarm)
-        {
-            LOOKAHEAD_CACHE_WARM.incrementAndGet();
-        }
-    }
-
-    // =========================================================================================
-    // 2) Swallowed exceptions
+    // 1) Swallowed exceptions
     // =========================================================================================
 
     /**
@@ -208,7 +154,7 @@ public final class DefectDiagnostics
     }
 
     // =========================================================================================
-    // 3) The speed-limit transition term
+    // 2) The speed-limit transition term
     // =========================================================================================
 
     /**
@@ -253,29 +199,6 @@ public final class DefectDiagnostics
     {
         List<String> rows = new ArrayList<>();
         rows.add("counter,site,value,detail");
-
-        long restored = LOOKAHEAD_RESTORED.get();
-        long leaked = LOOKAHEAD_LEAKED.get();
-        long lookaheadTotal = restored + leaked;
-        System.out.println("[DEFECT] --- look-ahead leak (InfrastructureContext.distanceToLaneChangeExtendedLookahead)");
-        if (lookaheadTotal == 0)
-        {
-            System.out.println("[DEFECT]   never called");
-        }
-        else
-        {
-            System.out.printf(Locale.ROOT, "[DEFECT]   calls %d, leaked %d (%.4f %%)%n",
-                    lookaheadTotal, leaked, 100.0 * leaked / lookaheadTotal);
-            long warm = LOOKAHEAD_CACHE_WARM.get();
-            System.out.printf(Locale.ROOT,
-                    "[DEFECT]   answered from a memo computed under the normal look-ahead: %d (%.2f %%)"
-                            + " -- for these the extended look-ahead had no effect%n",
-                    warm, 100.0 * warm / lookaheadTotal);
-        }
-        rows.add("lookahead,calls," + lookaheadTotal + ",");
-        rows.add("lookahead,leaked," + leaked + ",");
-        rows.add("lookahead,cacheWarm," + LOOKAHEAD_CACHE_WARM.get() + ",");
-
         System.out.println("[DEFECT] --- speed-limit transition term (LongitudinalControl)");
         long calls = TRANSITION_CALLS.get();
         long finite = TRANSITION_FINITE.get();
