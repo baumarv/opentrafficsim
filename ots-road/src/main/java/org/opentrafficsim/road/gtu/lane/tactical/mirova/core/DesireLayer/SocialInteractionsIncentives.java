@@ -163,7 +163,11 @@ public class SocialInteractionsIncentives extends DesireIncentive
         HeadwayGtu follower = getNeighborsPerception().getFollowers(lane).first();
         Speed followerDesiredSpeed = follower.getDesiredSpeed();
         Length headway = follower.getDistance();
-        Length followerLookahead = follower.getParameters().getParameter(ParameterTypes.LOOKAHEAD);
+        // The ego's own look-ahead, as egoSocialPressure already uses for the same argument. Reading the follower's
+        // was a look into another driver's parameter set, which the decoupled core cannot offer and a driver does
+        // not have. It is also a no-op here: no scenario sets LOOKAHEAD, so every vehicle carries the OTS default.
+        // The one way the two could ever have differed was the look-ahead leak, now closed.
+        Length followerLookahead = getParameters().getParameter(ParameterTypes.LOOKAHEAD);
 
         return socialPressure(followerDesiredSpeed, vLeader, vGain, headway, followerLookahead);
     }
