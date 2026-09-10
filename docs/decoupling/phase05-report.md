@@ -509,5 +509,54 @@ saturating operators make "absent propagates" a property of the type rather than
 
 ---
 
-*Phase 0.5 complete, instrumentation run included. Awaiting the BC defaults, the decisions in §9,
-and review before Phase 1.*
+---
+
+## 10. Decisions taken after the campaign, and what they changed
+
+| Ref | Decision | Implemented as |
+|---|---|---|
+| A.1 | Extended look-ahead: option (c), delete the mechanism | `[no behaviour change]` — the measurement made it behaviour-neutral |
+| A.2 | Follower desired speed: remembered unobstructed speed | `bcFollowerDesiredSpeedEstimated`, default off |
+| A.3 | Wiedemann 99 is not part of the core | Documented; `SimpleHighwayScenario` and the W99 family stay in OTS |
+| A.4 | Sealed type at the boundary, named sentinel inside, no saturating arithmetic | Phase 1 |
+| A.5 | Query 12 shrinks to legal limits with distances | Recorded in the inventory |
+| A.6 | Fail-fast in the core; none of the 56 catches migrate | Phase 1 |
+| A.7 | Delete the never-read parameters; drop `TMIN`/`TMAX` from the MiRoVA factory | `[no behaviour change]` |
+
+### Two deviations, both because the brief rested on something I had got wrong
+
+**`EXTENDED_LOOK_AHEAD_DISTANCE` is kept.** A.1 says it "goes with" the mutation, which holds only if
+the mutation is its one consumer. It is not: `computeDownstreamAdjacentLane` uses it as the 1000 m
+path projection that finds the lane a ramp vehicle will merge into (live, and the range BC-6
+switches), and three further sites use it as a distance threshold —
+`MandatoryLaneChangePattern.checkContext`, `AnticipateMergeState.mergeStillFarOff` and
+`PreventUndercuttingPattern.trafficIsFreeFlowing`, the last with a measurement over sixteen study
+days behind it. Deleting the parameter would silently change all four.
+
+The two threshold uses now compare a value capped at the driver's look-ahead against a larger bound,
+which admits every finite answer and refuses the infinite one — the behaviour they have always had,
+but the bound no longer means what its name says. **Open:** re-express them as "is there a route lane
+change in range at all", which is what they now test.
+
+**`bSi` was not unread.** My `parameters.md` listed it among the dead snapshot fields and A.7
+inherited the error. `MandatoryLaneChangePattern` reads it to build the comfortable deceleration for
+the ramp-end stop; the clean build caught it, the field is restored and the table corrected. For the
+same reason: `FAR_ANTICIPATION_ENABLED` is set by **three files**, not six — the report counted
+occurrences rather than files.
+
+### A.2, for review before the campaign runs
+
+The estimator is specified in the commit and in `parameters.md`. Two points deserve your eye:
+
+1. **The fallback is a running per-agent mean** of observed unobstructed speed factors, not a
+   configured value. That answers "where does the population mean come from" without adding a driver
+   parameter — but it is a small learning mechanism, and if you would rather have a fixed configured
+   value it becomes a key instead. Before any observation the factor is 1.0, i.e. the legal limit.
+2. **Only the current-lane follower is judged**, because only there is the ego the follower's leader.
+   A follower on an adjacent lane can never contribute an observation, so its estimate always comes
+   from the fallback.
+
+---
+
+*Phase 0.5 complete, instrumentation run included. Awaiting review of the two deviations above and
+the A.2 estimator, and the BC defaults after the cluster campaign.*
