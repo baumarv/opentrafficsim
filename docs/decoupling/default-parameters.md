@@ -49,6 +49,7 @@ Three values in `FreiburgStudyParameters` are therefore **not** what the campaig
 | **A** | assumption — a plausible value nobody has tested or sourced |
 | **O** | OTS default — never set by anything; the value is whatever OpenTrafficSim ships |
 | **?** | I cannot tell from the code, and did not guess |
+| **I** | intended value, adopted by decision, not yet recalibrated |
 
 ---
 
@@ -60,7 +61,7 @@ Three values in `FreiburgStudyParameters` are therefore **not** what the campaig
 | `a` desired acceleration | **1.4 m/s²** | **1.25 m/s²** | L + C | Cars after Kesting et al. for motorway traffic. Trucks by a factorial over 0.7 / 1.0 / 1.3, monotone on every measure: ramp standstills 340 → 244 per run, right-hand lane +11.9 km/h in congestion, jam 11.7 min shorter. Deliberately **not** the field median of 0.60–0.87, because IDM reads the parameter as a ceiling. |
 | `b` comfortable deceleration | **1.75 m/s²** | **1.75 m/s²** | C | `FreiburgProductionStudy.B`, overriding the Kesting value of 2.0 the base set carries. |
 | `s0` standstill gap | **3.0 m** | **6.0 m** | L + C | Kesting et al.; trucks at his 2:1 ratio. The car value is the production override of the base set's 2.0. |
-| `vGain` speed-difference scale | **54 km/h** (set as `15.0`) | **108 km/h** (set as `30.0`) | ? | **Not 15 / 30 km/h.** The study writes bare numbers and the generator reads them as SI, so 15.0 means 15 m/s. See §6 — this is the value every published run used. |
+| `vGain` speed-difference scale | **15 km/h** | **30 km/h** | **I** | *Intended value (car 15 km/h, truck 30 km/h); not yet recalibrated jointly with the other parameters; the published results ran with 15 / 30 m/s due to an unintended unit conversion (see tag `published-model`).* Decided in Phase 1; see §6. |
 | `aMax` driver's acceleration ceiling | **3.5 m/s²** | **1.3 m/s²** | L | The reference's `f(v)` curve, trucks scaled 1.3/3.5. |
 | `bCoop` cooperative deceleration | **−3.0 m/s²** | **−1.0 m/s²** | C | Strengthening it was tried in both congestion regimes and is clearly worse in each: a gap opener braking harder holds up the column behind it and creates the disturbance that blocks the merge. |
 | `cooperate` cooperation enabled | *not set* → true | **false** | ? | Trucks do not cooperate. No rationale is recorded in the code. |
@@ -149,10 +150,10 @@ They do not. Checked against OTS's own LMRS implementation, which is Schakel's
 
 Two consequences.
 
-**`vGain` stays `UNKNOWN`, and §6 makes it worse rather than better.** The declared default is LMRS's
-69.6 km/h, so the *default* has a source. What runs is 54 km/h for cars and 108 for trucks, which
-matches neither LMRS nor the model reference's 15 / 30 km/h — it is the table's numbers read in the
-wrong unit.
+**`vGain` is settled by decision, not by a source.** The declared default was LMRS's 69.6 km/h; what
+ran was 54 / 108 km/h, the table's numbers read in the wrong unit; what the model now carries is the
+intended 15 / 30 km/h. That is a decision about intent, not a finding about provenance — the table
+still cites nothing, and the value has not been recalibrated.
 
 **`socio` becomes `ASSUMPTION`.** It is not the LMRS value, nothing else claims it, and MiRoVA has
 loosened the constraint so that values above 1 are legal — which the demo scenarios do not use but

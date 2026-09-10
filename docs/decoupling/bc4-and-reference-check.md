@@ -145,7 +145,7 @@ sources are available.
 | 9 | Reference §8: `b_coop` = −2.0 m/s² car, −0.5 truck | **−3.0, −1.0** | 1.5× and 2× stronger. See §3. |
 | 10 | Reference §8: `f_LC` = 0.5 | **0.40** | −20 %. See §3. |
 | 11 | Reference §8: `x_ext` = 1000 m, "extended anticipation look-ahead" | The value stands, the mechanism does not: the look-ahead mutation it fed was measured inert and deleted in Phase 0.5. The parameter now bounds the merge-lane path projection only. | The symbol survives with a different meaning |
-| 12 | Reference §8: `v_gain` = 15 km/h car, 30 truck | **54 / 108 km/h.** The study sets bare `15.0` / `30.0`, and `ScenarioGenerator.applyParameter` converts a bare number for a `ParameterTypeSpeed` with `Speed.instantiateSI` — metres per second. Measured through that code path. | 3.6× on the parameter scaling every discretionary desire. Table and code disagree by exactly a unit conversion, and which side is wrong cannot be decided from the code. **Nothing changed; the campaign is unaffected because every variant shares it.** |
+| 12 | Reference §8: `v_gain` = 15 km/h car, 30 truck | **RESOLVED by decision.** The model now carries 15 / 30 km/h; the published 15 / 30 m/s survives as the `legacy` variant and the tag `published-model`. | See the history below. |
 
 ### The plan duration in v1
 
@@ -215,11 +215,21 @@ axis of every one tested.
 and it interacts multiplicatively with `s0` — so this row and the `s0` row cannot be read
 independently of each other.
 
-**`v_gain` (15 → 54 km/h car, 30 → 108 truck).** Not a calibration at all but a unit: the study writes
-a bare `15.0` and the generator reads bare numbers for a speed as SI. The table's number is right, its
-unit is not — or the other way round, and the code cannot tell us which. Full detail and the measured
-conversion in `default-parameters.md` §6. **This is the one deviation of the five that may be
-unintended**, and it is 3.6× on the parameter that scales every discretionary desire.
+**`v_gain` (15 → 54 km/h car, 30 → 108 truck) — resolved, and the resolution is a decision.** Not a
+calibration at all but a unit: the study wrote a bare `15.0` and the generator read bare numbers for a
+speed as SI. Marvin has decided that **the table is right and the setter was wrong**: 15 and 30 km/h
+were intended and are now the model values.
+
+Three things follow, and all three are in place:
+
+1. **The published results are preserved.** They were produced at 15 / 30 m/s. The tag
+   `published-model` marks the last commit with that parameterisation, and the `legacy` variant of
+   both studies reproduces it explicitly, so no checkout is needed to run it.
+2. **The trap is closed** so that this cannot recur: a bare number for a unit-typed parameter is now
+   refused, naming the key and the unit it would have assumed.
+3. **The model is uncalibrated at the new value.** The headway, the damping and the safety-distance
+   factor were calibrated against a speed gain 3.6× larger, and some of them may have been
+   compensating for it. `recalibration-inventory.md` records what would have to be redone.
 
 ### The two that agree in value only
 
