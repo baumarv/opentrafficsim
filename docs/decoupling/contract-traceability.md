@@ -3,6 +3,10 @@
 Every live row of inventory §A against the contract element that takes it over. Companion to
 [`contract.md`](contract.md) and the drafts in [`contract/`](contract/).
 
+**Which behaviour.** The contract elements below implement the core's reference model, not the
+Phase 0.5 reference run: BC-1, BC-2, BC-4, BC-6 and BC-8 are in by construction, BC-5 is undecided.
+See [`contract.md`](contract.md) §0.
+
 **Reading it.** *Core* = the element in the Kotlin drafts. *Adapter* = `mirova-ots` only; the core
 never sees it. *Host* = neither, it stays a simulator concern. *Gone* = deleted in Phase 0.5 or
 deliberately dropped, with the reason.
@@ -83,7 +87,7 @@ against the inventory row by row.
 |---|---|---|
 | `DesireIncentive:73-77` — direct perception access | core | every read goes through the Belief layer |
 | `DesireIncentive:79` — `gtu.getParameters()` | core | `DriverParameters` |
-| `DesireIncentive:195-198` — `getLegalLaneChangeInfo` | core | `routeRequirement` |
+| `DesireIncentive:195-198` — `getLegalLaneChangeInfo` | core | `routeRequirement` — mandatory for every host, no `Unknown` |
 | `RouteIncentive:103` — `laneStructure.exists` | core | `laneExists` |
 | `RouteIncentive:105` — speed limit at 0 m per lane | core | `speedLimits(lane, range).first()` |
 | `RouteIncentive:106` — `getCarFollowingModel().desiredSpeed` | core | computed desired speed (see A.2, `EgoContext:522`) |
@@ -230,7 +234,6 @@ Four, and each is deliberate.
    `PreventUndercuttingPattern:369` map to a core computation over perceived leaders instead of to a
    query, and §1 of the contract loses an entry.
 
-4. **The Wiedemann 99 rows have no core element by design.** They are in the table as *host*, not as a
-   gap, but a reader coming from inventory §D will find that section still lists W99 among the things
-   to migrate. **`inventory.md` §D is wrong on this point and needs correcting** — noted here because
-   the inventory is a Phase 0 deliverable and I have not edited it.
+4. **The Wiedemann 99 rows have no core element by design.** They are in the table as *host*, not as
+   a gap. Inventory §A.6 and §D listed W99 as dead code and counted its 556 lines among the dead
+   lines; both are corrected.
