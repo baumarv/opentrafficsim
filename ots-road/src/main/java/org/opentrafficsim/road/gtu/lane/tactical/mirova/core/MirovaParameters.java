@@ -390,6 +390,20 @@ public final class MirovaParameters implements ConstraintInterface
                                         "BC-6: merge reference speed scan bounded by the look-ahead", false);
 
         /**
+         * BC-4. Estimate a follower's desired speed from observation instead of reading it.
+         * <p>
+         * The social pressure term is defined on the follower's desired speed, which the default reads straight off
+         * the perceived vehicle -- a driver looking into another driver's intention, and the last non-observable
+         * field the decoupled contract would have to carry. With this set the Belief layer remembers the speed a
+         * follower held while nothing was holding it up, and falls back to the legal limit scaled by the mean
+         * factor this driver has observed others keeping.
+         * </p>
+         */
+        public static final ParameterTypeBoolean FOLLOWER_DESIRED_SPEED_ESTIMATED =
+                        new ParameterTypeBoolean("bcFollowerDesiredSpeedEstimated",
+                                        "BC-4: follower desired speed estimated from observation", false);
+
+        /**
          * BC-8. Update the contexts in the order their dependencies call for.
          * <p>
          * The categories refresh in the order a hash table produced -- MacroTraffic, Infrastructure, Neighbors, Ego

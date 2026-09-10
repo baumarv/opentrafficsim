@@ -284,6 +284,9 @@ public final class MirovaParameterSnapshot implements Serializable
     /** BC-6: merge reference speed scan bounded by the look-ahead. */
     public final boolean bcMergeRefRangeLimited;
 
+    /** BC-4: follower desired speed estimated from observation rather than read. */
+    public final boolean bcFollowerDesiredSpeedEstimated;
+
     /** BC-8: contexts update in dependency order. */
     public final boolean bcContextOrderFixed;
 
@@ -365,6 +368,8 @@ public final class MirovaParameterSnapshot implements Serializable
         this.bcLeaderOwnModel = p.getParameter(MirovaParameters.LEADER_HEADWAY_FROM_OWN_MODEL);
         this.bcMeanSpeedFromLeaders = p.getParameter(MirovaParameters.MEAN_SPEED_FROM_PERCEIVED_LEADERS);
         this.bcMergeRefRangeLimited = p.getParameter(MirovaParameters.MERGE_REFERENCE_RANGE_LIMITED);
+        this.bcFollowerDesiredSpeedEstimated =
+                p.getParameter(MirovaParameters.FOLLOWER_DESIRED_SPEED_ESTIMATED);
         this.bcContextOrderFixed = p.getParameter(MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED);
     }
 

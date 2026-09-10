@@ -42,6 +42,10 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * its own car-following model rather than reading the leader's. Affects the merge only, through GapOpenerPattern,
  * and only where the ego and its leader differ in type or in drawn parameters. Expect a small shift in how often
  * cooperation is deferred to the vehicle ahead, and therefore in ramp standstills.</li>
+ * <li><b>bc4_followerdesired</b> -- a follower's desired speed is estimated from the speed it was last seen
+ * holding while unobstructed, instead of being read off the perceived vehicle. Affects the social interaction
+ * incentive only. Expect the clearest effect where ego and follower differ in desired speed -- a car behind a
+ * truck -- and little elsewhere, since for an unobstructed follower the estimate is exact.</li>
  * <li><b>bc5_meanspeed</b> -- the mean speed of a neighbouring lane comes from the leaders this vehicle perceives
  * rather than from OTS AnticipationTrafficPerception. This is the variant with the widest reach: the quantity feeds
  * the merge reference speed cascade, PreventUndercuttingPattern and the keep-right incentive. Expect the largest
@@ -90,6 +94,7 @@ public class Phase05ReferenceStudy implements StudyDefinition
         VARIANTS.put(REFERENCE_LABEL, null);
         VARIANTS.put("bc1_ema", MirovaParameters.EMA_ALPHA_FROM_ACTUAL_DT.getId());
         VARIANTS.put("bc2_leadermodel", MirovaParameters.LEADER_HEADWAY_FROM_OWN_MODEL.getId());
+        VARIANTS.put("bc4_followerdesired", MirovaParameters.FOLLOWER_DESIRED_SPEED_ESTIMATED.getId());
         VARIANTS.put("bc5_meanspeed", MirovaParameters.MEAN_SPEED_FROM_PERCEIVED_LEADERS.getId());
         VARIANTS.put("bc6_mergerange", MirovaParameters.MERGE_REFERENCE_RANGE_LIMITED.getId());
         VARIANTS.put("bc8_ctxorder", MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED.getId());
