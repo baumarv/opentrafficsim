@@ -13,6 +13,7 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgCapac
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgCongestedBranchStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgFinalStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.VGainRelaxationSensitivityStudy;
+import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.VGainScreeningStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgProductionStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgRelaxationStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgSensitivityStudy;
@@ -62,6 +63,7 @@ public final class StudyRegistry
         STUDIES.put("relaxation", FreiburgRelaxationStudy.class);
         STUDIES.put("phase05", Phase05ReferenceStudy.class);
         STUDIES.put("vgaintau", VGainRelaxationSensitivityStudy.class);
+        STUDIES.put("vgainscreen", VGainScreeningStudy.class);
         STUDIES.put("final", FreiburgFinalStudy.class);
     }
 
