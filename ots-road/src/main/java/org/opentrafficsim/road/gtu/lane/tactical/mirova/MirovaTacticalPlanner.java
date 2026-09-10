@@ -581,15 +581,6 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     }
 
     /**
-     * Returns the critical speed threshold (vCrit) used in LMRS. * @return the value of vCrit
-     * @throws ParameterException if parameter resolution fails
-     */
-    public Speed getVCrit() throws ParameterException
-    {
-        return getParameters().getParameter(MirovaParameters.vCrit);
-    }
-
-    /**
      * Returns the sensitivity parameter for social speed dynamics. * @return the value of socioSpeedSensitivity
      * @throws ParameterException if parameter resolution fails
      */

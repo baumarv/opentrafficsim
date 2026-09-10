@@ -36,3 +36,12 @@ cluster/output/
 # none of it belongs in the repository. The findings live in docs/mirova/ instead.
 profiling/
 *.jfr
+
+# Locally generated runtime classpath for the GUI demo script.
+cluster/cp_gui.txt
+
+# Local parallel-run scratch
+cluster/.cp_local.txt
+
+# Local run output (trajectories, detector data, logs, defect counters).
+out/

@@ -95,13 +95,10 @@ public final class MirovaParameterSnapshot implements Serializable
     /** Maximum comfortable acceleration [m/s2]. */
     public final double aSi;
 
-    /** Maximum comfortable deceleration, positive by OTS convention [m/s2]. */
+    /** Look-ahead time [s]. */
+    /** Comfortable deceleration b [m/s^2], read by MandatoryLaneChangePattern. */
     public final double bSi;
 
-    /** Critical deceleration, positive by OTS convention [m/s2]. */
-    public final double bCritSi;
-
-    /** Look-ahead time [s]. */
     public final double t0Si;
 
     // ----------------------------------------------------------------------
@@ -114,9 +111,6 @@ public final class MirovaParameterSnapshot implements Serializable
     /** Desire threshold for a mandatory lane change [-]. */
     public final double dMand;
 
-    /** Desire threshold for an active gap search [-]. */
-    public final double dSearch;
-
     /** Additional distance required for emergency stopping maneuvers [m]. */
     public final double emergencyStoppingDistanceSi;
 
@@ -125,9 +119,6 @@ public final class MirovaParameterSnapshot implements Serializable
 
     /** Time after which a stopped vehicle is removed to prevent gridlock [s]. */
     public final double vehicleDiffusionTimeSi;
-
-    /** Look-ahead distance to check for mandatory lane changes [m]. */
-    public final double mandatoryLaneChangeLookAheadDistanceSi;
 
     /** Extended look-ahead distance for lane change decisions [m]. */
     public final double extendedLookAheadDistanceSi;
@@ -159,24 +150,12 @@ public final class MirovaParameterSnapshot implements Serializable
     /** MiRoVA maximum acceleration, as a scalar. */
     public final Acceleration aMaxScalar;
 
-    /** Scaling factor for the maximum physical acceleration [-]. */
-    public final double accelerationScalingFactor;
-
-    /** Speed below which the vehicle counts as standing still [m/s]. */
-    public final double standstillSpeedThresholdSi;
-
-    /** Speed below which the vehicle counts as standing still, as a scalar. */
-    public final Speed standstillSpeedThresholdScalar;
-
     // ----------------------------------------------------------------------
     // Social interaction
     // ----------------------------------------------------------------------
 
     /** Speed gain threshold for lane change desire [m/s]. */
     public final double vGainSi;
-
-    /** Critical speed for social interaction [m/s]. */
-    public final double vCritSi;
 
     /** Sensitivity to speed-related social pressure [-]. */
     public final double socioSpeedSensitivity;
@@ -323,17 +302,13 @@ public final class MirovaParameterSnapshot implements Serializable
         this.s0Si = this.s0Scalar.si;
         this.aSi = p.getParameter(ParameterTypes.A).si;
         this.bSi = p.getParameter(ParameterTypes.B).si;
-        this.bCritSi = p.getParameter(ParameterTypes.BCRIT).si;
         this.t0Si = p.getParameter(ParameterTypes.T0).si;
 
         this.dFree = p.getParameter(MirovaParameters.DFREE);
         this.dMand = p.getParameter(MirovaParameters.DMAND);
-        this.dSearch = p.getParameter(MirovaParameters.DSEARCH);
         this.emergencyStoppingDistanceScalar = p.getParameter(MirovaParameters.emergencyStoppingDistance);
         this.emergencyStoppingDistanceSi = this.emergencyStoppingDistanceScalar.si;
         this.vehicleDiffusionTimeSi = p.getParameter(MirovaParameters.vehicleDiffusionTime).si;
-        this.mandatoryLaneChangeLookAheadDistanceSi =
-                p.getParameter(MirovaParameters.mandatoryLaneChangeLookAheadDistance).si;
         this.extendedLookAheadDistanceScalar = p.getParameter(MirovaParameters.extendedLookAheadDistance);
         this.extendedLookAheadDistanceSi = this.extendedLookAheadDistanceScalar.si;
         this.congestedLaneChangeDurationScalar = p.getParameter(MirovaParameters.congestedLaneChangeDuration);
@@ -344,12 +319,8 @@ public final class MirovaParameterSnapshot implements Serializable
         this.bMaxSi = this.bMaxScalar.si;
         this.aMaxScalar = p.getParameter(MirovaParameters.A_MAX);
         this.aMaxSi = this.aMaxScalar.si;
-        this.accelerationScalingFactor = p.getParameter(MirovaParameters.ACCELERATION_SCALING_FACTOR);
-        this.standstillSpeedThresholdScalar = p.getParameter(MirovaParameters.standstill_speed_threshold);
-        this.standstillSpeedThresholdSi = this.standstillSpeedThresholdScalar.si;
 
         this.vGainSi = p.getParameter(MirovaParameters.vGain).si;
-        this.vCritSi = p.getParameter(MirovaParameters.vCrit).si;
         this.socioSpeedSensitivity = p.getParameter(MirovaParameters.socioSpeedSensitivity);
 
         this.safetyDistanceReductionFactorLaneChange =

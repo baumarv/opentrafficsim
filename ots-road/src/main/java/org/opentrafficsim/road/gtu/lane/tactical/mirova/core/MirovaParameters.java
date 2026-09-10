@@ -49,10 +49,6 @@ public final class MirovaParameters implements ConstraintInterface
         public static final ParameterTypeDouble DMAND =
                         new ParameterTypeDouble("DMAND", "Desire threshold for mandatory lane change", 0.577, POSITIVE);
 
-        /** Desire threshold for active gap search. */
-        public static final ParameterTypeDouble DSEARCH =
-                        new ParameterTypeDouble("DSEARCH", "Desire threshold for active gap search", 0.788, POSITIVE);
-
         /** Additional distance required for emergency stopping maneuvers. */
         public static final ParameterTypeLength emergencyStoppingDistance = new ParameterTypeLength(
                         "EMERGENCY_STOPPING_DISTANCE", "Additional distance required for emergency stopping maneuvers",
@@ -62,11 +58,6 @@ public final class MirovaParameters implements ConstraintInterface
         public static final ParameterTypeDuration vehicleDiffusionTime = new ParameterTypeDuration("VEHICLE_DIFFUSION_TIME",
                         "Time threshold after which a stopped/deadlocked vehicle is removed to prevent gridlock",
                         Duration.instantiateSI(60.0), POSITIVE);
-
-        /** Look-ahead distance to check for mandatory lane changes. */
-        public static final ParameterTypeLength mandatoryLaneChangeLookAheadDistance = new ParameterTypeLength(
-                        "MANDATORY_LANE_CHANGE_LOOK_AHEAD_DISTANCE", "Look-ahead distance to check for mandatory lane changes",
-                        Length.instantiateSI(500.0), POSITIVE);
 
         /** Extended look-ahead distance for lane change decisions. */
         public static final ParameterTypeLength extendedLookAheadDistance = new ParameterTypeLength(
@@ -107,10 +98,6 @@ public final class MirovaParameters implements ConstraintInterface
         /** Speed gain threshold for lane change desire. */
         public static final ParameterTypeSpeed vGain = new ParameterTypeSpeed("VGAIN",
                         "Speed gain threshold for lane change desire", new Speed(69.6, SpeedUnit.KM_PER_HOUR), POSITIVE);
-
-        /** Critical speed for social interaction. */
-        public static final ParameterTypeSpeed vCrit = new ParameterTypeSpeed("VCRIT", "Critical speed for social interaction",
-                        new Speed(60.0, SpeedUnit.KM_PER_HOUR), POSITIVE);
 
         /** Sensitivity to speed-related social pressure. */
         public static final ParameterTypeDouble socioSpeedSensitivity = new ParameterTypeDouble("SOCIO_SPEED_SENSITIVITY",
@@ -246,25 +233,10 @@ public final class MirovaParameters implements ConstraintInterface
                         "Maximum number of leaders considered in car-following", 2, POSITIVE);
 
         /**
-         * Scaling factor for the maximum physical acceleration.
-         * <p>
-         * This dimensionless parameter serves as a multiplier to stochastically vary the vehicle's acceleration capabilities. A
-         * value of 1.0 represents the baseline performance, while values below 1.0 represent degraded performance (e.g., due to
-         * vehicle age or heavy load), and values above 1.0 represent higher performance (e.g., sports cars).
-         * </p>
-         */
-        public static final ParameterTypeDouble ACCELERATION_SCALING_FACTOR = new ParameterTypeDouble("aScale",
-                        "Scaling factor for the maximum physical acceleration.", 1.0, ConstraintInterface.POSITIVE);
-
-        /**
          * Maximum acceleration for the MiRoVA framework.
          */
         public static final ParameterTypeAcceleration A_MAX = new ParameterTypeAcceleration("aMaxMirova",
                         "Maximum acceleration for MiRoVA", Acceleration.instantiateSI(3.5), POSITIVE);
-
-        public static final ParameterTypeSpeed standstill_speed_threshold = new ParameterTypeSpeed("STANDSTILL_SPEED_THRESHOLD",
-                        "Speed threshold below which the vehicle is considered at standstill",
-                        new Speed(20.0, SpeedUnit.KM_PER_HOUR), POSITIVE);
 
         // ----------------------------------------------------------------------
         // Capacity drop parameters
