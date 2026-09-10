@@ -394,9 +394,12 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
             }
         }
 
-        // combine mandatory + discretionary using LMRS weighting per direction
+        // Combine mandatory + discretionary using the LMRS weighting per direction. The weight is 1 below dSync,
+        // 0 above dCoop, and interpolated between them -- so dCoop must be the larger of the two. The default passes
+        // dFree (0.365), which is smaller than dSync (0.577), and the interpolation branch is therefore unreachable:
+        // theta steps from 1 to 0 at dMand. BC-9 passes dSearch (0.788) instead, which is what the model describes.
         double dSync = this.getDMand();
-        double dCoop = this.getDFree();
+        double dCoop = getParams().bcDesireInterpolation ? getParams().dSearch : this.getDFree();
 
         this.laneChangeDesire =
                 Desire.combine(this.mandatoryLaneChangeDesire, this.discretionaryLaneChangeDesire, dSync, dCoop);

@@ -284,6 +284,12 @@ public final class MirovaParameterSnapshot implements Serializable
     /** BC-6: merge reference speed scan bounded by the look-ahead. */
     public final boolean bcMergeRefRangeLimited;
 
+    /** Desire threshold for active gap search; the upper end of the BC-9 interpolation. */
+    public final double dSearch;
+
+    /** BC-9: the discretionary weight is interpolated between DMAND and DSEARCH. */
+    public final boolean bcDesireInterpolation;
+
     /** BC-4: follower desired speed estimated from observation rather than read. */
     public final boolean bcFollowerDesiredSpeedEstimated;
 
@@ -309,6 +315,8 @@ public final class MirovaParameterSnapshot implements Serializable
 
         this.dFree = p.getParameter(MirovaParameters.DFREE);
         this.dMand = p.getParameter(MirovaParameters.DMAND);
+        this.dSearch = p.getParameter(MirovaParameters.DSEARCH);
+        this.bcDesireInterpolation = p.getParameter(MirovaParameters.DESIRE_INTERPOLATION_FIXED);
         this.emergencyStoppingDistanceScalar = p.getParameter(MirovaParameters.emergencyStoppingDistance);
         this.emergencyStoppingDistanceSi = this.emergencyStoppingDistanceScalar.si;
         this.vehicleDiffusionTimeSi = p.getParameter(MirovaParameters.vehicleDiffusionTime).si;
