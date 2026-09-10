@@ -341,18 +341,41 @@ mental module reads them), `FAR_ANTICIPATION_ENABLED` on a pattern that is not r
 | the six `bc*` switches | They exist to compare the Java model against itself. The core implements one behaviour per decision (§0), not a switch. |
 | the eight parameters deleted in Phase 0.5 | Read nowhere — but see Q9: one of them, `DSEARCH`, turns out to have been orphaned by a bug rather than vestigial. |
 
-**The defaults are currently OTS's, and that is probably wrong.** `T = 1.2 s`, `a = 1.25 m/s²`,
-`vGain = 69.6 km/h` are what OTS ships, not what the campaign ran (1.10 s, 1.4 m/s², 15 km/h). A
-standalone library whose defaults come from a simulator it no longer depends on is an accident waiting
-to be inherited. The production set is prepared as candidate defaults — resolved through all four
-override layers, with a provenance per key — in [`default-parameters.md`](default-parameters.md).
-**Q8, for decision.**
+**The defaults are the production set (Q8, decided).** `DriverParameterKeys` carries the **car**
+values of the parameter set the published campaign ran — `T = 1.10 s`, `a = 1.4 m/s²`,
+`vGain = 15 km/h`, `fGap = 0.40`, `relaxDamping = 1.00` — resolved through all four override layers and
+confirmed against a registered run, not read off constants. The OTS defaults are gone: a standalone
+library whose defaults come from a simulator it no longer depends on is an accident waiting to be
+inherited. Derivation and evidence: [`default-parameters.md`](default-parameters.md).
 
-**Every key carries its provenance in the code.** `ParameterKey` has a `provenance` field —
-`LITERATURE`, `CALIBRATION`, `ASSUMPTION`, `OTS_DEFAULT`, `UNKNOWN` — so that a number nobody has ever
-justified says so where it is read. The count today: twelve calibrated, nine sourced, thirteen assumed,
-one an OTS default nobody chose, and **three that could not be classified at all** — `vGain`, which
-scales every discretionary desire, `socio`, and `tauRelax`, which *is* the relaxation.
+**Two conventions follow, both ADR candidates for the new repository.**
+
+> **ADR-A — parameters are positive magnitudes; computed accelerations are signed.**
+> A parameter is a bound the driver brings, and a bound has no direction: `b`, `bCrit`, `bMax`,
+> `bCoop`, the follower and ego thresholds, `relaxAbortB` are all positive. A sign appears only where
+> the model computes: `CarFollowingModel.followingAcceleration`, `TacticalCommand.acceleration`,
+> `EgoState.acceleration` are signed, negative to brake. OTS carried both conventions at once —
+> `ParameterTypes.B` positive, `MirovaParameters.B_MAX` negative — which is how the same physical
+> quantity appeared with two signs in one parameter set. **One judgement call:**
+> `EgoState.maxDeceleration` is a *host-reported vehicle limit*, so it follows the parameter
+> convention and is a magnitude. It is brought, not computed.
+
+> **ADR-B — one default set, and it is the car set; other classes are named presets.**
+> `DriverParameters` describes one driver, so the defaults can only be one vehicle class. Cars are the
+> majority class and the one the calibration was steered by. Trucks are `DriverPresets.TRUCK`, seven
+> keys that the host applies as an override — `T`, `s0`, `a`, `aMax`, `vGain`, `bCoop`, and
+> `cooperate = false`. Which class a driver belongs to is population configuration, and population
+> configuration is the host's.
+
+**Every key carries its provenance in the code**, `LITERATURE` / `CALIBRATION` / `ASSUMPTION` /
+`OTS_DEFAULT` / `UNKNOWN`, so that a number nobody has ever justified says so where it is read.
+
+After the LMRS check, two of the three unclassified keys are settled and one is not: `socio = 0.25` is
+a MiRoVA choice, not the LMRS value (`SOCIO` is 1.0 there, on the unit interval, while MiRoVA drops
+that bound), so it is an `ASSUMPTION`; `vGain = 15 / 30 km/h` is **not** the LMRS value either — that
+is 69.6 km/h, which is what MiRoVA declares as its default and the campaign overrides — and no source
+for 15 / 30 exists in the code or the model reference, so it stays `UNKNOWN`. `tauRelax = 20 s`
+likewise: Keane & Gao give 15 s. Two `UNKNOWN` keys remain, and both are load-bearing.
 
 **Distributions: shapes in the core, calibration in the host, entropy in the host.** The spread of the
 desired-speed factor across a population is driver heterogeneity and travels with the driver to any
@@ -512,18 +535,18 @@ migration must never be mixed, or a deviation in the equivalence tests cannot be
 | Q1 | `meanSpeed`: keep or drop? | Follows BC-5. Recorded in §0 and §1. |
 | Q2 | How much to defend `Distance.ABSENT`? | **Assertion**, active under `-ea` in tests and CI. §10. |
 | Q3 | The `_Modified` truck distributions | **Still open — Marvin decides.** |
-| Q8, Q9 | Defaults, and the θ interpolation | Prepared and implemented respectively; both **open for decision** — see §0 and below. |
+| Q8 | Defaults | **Decided:** the production car set, ADR-A and ADR-B in §7. |
+| Q9 | The θ interpolation | Implemented behind a switch; **open**, and the core reference with it (§0). |
 | Q4 | May `routeRequirement` answer `Unknown`? | **No.** Mandatory for every host; a host without routes answers `Absent`. §1. |
 | Q5 | What if the host calls back late? | A separate `EvaluationLate` event, not `LimitReached`. §5, §9. |
 | Q6 | `mirova_model_reference.md` | **Resolved** — supplied 2026-09-10, now in `docs/decoupling/`. Inventory §C.6 corrected against it. |
 | Q7 | `Side` beside `RelativeLane` | Two types confirmed; rationale in `CoreTypes.kt`, to become an ADR in the new repository. |
 
-**Q8 — should the core's defaults be the production set rather than OTS's?**
-Prepared for decision in [`default-parameters.md`](default-parameters.md): every key with the value the
-published campaign actually ran, resolved through all four override layers, and tagged. Three things go
-with the decision — the sign convention for decelerations, the fact that one default set can only be
-the car set or the truck set, and that adopting it is a `major` step by §11 and belongs before v1 is
-tagged.
+**Q8 — defaults. Decided: the production set, car values.**
+Implemented in `DriverParameterKeys`, with `DriverPresets.TRUCK` for the other class and the two
+conventions above as ADR-A and ADR-B. It is a `major` step by §11, taken before v1 is tagged rather
+than after. What is *not* settled is the two `UNKNOWN` provenances, `vGain` and `tauRelax`; both are
+now known not to come from the sources one would assume.
 
 **Q9 — the θ interpolation is a step function, and `DSEARCH` is why. Now an open core-reference
 decision; see §0.**

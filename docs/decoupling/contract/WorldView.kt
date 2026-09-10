@@ -243,9 +243,12 @@ interface EgoState {
     val maxSpeed: Speed
 
     /**
-     * The strongest deceleration the vehicle can produce.
+     * The strongest deceleration the vehicle can produce, as a **positive magnitude**.
      *
-     * A physical limit, not the driver's comfort threshold — those are parameters.
+     * A physical limit, not the driver's comfort threshold — those are parameters. It follows the
+     * parameter convention rather than the acceleration convention because it is a bound the vehicle
+     * brings, not a value the model computed: magnitudes for what is brought, signs for what is
+     * computed. See `contract.md` §7.
      */
     val maxDeceleration: Acceleration
 
@@ -298,7 +301,7 @@ data class LaneChangeProgress(
  *           level with or past this vehicle's reference point — which is how the merge logic detects
  *           a vehicle alongside, so the sign carries meaning and must not be clamped.
  * @property speed its speed
- * @property acceleration its acceleration
+ * @property acceleration its acceleration, signed
  * @property length its length
  * @property indicator its turn indicator, the one genuinely inter-agent signal in the model and the
  *           trigger for cooperative gap opening

@@ -1,8 +1,28 @@
 # Q8 — candidate defaults for the core, with provenance
 
-The production parameter set of the published campaign, resolved to the values a run actually carries,
-offered as the core's defaults. **Nothing is changed in `DriverParameterKeys` — this is the paper you
-decide on.**
+The production parameter set of the published campaign, resolved to the values a run actually carries.
+**Decided: these are the core's defaults** — the car column in `DriverParameterKeys`, the truck column
+as `DriverPresets.TRUCK`, decelerations as positive magnitudes (contract §7, ADR-A and ADR-B).
+
+## 0. Confirmed against the registered runs, not read off constants
+
+The four layers below are easy to read wrong, so the values were taken from the study registration
+itself: `Phase05ReferenceStudy.register` and `FreiburgProductionStudy.register` were both run against
+the built classes, and the resolved `car.*` / `truck.*` entries of each variant were compared key by
+key.
+
+| Variant | Result |
+|---|---|
+| `reference` | **identical to the production set in all 27 behavioural keys** |
+| `coreset` | the same 27, plus the five BC booleans on both vehicle classes, and nothing else |
+| `coreset-interp` | the same, plus `bcDesireInterpolation` |
+
+So the campaign's `reference` run *is* the production run, and the two core-reference variants differ
+from it by switches alone. The `phase05.switch` record carries the switch ids joined by `+`, which is
+what `runParams.txt` will show.
+
+The 27 keys are the fourteen car and thirteen truck entries in §1. Anything not among them takes the
+value the code declares, listed in §2.
 
 ## How the values were resolved
 
@@ -40,13 +60,13 @@ Three values in `FreiburgStudyParameters` are therefore **not** what the campaig
 | `a` desired acceleration | **1.4 m/s²** | **1.25 m/s²** | L + C | Cars after Kesting et al. for motorway traffic. Trucks by a factorial over 0.7 / 1.0 / 1.3, monotone on every measure: ramp standstills 340 → 244 per run, right-hand lane +11.9 km/h in congestion, jam 11.7 min shorter. Deliberately **not** the field median of 0.60–0.87, because IDM reads the parameter as a ceiling. |
 | `b` comfortable deceleration | **1.75 m/s²** | **1.75 m/s²** | C | `FreiburgProductionStudy.B`, overriding the Kesting value of 2.0 the base set carries. |
 | `s0` standstill gap | **3.0 m** | **6.0 m** | L + C | Kesting et al.; trucks at his 2:1 ratio. The car value is the production override of the base set's 2.0. |
-| `vGain` speed-difference scale | **15 km/h** | **30 km/h** | ? | The paper's table gives exactly these, and the scenario sets them, but no source is named in either. **Not** the OTS/LMRS default of 69.6 km/h. |
+| `vGain` speed-difference scale | **15 km/h** | **30 km/h** | ? | The paper's table gives exactly these and the scenario sets them, but no source is named in either. Checked against LMRS (§5): 69.6 km/h there, which is also what MiRoVA declares and the campaign overrides. **The 15 / 30 km/h pair comes from neither.** |
 | `aMax` driver's acceleration ceiling | **3.5 m/s²** | **1.3 m/s²** | L | The reference's `f(v)` curve, trucks scaled 1.3/3.5. |
 | `bCoop` cooperative deceleration | **−3.0 m/s²** | **−1.0 m/s²** | C | Strengthening it was tried in both congestion regimes and is clearly worse in each: a gap opener braking harder holds up the column behind it and creates the disturbance that blocks the merge. |
-| `cooperate` cooperation enabled | true | **false** | ? | Trucks do not cooperate. No rationale is recorded in the code. |
+| `cooperate` cooperation enabled | *not set* → true | **false** | ? | Trucks do not cooperate. No rationale is recorded in the code. |
 | `fGap` safety-distance reduction | **0.40** | **0.40** | C | `FreiburgCarStudy.SAFETY_DISTANCE_FACTOR`, carried through the calibration; overrides the base set's 0.60. Interacts multiplicatively with `s0`, so grid values are not comparable across a change of `s0`. |
-| `bFollowerMin` | **−2.0 m/s²** | −2.0 m/s² | C | The pair is an operating-point decision and the two tests disagree. On a heavily congested hour, −2.5 / −5.0 was the single effective lever against ramp standstills (37.4 → 29.9 per run). On a full day at the calibrated point, a 108-run factorial found the opposite: −2.5 raised standstills 29 % (265 → 340). The calibration targets ordinary days, so the tighter pair stands. **First parameter to revisit if heavy congestion becomes the target.** |
-| `bFollowerMax` | **−4.0 m/s²** | −4.0 m/s² | C | as above; the two bound one interpolation ramp and neither moves alone |
+| `bFollowerMin` | **−2.0 m/s²** | *not set* → −2.0 | C | The pair is an operating-point decision and the two tests disagree. On a heavily congested hour, −2.5 / −5.0 was the single effective lever against ramp standstills (37.4 → 29.9 per run). On a full day at the calibrated point, a 108-run factorial found the opposite: −2.5 raised standstills 29 % (265 → 340). The calibration targets ordinary days, so the tighter pair stands. **First parameter to revisit if heavy congestion becomes the target.** |
+| `bFollowerMax` | **−4.0 m/s²** | *not set* → −4.0 | C | as above; the two bound one interpolation ramp and neither moves alone |
 | `relaxDamping` | **1.00** | **1.00** | C | **Damping is off in the published campaign.** A 120-run grid found it monotone in every headway row: at 1.10/1.40 it takes vehicles through a stop-and-go cycle from 30.8 % to 11.0 % and ramp standstills from 1237 to 340. It cannot be set alone — removing the damping raises discharge enough to prevent breakdowns, which is why the headway was lengthened at the same time. |
 | `relaxDampingOn` | true | true | C | On, with a factor of 1.00, which is a no-op. Kept true so the mechanism stays reachable. |
 | `capDropOn` | false | false | A | Off in every campaign. |
@@ -59,7 +79,7 @@ Three values in `FreiburgStudyParameters` are therefore **not** what the campaig
 | `dFree` | 0.365 | L | LMRS (Schakel et al.), and the paper's table |
 | `dMand` | 0.577 | L | as above |
 | `dSearch` | 0.788 | L | as above. Restored in Phase 1; unread today because of the θ bug (Q9). |
-| `socio` socio-speed sensitivity | 0.25 | ? | The paper's table does not list it; the LMRS default is different. No source found. |
+| `socio` socio-speed sensitivity | 0.25 | **A** | Checked against LMRS (§5): `SOCIO` is 1.0 there, constrained to the unit interval. MiRoVA declares 0.25 and drops the bound, and the demo scenarios set 0.75. A MiRoVA choice with no recorded source. |
 | `vCong` congestion speed | 60 km/h | L | Paper table, and the LMRS default |
 | `t0` route time horizon | 43 s | O | The OTS `T0` default, untouched |
 | `lcDuration` | 3.0 s | O | The OTS `LCDUR` default. The reference cites Berghaus & Oeser's τ_LC = 6 s for mergers — **not what runs.** |
@@ -80,38 +100,65 @@ Three values in `FreiburgStudyParameters` are therefore **not** what the campaig
 | `tDischargeFraction` | 0.0 | A | as above |
 | `vCritDischargeFraction` | 0.0 | A | as above |
 
-**Counted:** of 38 keys, **12 carry a Freiburg-Nord calibration**, 9 a literature source, 13 an
-assumption, 1 an OTS default nobody chose, and 3 I could not classify (`vGain`, `socio`, `tauRelax`).
-The three unclassified are not minor — `vGain` scales every discretionary desire and `tauRelax` is the
-relaxation.
+**Counted:** of 38 keys, **12 carry a Freiburg-Nord calibration**, 9 a literature source, 14 an
+assumption (`socio` moved here after the LMRS check), 1 an OTS default nobody chose, and **2 remain
+unclassified: `vGain` and `tauRelax`**. Neither is minor — `vGain` scales every discretionary desire
+and `tauRelax` *is* the relaxation.
 
 ---
 
-## 3. Three things to decide with the values
+## 3. Three things that came with the values, all decided
 
-**Sign convention.** OTS carries `B` and `BCRIT` as positive magnitudes and MiRoVA's own deceleration
-parameters as negative numbers, so the same physical quantity appears with both signs in one parameter
-set. The contract makes every deceleration a negative `Acceleration`. Adopting the production values
-means translating `B = 1.75` to `−1.75 m/s²`, which is mechanical but is exactly the kind of step where
-a sign is lost.
+**Sign convention (ADR-A).** OTS carried `B` and `BCRIT` as positive magnitudes and MiRoVA's own
+deceleration parameters as negative numbers — the same physical quantity with two signs in one
+parameter set. **Decided: every parameter is a positive magnitude, and only computed accelerations are
+signed.** A parameter is a bound the driver brings and a bound has no direction; the sign appears where
+the model applies it. `EgoState.maxDeceleration` follows the parameter convention, because a vehicle
+limit is brought rather than computed. In this document the deceleration columns still carry the
+signs the OTS code uses, so `bCoop = −3.0` here is `3.0.metersPerSecondSquared` in the contract.
 
-**One parameter set per driver, not per class.** `DriverParameters` describes one driver. Car and truck
-differ in eleven of the keys above, and in the core that is the **host's** population configuration: it
-creates agents with different overrides, or draws from different distributions. Whichever set becomes
-the default can only be one of the two. **I would make the car set the default** — it is the majority
-class and the one the calibration was steered by — and ship the truck set as a named override in the
-adapter.
+**One default set, and it is the car set (ADR-B).** `DriverParameters` describes one driver, so the
+defaults can only be one class. Cars are the majority and the class the calibration was steered by;
+trucks are `DriverPresets.TRUCK`, seven keys applied as an override. Which class a driver belongs to is
+population configuration, and that is the host's.
 
-**The default would then not be the code's current behaviour.** Eleven values change, one of them by a
-factor of nearly five (`vGain`: 69.6 → 15 km/h) and one from a no-op to a no-op with a different
-meaning (`relaxDamping` 0.40 → 1.00, i.e. damping off). This is a `major` version step by §11 of the
-contract, and it should happen before v1 is tagged rather than after.
+**The default is no longer the code's current behaviour.** Eleven values change, one of them by a
+factor of nearly five (`vGain`: 69.6 → 15 km/h) and one from damping at 0.40 to no damping at all
+(`relaxDamping` 1.00). A `major` step by contract §11 — taken now, before v1 is tagged.
 
-## 4. What I would do
+## 4. What is left
 
-Adopt the production set, with the car values as defaults, and carry the provenance in the code rather
-than only here — `ParameterKey` now has a `provenance` field, populated for every key, so that a value
-nobody has ever justified says so at the point of use. Then close the three `?` entries: `vGain` and
-`socio` by finding the source or admitting there is none, and `tauRelax` by recording why it is 20 s
-and not Keane & Gao's 15 s, because that one number is load-bearing for the merge behaviour of every
-published result.
+Two provenances, and both matter more than their size suggests. **`vGain`** runs at 15 / 30 km/h with
+no source anywhere: not LMRS (§5), not a paper the code cites, only the model reference's table. It
+scales every discretionary lane-change desire. **`tauRelax`** is 20 s where Keane & Gao give 15 s, with
+no note saying why, and it is the relaxation itself. Both belong in the systematic paper-against-code
+check, and until they are closed the core ships two defaults nobody can defend.
+
+---
+
+## 5. The LMRS check on `vGain` and `socio`
+
+Both were tagged `?` on the assumption that they came from Schakel et al. (2012), the LMRS source.
+They do not. Checked against OTS's own LMRS implementation, which is Schakel's
+(`ots-road/.../tactical/util/lmrs/LmrsParameters.java`, his name on the file):
+
+| | LMRS | MiRoVA declares | Campaign runs |
+|---|---|---|---|
+| `vGain` | `69.6 km/h`, positive | `69.6 km/h` — the LMRS value, adopted | **15 km/h car / 30 km/h truck** |
+| `socio` | `1.0`, **constrained to [0, 1]**, "sensitivity level for speed of others" | `0.25`, constrained only to positive — **the unit-interval bound is dropped** | 0.25 (never set) |
+
+Two consequences.
+
+**`vGain` stays `UNKNOWN`.** The declared default is LMRS's, so the *default* has a source; the values
+that actually run are five and two times smaller and have none. They match the model reference's table
+exactly, so the table is where they entered the project — but the table cites nothing, and a
+parameter that turns a 69.6 km/h speed-difference scale into 15 km/h changes every discretionary
+desire in the model. `A` closing that is a question for the TR-B check, not something to be guessed at.
+
+**`socio` becomes `ASSUMPTION`.** It is not the LMRS value, nothing else claims it, and MiRoVA has
+loosened the constraint so that values above 1 are legal — which the demo scenarios do not use but
+could. Worth a look when the systematic paper check runs: LMRS's σ and MiRoVA's socio-speed sensitivity
+enter their respective formulas differently, so the numbers may not even be comparable.
+
+`tauRelax` is the third of this kind and remains open: Keane & Gao give 15 s, the code has 20 s, and no
+note anywhere says why.

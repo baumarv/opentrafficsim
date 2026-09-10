@@ -5,6 +5,12 @@
  *
  * NOTE: Replace this block with the exact KIT/MiRoVA header template.
  *
+ * SIGN CONVENTION (ADR candidate, contract.md section 7): every parameter is a positive magnitude,
+ * decelerations included. Only computed accelerations are signed -- what a car-following model
+ * returns, what a TacticalCommand carries, what EgoState reports. A parameter is a bound the driver
+ * brings, and a bound has no direction; the sign appears when the model applies it. OTS carried both
+ * conventions at once, with ParameterTypes.B positive and MirovaParameters.B_MAX negative.
+ *
  * UNIT LITERALS: kotlin-units builds its types from numeric extensions -- `3.0.meters`,
  * `1.25.metersPerSecondSquared`. Distance is backed by Long micrometres, Speed and Acceleration by
  * Double SI. Speeds use `.kmh`.
@@ -85,6 +91,10 @@ class ParameterKey<T : Any> internal constructor(
  * Used in two roles: as the population defaults handed to a [DriverAgentFactory], and as the
  * per-vehicle overrides handed to [DriverAgentFactory.create]. A key that is set nowhere falls back
  * to its distribution, and failing that to [ParameterKey.default].
+ *
+ * Defaults are the **car** values of the production parameter set of the published campaign; the truck
+ * values are [DriverPresets.TRUCK]. One default set can only be one vehicle class, and the car is the
+ * majority class and the one the calibration was steered by. See `default-parameters.md`.
  *
  * The core resolves the whole set **once, when the agent is constructed**, into an internal snapshot
  * of primitives. Nothing is looked up per tick and nothing is written at runtime. The Java model had
@@ -190,32 +200,32 @@ object DriverParameterKeys {
     /** Desired time headway in free flow. */
     @JvmField
     val DESIRED_HEADWAY: ParameterKey<Duration> =
-        ParameterKey("T", 1.2.seconds, Provenance.OTS_DEFAULT, "Desired time headway in free flow")
+        ParameterKey("T", 1.1.seconds, Provenance.CALIBRATION, "Desired time headway in free flow")
 
     /** Minimum bumper-to-bumper gap at standstill. */
     @JvmField
     val STANDSTILL_GAP: ParameterKey<Distance> =
-        ParameterKey("s0", 3.0.meters, Provenance.OTS_DEFAULT, "Minimum bumper-to-bumper gap at standstill")
+        ParameterKey("s0", 3.0.meters, Provenance.CALIBRATION, "Minimum bumper-to-bumper gap at standstill")
 
     /** Desired acceleration in free flow. */
     @JvmField
     val DESIRED_ACCELERATION: ParameterKey<Acceleration> =
-        ParameterKey("a", 1.25.metersPerSecondSquared, Provenance.OTS_DEFAULT, "Desired acceleration in free flow")
+        ParameterKey("a", 1.4.metersPerSecondSquared, Provenance.LITERATURE, "Desired acceleration in free flow")
 
-    /** Comfortable deceleration, used for planned stops such as the end of a ramp. */
+    /** Comfortable deceleration, used for planned stops such as the end of a ramp; a positive magnitude. */
     @JvmField
     val COMFORTABLE_DECELERATION: ParameterKey<Acceleration> =
-        ParameterKey("b", (-2.09).metersPerSecondSquared, Provenance.OTS_DEFAULT, "Comfortable deceleration")
+        ParameterKey("b", 1.75.metersPerSecondSquared, Provenance.CALIBRATION, "Comfortable deceleration")
 
-    /** Deceleration the driver treats as the limit of ordinary braking. */
+    /** Deceleration the driver treats as the limit of ordinary braking; a positive magnitude. */
     @JvmField
     val CRITICAL_DECELERATION: ParameterKey<Acceleration> =
-        ParameterKey("bCrit", (-3.5).metersPerSecondSquared, Provenance.ASSUMPTION, "Critical deceleration")
+        ParameterKey("bCrit", 3.5.metersPerSecondSquared, Provenance.ASSUMPTION, "Critical deceleration")
 
-    /** Strongest deceleration the driver will ever apply, whatever the situation. */
+    /** Strongest deceleration the driver will ever apply, whatever the situation; a positive magnitude. */
     @JvmField
     val MAX_DECELERATION: ParameterKey<Acceleration> =
-        ParameterKey("bMax", (-6.0).metersPerSecondSquared,
+        ParameterKey("bMax", 6.0.metersPerSecondSquared,
             Provenance.ASSUMPTION, "Strongest deceleration the driver will apply")
 
     /**
@@ -279,12 +289,12 @@ object DriverParameterKeys {
     /** Speed-difference scale in the cruising and social pressure desire terms. */
     @JvmField
     val SPEED_GAIN: ParameterKey<Speed> =
-        ParameterKey("vGain", 69.6.kmh, Provenance.OTS_DEFAULT, "Speed-difference scale for lane-change desire")
+        ParameterKey("vGain", 15.0.kmh, Provenance.UNKNOWN, "Speed-difference scale for lane-change desire")
 
     /** How strongly this driver yields to a faster follower. */
     @JvmField
     val SOCIO_SPEED_SENSITIVITY: ParameterKey<Double> =
-        ParameterKey("socio", 0.25, Provenance.UNKNOWN, "Sensitivity to pressure from a faster follower")
+        ParameterKey("socio", 0.25, Provenance.ASSUMPTION, "Sensitivity to pressure from a faster follower")
 
     /** Whether this driver opens a gap for a merging neighbour at all. */
     @JvmField
@@ -294,13 +304,12 @@ object DriverParameterKeys {
     /** Deceleration this driver will accept in order to open a gap. */
     @JvmField
     val COOPERATIVE_DECELERATION: ParameterKey<Acceleration> =
-        ParameterKey("bCoop", (-3.0).metersPerSecondSquared,
-            Provenance.CALIBRATION, "Deceleration accepted to open a gap")
+        ParameterKey("bCoop", 3.0.metersPerSecondSquared, Provenance.CALIBRATION, "Deceleration accepted to open a gap")
 
     /** Deceleration applied pre-emptively, before a neighbour has indicated. */
     @JvmField
     val PREEMPTIVE_COOPERATIVE_DECELERATION: ParameterKey<Acceleration> =
-        ParameterKey("bCoopPre", (-1.0).metersPerSecondSquared,
+        ParameterKey("bCoopPre", 1.0.metersPerSecondSquared,
             Provenance.ASSUMPTION, "Deceleration applied pre-emptively")
 
     /** How far ahead this driver notices a neighbour who may need a gap. */
@@ -322,30 +331,30 @@ object DriverParameterKeys {
     /** How far the required safety gap may be reduced while changing lane under pressure. */
     @JvmField
     val GAP_REDUCTION_FACTOR: ParameterKey<Double> =
-        ParameterKey("fGap", 0.5, Provenance.ASSUMPTION, "Reduction of the required safety gap during a lane change")
+        ParameterKey("fGap", 0.40, Provenance.CALIBRATION, "Reduction of the required safety gap during a lane change")
 
     /** Deceleration this driver will impose on a new follower at the least urgent desire. */
     @JvmField
     val MIN_FOLLOWER_DECELERATION: ParameterKey<Acceleration> =
-        ParameterKey("bFollowerMin", (-2.0).metersPerSecondSquared,
+        ParameterKey("bFollowerMin", 2.0.metersPerSecondSquared,
             Provenance.CALIBRATION, "Deceleration imposed on a new follower at minimum urgency")
 
     /** Deceleration this driver will impose on a new follower at the most urgent desire. */
     @JvmField
     val MAX_FOLLOWER_DECELERATION: ParameterKey<Acceleration> =
-        ParameterKey("bFollowerMax", (-4.0).metersPerSecondSquared,
+        ParameterKey("bFollowerMax", 4.0.metersPerSecondSquared,
             Provenance.CALIBRATION, "Deceleration imposed on a new follower at maximum urgency")
 
     /** Deceleration this driver will accept for itself at the least urgent desire. */
     @JvmField
     val MIN_EGO_DECELERATION: ParameterKey<Acceleration> =
-        ParameterKey("bEgoMin", (-2.0).metersPerSecondSquared,
+        ParameterKey("bEgoMin", 2.0.metersPerSecondSquared,
             Provenance.ASSUMPTION, "Deceleration the driver accepts at minimum urgency")
 
     /** Deceleration this driver will accept for itself at the most urgent desire. */
     @JvmField
     val MAX_EGO_DECELERATION: ParameterKey<Acceleration> =
-        ParameterKey("bEgoMax", (-4.0).metersPerSecondSquared,
+        ParameterKey("bEgoMax", 4.0.metersPerSecondSquared,
             Provenance.ASSUMPTION, "Deceleration the driver accepts at maximum urgency")
 
     // -----------------------------------------------------------------------------------------
@@ -372,17 +381,17 @@ object DriverParameterKeys {
     /** Whether the acceleration produced while relaxed is damped. */
     @JvmField
     val RELAXATION_DAMPING_ENABLED: ParameterKey<Boolean> =
-        ParameterKey("relaxDampingOn", true, Provenance.ASSUMPTION, "Whether acceleration is damped while relaxed")
+        ParameterKey("relaxDampingOn", true, Provenance.CALIBRATION, "Whether acceleration is damped while relaxed")
 
     /** Damping factor applied to the acceleration while a relaxation is active. */
     @JvmField
     val RELAXATION_DAMPING: ParameterKey<Double> =
-        ParameterKey("relaxDamping", 0.40, Provenance.ASSUMPTION, "Damping factor applied while relaxed")
+        ParameterKey("relaxDamping", 1.00, Provenance.CALIBRATION, "Damping factor applied while relaxed")
 
     /** Deceleration beyond which a relaxation is abandoned as no longer credible. */
     @JvmField
     val RELAXATION_ABORT_DECELERATION: ParameterKey<Acceleration> =
-        ParameterKey("relaxAbortB", (-1.0).metersPerSecondSquared,
+        ParameterKey("relaxAbortB", 1.0.metersPerSecondSquared,
             Provenance.ASSUMPTION, "Deceleration beyond which a relaxation is abandoned")
 
     /** Time over which an abandoned relaxation fades out, rather than vanishing. */
@@ -429,8 +438,7 @@ object DriverParameterKeys {
     /** Speed below which discharge behaviour applies. */
     @JvmField
     val DISCHARGE_CRITICAL_SPEED: ParameterKey<Speed> =
-        ParameterKey("vCritDischarge", 40.0.kmh,
-            Provenance.ASSUMPTION, "Speed below which discharge behaviour applies")
+        ParameterKey("vCritDischarge", 40.0.kmh, Provenance.ASSUMPTION, "Speed below which discharge behaviour applies")
 
     /** Headway addition as a fraction of the desired headway, as an alternative to the absolute form. */
     @JvmField
@@ -461,4 +469,39 @@ object DriverParameterKeys {
         CAPACITY_DROP_ENABLED, DISCHARGE_HEADWAY_ADDON, DISCHARGE_CRITICAL_SPEED,
         DISCHARGE_HEADWAY_FRACTION, DISCHARGE_CRITICAL_SPEED_FRACTION,
     )
+}
+
+/**
+ * Named parameter sets for vehicle classes other than the default.
+ *
+ * [DriverParameterKeys] carries the car values of the production set; a class that differs is a
+ * preset the host applies as an override, not a second set of defaults. Which class a driver belongs
+ * to is population configuration, and population configuration is the host's.
+ */
+object DriverPresets {
+
+    /**
+     * The truck values of the production parameter set of the published campaign.
+     *
+     * Seven keys differ from the car defaults. Every one of them is set by
+     * `FreiburgStudyParameters.baseBehaviorParams` or by the override layers above it, and every one
+     * was confirmed against a registered run rather than read off a constant; three constants in that
+     * class are overridden before a run sees them. `b`, `fGap`, `relaxDamping` and `capDropOn` are the
+     * same for both classes and are therefore not repeated here.
+     *
+     * Provenance, key by key: `T` and `a` from the Freiburg-Nord calibration (the acceleration by a
+     * factorial that found it the strongest single axis tested), `s0` from Kesting's 2:1 ratio to the
+     * car value, `aMax` from the reference's acceleration curve scaled 1.3/3.5, `bCoop` from the
+     * calibration, `vGain` unsourced as for cars, and `cooperate` — trucks do not open gaps —
+     * unsourced entirely: no rationale for it is recorded anywhere in the code.
+     */
+    @JvmField
+    val TRUCK: DriverParameters = DriverParameters.EMPTY
+        .with(DriverParameterKeys.DESIRED_HEADWAY, 1.4.seconds)
+        .with(DriverParameterKeys.STANDSTILL_GAP, 6.0.meters)
+        .with(DriverParameterKeys.DESIRED_ACCELERATION, 1.25.metersPerSecondSquared)
+        .with(DriverParameterKeys.MAX_ACCELERATION, 1.3.metersPerSecondSquared)
+        .with(DriverParameterKeys.SPEED_GAIN, 30.0.kmh)
+        .with(DriverParameterKeys.COOPERATIVE_DECELERATION, 1.0.metersPerSecondSquared)
+        .with(DriverParameterKeys.COOPERATION_ENABLED, false)
 }

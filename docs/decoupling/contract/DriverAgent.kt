@@ -149,7 +149,9 @@ interface RandomStream {
  * things a driver actually produces. **The host executes the lateral motion**; the core only asks for
  * it and is told when it is done.
  *
- * @property acceleration the acceleration to apply until the next decision. Already bounded by the
+ * @property acceleration the acceleration to apply until the next decision, **signed** — negative to
+ *           brake. Parameters are magnitudes, computed accelerations carry their direction. Already
+ *           bounded by the
  *           vehicle's physical limits as the host reported them, so the host need not clamp it —
  *           though a host that must clamp for its own reasons may, and the agent will see the result
  *           next tick through [EgoState.acceleration].
