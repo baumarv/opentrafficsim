@@ -22,6 +22,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Tran
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.LateralExecution;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern;
 import org.opentrafficsim.road.network.lane.Lane;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.DefectDiagnostics;
 
 /**
  * A dedicated Maneuver Pattern for executing a simple, direct lane change.
@@ -81,6 +82,10 @@ public class SimpleLaneChangePattern extends ManeuverPattern
         }
         catch (ParameterException exception)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("SimpleLaneChangePattern.checkContext", exception);
+            }
             return false;
         }
     }
@@ -105,6 +110,10 @@ public class SimpleLaneChangePattern extends ManeuverPattern
         }
         catch (GtuException | NetworkException exception)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("SimpleLaneChangePattern.checkAbility", exception);
+            }
             return false;
         }
     }
@@ -261,6 +270,10 @@ public class SimpleLaneChangePattern extends ManeuverPattern
             }
             catch (Exception e)
             {
+                if (DefectDiagnostics.ENABLED)
+                {
+                    DefectDiagnostics.swallowed("PerformLaneChangeState.getUtility", e);
+                }
                 return 0.0;
             }
 

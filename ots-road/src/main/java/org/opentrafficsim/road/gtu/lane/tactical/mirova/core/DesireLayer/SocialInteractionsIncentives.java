@@ -12,6 +12,7 @@ import org.opentrafficsim.road.gtu.lane.perception.RelativeLane;
 import org.opentrafficsim.road.gtu.lane.perception.headway.HeadwayGtu;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoContext;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.DefectDiagnostics;
 
 /**
  * KnowledgeChunk modeling social interactions based on Schakel et al. (2023).
@@ -60,6 +61,10 @@ public class SocialInteractionsIncentives extends DesireIncentive
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("SocialInteractionsIncentives.isApplicable", e);
+            }
             return false;
         }
     }
@@ -101,6 +106,10 @@ public class SocialInteractionsIncentives extends DesireIncentive
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("SocialInteractionsIncentives.computeDesire", e);
+            }
             // Ignore and keep dLeft 0.0
         }
 
@@ -123,6 +132,10 @@ public class SocialInteractionsIncentives extends DesireIncentive
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("SocialInteractionsIncentives.computeDesire#2", e);
+            }
             // Ignore and keep dRight 0.0
         }
 

@@ -35,6 +35,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Late
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaCarFollowingUtil;
 import org.opentrafficsim.road.network.lane.Lane;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.DefectDiagnostics;
 
 /**
  * Mandatory lane change pattern with long-range anticipation for merge scenarios.
@@ -294,6 +295,10 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
         catch (Exception exception)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("MandatoryLaneChangePattern.getMergeReferenceSpeed", exception);
+            }
             cache = null; // no context available, compute without caching
         }
 
@@ -328,6 +333,10 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
         catch (Exception exception)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("MandatoryLaneChangePattern.getMergeReferenceSpeed#2", exception);
+            }
             reference = null; // target lane not perceivable yet, fall through
         }
 
@@ -346,6 +355,10 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             }
             catch (Exception exception)
             {
+                if (DefectDiagnostics.ENABLED)
+                {
+                    DefectDiagnostics.swallowed("MandatoryLaneChangePattern.getMergeReferenceSpeed#3", exception);
+                }
                 reference = null;
             }
         }
@@ -365,6 +378,10 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             }
             catch (Exception exception)
             {
+                if (DefectDiagnostics.ENABLED)
+                {
+                    DefectDiagnostics.swallowed("MandatoryLaneChangePattern.getMergeReferenceSpeed#4", exception);
+                }
                 reference = null;
             }
         }
@@ -384,6 +401,10 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             }
             catch (Exception exception)
             {
+                if (DefectDiagnostics.ENABLED)
+                {
+                    DefectDiagnostics.swallowed("MandatoryLaneChangePattern.getMergeReferenceSpeed#5", exception);
+                }
                 reference = null;
             }
         }
@@ -398,6 +419,10 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             }
             catch (Exception exception)
             {
+                if (DefectDiagnostics.ENABLED)
+                {
+                    DefectDiagnostics.swallowed("MandatoryLaneChangePattern.getMergeReferenceSpeed#6", exception);
+                }
                 speedLimit = null;
             }
             reference = isUsableReference(speedLimit) ? Speed.min(speedLimit, MAX_UNMEASURED_REFERENCE_SPEED)
@@ -415,6 +440,10 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
         catch (Exception exception)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("MandatoryLaneChangePattern.getMergeReferenceSpeed#7", exception);
+            }
             // keep the uncapped reference
         }
 
@@ -625,6 +654,10 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
         catch (Exception exception)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("MandatoryLaneChangePattern.checkContext", exception);
+            }
             return false;
         }
     }
@@ -959,6 +992,10 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             }
             catch (Exception exception)
             {
+                if (DefectDiagnostics.ENABLED)
+                {
+                    DefectDiagnostics.swallowed("MandatoryLaneChangeState.desireGone", exception);
+                }
                 exception.printStackTrace();
             }
             return null;
@@ -1355,6 +1392,10 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             }
             catch (Exception exception)
             {
+                if (DefectDiagnostics.ENABLED)
+                {
+                    DefectDiagnostics.swallowed("AnticipateMergeState.mergeStillFarOff", exception);
+                }
                 return FINISHED;
             }
             return null;
@@ -1637,6 +1678,10 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             }
             catch (Exception e)
             {
+                if (DefectDiagnostics.ENABLED)
+                {
+                    DefectDiagnostics.swallowed("MatchLeaderSpeedState.executeControl", e);
+                }
                 // Macro speed unavailable – keep existing inducedDecel
             }
 
@@ -1661,6 +1706,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
 
         /**
          * Reconsiders the leader being matched: congested traffic, a leader that cannot be caught within the remaining ramp,
+
          * or a vehicle physically alongside each mean this is no longer the right thing to be doing.
          * @return the state to move to, or {@code null} to stay in this one
          * @throws ParameterException if a parameter lookup fails
@@ -1897,6 +1943,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
 
         /**
          * Leaves this state once the vehicle alongside is gone, or once traffic has become congested and the congested branch
+
          * takes over.
          * @return the state to move to, or {@code null} to stay in this one
          * @throws ParameterException if a parameter lookup fails
@@ -2483,6 +2530,10 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             }
             catch (Exception exception)
             {
+                if (DefectDiagnostics.ENABLED)
+                {
+                    DefectDiagnostics.swallowed("ExecuteLaneChangeState.abandonedBeforeCrossing", exception);
+                }
                 exception.printStackTrace();
             }
             return null;

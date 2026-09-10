@@ -29,6 +29,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaCarFollowingUtil;
 import org.opentrafficsim.road.gtu.lane.tactical.util.CarFollowingUtil;
 import org.opentrafficsim.road.network.speed.SpeedLimitInfo;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.DefectDiagnostics;
 
 /**
  * Context category describing the dynamic interaction between the ego vehicle and neighboring vehicles on adjacent lanes.
@@ -678,6 +679,10 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         }
         catch (OperationalPlanException e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("NeighborsContext.getLeaders", e);
+            }
             return Collections.emptyList();
         }
     }
@@ -724,6 +729,10 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         }
         catch (OperationalPlanException e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("NeighborsContext.getFollowers", e);
+            }
             return Collections.emptyList();
         }
     }
@@ -766,6 +775,10 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         }
         catch (OperationalPlanException e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("NeighborsContext.isGtuAlongside", e);
+            }
             return false;
         }
     }
@@ -953,6 +966,10 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("NeighborsContext.computeSafeEgoDecel", e);
+            }
             return Acceleration.NaN;
         }
     }
@@ -970,6 +987,10 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("NeighborsContext.computeSafeFollowerDecel", e);
+            }
             return Acceleration.NaN;
         }
     }
@@ -1001,6 +1022,10 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("NeighborsContext.computeFrontGapDistance", e);
+            }
             return null;
         }
     }
@@ -1034,6 +1059,10 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("NeighborsContext.computeFrontGapDeltaSpeed", e);
+            }
             return null;
         }
     }
@@ -1074,6 +1103,10 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("NeighborsContext.computeFrontGapTimeHeadway", e);
+            }
             return null;
         }
     }
@@ -1105,6 +1138,10 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("NeighborsContext.computeRearGapDistance", e);
+            }
             return null;
         }
     }
@@ -1137,6 +1174,10 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("NeighborsContext.computeRearGapDeltaSpeed", e);
+            }
             return null;
         }
     }
@@ -1176,6 +1217,10 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("NeighborsContext.computeRearGapTimeHeadway", e);
+            }
             return null;
         }
     }
@@ -1228,6 +1273,10 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("NeighborsContext.checkRightSideOvertakingAhead", e);
+            }
             return false;
         }
     }
@@ -1329,6 +1378,10 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         }
         catch (ParameterException e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("NeighborsContext.getIfLaneChangePossible", e);
+            }
             result = false;
         }
         cacheValue(name, result, true);
@@ -1416,6 +1469,10 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         }
         catch (ParameterException | GtuException e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("NeighborsContext.updateFromPerception", e);
+            }
             // Failsafe: If the EgoContext calculation fails in this tick,
             // we safely ignore it and keep the memory intact.
         }

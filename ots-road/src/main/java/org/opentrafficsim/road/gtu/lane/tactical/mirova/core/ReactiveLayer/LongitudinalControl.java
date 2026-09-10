@@ -21,6 +21,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.NeighborsContext;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.DefectDiagnostics;
 import org.opentrafficsim.road.gtu.lane.tactical.util.SpeedLimitUtil;
 import org.opentrafficsim.road.network.speed.SpeedLimitInfo;
 
@@ -106,9 +107,19 @@ public final class LongitudinalControl
                 .getPerceptionCategory(InfrastructurePerception.class).getSpeedLimitProspect(RelativeLane.CURRENT),
                 vehicle.getCarFollowingModel());
 
+        // Held separately as well as added to the list, so that the diagnostics can ask what this tick would have
+        // commanded without it. See DefectDiagnostics: the transition term is the only consumer of the full
+        // speed-limit prospect, and therefore the only reason the decoupled contract would have to carry curvature
+        // and speed bumps at all.
+        Acceleration transitionCandidate = null;
         if (aTrans != null && aTrans.lt(Acceleration.POSITIVE_INFINITY))
         {
             candidates.add(aTrans);
+            transitionCandidate = aTrans;
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.speedLimitTransitionFinite();
+            }
         }
 
         // 4. Upcoming lower speed limit ahead
@@ -137,7 +148,21 @@ public final class LongitudinalControl
         Acceleration fallbackAcc = (vehicle.getLaneChange().isChangingLane() && vehicle.getLaneChange().getFraction() > 0.5)
                 ? MirovaCarFollowingUtil.freeAcceleration(vehicle)
                 : MirovaCarFollowingUtil.followSingleLeader(vehicle, neighbors.getLeader(LateralDirectionality.NONE));
-        return candidates.stream().filter(Objects::nonNull).min(Acceleration::compareTo)
+        Acceleration result = candidates.stream().filter(Objects::nonNull).min(Acceleration::compareTo)
                 .orElse(fallbackAcc);
+
+        if (DefectDiagnostics.ENABLED)
+        {
+            Acceleration withoutTransition = result;
+            if (transitionCandidate != null)
+            {
+                final Acceleration excluded = transitionCandidate;
+                withoutTransition = candidates.stream().filter(Objects::nonNull).filter(a -> a != excluded)
+                        .min(Acceleration::compareTo).orElse(fallbackAcc);
+            }
+            DefectDiagnostics.speedLimitTransition(result.si, withoutTransition.si);
+        }
+
+        return result;
     }
 }

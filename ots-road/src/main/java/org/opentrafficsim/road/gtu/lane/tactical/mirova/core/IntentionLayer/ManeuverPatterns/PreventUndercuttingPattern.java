@@ -27,6 +27,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Tran
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaCarFollowingUtil;
 import org.opentrafficsim.road.network.speed.SpeedLimitInfo;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.DefectDiagnostics;
 
 /**
  * Parallel maneuver pattern that prevents undercutting on the right.
@@ -146,6 +147,10 @@ public class PreventUndercuttingPattern extends ManeuverPattern
         }
         catch (Exception exception)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("PreventUndercuttingPattern.trafficIsFreeFlowing", exception);
+            }
             // No macroscopic estimate available yet; fall back on the ego, as before.
         }
         return vehicle.getContext(EgoContext.class).getEgoSpeed().gt(threshold);

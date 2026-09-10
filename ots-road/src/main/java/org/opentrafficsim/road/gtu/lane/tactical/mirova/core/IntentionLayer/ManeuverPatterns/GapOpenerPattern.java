@@ -32,6 +32,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Tran
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPattern;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.ManeuverPatterns.SimpleLaneChangePattern.PerformLaneChangeState;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaCarFollowingUtil;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.DefectDiagnostics;
 
 /**
  * Opens a gap for a merging neighbor that has indicated its intention via a turn indicator.
@@ -571,6 +572,10 @@ public class GapOpenerPattern extends ManeuverPattern implements Serializable
             }
             catch (ParameterException e)
             {
+                if (DefectDiagnostics.ENABLED)
+                {
+                    DefectDiagnostics.swallowed("OpenGapState.getUtility", e);
+                }
                 return 0.0;
             }
         }

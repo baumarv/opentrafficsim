@@ -22,6 +22,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.DynamicHeadwayProvider;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.LongitudinalControl;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.DefectDiagnostics;
 
 /**
  * Context category representing ego-vehicle-related state variables.
@@ -579,6 +580,10 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("EgoContext.getEgoLength", e);
+            }
             return FALLBACK_VEHICLE_LENGTH;
         }
     }
@@ -702,6 +707,10 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("EgoContext.computeEgoSpeed", e);
+            }
             return Speed.ZERO;
         }
     }
@@ -722,6 +731,10 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         }
         catch (ParameterException exception)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("EgoContext.computeDesiredFrontHeadway", exception);
+            }
             exception.printStackTrace();
         }
         return desiredFrontHeadway;
@@ -762,6 +775,10 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         }
         catch (ParameterException exception)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("EgoContext.computeDesiredRearHeadway", exception);
+            }
             exception.printStackTrace();
         }
         return desiredRearHeadway;
@@ -883,6 +900,10 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("EgoContext.updateFromPerception", e);
+            }
             // Failsafe if simulator time is temporarily unavailable
         }
 
@@ -936,6 +957,10 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("EgoContext.getRelaxationAccelerationFactor", e);
+            }
             return 1.0;
         }
     }
