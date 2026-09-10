@@ -29,8 +29,13 @@
 # ---------------------------------------------------------------------------------------
 # --array        must be 0-<ceil(N/2)-1>, because each task runs TWO runs. N comes from:
 #                    RunMirovaClusterStudy --study=<study> --output=<dir> ... --count
-#                9 dates x 6 replications  =  54 runs -> 27 tasks -> --array=0-26
-#                32 dates x 6 replications = 192 runs -> 96 tasks -> --array=0-95
+#                16 dates x 20 replications = 320 runs -> 160 tasks -> --array=0-159 <- current
+#                16 dates x  6 replications =  96 runs ->  48 tasks -> --array=0-47
+#                16 dates x 50 replications = 800 runs -> 400 tasks -> --array=0-399
+#                 9 dates x  6 replications =  54 runs ->  27 tasks -> --array=0-26
+#                The replication count is not a default to rely on: DateStudy uses 6 unless
+#                --replications is passed, and a production campaign wants far more. It is set
+#                in MIROVA_STUDY_OPTS below so the array size and the run count cannot drift.
 #                An odd N is fine: the last task skips its second index (see below).
 # --mem-per-cpu  PLACEHOLDER, per core, so a task's memory limit is 2 x this value while
 #                TWO JVMs live inside it. MIROVA_JAVA_HEAP is likewise per run, so the
@@ -51,7 +56,7 @@
 # ---------------------------------------------------------------------------------------
 #
 #SBATCH --job-name=mirova-study
-#SBATCH --array=0-26
+#SBATCH --array=0-159
 #SBATCH --partition=cpu
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -124,7 +129,8 @@ OUTPUT_ROOT="${MIROVA_OUTPUT_ROOT:-${WORKSPACE}/output/${STUDY}}"
 # Study-specific options passed straight through, e.g. --replications=6 or --start=...
 # The date study reads its date list from this file; every array task must see the same one.
 DATES_FILE="${MIROVA_DATES_FILE:-${CLUSTER_DIR}/dates.txt}"
-STUDY_OPTS="${MIROVA_STUDY_OPTS:---dates=${DATES_FILE} --demand=${DEMAND_DIR} --strict=true}"
+REPLICATIONS="${MIROVA_REPLICATIONS:-20}"
+STUDY_OPTS="${MIROVA_STUDY_OPTS:---dates=${DATES_FILE} --demand=${DEMAND_DIR} --strict=true --replications=${REPLICATIONS}}"
 
 # Split into an array honouring quotes, so that options whose value contains a space work -
 # '--start="2025-09-22 13:00:00"' would otherwise be split into two broken arguments. eval is
