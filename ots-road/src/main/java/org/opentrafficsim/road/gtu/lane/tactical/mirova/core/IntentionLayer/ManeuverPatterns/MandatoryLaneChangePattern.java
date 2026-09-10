@@ -492,7 +492,10 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
 
         boolean isAtRampEnd = dist <= RAMP_FINAL_APPROACH_DISTANCE;
 
-        return isAtRampEnd || isSpeedSynchronized || isObstructedOnRamp || isCongestedTarget;
+        boolean ready = isAtRampEnd || isSpeedSynchronized || isObstructedOnRamp || isCongestedTarget;
+        MergeGateDiagnostics.readinessDetail(vehicle.getGtu().getId(), ready, isSpeedSynchronized, isAtRampEnd,
+                isObstructedOnRamp || isCongestedTarget, effectiveTargetSpeedSI, egoSpeed.si);
+        return ready;
     }
 
 
