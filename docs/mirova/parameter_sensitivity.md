@@ -527,7 +527,7 @@ picture the empirical target set shows in §2.
 
 ---
 
-## 9. The merge mechanism: nine changes measured, two kept
+## 9. The merge mechanism: ten changes measured, three kept
 
 The screen in §4 varies parameters. This section records what happens when the *mechanism*
 is changed instead, because the obvious readings of the merge code are wrong in a way that
@@ -738,7 +738,7 @@ Two alternatives were measured rather than argued. A feasibility form - can the 
 both vehicles' lengths under maximum acceleration in the time the lane affords - is vacuous once
 the eight seconds hold, because it credits the ego with maximum acceleration throughout, and it
 changed nothing (-0.3 %, p = 0.92). And the comparison of the two speeds as they stand, which is
-the self-referential shape of §9.9, does not flutter here: episodes switching branches more than
+the self-referential shape of §9.10, does not flutter here: episodes switching branches more than
 twice fall from 20.1 % to 7.1 % and the worst case from 54 switches to 22, because the attempts
 that were flipping back and forth are the hopeless ones it removes.
 
@@ -769,33 +769,76 @@ triggers at a required deceleration of −5 m/s². Between free acceleration and
 was nothing at all.
 
 Building speed only while the lane end could still be reached under comfortable braking - bounded
-by `ParameterTypes.B`, the calibrated campaign value, so no threshold is introduced - over ten
-paired seeds:
+by `ParameterTypes.B`, the calibrated campaign value, so no threshold is introduced. Over ten
+paired seeds, and **measured twice**, because the baseline changed underneath it:
 
-| | Baseline | Bounded | p |
+| | first measurement | after §9.9 | |
 |---|---|---|---|
-| Stranded | 3.09 % | **2.17 %** | **< 0.001** |
-| Standstill | 9.61 % | **7.07 %** | **< 0.001** |
-| Ramp speed | 11.71 m/s | **12.45 m/s** | **0.010** |
-| Time on the ramp | 8.18 s | **7.42 s** | **0.001** |
+| Stranded at the ramp end | −29.7 % (p < 0.001) | **−23.1 % (p = 0.001)** | holds |
+| Standstill share | −26.4 % (p < 0.001) | −8.6 % (p = 0.073) | **does not hold** |
+| Ramp speed | +6.3 % (p = 0.010) | +1.6 % (p = 0.38) | **does not hold** |
 
-Better in all ten seeds in both binding quantities, and the first change here that does not trade
-one against the other. The reason is that it removes the cause rather than moderating the
-response: a vehicle that never gets into the hopeless state does not have to be rescued from it.
+The first column was measured against a network whose exit was malfunctioning upstream (§9.9),
+which held back traffic that should have reached the merge. A good part of what looked like a
+standstill gain was that defect being compensated. Re-measured on the corrected network only the
+effect on stranded vehicles survives - which is what the change is about, and it survives
+comfortably - while the effect on the standstill share is a trend without evidence.
+
+**This is the methodological point for the chapter, and it is not the one first written here.**
+The first version of this section claimed the change was the only one that improved both binding
+quantities at once rather than trading them. It does not. What actually distinguishes it from the
+seven rejected changes is narrower: those moderated the response to a merge conflict and each
+raised the standstill share, while this one prevents the conflict and lowers the number of
+vehicles stranded. That is worth having and worth stating precisely.
+
+The wider lesson is about the measurement rather than the model. Two changes were quantified
+against each other's broken state, and the coupling was only found because the second one made
+the first implausible. Any figure in this section measured before both are in place carries the
+same risk, which is why the provenance table gives the build each was measured on.
 
 Throughput does not move (+0.01 %, p = 0.21), nor breakdown frequency (p = 0.88) nor the
-discharge rate, which is true of every change measured in this section. Mainline harmonic speed
-falls 3.2 %, from 97.7 to 94.6 km/h (p = 0.001). That is not more congestion - the breakdown
-counts are unchanged - but the vehicles that used to wait out the ramp now join the merging
-stream at moderate speed, which is what merging traffic does to a motorway.
+discharge rate, which is true of every change measured in this section.
 
-**The methodological point for the chapter.** Six changes moderating the response all failed, and
-the one addressing the cause improved everything at once. The failures were not noise: they
-consistently traded the two quantities, which is the signature of treating a symptom. A screen
-that had only varied parameters, or only softened responses, would have concluded that the
-standstills were irreducible.
+### 9.9 An empty lane to the right is not a stream to match
 
-### 9.9 Conditions computed from what the behaviour changes
+`getMergeReferenceSpeed` answers for a target lane it cannot measure in two steps: the macroscopic
+estimate, which returns free flow for a lane with nobody on it, and then the legal speed limit.
+Both assume an empty lane flows fast. For the mainline a merger joins, that is right. For the lane
+a vehicle *leaves* the road by it is exactly wrong, and the readiness test then holds an exiting
+vehicle until it matches a speed no deceleration lane carries.
+
+Measured on the weaving segment, before the change:
+
+- the readiness test refused **87 to 89 %** of its evaluations on the through lane, judging
+  vehicles travelling at **54 km/h** against a reference of **115 to 132 km/h**;
+- every one of the 47 vehicles that queued and stopped there had a **completely empty**
+  deceleration lane beside it on arrival, against 26 % of the exiting vehicles that never stop;
+- they were not short of room: the gap was open at least once for 100 % of them, and 22.7 % of
+  their evaluations had all five gap conditions satisfied, against 27.1 % for those that got
+  through. At the merge the same figure is 8.0 %, which is where gap acceptance really binds.
+
+Taking the ego's own speed as the reference when nothing is perceivable on a lane to the right,
+over ten paired seeds:
+
+| | Baseline | Fixed | p |
+|---|---|---|---|
+| Exiting vehicles left standing | 41.5 | **0.9** | **< 0.001** |
+| Crossing onto the deceleration lane at | 58.1 m | **5.4 m** | **< 0.001** |
+| Speed on that through lane | 20.13 m/s | **23.45 m/s** | **< 0.001** |
+| Harmonic speed at L3a | 94.6 km/h | **97.7 km/h** | **< 0.001** |
+
+It is not free, and the cost is instructive. The merge downstream gets harder - standstill share
+on the acceleration lane 7.07 to 8.78 % (p = 0.009), mean ramp speed −5.9 % (p = 0.002) - because
+the exit now delivers its traffic instead of holding it. Over both recorded links together the
+number of vehicles that come to a stop is unchanged (298.7 to 302.1, p = 0.93). The model was
+getting easier merges from a defect upstream of them.
+
+Three explanations were tried and discarded on measurement before this one: that the exiting
+vehicles change lanes too late (all 2 343 leave the upstream link on the right, a median of 757 m
+before its end), that the deceleration lane is backed up (a median of two vehicles on it, also
+during a blockage), and that this is what the L3a detector sees (−2.1 km/h, p = 0.19).
+
+### 9.10 Conditions computed from what the behaviour changes
 
 Four conditions in this pattern family read a quantity that the behaviour they gate is itself
 moving. They are worth naming as one defect rather than four, because the signature is
@@ -819,22 +862,30 @@ catchability test has the same shape and was expected to flutter for it; measure
 opposite, because what it suppresses is precisely what was oscillating. The shape is a reason to
 measure, not a verdict.
 
-### 9.10 What this means for a capacity chapter
+### 9.11 What this means for a capacity chapter
 
-Seven mechanism changes rejected on measurement and two kept. The rejected ones divide cleanly:
+Seven mechanism changes rejected on measurement and three kept. The rejected ones divide cleanly:
 every one shortened the yield, at the entry, in the magnitude or in the duration, and every one
-raised the standstill share while raising mean ramp speed. The two that worked both act before
-the conflict rather than on the response to it - one stops the model overtaking where it cannot
-succeed (§9.7), the other stops it building speed it cannot afford (§9.8).
+raised the standstill share while raising mean ramp speed. The three that worked act before the
+conflict rather than on the response to it - they stop the model overtaking where it cannot
+succeed (§9.7), building speed it cannot afford (§9.8), and holding an exiting vehicle to the
+speed of a stream that is not there (§9.9).
 
 Read together with §6, where no parameter reaches the capacity drop, the picture is that
 throughput at this bottleneck is not limited by how willing the model's drivers are to merge.
-Making them more willing costs standstills without buying flow, and the change that was kept buys
-no flow either: over ten paired seeds it moves not one vehicle through the cross-section, and
-neither the flow before breakdown nor the discharge rate during it shifts measurably. What it
-improves is the quality of the manoeuvre - fewer vehicles stranded, less time on the ramp, a
-slightly higher speed level - which is a claim about the plausibility of the model's behaviour,
-not about capacity.
+None of the three buys flow: over ten paired seeds each moves not one vehicle more through the
+cross-section, and neither the flow before breakdown nor the discharge rate during it shifts
+measurably. What they improve is the quality of the manoeuvre - fewer vehicles stranded, fewer
+left standing at the exit, less time on the ramp - which is a claim about the plausibility of the
+model's behaviour, not about capacity, and a chapter should say so in those words.
+
+**One caution on the numbers in this section.** §9.8 and §9.9 turned out to be coupled: the first
+was measured against a network whose exit was broken, and re-measuring it once the exit worked cut
+its effect on the standstill share from -26.4 % (p < 0.001) to -8.6 % (p = 0.073), while its
+effect on stranded vehicles survived. Neither figure was wrong when taken; the baseline was. Where
+several defects sit on the same corridor, an effect measured against any one of them still
+present is provisional until the others are fixed - and the only reason this one was caught is
+that a later change made the earlier claim implausible.
 
 ---
 
@@ -901,7 +952,8 @@ not about capacity.
 | §9.3, §9.5 branch and tick counts | in-model counters behind `-Dmirova.gateDiag`, verified to leave every outcome metric unchanged |
 | §9.5, §9.6 paired comparisons | 10 seeds per arm, same demand window, paired t-test |
 | §9.7 branch position, blocker side and outcome | one 300-minute run, 2025-10-13, seed 4242, plus three arms of 10 paired seeds |
-| §9.10 approach to the lane end | one 300-minute run, 2025-10-13, seed 4242, plus 10 paired seeds |
+| §9.8 approach to the lane end | one 300-minute run, 2025-10-13, seed 4242, plus 10 paired seeds, measured again after §9.9 |
+| §9.9 the exit | one 300-minute run with the sampler on L1a, L2a and L3a, plus 10 paired seeds |
 
 Raw per-run records: `docs/mirova/results/`.
 
