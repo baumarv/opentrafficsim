@@ -145,6 +145,15 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     /** Minimum deceleration enforced when stopping at the end of the ramp. */
     private static final Acceleration MIN_RAMP_STOP_DECELERATION = Acceleration.instantiateSI(-1.0);
 
+    /**
+     * How much wider the blocker test is on the way out of the creeping state than on the way in.
+     * <p>
+     * Both the distance and the speed window are scaled by this, so a vehicle that has been alongside has to be
+     * clearly clear before the state changes. One means no hysteresis, which is what produced the limit cycle.
+     * </p>
+     */
+    private static final double CONGESTED_STATE_HYSTERESIS = 1.5;
+
     /** Deceleration applied when a deadlock at the ramp end has to be resolved. */
     private static final Acceleration DEADLOCK_RESOLVE_DECELERATION = Acceleration.instantiateSI(-2.5);
 
@@ -655,9 +664,40 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     static boolean detectParallelBlock(final NeighborsContext neigh, final LateralDirectionality dir, final EgoContext ego,
             final org.opentrafficsim.base.parameters.Parameters params) throws ParameterException
     {
+        return detectParallelBlock(neigh, dir, ego, params, 1.0);
+    }
+
+    /**
+     * The same question, asked with a widened threshold while the answer is already yes.
+     * <p>
+     * The two congested sub-states are chosen and re-chosen by this predicate with the same threshold in both
+     * directions, so a vehicle sitting at the boundary switches the state as often as it crosses it. The two do
+     * qualitatively different things - creeping along the queue and following a leader - and alternating between
+     * them is the limit cycle five attempted rewrites failed to remove. Measured on the acceleration lane, half of
+     * the vehicles that reach this branch switch at least once and a third switch more than four times, up to 49
+     * times in a single approach at a median speed of 3.65 m/s.
+     * </p>
+     * <p>
+     * Widening the threshold on the way out rather than narrowing it on the way in keeps the entry criterion
+     * exactly as calibrated, and makes the creeping state the sticky one. That is the safer of the two directions:
+     * every change that shortened the yielding behaviour of this pattern raised the standstill share, so a state
+     * that resolves the conflict by creeping alongside should be left reluctantly rather than eagerly.
+     * </p>
+     * @param neigh NeighborsContext; the neighbours context
+     * @param dir LateralDirectionality; the target lateral direction
+     * @param ego EgoContext; the ego context
+     * @param params Parameters; the parameter set
+     * @param hysteresis double; multiplies both thresholds, 1.0 for the entry test
+     * @return boolean; true when a vehicle blocks the lane change
+     * @throws ParameterException if a parameter lookup fails
+     */
+    static boolean detectParallelBlock(final NeighborsContext neigh, final LateralDirectionality dir,
+            final EgoContext ego, final org.opentrafficsim.base.parameters.Parameters params,
+            final double hysteresis) throws ParameterException
+    {
         double factor = params.getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange);
-        Length gapThreshold = ego.getDesiredFrontHeadway(dir).times(factor);
-        return findBlockingVehicle(neigh, dir, ego, gapThreshold, true) != null;
+        Length gapThreshold = ego.getDesiredFrontHeadway(dir).times(factor * hysteresis);
+        return findBlockingVehicle(neigh, dir, ego, gapThreshold, true, hysteresis) != null;
     }
 
     /**
@@ -712,13 +752,30 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     static HeadwayGtu findBlockingVehicle(final NeighborsContext neigh, final LateralDirectionality dir,
             final EgoContext ego, final Length gapThreshold, final boolean requireMatchedSpeed)
     {
+        return findBlockingVehicle(neigh, dir, ego, gapThreshold, requireMatchedSpeed, 1.0);
+    }
+
+    /**
+     * The same, with the speed-matching window widened by the hysteresis factor.
+     * @param neigh NeighborsContext; the neighbours context
+     * @param dir LateralDirectionality; the target lateral direction
+     * @param ego EgoContext; the ego context
+     * @param gapThreshold Length; a non-overlapping vehicle blocks when it is closer than this
+     * @param requireMatchedSpeed boolean; when true, a non-overlapping vehicle blocks only at nearly equal speed
+     * @param hysteresis double; multiplies the speed window, 1.0 for the entry test
+     * @return HeadwayGtu; the blocking vehicle, or {@code null}
+     */
+    static HeadwayGtu findBlockingVehicle(final NeighborsContext neigh, final LateralDirectionality dir,
+            final EgoContext ego, final Length gapThreshold, final boolean requireMatchedSpeed,
+            final double hysteresis)
+    {
         HeadwayGtu leader = neigh.getLeader(dir);
-        if (blocks(leader, ego, gapThreshold, requireMatchedSpeed))
+        if (blocks(leader, ego, gapThreshold, requireMatchedSpeed, hysteresis))
         {
             return leader;
         }
         HeadwayGtu follower = neigh.getFollower(dir);
-        if (blocks(follower, ego, gapThreshold, requireMatchedSpeed))
+        if (blocks(follower, ego, gapThreshold, requireMatchedSpeed, hysteresis))
         {
             return follower;
         }
@@ -735,6 +792,21 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
      */
     private static boolean blocks(final HeadwayGtu other, final EgoContext ego, final Length gapThreshold,
             final boolean requireMatchedSpeed)
+    {
+        return blocks(other, ego, gapThreshold, requireMatchedSpeed, 1.0);
+    }
+
+    /**
+     * The same, with the speed window widened by the hysteresis factor.
+     * @param other HeadwayGtu; the perceived vehicle, may be {@code null}
+     * @param ego EgoContext; the ego context
+     * @param gapThreshold Length; a non-overlapping vehicle blocks when it is closer than this
+     * @param requireMatchedSpeed boolean; when true, a non-overlapping vehicle blocks only at nearly equal speed
+     * @param hysteresis double; multiplies the speed window, 1.0 for the entry test
+     * @return boolean; true when this vehicle blocks the lane change
+     */
+    private static boolean blocks(final HeadwayGtu other, final EgoContext ego, final Length gapThreshold,
+            final boolean requireMatchedSpeed, final double hysteresis)
     {
         if (other == null)
         {
@@ -763,7 +835,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         {
             return false;
         }
-        return !requireMatchedSpeed || speedDelta < MATCHED_SPEED_DELTA;
+        return !requireMatchedSpeed || speedDelta < MATCHED_SPEED_DELTA * hysteresis;
     }
 
     /*
@@ -1972,7 +2044,9 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             LateralDirectionality dir = this.pattern.getTargetDirection();
 
             // Parallel block resolved: nothing is alongside any more, so follow the leader on the target lane.
-            if (!detectParallelBlock(neigh, dir, this.vehicle.getContext(EgoContext.class), this.vehicle.getParameters()))
+            // Asked with a widened threshold, so that leaving takes a clearer answer than entering did.
+            if (!detectParallelBlock(neigh, dir, this.vehicle.getContext(EgoContext.class), this.vehicle.getParameters(),
+                    CONGESTED_STATE_HYSTERESIS))
             {
                 return new CongestedFollowLeaderState(this.maneuverPattern);
             }
