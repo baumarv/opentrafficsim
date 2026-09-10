@@ -60,7 +60,7 @@ Three values in `FreiburgStudyParameters` are therefore **not** what the campaig
 | `a` desired acceleration | **1.4 m/s²** | **1.25 m/s²** | L + C | Cars after Kesting et al. for motorway traffic. Trucks by a factorial over 0.7 / 1.0 / 1.3, monotone on every measure: ramp standstills 340 → 244 per run, right-hand lane +11.9 km/h in congestion, jam 11.7 min shorter. Deliberately **not** the field median of 0.60–0.87, because IDM reads the parameter as a ceiling. |
 | `b` comfortable deceleration | **1.75 m/s²** | **1.75 m/s²** | C | `FreiburgProductionStudy.B`, overriding the Kesting value of 2.0 the base set carries. |
 | `s0` standstill gap | **3.0 m** | **6.0 m** | L + C | Kesting et al.; trucks at his 2:1 ratio. The car value is the production override of the base set's 2.0. |
-| `vGain` speed-difference scale | **15 km/h** | **30 km/h** | ? | The paper's table gives exactly these and the scenario sets them, but no source is named in either. Checked against LMRS (§5): 69.6 km/h there, which is also what MiRoVA declares and the campaign overrides. **The 15 / 30 km/h pair comes from neither.** |
+| `vGain` speed-difference scale | **54 km/h** (set as `15.0`) | **108 km/h** (set as `30.0`) | ? | **Not 15 / 30 km/h.** The study writes bare numbers and the generator reads them as SI, so 15.0 means 15 m/s. See §6 — this is the value every published run used. |
 | `aMax` driver's acceleration ceiling | **3.5 m/s²** | **1.3 m/s²** | L | The reference's `f(v)` curve, trucks scaled 1.3/3.5. |
 | `bCoop` cooperative deceleration | **−3.0 m/s²** | **−1.0 m/s²** | C | Strengthening it was tried in both congestion regimes and is clearly worse in each: a gap opener braking harder holds up the column behind it and creates the disturbance that blocks the merge. |
 | `cooperate` cooperation enabled | *not set* → true | **false** | ? | Trucks do not cooperate. No rationale is recorded in the code. |
@@ -149,11 +149,10 @@ They do not. Checked against OTS's own LMRS implementation, which is Schakel's
 
 Two consequences.
 
-**`vGain` stays `UNKNOWN`.** The declared default is LMRS's, so the *default* has a source; the values
-that actually run are five and two times smaller and have none. They match the model reference's table
-exactly, so the table is where they entered the project — but the table cites nothing, and a
-parameter that turns a 69.6 km/h speed-difference scale into 15 km/h changes every discretionary
-desire in the model. `A` closing that is a question for the TR-B check, not something to be guessed at.
+**`vGain` stays `UNKNOWN`, and §6 makes it worse rather than better.** The declared default is LMRS's
+69.6 km/h, so the *default* has a source. What runs is 54 km/h for cars and 108 for trucks, which
+matches neither LMRS nor the model reference's 15 / 30 km/h — it is the table's numbers read in the
+wrong unit.
 
 **`socio` becomes `ASSUMPTION`.** It is not the LMRS value, nothing else claims it, and MiRoVA has
 loosened the constraint so that values above 1 are legal — which the demo scenarios do not use but
@@ -162,3 +161,53 @@ enter their respective formulas differently, so the numbers may not even be comp
 
 `tauRelax` is the third of this kind and remains open: Keane & Gao give 15 s, the code has 20 s, and no
 note anywhere says why.
+
+---
+
+## 6. `vGain` runs at 54 km/h, not 15
+
+Found while preparing the sensitivity study, and it changes what "the production value" means.
+
+`FreiburgStudyParameters.baseBehaviorParams` writes bare numbers:
+
+```java
+params.set("car." + MirovaParameters.vGain.getId(), 15.0);
+params.set("truck." + MirovaParameters.vGain.getId(), 30.0);
+```
+
+`MirovaParameters.vGain` is a `ParameterTypeSpeed`, and `ScenarioGenerator.applyParameter` converts a
+bare `Double` for a speed with `Speed.instantiateSI(value)` — **SI, so metres per second.** Pushed
+through that exact code path:
+
+```
+study sets car.VGAIN   = 15.0  ->  15.0 m/s = 54.0 km/h
+study sets truck.VGAIN = 30.0  ->  30.0 m/s = 108.0 km/h
+declared default               =  19.33 m/s = 69.6 km/h
+model reference table          =  15 km/h car / 30 km/h truck
+```
+
+**Every published run used 54 km/h for cars and 108 km/h for trucks.** The factor between table and
+run is exactly 3.6.
+
+Two readings, and the code cannot distinguish them:
+
+1. **The table is right and the setter is wrong.** 15 km/h was intended; the runs use 3.6× that, and
+   the calibration was carried out on a model whose lane-change desire saturates much later than
+   documented.
+2. **The setter is right and the table's unit is wrong.** 15 m/s was intended, and the table's "km/h"
+   is a transcription slip. 54 km/h sits plausibly beside LMRS's 69.6; 108 km/h for trucks does not
+   sit plausibly beside anything — a truck would need a 108 km/h speed advantage for a full desire.
+
+**I have changed nothing.** The campaign is starting, every variant shares this value, and the
+comparison is unaffected. But it decides what the core's `vGain` default should be, and the value
+adopted for now is what ran: `15.0.metersPerSecond`.
+
+Two further consequences worth naming:
+
+- **Every other speed-typed parameter set as a bare double has the same exposure.** In the production
+  path `vGain` is the only one, but the conversion is generic and the next `ParameterTypeSpeed`
+  someone sets this way will land in m/s too. A typed setter, or a unit suffix in the key, would make
+  this unrepresentable — which is the same argument the contract makes for typed keys (§7).
+- **The sensitivity study prepared for `vGain` therefore converts explicitly**, so that its
+  `{15, 30, 50, 69.6} km/h` really are km/h. Its baseline cell is the production point, 54 / 108 km/h,
+  which is not among the four.
