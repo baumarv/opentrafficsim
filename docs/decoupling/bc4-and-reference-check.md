@@ -134,9 +134,95 @@ sources are available.
 
 | # | Documented | Implemented | Consequence |
 |---|---|---|---|
-| 1 | Reference §7: the plan validity period is set by the winning pattern, **~0.2 s parallel and ~0.1 s for critical exclusive patterns** such as the mandatory lane change | **Every plan lasts `DT` = 0.2 s.** `ManeuverPattern` initialises `patternSpecificTimestep` to `params.dtScalar` and *nothing* calls a setter for it; there is no such setter in the tree. | The merge is re-evaluated half as often as the paper says. Two things rested on the shorter step being real: the acceleration a critical manoeuvre can correct within one plan, and the tick-counted BC-4 expiry, which is why that expiry is now elapsed time. **If ~0.1 s was intended, it is unimplemented behaviour, not a documentation slip.** |
+| 1 | Reference §7: the plan validity period is set by the winning pattern, **~0.2 s parallel and ~0.1 s for critical exclusive patterns** such as the mandatory lane change | **Every plan lasts `DT` = 0.2 s.** `ManeuverPattern` initialises `patternSpecificTimestep` to `params.dtScalar` and *nothing* calls a setter for it; there is no such setter in the tree. | The merge is re-evaluated half as often as the paper says. Two things rested on the shorter step being real: the acceleration a critical manoeuvre can correct within one plan, and the tick-counted BC-4 expiry, which is why that expiry is now elapsed time. **See the note below: the model as run has one plan duration, and v1 is specified that way.** |
 | 2 | Reference §4: `DiscretionaryLaneChangePattern` | `SimpleLaneChangePattern` | Naming only; deferred with the library name |
 | 3 | Reference §4: `AnticipateAdjacentCongestionPattern` "removed from the current paper scope" | Deleted in Phase 0.5 | None — the two agree |
 | 4 | `CLAUDE.md` §5 (before Phase 0.5): two-parameter relaxation, τ_s ≈ 15 s | One buffer, τ = 20 s | Corrected in Phase 0.5; the model reference agrees with the code |
 | 5 | Reference §3: θ_v interpolated between `d_mand` and `d_search` | A step at `d_mand`; the interpolation branch is unreachable (§2.1) | Behavioural, and open as Q9 |
 | 6 | Reference §6: relaxation "triggered on leader change / cut-in" | Also pre-registered proactively by `LateralExecution.accelerationForLateralMove` for every leader on the lane being entered | The reference understates the mechanism; the code is the richer one |
+| 7 | Reference §8: `a` = 1.2 m/s² | **1.4 car, 1.25 truck** | +17 % for cars. See §3. |
+| 8 | Reference §8: `T` = 0.9 s car, 1.2 s truck | **1.10 s, 1.40 s** | +22 % and +17 %. See §3. |
+| 9 | Reference §8: `b_coop` = −2.0 m/s² car, −0.5 truck | **−3.0, −1.0** | 1.5× and 2× stronger. See §3. |
+| 10 | Reference §8: `f_LC` = 0.5 | **0.40** | −20 %. See §3. |
+| 11 | Reference §8: `x_ext` = 1000 m, "extended anticipation look-ahead" | The value stands, the mechanism does not: the look-ahead mutation it fed was measured inert and deleted in Phase 0.5. The parameter now bounds the merge-lane path projection only. | The symbol survives with a different meaning |
+
+### The plan duration in v1
+
+**Recorded as a decision, not only as a mismatch: plan validity is `DT` = 0.2 s for every pattern in
+v1, because that is the model as run** — every published result was produced with one plan duration,
+and specifying the core to a duration that has never executed would make the equivalence test
+meaningless.
+
+The ~0.1 s intent is not lost, it is relocated. `TacticalCommand.nextEvaluationAfter` is exactly the
+mechanism for it: the active pattern names the interval it wants, per manoeuvre, and an event-driven
+host honours it. What the Java model lacked was not the idea but a way for a pattern to say so — the
+field it would have used is initialised once and never written. So the core carries the *capability*
+from v1 and the *value* stays at 0.2 s until a campaign says otherwise. A host that then honours a
+shorter interval is running a different model, and `EvaluationLate` makes the converse visible.
+
+---
+
+## 3. The symbol table, row by row
+
+`mirova_model_reference.md` §8 stands in for the paper's `tab:parameters` until the TR-B source is in.
+Every row against the value the production run actually resolves — taken from the registered run, not
+from the constants (see `default-parameters.md` §0). Sixteen rows: **ten agree, four deviate
+numerically, two agree in value but not in meaning.**
+
+| Symbol | Reference (car / truck) | Runs (car / truck) | |
+|---|---|---|---|
+| `d_free` | 0.365 | 0.365 / same | ✅ |
+| `d_mand` | 0.577 | 0.577 / same | ✅ |
+| `d_search` | 0.788 | 0.788 / same, **but never read** | ⚠️ value agrees, the θ call site passes `d_free` instead (§2.1) |
+| `v_gain` | 15 km/h / 30 km/h | 15 / 30 | ✅ set by the study; the declared default is LMRS's 69.6 |
+| `v_cong` | 60 km/h | 60 / same | ✅ |
+| `a` | 1.2 m/s² | **1.4 / 1.25** | ❌ **+17 % for cars** |
+| `a_max` | 3.5 / 1.3 m/s² | 3.5 / 1.3 | ✅ |
+| `T` | 0.9 s / 1.2 s | **1.10 / 1.40** | ❌ **+22 % and +17 %** |
+| `b_coop` | −2.0 / −0.5 m/s² | **−3.0 / −1.0** | ❌ **1.5× and 2× stronger** |
+| `b_pre` | −1.0 m/s² | −1.0 / same | ✅ |
+| `f_LC` | 0.5 | **0.40** | ❌ **−20 %** |
+| `τ_relax` | 20 s | 20 / same | ✅ (and unsourced in both — Keane & Gao give 15 s) |
+| `x_stop` | 5 m | 5 / same | ✅ |
+| `x_ext` | 1000 m | 1000 / same, **different meaning** | ⚠️ the look-ahead mutation it fed was measured inert and deleted; it now bounds the merge-lane projection only |
+| `x_coop` | 100 m | 100 / same | ✅ |
+| `t_undercut` | 5 s | 5 / same | ✅ |
+
+### The four numeric deviations
+
+**They are not errors, they are the calibration** — but the paper's table is what a reader will
+reproduce from, and none of the four is small enough to be rounding.
+
+**`T` (0.9 → 1.10 s car, 1.2 → 1.40 truck).** The largest single change, and the best documented: the
+headway-against-damping grid raised it because at 0.90 s the model broke down in one run in ten on
+2025-10-27, a date on which the site does break down. It cannot be read alone — the damping was
+switched off in the same step, and the two axes work against each other on the discharge rate. A
+reader who takes 0.9 s from the table *and* the damping from the code gets a model that breaks down.
+
+**`b_coop` (−2.0 → −3.0 car, −0.5 → −1.0 truck).** The largest *relative* change, and the one flagged:
+trucks cooperate twice as hard as the table says, cars half again. This is the parameter the
+calibration notes say is clearly worse when strengthened — "a gap opener braking harder holds up the
+column behind it" — and yet the values that run are the stronger ones, because the note concerns
+strengthening them *beyond* the calibrated pair. Worth stating plainly, because table and note read as
+contradicting each other unless the baseline is known.
+
+**`a` (1.2 → 1.4 car).** Cars accelerate 17 % harder than the table. The code cites Kesting for 1.4,
+the reference gives 1.2 without a source; trucks are 1.25 by a factorial that found this the strongest
+axis of every one tested.
+
+**`f_LC` (0.5 → 0.40).** The lane-change safety-distance reduction is 20 % tighter than documented,
+and it interacts multiplicatively with `s0` — so this row and the `s0` row cannot be read
+independently of each other.
+
+### The two that agree in value only
+
+**`d_search` = 0.788** is in the code and in the table, and is never read, because the θ call site
+passes `d_free` (§2.1). A reader reproducing the model from the table would implement the taper the
+table describes and get different behaviour from the code — arguably *more* correct behaviour, which
+is what Q9 has to decide.
+
+**`x_ext` = 1000 m** survives as a number while the mechanism behind it changed twice: the look-ahead
+mutation it fed was measured inert (100.0000 % of 136.5 M calls served from a stale memo) and deleted,
+and BC-6 bounds what remains to the driver's own perception. The symbol in the table no longer names
+what the code does with it.
+
