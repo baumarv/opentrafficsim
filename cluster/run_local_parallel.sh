@@ -73,7 +73,10 @@ fi
 # compile-and-run, and fail only when the method is first called -- which is how a whole campaign can
 # die at t=0 after a green Maven build. So: snapshot the classes, refuse to start if any carries a
 # stub, and run the campaign against the snapshot, where the IDE cannot reach it.
-SNAPSHOT="$OUTPUT/classes"
+# Outside the working tree on purpose. Putting it under the output directory left 2500 class
+# files inside the repository, which every Git-aware tool then reports as untracked changes.
+SNAPSHOT="${TMPDIR:-${TEMP:-/tmp}}/mirova-classes-$$"
+trap 'rm -rf "$SNAPSHOT"' EXIT
 rm -rf "$SNAPSHOT" && mkdir -p "$SNAPSHOT" || exit 1
 MODULE_DIRS=$(ls -d "$REPO"/ots-*/target/classes 2>/dev/null)
 [ -n "$MODULE_DIRS" ] || { echo "[cp] no ots-*/target/classes -- run mvn compile first" >&2; exit 1; }
@@ -140,7 +143,7 @@ for i in $(seq 0 $((TOTAL - 1))); do
   if [ "$running" -ge "$SLOTS" ]; then
     wait -n 2>/dev/null || wait
     running=$((running - 1))
-    done_n=$(grep -c . "$OUTPUT/logs/.status" 2>/dev/null || echo 0)
+    done_n=$(wc -l < "$OUTPUT/logs/.status" 2>/dev/null | tr -d " ")
     now=$(date +%s)
     echo "[progress] $done_n/$TOTAL finished after $(( (now - START) / 60 )) min"
   fi
@@ -148,8 +151,8 @@ done
 wait
 
 END=$(date +%s)
-OK=$(grep -c '^ok ' "$OUTPUT/logs/.status" 2>/dev/null || echo 0)
-FAILED=$(grep -c '^FAIL ' "$OUTPUT/logs/.status" 2>/dev/null || echo 0)
+OK=$(grep -c '^ok ' "$OUTPUT/logs/.status" 2>/dev/null); OK=${OK:-0}
+FAILED=$(grep -c '^FAIL ' "$OUTPUT/logs/.status" 2>/dev/null); FAILED=${FAILED:-0}
 echo "[done] $OK ok, $FAILED failed, $(( (END - START) / 60 )) min wall clock"
 
 if [ "$DIAG" = 1 ]; then
@@ -159,4 +162,4 @@ if [ "$DIAG" = 1 ]; then
     || echo "[warn] could not summarise $OUTPUT/defects"
 fi
 
-[ "$FAILED" = 0 ] || exit 1
+[ "$FAILED" -eq 0 ] || exit 1
