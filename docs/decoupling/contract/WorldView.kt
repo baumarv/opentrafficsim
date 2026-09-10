@@ -66,6 +66,10 @@ interface WorldView {
      * most take one, longitudinal control takes two. A host must not materialise the whole
      * perception range to answer this.
      *
+     * **Provisional shape.** A `Sequence` allocates at the port boundary, once per lane per tick per
+     * vehicle. An index-based `leader(lane, index, range)` would not. Which is right depends on a
+     * measurement that does not exist yet; see `contract.md` §2.
+     *
      * @param lane the lane to look along
      * @param range how far ahead to look
      * @return the leaders, nearest first; empty when there are none
@@ -120,10 +124,16 @@ interface WorldView {
      *
      * This is the route-following signal the mandatory lane-change desire is built on.
      *
+     * **Every host must answer this.** [Observation.Unknown] is not permitted: a driver who does not
+     * know where they are going has no mandatory lane-change desire at all, and hiding that behind a
+     * fallback would be a large behavioural difference expressed as a missing value. A host with no
+     * route model answers [Observation.Absent] — "the route asks nothing of this lane" — which is
+     * honest about what the driver then does.
+     *
      * @param lane the lane to ask about
      * @param range how far ahead to look
      * @return the requirement, or [Observation.Absent] when the route demands nothing from this lane
-     *         within [range]
+     *         within [range], including because the host models no route at all
      */
     fun routeRequirement(lane: RelativeLane, range: Distance): Observation<RouteRequirement>
 

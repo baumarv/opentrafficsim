@@ -28,9 +28,10 @@ import kotlin.time.Duration
  * ## Threading
  *
  * An agent is **not** thread-safe and must be stepped by one thread at a time. Different agents are
- * independent and may be stepped concurrently, provided the host's [WorldView] implementation is
- * itself safe for concurrent reads — the core makes no such requirement of itself and holds no
- * shared mutable state between agents. See `contract.md` §10.
+ * independent and may be stepped concurrently, on two conditions the host must meet: its [WorldView]
+ * implementation is safe for concurrent reads, and each agent has its own [RandomStream]. The core
+ * makes no such requirement of itself and holds no shared mutable state between agents. See
+ * `contract.md` §10.
  */
 interface DriverAgent {
 
@@ -100,6 +101,8 @@ interface DriverAgentFactory {
     /**
      * Creates one agent, drawing its individual parameters from the configured distributions.
      *
+     * The [RandomStream] the agent draws from is the host's, derived per agent; see [RandomStream].
+     *
      * @param id the identity the host has given the vehicle
      * @param overrides parameters fixed for this vehicle instead of drawn — a scenario pinning one
      *        driver's desired speed, or a calibration run pinning all of them
@@ -109,11 +112,17 @@ interface DriverAgentFactory {
 }
 
 /**
- * A source of pseudo-random numbers, supplied by the host.
+ * A source of pseudo-random numbers, supplied by the host, **for one agent**.
  *
  * Deliberately minimal: the core draws parameters at construction and nothing at runtime, so two
  * methods suffice. Implemented by the host over whatever generator gives its runs their
  * reproducibility.
+ *
+ * **One stream per agent, derived by the host from the run seed and the [ParticipantId].** A single
+ * shared stream, however thread-safe, is not reproducible once agents are created or stepped
+ * concurrently: the order of draws then depends on scheduling, and two runs of the same scenario with
+ * the same seed produce different populations. Thread safety is not the property that matters here;
+ * determinism is.
  */
 interface RandomStream {
 

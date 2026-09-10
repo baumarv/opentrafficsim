@@ -394,9 +394,17 @@ moves into `mirova-core`.
 
 **Neither document matches the code exactly. `mirova_model_reference.md` is closer.**
 
-| | `CLAUDE.md` §5 | `mirova_model_reference.md` (per the task brief) | **Code** |
+> **CORRECTION (Phase 1, after the document arrived).** The column below was written from the task
+> brief's description, because the document itself was in none of the working repositories. The real
+> document is now at [`mirova_model_reference.md`](mirova_model_reference.md), and on this point it
+> **matches the code**: §6 gives one constant, `τ_relax = 20 s`, and states that speed-deficit
+> relaxation is not implemented separately but routed through the headway buffer. The remaining
+> mismatch is `CLAUDE.md` alone, which Phase 0.5 has since corrected. The three further mechanisms
+> below are still in neither document.
+
+| | `CLAUDE.md` §5 (before the Phase 0.5 correction) | `mirova_model_reference.md` §6 | **Code** |
 |---|---|---|---|
-| Parameters | τ_s ≈ 15 s, τ_v ≈ 5 s | single τ_relax = 20 s | τ_s default **20 s**, τ_v default **8 s** |
+| Parameters | τ_s ≈ 15 s, τ_v ≈ 5 s | single τ_relax = 20 s | τ_s default **20 s**; τ_v declared (8 s) but never fed, deleted in Phase 0.5 |
 | Speed deficit | own exponential buffer | routed through the headway buffer | **routed through the headway buffer** |
 | Effective mechanism | two buffers | one buffer | **one buffer** |
 
@@ -552,6 +560,21 @@ Red = heavy coupling or a modelling decision required. Blue = stays in `mirova-o
 
 The order follows the dependency arrows upward, so that OTS remains runnable at every step
 (each stage keeps a thin OTS-side shim over the newly-moved core code).
+
+**Blocked on the BC campaign (added in Phase 1).** The core does not reproduce the Phase 0.5 reference
+run: it embodies BC-1, BC-2, BC-4, BC-6 and BC-8, and BC-5 is undecided
+(see [`contract.md`](contract.md) §0). Stages **0 to 2 are unaffected** — relaxation, parameters and
+IDM+ are the same code either way — but **stages 4, 5 and 6 must not start before the campaign has
+been evaluated**, because until then the target behaviour of the layers they move is not fixed:
+
+| Stage | Blocked by |
+|---|---|
+| 4 `NeighborsContext` | BC-4 (the follower estimator lives here), BC-8 (update order) |
+| 5 `InfrastructureContext` | BC-5 (whether `meanSpeed` is a query at all), BC-6 (the merge reference range) |
+| 6 Layer 2 | BC-2 and BC-4 (both substitutions are consumed here), and Q9 if `bcDesireInterpolation` is adopted |
+
+Stage 3 may proceed: the port has to exist before anything can be compared through it, and none of
+the switches changes its shape.
 
 | Stage | What | Why here |
 |---|---|---|

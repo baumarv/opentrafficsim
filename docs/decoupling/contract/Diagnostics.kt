@@ -162,6 +162,25 @@ sealed class DiagnosticEvent {
     ) : DiagnosticEvent()
 
     /**
+     * The host called back later than the agent asked for.
+     *
+     * Not a failure — a host stepping at a fixed interval will produce these whenever a manoeuvre asks
+     * for a shorter one — but it is a silent source of behavioural drift, because every time constant
+     * in the model is evaluated on the interval that actually elapsed. This makes the drift visible.
+     *
+     * @property agent the agent
+     * @property time when
+     * @property requested the bound the previous [TacticalCommand] asked for
+     * @property measured the interval that actually elapsed
+     */
+    data class EvaluationLate(
+        override val agent: ParticipantId,
+        override val time: Duration,
+        val requested: Duration,
+        val measured: Duration,
+    ) : DiagnosticEvent()
+
+    /**
      * The core clamped its own output, or found itself in a situation it can describe but not resolve
      * — no acceptable gap at the end of a ramp, a required deceleration beyond `bMax`.
      *
