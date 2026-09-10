@@ -1,6 +1,7 @@
 package org.opentrafficsim.demo.mirova.scenariomanagement.scenarios;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -105,6 +106,21 @@ public class Phase05ReferenceStudy implements StudyDefinition
     public static final String CORE_SET_INTERP_LABEL = "coreset-interp";
 
     /**
+     * Label of the variant that reproduces the published parameterisation explicitly.
+     * <p>
+     * Every switch at its default, as {@code reference} has them, and the speed gain of the published results --
+     * 15 m/s for cars, 30 m/s for trucks. Since the intended values became the model values, {@code reference} is no
+     * longer the published model and this variant is. See {@link FreiburgProductionStudy#LEGACY_LABEL} and the tag
+     * {@code published-model}.
+     * </p>
+     * <p>
+     * <b>Not in the default variant set</b>, so the campaign's run count is unchanged; select it with
+     * {@code --variants=...,legacy}.
+     * </p>
+     */
+    public static final String LEGACY_LABEL = "legacy";
+
+    /**
      * The behaviour switches, by variant label, in registration order.
      * <p>
      * An empty list means the baseline: no switch is set, so every parameter keeps its declared default. Every other
@@ -129,6 +145,7 @@ public class Phase05ReferenceStudy implements StudyDefinition
                         MirovaParameters.FOLLOWER_DESIRED_SPEED_ESTIMATED.getId(),
                         MirovaParameters.MERGE_REFERENCE_RANGE_LIMITED.getId(),
                         MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED.getId()));
+        VARIANTS.put(LEGACY_LABEL, List.of());
         VARIANTS.put(CORE_SET_INTERP_LABEL,
                 List.of(MirovaParameters.EMA_ALPHA_FROM_ACTUAL_DT.getId(),
                         MirovaParameters.LEADER_HEADWAY_FROM_OWN_MODEL.getId(),
@@ -177,10 +194,18 @@ public class Phase05ReferenceStudy implements StudyDefinition
                 Integer.parseInt(options.getOrDefault("replications", String.valueOf(DEFAULT_REPLICATIONS)));
 
         // --variants=reference restricts the campaign to the baseline, which is what the golden reference run wants;
-        // omitting it registers all six.
+        // omitting it registers every variant but 'legacy', which has to be asked for by name.
         String variantOption = options.get("variants");
-        List<String> wanted = variantOption == null || variantOption.trim().isEmpty() ? List.copyOf(VARIANTS.keySet())
-                : List.of(variantOption.trim().split("\\s*,\\s*"));
+        List<String> wanted;
+        if (variantOption == null || variantOption.trim().isEmpty())
+        {
+            wanted = new ArrayList<>(VARIANTS.keySet());
+            wanted.remove(LEGACY_LABEL);
+        }
+        else
+        {
+            wanted = List.of(variantOption.trim().split("\\s*,\\s*"));
+        }
         for (String label : wanted)
         {
             if (!VARIANTS.containsKey(label))
@@ -203,13 +228,18 @@ public class Phase05ReferenceStudy implements StudyDefinition
 
                 ScenarioParameters params = FreiburgCongestedBranchStudy.forCell(facility, date, demandCsvPath, strict,
                         FreiburgProductionStudy.B, FreiburgProductionStudy.S0_CAR, FreiburgProductionStudy.A_CAR);
+                if (LEGACY_LABEL.equals(label))
+                {
+                    FreiburgProductionStudy.applyPublishedSpeedGain(params);
+                }
                 for (String switchId : switchIds)
                 {
                     // Both vehicle types, so a switch is one change and not two.
                     params.set("car." + switchId, Boolean.TRUE);
                     params.set("truck." + switchId, Boolean.TRUE);
                 }
-                params.set(KEY_SWITCH, switchIds.isEmpty() ? "none" : String.join("+", switchIds));
+                params.set(KEY_SWITCH, switchIds.isEmpty() ? (LEGACY_LABEL.equals(label) ? "published-vgain" : "none")
+                        : String.join("+", switchIds));
                 manager.addParameterVariation(scenarioName, params);
             }
         }
