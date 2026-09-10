@@ -1,5 +1,6 @@
 package org.opentrafficsim.demo.mirova.scenariomanagement.scenarios;
 
+import org.djunits.unit.SpeedUnit;
 import org.djunits.value.vdouble.scalar.Speed;
 import org.djunits.value.vdouble.scalar.Length;
 import org.djunits.value.vdouble.scalar.Duration;
@@ -136,6 +137,25 @@ public final class FreiburgStudyParameters
      */
     public static final double RELAXATION_DAMPING = 1.00;
 
+    /**
+     * Speed difference at which a car's lane-change desire saturates.
+     * <p>
+     * <b>The intended value, and not the one the published results ran with.</b> The set used to write a bare
+     * {@code 15.0}, and {@code ScenarioGenerator.applyParameter} read a bare number for a speed as SI, so every
+     * campaign ran at 15 m/s -- 54 km/h. The intended value is 15 km/h, and it is now the model value.
+     * </p>
+     * <p>
+     * <b>The model is uncalibrated until it is recalibrated.</b> The parameter scales every discretionary lane-change
+     * desire, and the calibration that produced the headway, the damping and the safety-distance factor was carried
+     * out against the larger value; some of those may have been compensating for it. Use the {@code legacy} variant,
+     * or the tag {@code published-model}, to reproduce the published results.
+     * </p>
+     */
+    public static final Speed CAR_V_GAIN = new Speed(15.0, SpeedUnit.KM_PER_HOUR);
+
+    /** Speed difference at which a truck's lane-change desire saturates. See {@link #CAR_V_GAIN}. */
+    public static final Speed TRUCK_V_GAIN = new Speed(30.0, SpeedUnit.KM_PER_HOUR);
+
     /** Deceleration a car accepts in order to cooperate with a merging vehicle, in m/s^2. */
     public static final double CAR_COOPERATIVE_DECELERATION_THRESHOLD = -3.0;
 
@@ -235,7 +255,7 @@ public final class FreiburgStudyParameters
         params.set("car." + ParameterTypes.A.getId(), Acceleration.instantiateSI(CAR_A));
         params.set("car." + ParameterTypes.B.getId(), Acceleration.instantiateSI(COMFORTABLE_DECELERATION));
         params.set("car." + ParameterTypes.S0.getId(), Length.instantiateSI(CAR_S0));
-        params.set("car." + MirovaParameters.vGain.getId(), Speed.instantiateSI(15.0));
+        params.set("car." + MirovaParameters.vGain.getId(), CAR_V_GAIN);
         params.set("car." + MirovaParameters.A_MAX.getId(), Acceleration.instantiateSI(3.5));
         params.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(), Acceleration.instantiateSI(CAR_COOPERATIVE_DECELERATION_THRESHOLD));
         params.set("car." + MirovaParameters.farAnticipationEnabled.getId(), false);
@@ -251,7 +271,7 @@ public final class FreiburgStudyParameters
         params.set("truck." + ParameterTypes.A.getId(), Acceleration.instantiateSI(TRUCK_A));
         params.set("truck." + ParameterTypes.B.getId(), Acceleration.instantiateSI(COMFORTABLE_DECELERATION));
         params.set("truck." + ParameterTypes.S0.getId(), Length.instantiateSI(TRUCK_S0));
-        params.set("truck." + MirovaParameters.vGain.getId(), Speed.instantiateSI(30.0));
+        params.set("truck." + MirovaParameters.vGain.getId(), TRUCK_V_GAIN);
         params.set("truck." + MirovaParameters.A_MAX.getId(), Acceleration.instantiateSI(1.3));
         params.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(), Acceleration.instantiateSI(TRUCK_COOPERATIVE_DECELERATION_THRESHOLD));
         params.set("truck." + MirovaParameters.cooperativeLaneChangesEnabled.getId(), false);

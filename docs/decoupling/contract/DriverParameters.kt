@@ -324,15 +324,18 @@ object DriverParameterKeys {
     /**
      * Speed-difference scale in the cruising and social pressure desire terms.
      *
-     * **15 m/s, which is 54 km/h — not the 15 km/h of the model reference's table.** The study writes
-     * a bare `15.0` into a `ParameterTypeSpeed`, and the scenario generator converts bare numbers with
-     * `Speed.instantiateSI`, so the model receives 15 m/s. Trucks likewise receive 108 km/h, not 30.
-     * This is what every published run used; whether it is what was intended is open. See
-     * `default-parameters.md` §6.
+     * **15 km/h — the intended value, and not the one the published results ran with.** The study wrote
+     * a bare `15.0` into a `ParameterTypeSpeed` and the generator read bare numbers as SI, so every
+     * published run used 15 m/s, i.e. 54 km/h, and trucks 108. The intended values are now the model
+     * values; the published pair survives as the `legacy` study variant and the `published-model` tag.
+     *
+     * **The model is uncalibrated at this value** until it is recalibrated jointly with the parameters
+     * that may have been compensating for the larger one. See `default-parameters.md` §6 and
+     * `recalibration-inventory.md`.
      */
     @JvmField
     val SPEED_GAIN: ParameterKey<Speed> =
-        ParameterKey("vGain", 15.0.metersPerSecond,
+        ParameterKey("vGain", 15.0.kmh,
             Bound.POSITIVE, Provenance.UNKNOWN, "Speed-difference scale for lane-change desire")
 
     /**
@@ -564,7 +567,7 @@ object DriverPresets {
         .with(DriverParameterKeys.STANDSTILL_GAP, 6.0.meters)
         .with(DriverParameterKeys.DESIRED_ACCELERATION, 1.25.metersPerSecondSquared)
         .with(DriverParameterKeys.MAX_ACCELERATION, 1.3.metersPerSecondSquared)
-        .with(DriverParameterKeys.SPEED_GAIN, 30.0.metersPerSecond)
+        .with(DriverParameterKeys.SPEED_GAIN, 30.0.kmh)
         .with(DriverParameterKeys.COOPERATIVE_DECELERATION, 1.0.metersPerSecondSquared)
         .with(DriverParameterKeys.COOPERATION_ENABLED, false)
 }
