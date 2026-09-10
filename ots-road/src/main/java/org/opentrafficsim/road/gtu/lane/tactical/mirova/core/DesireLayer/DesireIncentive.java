@@ -13,6 +13,7 @@ import org.opentrafficsim.road.gtu.lane.perception.categories.DirectInfrastructu
 import org.opentrafficsim.road.gtu.lane.perception.categories.neighbors.DirectNeighborsPerception;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.network.LaneChangeInfo;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.DefectDiagnostics;
 
 /**
  * Abstract base class representing a declarative KnowledgeChunk in the cognitive driving model.
@@ -204,6 +205,10 @@ public abstract class DesireIncentive
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("DesireIncentive.isDeadEndForRoute", e);
+            }
             return false; // Failsafe
         }
     }

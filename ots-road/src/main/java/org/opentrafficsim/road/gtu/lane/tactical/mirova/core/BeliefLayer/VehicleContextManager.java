@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.DefectDiagnostics;
 
 /**
  * Central manager that aggregates and updates all contextual information for a single vehicle. Provides modular access to
@@ -133,6 +134,10 @@ public class VehicleContextManager
                 }
                 catch (Exception e)
                 {
+                    if (DefectDiagnostics.ENABLED)
+                    {
+                        DefectDiagnostics.swallowed("VehicleContextManager.updateFromPerception", e);
+                    }
                     System.err.println("[ContextManager] Failed to update " + category.getName());
                     e.printStackTrace();
                 }

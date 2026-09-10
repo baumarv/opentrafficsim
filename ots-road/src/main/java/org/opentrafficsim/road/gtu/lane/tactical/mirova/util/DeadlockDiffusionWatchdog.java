@@ -8,6 +8,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext;
 import org.opentrafficsim.road.gtu.lane.plan.operational.LaneChange;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.DefectDiagnostics;
 
 /**
  * Removes vehicles that have become permanently stuck, so that a single deadlocked vehicle cannot block a whole simulation.
@@ -127,6 +128,10 @@ public class DeadlockDiffusionWatchdog
         }
         catch (Exception exception)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("DeadlockDiffusionWatchdog.check", exception);
+            }
             return false; // fail-safe: never let the safeguard itself break the run
         }
     }
@@ -154,6 +159,10 @@ public class DeadlockDiffusionWatchdog
         }
         catch (Exception exception)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("DeadlockDiffusionWatchdog.diffuse", exception);
+            }
             laneId = "UNKNOWN"; // position not resolvable; the removal is still recorded
         }
 

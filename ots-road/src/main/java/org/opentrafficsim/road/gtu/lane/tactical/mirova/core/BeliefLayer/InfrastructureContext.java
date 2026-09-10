@@ -34,6 +34,7 @@ import org.opentrafficsim.road.network.LaneChangeInfo;
 import org.opentrafficsim.road.network.lane.Lane;
 import org.opentrafficsim.road.network.lane.Shoulder;
 import org.opentrafficsim.road.network.speed.SpeedLimitInfo;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.DefectDiagnostics;
 
 /**
  * Context category providing infrastructure-related information relevant for longitudinal control and tactical reasoning.
@@ -317,6 +318,10 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("InfrastructureContext.getDistanceToLaneChangeExtendedLookahead", e);
+            }
             distance = Length.POSITIVE_INFINITY;
         }
         cacheValue(DIST_TO_NEXT_LANE_CHANGE_OPPORTUNITY, distance, true);
@@ -475,6 +480,10 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("InfrastructureContext.computeAnticipatedSpeed", e);
+            }
             return this.vehicle.getGtu().getDesiredSpeed();
         }
     }
@@ -529,6 +538,10 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("InfrastructureContext.computeSafeRouteLaneEndDistance", e);
+            }
             return Length.POSITIVE_INFINITY;
         }
     }
@@ -546,6 +559,10 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("InfrastructureContext.computeSafePhysicalLaneEndDistance", e);
+            }
             return Length.POSITIVE_INFINITY;
         }
     }
@@ -562,6 +579,10 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("InfrastructureContext.computeSafeCurrentSpeedLimit", e);
+            }
             return null;
         }
     }
@@ -578,6 +599,10 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("InfrastructureContext.computeSafeNextSpeedLimit", e);
+            }
             return null;
         }
     }
@@ -664,6 +689,10 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
                             }
                             catch (GtuException e)
                             {
+                                if (DefectDiagnostics.ENABLED)
+                                {
+                                    DefectDiagnostics.swallowed("InfrastructureContext.computePhysicalDistanceToLaneEnd", e);
+                                }
                                 return rootRecord.getEndDistance();
                             }
                         }
@@ -701,6 +730,10 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         }
         catch (OperationalPlanException exception)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("InfrastructureContext.checkLaneAvailable", exception);
+            }
             exception.printStackTrace();
             return false;
         }
@@ -735,6 +768,10 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         }
         catch (Exception e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("InfrastructureContext.checkLaneAvailable#2", e);
+            }
             // Failsafe
         }
         return true;
@@ -757,8 +794,32 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         Length extendedLookaheadDistance =
                 this.vehicle.getParams().extendedLookAheadDistanceScalar;
         this.vehicle.getParameters().setParameterResettable(ParameterTypes.LOOKAHEAD, extendedLookaheadDistance);
-        SortedSet<LaneChangeInfo> laneInfo = infra.getLegalLaneChangeInfo(RelativeLane.CURRENT);
+        SortedSet<LaneChangeInfo> laneInfo;
+        try
+        {
+            laneInfo = infra.getLegalLaneChangeInfo(RelativeLane.CURRENT);
+        }
+        catch (RuntimeException exception)
+        {
+            // Only unchecked exceptions can escape here: getLegalLaneChangeInfo declares none, and the two checked
+            // exceptions this method reports come from getPerceptionCategory, which is called before the parameter
+            // is raised. The leak is therefore narrower than it looks -- but not impossible, since the query walks
+            // the lane structure and can fail on a null record.
+            //
+            // Counted, then rethrown unchanged: the parameter is deliberately left raised, exactly as before, so
+            // that the instrumentation measures the defect rather than repairing it. The repair is a separate
+            // commit, so that a difference in the reference run can be attributed to one or the other.
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.lookaheadLeak();
+            }
+            throw exception;
+        }
         this.vehicle.getParameters().resetParameter(ParameterTypes.LOOKAHEAD);
+        if (DefectDiagnostics.ENABLED)
+        {
+            DefectDiagnostics.lookaheadRestored();
+        }
         if (laneInfo != null && !laneInfo.isEmpty())
         {
             LaneChangeInfo first = laneInfo.first();
@@ -861,6 +922,10 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         }
         catch (GtuException exception)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("InfrastructureContext.getLaneAverageSpeed", exception);
+            }
             // Failsafe: If GTU positioning cannot be resolved, assume free flow
             exception.printStackTrace();
             Speed result = Speed.POSITIVE_INFINITY;
@@ -1006,6 +1071,10 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         }
         catch (GtuException | NetworkException e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("InfrastructureContext.computeAnticipatedLaneDrop", e);
+            }
             e.printStackTrace();
         }
 
@@ -1121,6 +1190,10 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         }
         catch (GtuException | NetworkException e)
         {
+            if (DefectDiagnostics.ENABLED)
+            {
+                DefectDiagnostics.swallowed("InfrastructureContext.computeDownstreamAdjacentLane", e);
+            }
             e.printStackTrace();
         }
 
