@@ -1294,8 +1294,10 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
         if (MergeGateDiagnostics.ENABLED)
         {
             org.opentrafficsim.road.network.lane.LanePosition ref = this.vehicle.getGtu().getReferencePosition();
-            if (ref != null && ref.lane() != null && "Ramp".equals(ref.lane().getId()))
+            if (ref != null && ref.lane() != null)
             {
+                MergeGateDiagnostics.where(this.vehicle.getGtu().getId(),
+                        ref.lane().getLink().getId() + "/" + ref.lane().getId());
                 MergeGateDiagnostics.gapEvaluated(this.vehicle.getGtu().getId(),
                         (int) Math.round(ref.position().si * 10.0), laneChangeLegal, egoOk, followerOk, rearOk,
                         frontOk, egoDecel.si, followerDecel.si);

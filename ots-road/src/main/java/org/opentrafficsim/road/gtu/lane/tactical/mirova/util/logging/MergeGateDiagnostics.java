@@ -51,6 +51,28 @@ public final class MergeGateDiagnostics
     /** Per-vehicle counters, in the order the vehicles were first seen. */
     private static final Map<String, long[]> ROWS = new LinkedHashMap<>();
 
+    /** Per vehicle, where the gap conditions were last evaluated, as link and lane. */
+    private static final Map<String, String> WHERE = new LinkedHashMap<>();
+
+    /**
+     * Records where a vehicle is while its gap conditions are evaluated.
+     * <p>
+     * The rows used to be restricted to vehicles standing on an acceleration lane, which is the merge. The same
+     * conditions decide the exit, where the ego stands on a through lane and wants the one beside it, and nothing
+     * was recorded for it. Kept as the last place seen rather than the first: a vehicle evaluates the gap over a
+     * stretch of road and it is the end of that stretch the outcome is decided at.
+     * </p>
+     * @param gtuId String; the vehicle
+     * @param location String; link and lane, separated by a slash
+     */
+    public static void where(final String gtuId, final String location)
+    {
+        if (ENABLED)
+        {
+            WHERE.put(gtuId, location);
+        }
+    }
+
     /** Number of counters held per vehicle. */
     private static final int FIELDS = 10;
 
@@ -453,7 +475,7 @@ public final class MergeGateDiagnostics
             try (BufferedWriter w = Files.newBufferedWriter(TARGET, StandardCharsets.UTF_8))
             {
                 w.write("gtuId,n,notLegal,egoDecel,followerDecel,rearGap,frontGap,gapOk,ready,both,maxXdm,"
-                        + "bestEgoDecel,bestFollowerDecel");
+                        + "bestEgoDecel,bestFollowerDecel,where");
                 w.newLine();
                 for (Map.Entry<String, long[]> e : ROWS.entrySet())
                 {
@@ -467,6 +489,7 @@ public final class MergeGateDiagnostics
                     Double bf = BEST_FOLLOWER_DECEL.get(e.getKey());
                     sb.append(',').append(be == null ? "" : String.format(Locale.ROOT, "%.4f", be));
                     sb.append(',').append(bf == null ? "" : String.format(Locale.ROOT, "%.4f", bf));
+                    sb.append(',').append(WHERE.getOrDefault(e.getKey(), ""));
                     w.write(sb.toString());
                     w.newLine();
                 }
