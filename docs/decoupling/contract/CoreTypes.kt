@@ -36,6 +36,12 @@ enum class RelativeLane {
 
 /**
  * A lateral direction, for lane-change requests, indicators and adjacent-lane queries.
+ *
+ * Deliberately a second type beside [RelativeLane] rather than a member of it. [RelativeLane] has a
+ * `CURRENT` that a lane-change request must never carry; `Side` has no `CURRENT`, so the impossible
+ * request cannot be written down. The Java model used one `LateralDirectionality` with a `NONE`
+ * member for both roles, and the "can this be `NONE` here" checks that follow from that are scattered
+ * through the intention layer. Two types, one conversion ([lane]), no checks.
  */
 enum class Side {
     /** To the left in the direction of travel. */

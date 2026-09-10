@@ -4,9 +4,12 @@ What a host simulator must provide, and what it gets back. Drafted from the Phas
 decisions taken in Phase 0.5; the Kotlin drafts in [`contract/`](contract/) are the normative form,
 this document is the reasoning behind them.
 
-**Status: draft for review. Nothing here has been compiled** — kit-ifv/kotlin-units is not in this
-workspace, so the drafts are syntactically checked by eye only. No code has been migrated and no
-module has been created.
+**Status: revised after the first review. Nothing here has been compiled** — kit-ifv/kotlin-units is
+not in this workspace, so the drafts are checked by eye only. No code has been migrated and no module
+has been created.
+
+**Naming.** `mirova-core` and the package `edu.kit.ifv.mirova.api` are placeholders. The standalone
+library's name is not yet decided and nothing is renamed until it is.
 
 **Files.** [`CoreTypes.kt`](contract/CoreTypes.kt) · [`WorldView.kt`](contract/WorldView.kt) ·
 [`DriverAgent.kt`](contract/DriverAgent.kt) · [`DriverParameters.kt`](contract/DriverParameters.kt) ·
@@ -25,6 +28,43 @@ see it.
   onLaneChange*()    ─── call ──▶
                      ◀── record ─  Diagnostics
 ```
+
+---
+
+## 0. Reference model of the core — which behaviour this is
+
+**The core does not reproduce the Phase 0.5 reference run.** That follows from two decisions taken
+separately: the non-observable fields leave the contract whichever way their comparison goes (§3), and
+the core implements one behaviour per decision rather than a switch (§7). Together they mean the core
+embodies OTS **with a specific set of BC switches enabled**, and that set is not the reference set of
+all switches off.
+
+| Switch | In the core? | Why |
+|---|---|---|
+| BC-1 — EMA coefficient from the actual `dt` | **yes** | §6: every time constant is evaluated on elapsed time. A step-dependent constant is not portable to a host whose step the core does not control. |
+| BC-2 — leader cooperation judged with the ego's own parameters | **yes** | §3: the neighbour's parameters and car-following model are not in `PerceivedVehicle`. |
+| BC-4 — follower desired speed estimated from observation | **yes** | §3: the neighbour's desired speed is not in `PerceivedVehicle`. |
+| BC-5 — mean speed from perceived leaders | **undecided** | Tied to Q1. If adopted, `meanSpeed` leaves the contract; if not, it stays and every host must answer it. |
+| BC-6 — merge reference range limited to perception | **yes** | §1: `expectedMergeSpeed` is bounded by what the driver can see. |
+| BC-7 — extended look-ahead | **n/a** | The mechanism was deleted in Phase 0.5 after it was measured to be inert. |
+| BC-8 — contexts updated in dependency order | **yes** | §4: the core fixes the order `Ego → Neighbors → Infrastructure → MacroTraffic`. The Java model inherited a `HashMap` iteration order, which is deterministic in practice but accidental, and a core whose belief layer depends on an accident is not a library. |
+
+**Consequences, each of which has to be acted on and not just noted.**
+
+1. **The equivalence reference for migration is an OTS run with exactly this set enabled**, not the
+   Phase 0.5 reference run. That variant is registered in `Phase05ReferenceStudy` as `coreset` and
+   runs in the pending campaign alongside the per-switch variants.
+2. **Migration order.** Stages 0–2 — relaxation, parameters, IDM+ — are unaffected and can start
+   whenever. The Desire and Intention layers, and the parts of Belief that BC-2, BC-4 and BC-8 touch,
+   **cannot be migrated before the campaign has been evaluated**, because until then the target
+   behaviour is not fixed. Inventory §D carries the dependency.
+3. **If a BC performs badly, reverting is not available.** The original behaviour of BC-2 and BC-4
+   cannot be expressed in the core at all — the fields they replace are not in the contract. The
+   response to a bad result is a *better observable substitute*, not a return to reading another
+   driver's mind. This is stated again in §3, where it belongs.
+4. **Core v1 is not the model behind the published results.** TR-B and HEUREKA rest on the reference
+   set. The core needs its own validation on Freiburg-Nord before anything is published from it; see
+   §11.
 
 ---
 
@@ -53,7 +93,7 @@ ahead is empty", which is a different model.
 | 3 | `laneExists(lane)` | `Boolean` | cross-section | — | never | 1, 2 | yes |
 | 4 | `laneIsUsable(side)` | `Boolean` | adjacent | — | never | 1, 2 | yes |
 | 5 | `laneChangePossibility(side, range)` | `Observation<Distance>` | argument | a change to that side is not legal here at all | never | 1, 2 | yes |
-| 6 | `routeRequirement(lane, range)` | `Observation<RouteRequirement>` | argument | the route asks nothing of this lane within range | permitted: a host with no route model | 1, 2, 3 | yes, from the scenario's own route |
+| 6 | `routeRequirement(lane, range)` | `Observation<RouteRequirement>` | argument | the route asks nothing of this lane within range — **including because the host models no route** | **not permitted** | 1, 2, 3 | yes |
 | 7 | `distanceToLaneEnd(lane, range)` | `Observation<Distance>` | argument | the lane does not end within range | never | 1, 3 | yes |
 | 8 | `speedLimits(lane, range)` | `Sequence<SpeedLimitAhead>` | argument | never empty — the limit in force is always first | never | 1, 2, 4 | yes |
 | 9 | `parallelMergeAhead(side, range)` | `Boolean` | argument | — | never | 2 | yes |
@@ -70,11 +110,15 @@ never took effect — measured at **100.0000 % of 136,504,913 calls served from 
 that is an argument cannot be defeated by a cache the caller does not control. The core passes its own
 perception range, which is a *driver* property that stays inside the core.
 
+**Query 6 admits no `Unknown`** (review decision). A driver who does not know where they are going has
+no mandatory lane-change desire at all; letting that arrive as a missing value would hide a large
+behavioural difference behind a fallback. A host with no route model answers `Absent`, which is honest
+about what the driver then does.
+
 **Query 10, `meanSpeed`, is provisional.** It is the last aggregate a host supplies that the core
 could derive itself — `InfrastructureContext.getAnticipatedSpeed` already computes the same quantity
 from the leaders it perceives, and BC-5 makes exactly that substitution. If BC-5 is adopted after the
-comparison campaign, this query leaves the contract and §1 has twelve entries. It is retained in v1
-only because that comparison has not been run.
+comparison campaign, this query leaves the contract and §1 has twelve entries.
 
 **Query 11 is the one a driving simulator will decline.** `expectedMergeSpeed` replaces a scan over
 `lane.getGtuList()` on a lane found up to a kilometre downstream: every vehicle's position and speed,
@@ -102,6 +146,13 @@ range is part of the query signature, so a correct memo key is the argument list
 call that consumes one element pays for the whole range on every tick of every vehicle. The `Sequence`
 return type says: compute on demand, and expect the consumer to stop early.
 
+**`Sequence` is v0.x, not settled.** It allocates at the port boundary — an iterator per lane, per
+tick, per vehicle, on the hottest path there is. An index-based alternative,
+`leader(lane, index, range): Observation<PerceivedVehicle>`, allocates nothing and expresses the same
+access pattern less elegantly. **Which is right is a measurement, and the measurement does not exist:
+the question stays open until there is a JMH benchmark of the tick path.** Until then `Sequence`
+stands, because the readable form should be the one that has to justify replacing itself.
+
 **The core retains nothing.** Neither the `WorldView` nor anything reachable from it survives the
 `step` call it was passed to. `PerceivedVehicle` values may be read freely during the tick; across
 ticks only `ParticipantId` is remembered. A host may therefore pool and recycle its perception objects.
@@ -124,14 +175,37 @@ ticks only `ParticipantId` is remembered. A host may therefore pool and recycle 
 
 | Removed | Read at | Replaced by |
 |---|---|---|
-| the neighbour's `desiredSpeed` | `SocialInteractionsIncentives:151` | **BC-4**: the speed the vehicle was last seen holding while unobstructed, falling back to the legal limit scaled by the mean factor this driver has observed |
+| the neighbour's `desiredSpeed` | `SocialInteractionsIncentives:151` | **BC-4**, specified below |
 | the neighbour's `parameters` | `GapOpenerPattern:290`, `SocialInteractionsIncentives:153` | **BC-2**: the ego's own parameters. `egoSocialPressure` already did this. |
 | the neighbour's `carFollowingModel` | `GapOpenerPattern:291` | same |
 
-Each of the three is a driver reading another driver's mind, and each is behind a Phase 0.5 switch
-whose comparison run decides whether the substitution is acceptable. **Whichever way the comparison
-goes, these fields are not in the contract** — a driving simulator with a human in the loop cannot
-supply them at all.
+**Reverting is not an option.** The comparison campaign decides whether these substitutions are *good
+enough*, not whether they happen: the fields they replace are not in the contract and a host with a
+human driver in the loop cannot supply them at all. If BC-2 turns out to increase ramp standstills, or
+BC-4 to weaken the social pressure where it matters, the answer is a **better observable substitute** —
+not a return to reading another driver's mind.
+
+### BC-4 in full
+
+The estimator, as implemented and verified against the code
+(see [`bc4-and-reference-check.md`](bc4-and-reference-check.md)):
+
+- **Observation.** A follower on the **ego's own lane** counts as unobstructed when the net gap
+  exceeds `s0 + v_follower · T` — computed with the *ego's* `s0` and `T`, since the follower's are not
+  observable — and its acceleration is at or above −0.1 m/s². Only the current-lane follower can be
+  judged, because only there is the ego the follower's leader.
+- **Memory.** The last unobstructed speed per follower, expiring after ten seconds and bounded to
+  sixteen followers, oldest evicted.
+- **Fallback.** The legal limit scaled by the mean speed factor this driver has observed unobstructed
+  vehicles keeping; 1.0, i.e. the bare limit, before any observation. A population value, not the
+  ego's own preference — substituting the ego's would make a slow truck conclude that the car behind
+  it wants no more than the truck does, and the social pressure would vanish in exactly the situation
+  the term exists for.
+- **Floor.** Never below the follower's current speed, which is a lower bound on what it wants.
+
+The OTS implementation counts the expiry in **ticks** (50), which is ten seconds only at a 0.2 s step.
+**In the core it is a `Duration`**, per §6. The defect is left in the Java code so the pending campaign
+measures one thing; it is recorded in the check report.
 
 ---
 
@@ -139,7 +213,7 @@ supply them at all.
 
 ```
 create(id, overrides)          parameters drawn once, from the core's distributions
-                               with the host's random stream
+                               with the host's per-agent random stream
   │
   ├── step(now, world) ─▶ TacticalCommand      repeatedly, now non-decreasing
   ├── onLaneChangeCompleted(side)              host reports arrival
@@ -151,6 +225,14 @@ create(id, overrides)          parameters drawn once, from the core's distributi
 **Construction resolves everything constant.** The parameter set is read once into an internal
 snapshot of primitives; nothing is looked up per tick. This is `MirovaParameterSnapshot` made total:
 after Phase 0.5 the Java model had exactly one runtime parameter write left, and §8 removes it.
+
+**Inside one `step`, the belief contexts update in dependency order:**
+`Ego → Neighbors → Infrastructure → MacroTraffic`. Ego holds the relaxation and the per-tick
+acceleration cache that the others consult; Neighbors detects the cut-in that opens a relaxation;
+Infrastructure reads perceived leaders for the anticipated speed; MacroTraffic aggregates. The Java
+model ran `MacroTraffic → Infrastructure → Neighbors → Ego`, which is the iteration order of the
+`HashMap` the categories happened to live in — deterministic in practice, accidental in origin. This
+is BC-8, and the core takes the dependency order.
 
 **`step` may be called twice at the same instant** and returns the same command — the agent treats it
 as one tick. Calling with a `now` before the previous call throws. There is no `reset`: a driver whose
@@ -200,8 +282,10 @@ converges.
 
 **`nextEvaluationAfter`** is an upper bound, not a schedule. A host stepping at a fixed interval
 ignores it; an event-driven host uses it to avoid waking a free-flowing driver as often as one
-negotiating a merge. Calling earlier is always allowed. Calling **later** changes the behaviour, and a
-host that cannot honour the bound should say so at integration time rather than silently drift.
+negotiating a merge. Calling earlier is always allowed. Calling **later** changes the behaviour, and
+the agent says so: it emits an `EvaluationLate` diagnostic carrying the bound it asked for and the
+interval that actually elapsed. Silent drift was the point of the complaint; a measurable one is
+acceptable.
 
 **Vehicle removal is not a command.** `DeadlockDiffusionWatchdog` calls `gtu.destroy()`; that stays
 entirely with the host. The core may at most emit a `LimitReached` diagnostic saying it is stuck.
@@ -219,11 +303,13 @@ expiry counts elapsed time. Both are expressed against an origin, and reconstruc
 accumulating deltas accumulates error too. The agent derives `dt` as the difference from the previous
 call, which is what the smoothing coefficient needs.
 
-**Every time-dependent quantity uses the actual elapsed time, never a configured step.** This is
-decision BC-1: `MandatoryLaneChangePattern` derived its EMA coefficient as `params.dtSi * 0.25`, a
-constant from the `DT` *parameter*, which is right only while the host steps at exactly `DT`. In the
-core the coefficient is `α = 1 − exp(−dt/τ)` from the measured `dt`. `ParameterTypes.DT` is therefore
-**not** a driver parameter; its role is taken by `nextEvaluationAfter`.
+**Every time-dependent quantity uses the actual elapsed time, never a configured step and never a tick
+count.** This is decision BC-1 generalised: `MandatoryLaneChangePattern` derived its EMA coefficient as
+`params.dtSi * 0.25`, a constant from the `DT` *parameter*, which is right only while the host steps at
+exactly `DT`; and the BC-4 estimator counts its expiry in ticks, which has the same flaw. In the core
+the coefficient is `α = 1 − exp(−dt/τ)` from the measured `dt`, and every horizon is a `Duration`.
+`ParameterTypes.DT` is therefore **not** a driver parameter; its role is taken by
+`nextEvaluationAfter`.
 
 **There is no wall-clock time and no simulation calendar in the core.**
 
@@ -247,17 +333,19 @@ mental module reads them), `FAR_ANTICIPATION_ENABLED` on a pattern that is not r
 | `LOOKAHEAD`, `LOOKBACK` | Query range arguments (§1). Making them arguments is what makes the Phase 0.5 defect unrepresentable. |
 | `DT` | Not a driver property. Becomes `nextEvaluationAfter` (§6). |
 | `EXTENDED_LOOK_AHEAD_DISTANCE` | Its one live use is the range of `expectedMergeSpeed`, bounded by perception (BC-6). Its three threshold uses tested "is there a route lane change in range at all", which `routeRequirement` answers directly. |
-| the six `bc*` switches | They exist to compare the Java model against itself. The core implements one behaviour per decision, not a switch. |
-| the eight parameters deleted in Phase 0.5 | Read nowhere. |
+| the six `bc*` switches | They exist to compare the Java model against itself. The core implements one behaviour per decision (§0), not a switch. |
+| the eight parameters deleted in Phase 0.5 | Read nowhere — but see Q9: one of them, `DSEARCH`, turns out to have been orphaned by a bug rather than vestigial. |
+
+**The defaults are currently OTS's, and that is probably wrong.** `T = 1.2 s`, `a = 1.25 m/s²`,
+`vGain = 69.6 km/h` are what OTS ships, not what the paper calibrated (0.9 s, 1.2 m/s², 15 km/h) and
+not what the Freiburg studies run (1.10 s, 1.4 m/s², set per study). A standalone library whose
+defaults come from a simulator it no longer depends on is an accident waiting to be inherited. See Q8.
 
 **Distributions: shapes in the core, calibration in the host, entropy in the host.** The spread of the
 desired-speed factor across a population is driver heterogeneity and travels with the driver to any
 road, so the shape belongs to the core. `carsLimit120_DensityHigh` and its twenty siblings are fits to
 a facility and a traffic state, so they belong to the host, which selects and parametrises a core
-shape. The `RandomStream` is always the host's: reproducibility is a property of a run, the host owns
-the run, and a core that seeded itself would make two runs of the same scenario differ.
-
-**One classification is still open** — see Q3.
+shape. The `RandomStream` is always the host's, **one per agent** — see §10.
 
 ---
 
@@ -287,19 +375,20 @@ a parameter at runtime.**
 particular leader, applied by the core *before* the call, by passing a buffered `gap`. The model
 itself is memoryless and therefore substitutable.
 
-The model is **one-parameter**, contrary to both `CLAUDE.md` §5 and the ITSC paper, which describe two.
-The speed buffer the Java code declared was never fed; `RELAXATION_TAU_SPEED` was withdrawn with it in
-Phase 0.5. Four mechanisms, all in the core:
+The model is **one-parameter**. `mirova_model_reference.md` §6 says so explicitly — a single constant
+`τ_relax = 20 s`, with speed-deficit relaxation "not implemented separately" — and that matches the
+code. `CLAUDE.md` §5 described a two-parameter model with τ_s ≈ 15 s until Phase 0.5 corrected it; the
+15 s figure comes from Keane & Gao, not from anything in this project. Four mechanisms, all in the
+core:
 
 | Mechanism | Parameter | Value | Applied |
 |---|---|---|---|
-| exponential decay of the headway deficit | `tauRelax` | **20 s** (not the paper's 15 s) | Belief, on the gap before the CF call |
+| exponential decay of the headway deficit | `tauRelax` | **20 s** | Belief, on the gap before the CF call |
 | acceleration damping while relaxed | `relaxDamping`, `relaxDampingOn` | 0.40, on | Reactive, on the CF result |
 | lifetime cap | `relaxLifetime` × `tauRelax` | 3 τ = 60 s | Belief |
 | fade-out on abort | `relaxFade`, `relaxAbortB` | 1 s, −1.0 m/s² | Reactive |
 
-τ = 20 s is a calibration, not the literature value, and the published results (TR-B, HEUREKA) rest on
-it.
+τ = 20 s is a calibration, not the literature value, and the published results rest on it.
 
 **`desiredGap` is a separate method** rather than an inversion of `followingAcceleration`, because gap
 acceptance asks what a gap *should be*, and deriving that by inverting the acceleration would tie
@@ -314,8 +403,8 @@ emits typed events and the host decides what becomes of them. `DefectDiagnostics
 counters behind one system property, a CSV path in another, a shutdown hook to write the report — is
 precisely the arrangement this replaces.
 
-Six events, a closed set so a host can exhaust it in a `when`: `PatternSwitched`, `StateChanged`,
-`LaneChange`, `Relaxation`, `UnknownAnswered`, `LimitReached`.
+Seven events, a closed set so a host can exhaust it in a `when`: `PatternSwitched`, `StateChanged`,
+`LaneChange`, `Relaxation`, `UnknownAnswered`, `EvaluationLate`, `LimitReached`.
 
 **`Diagnostics.NONE` is the default** and every method on it is empty, so a JIT that has seen only that
 implementation removes the call. Anything expensive must be built inside the implementation, not at the
@@ -325,10 +414,12 @@ call site.
 must produce identical trajectories. `isEnabled` exists only to guard work the core would not otherwise
 do.
 
-**`UnknownAnswered` is the event to watch during integration.** A near-field host produces them
-legitimately; a stream of them from a host that ought to know the answer means the adapter is not
-wired up. That is a class of bug the Java model had no way to notice — see the memoisation defect,
-which was invisible for years and needed 136 million instrumented calls to prove.
+**Two events to watch during integration.** `UnknownAnswered` — a near-field host produces them
+legitimately, but a stream of them from a host that ought to know the answer means the adapter is not
+wired up. `EvaluationLate` — the host is not honouring the interval the driver asked for, and the
+model's time constants are quietly seeing something else. That is a class of bug the Java model had no
+way to notice: see the memoisation defect, invisible for years, which needed 136 million instrumented
+calls to prove.
 
 ---
 
@@ -342,7 +433,8 @@ pressure that created them is gone.
 
 - A malformed parameter set throws at **construction**, not at the first tick.
 - A `WorldView` contract violation — a negative range, a leader sequence that is not sorted, a `now`
-  that goes backwards — throws `IllegalArgumentException` immediately.
+  that goes backwards, `Unknown` from `routeRequirement` — throws `IllegalArgumentException`
+  immediately.
 - A state the model cannot resolve is **not** an error: no acceptable gap at a ramp end, a required
   deceleration beyond `bMax`. Each has a defined answer and a `LimitReached` diagnostic.
 - The core never returns a sentinel acceleration to signal failure. There is no `NaN` path.
@@ -350,82 +442,99 @@ pressure that created them is gone.
 **Threading.** An agent is not thread-safe and must be stepped by one thread at a time. Different
 agents are independent and may be stepped concurrently — the core holds no shared mutable state
 between agents, and the shared objects it does hold (`DriverAgentFactory`, distributions, the
-`CarFollowingModel`) are immutable. Two constraints then fall on the host: its `WorldView` must be safe
-for concurrent reads, and its `RandomStream` must be safe for concurrent draws or per-agent. Today's
-runs are single-threaded per JVM, so this is a promise about what the core does not preclude, not a
-feature that has been exercised.
+`CarFollowingModel`) are immutable. Two conditions fall on the host:
+
+1. its `WorldView` must be safe for concurrent reads;
+2. **each agent has its own `RandomStream`**, derived from the run seed and the `ParticipantId`. A
+   single shared stream, however thread-safe, is not reproducible under concurrency: the order of
+   draws depends on scheduling, so the same seed yields a different population. Determinism, not
+   thread safety, is the property that matters.
+
+Today's runs are single-threaded per JVM, so this is a promise about what the core does not preclude.
 
 **Absent values inside the core.** `Observation` is a port-boundary type. Inside the core an absent
 distance is a named sentinel, `Distance.ABSENT`, resolved once in the Belief layer, so the hot path
 neither allocates nor unwraps. kotlin-units backs `Distance` with Long micrometres and has no infinity;
-the sentinel is a large value with headroom, and **no saturating arithmetic and no change to
-kit-ifv/kotlin-units** (decision A.4). Arithmetic on the sentinel is a bug the Belief layer is
-responsible for preventing, not something the type system catches — see Q2.
+the sentinel is a large value with headroom, with **no saturating arithmetic and no change to
+kit-ifv/kotlin-units** (decision A.4). **Arithmetic on the sentinel is guarded by an assertion, active
+under `-ea` in tests and CI and free in a release build** (review decision, Q2). That is what
+`POSITIVE_INFINITY` never gave us: a wrong answer that announces itself.
 
 ---
 
 ## 11. Versioning
 
-**`mirova-core` v1 is the contract in this document.** Semantic versioning, with the port and the
-model versioned together:
+**Semantic versioning, with the port and the model versioned together.** A driver model whose
+behaviour changes is a different model, and pretending otherwise is how published results lose their
+meaning.
 
-- **Patch** — behaviour identical, internals only.
-- **Minor** — a new optional query with a defined fallback, a new parameter key with a default that
-  reproduces prior behaviour, a new diagnostic event. A host built against an earlier minor keeps
-  working. *A new event in a sealed hierarchy breaks an exhaustive `when` at compile time* — hosts
-  should add an `else` branch.
-- **Major** — anything that changes a trajectory. Removing a query, changing what a query means,
-  changing a default, changing the model.
+The naive rule — *major = anything that changes a trajectory* — is unusable, because traffic
+simulations diverge chaotically: reordering two floating-point additions eventually moves every
+vehicle. What matters is whether the *distribution* moved.
 
-**Model version and contract version are the same number.** A driver model whose behaviour changes is
-a different model, and pretending otherwise is how the published results lose their meaning.
+| Level | Test that must pass |
+|---|---|
+| **Patch, minor** | unit-level golden tests within tolerance, **and** no significant macroscopic difference against the stated reference run — Van Aerde fundamental diagram, Geistefeldt capacity, cross-day coefficient of variation |
+| **Major** | any deliberate model change, or a significant macroscopic difference on those measures |
 
-**Every release states which reference run reproduces it.** The Phase 0.5 rule holds beyond Phase 0.5:
-behaviour-changing corrections and behaviour-preserving migration must never be mixed, or a deviation
-in the equivalence tests cannot be attributed to either.
+Minor may add an optional query with a defined fallback, a parameter key whose default reproduces
+prior behaviour, or a diagnostic event. *A new event in a sealed hierarchy breaks an exhaustive `when`
+at compile time* — hosts should carry an `else` branch.
+
+**Every release states which reference run reproduces it.** For v1 that is the `coreset` variant of
+`Phase05ReferenceStudy` (§0), not the Phase 0.5 reference run. **Core v1 is therefore not the model
+behind TR-B and HEUREKA**, and it requires its own validation on Freiburg-Nord before anything is
+published from it.
+
+The Phase 0.5 rule holds beyond Phase 0.5: behaviour-changing corrections and behaviour-preserving
+migration must never be mixed, or a deviation in the equivalence tests cannot be attributed to either.
 
 ---
 
-## 12. Open questions
+## 12. Decisions taken in review, and what is still open
 
-**Q1 — `meanSpeed` (query 10): keep or drop?**
-It is the last aggregate the host supplies that the core could compute itself, and BC-5 makes exactly
-that substitution. The comparison run has not happened. **If BC-5 is adopted, I drop the query.** If it
-is not, the query stays and every near-field host must approximate it. This is the one entry in §1
-whose fate depends on a campaign result rather than on a design decision.
+| Ref | Question | Outcome |
+|---|---|---|
+| Q1 | `meanSpeed`: keep or drop? | Follows BC-5. Recorded in §0 and §1. |
+| Q2 | How much to defend `Distance.ABSENT`? | **Assertion**, active under `-ea` in tests and CI. §10. |
+| Q3 | The `_Modified` truck distributions | **Still open — Marvin decides.** |
+| Q4 | May `routeRequirement` answer `Unknown`? | **No.** Mandatory for every host; a host without routes answers `Absent`. §1. |
+| Q5 | What if the host calls back late? | A separate `EvaluationLate` event, not `LimitReached`. §5, §9. |
+| Q6 | `mirova_model_reference.md` | **Resolved** — supplied 2026-09-10, now in `docs/decoupling/`. Inventory §C.6 corrected against it. |
+| Q7 | `Side` beside `RelativeLane` | Two types confirmed; rationale in `CoreTypes.kt`, to become an ADR in the new repository. |
 
-**Q2 — how much should `Distance.ABSENT` be defended?**
-Decision A.4 fixed the sentinel and ruled out saturating arithmetic. What is left open is whether the
-Belief layer's discipline is enforced anywhere — a debug-build assertion on arithmetic involving the
-sentinel, an `ABSENT`-aware `min`, or nothing but review. I would take the debug assertion; it costs
-nothing in a release build and it catches the class of bug that `POSITIVE_INFINITY` used to hide.
+**Q8 — should the core's defaults be the paper's calibration rather than OTS's?**
+`DriverParameterKeys` currently carries the OTS defaults, which are neither the published calibration
+nor anything the group has validated (§7, and the table in the check report). I lean towards the
+paper's values, so that a host that sets nothing gets a model someone has stood behind — but it
+changes what "default" means for every downstream study, so it is yours to decide.
 
-**Q3 — the `_Modified` truck distributions.**
-`parameters.md` §4 classifies the distribution library, and the `_Modified` truck variants cannot be
-classified from the code. If the modification corrects the population, the shape belongs in the core;
-if it fits a facility, it belongs in the host. You know which it was.
+**Q9 — the θ interpolation is a step function, and `DSEARCH` is why.**
+Found while checking the model reference against the code:
+`MirovaTacticalPlanner:398-402` passes `dFree` (0.365) where the LMRS weighting wants `d_search`
+(0.788). Since that is below `dSync` (0.577), the interpolation branch is unreachable and θ_v steps
+from 1.0 to 0.0 at `d_mand` instead of tapering. `DSEARCH` was deleted in Phase 0.5 as unread — it was
+unread *because of this bug*. **A switch `bcDesireInterpolation` would settle it, and it has to be
+decided before the campaign starts**, or evaluating it costs a second campaign. Full detail in
+[`bc4-and-reference-check.md`](bc4-and-reference-check.md) §2.1.
 
-**Q4 — should `routeRequirement` be answerable as `Unknown`?**
-I have allowed it, for a driving simulator with no route model. But a driver who does not know where
-they are going has no mandatory lane-change desire at all, which is a large behavioural difference to
-hide behind a fallback. The alternative is to require every host to answer it, and let a
-simulator without routes answer `Absent` — "the route asks nothing of this lane" — which is at least
-honest about what the driver then does. **I lean towards requiring it.**
+**Q10 — `Sequence` or an index-based accessor at the port boundary?**
+Open until a JMH benchmark of the tick path exists (§2).
 
-**Q5 — `nextEvaluationAfter` when the host cannot honour it.**
-The contract says calling later changes the behaviour. It does not say what happens if a host does it
-anyway: nothing detects it, and the drift is silent. A cheap guard is for the agent to emit a
-`LimitReached` diagnostic when the measured `dt` exceeds what it asked for by some margin. Worth it?
+---
 
-**Q6 — `mirova_model_reference.md` is still not in any working repository.**
-Searched again across `opentrafficsim`, `diss_mvb`, `trajectory_pipeline`, `mirova`, `mirova_main`,
-Downloads, Desktop and Documents. Inventory §C.6 measured the relaxation implementation against it
-from memory of its description; that comparison should be redone against the actual document, or the
-document declared lost and §C.6 rewritten to compare only against the paper.
+## 13. Named gaps
 
-**Q7 — the `Side`/`RelativeLane` split.**
-Two enums where one might do: `RelativeLane` has a `CURRENT` that a lane-change request must never
-carry, and `Side` has no `CURRENT` for exactly that reason. The Java model used
-`LateralDirectionality` with a `NONE` member for both roles, and the resulting "can this be `NONE`
-here" checks are scattered through the intention layer. I think two types is right, but it is two
-types where a reviewer might expect one.
+Four inventory rows have no contract element, each deliberately. The full mapping is in
+[`contract-traceability.md`](contract-traceability.md) §10.
+
+1. **`AnticipateDownstreamMergePattern` stays out of v1.** Reviving it needs one query that does not
+   exist: the lane adjacent to a downstream lane drop.
+2. **The watchdog has no core presence.** It deletes vehicles, which is a host power the core must not
+   have. What follows is worth saying plainly: **ramp deadlocks are a weakness of the model, which OTS
+   currently masks by removing the vehicles it produces.** Removal counts are reported in every
+   validation. A host without a watchdog exposes the weakness rather than causing it, and the fix is
+   in the merge logic, not in the host.
+3. **`meanSpeed` may not survive** (Q1).
+4. **Wiedemann 99 is host-side by design**, not a gap — inventory §D listed it among the things to
+   migrate and has been corrected.

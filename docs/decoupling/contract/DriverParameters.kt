@@ -7,15 +7,14 @@
  *
  * UNIT LITERALS: kotlin-units builds its types from numeric extensions -- `3.0.meters`,
  * `1.25.metersPerSecondSquared`. Distance is backed by Long micrometres, Speed and Acceleration by
- * Double SI. The one spelling not confirmed against the library is `kilometersPerHour`; if it is
- * named otherwise, only two literals below change.
+ * Double SI. Speeds use `.kmh`.
  */
 package edu.kit.ifv.mirova.api
 
 import edu.kit.ifv.units.Acceleration
 import edu.kit.ifv.units.Distance
 import edu.kit.ifv.units.Speed
-import edu.kit.ifv.units.kilometersPerHour
+import edu.kit.ifv.units.kmh
 import edu.kit.ifv.units.meters
 import edu.kit.ifv.units.metersPerSecondSquared
 import kotlin.time.Duration
@@ -221,7 +220,7 @@ object DriverParameterKeys {
     /** Speed below which this driver considers traffic congested. */
     @JvmField
     val CONGESTED_SPEED: ParameterKey<Speed> =
-        ParameterKey("vCong", 60.0.kilometersPerHour, "Speed below which traffic counts as congested")
+        ParameterKey("vCong", 60.0.kmh, "Speed below which traffic counts as congested")
 
     // -----------------------------------------------------------------------------------------
     // Desire thresholds (layer 2 into layer 3)
@@ -249,7 +248,7 @@ object DriverParameterKeys {
     /** Speed-difference scale in the cruising and social pressure desire terms. */
     @JvmField
     val SPEED_GAIN: ParameterKey<Speed> =
-        ParameterKey("vGain", 69.6.kilometersPerHour, "Speed-difference scale for lane-change desire")
+        ParameterKey("vGain", 69.6.kmh, "Speed-difference scale for lane-change desire")
 
     /** How strongly this driver yields to a faster follower. */
     @JvmField
@@ -395,7 +394,7 @@ object DriverParameterKeys {
     /** Speed below which discharge behaviour applies. */
     @JvmField
     val DISCHARGE_CRITICAL_SPEED: ParameterKey<Speed> =
-        ParameterKey("vCritDischarge", 40.0.kilometersPerHour,
+        ParameterKey("vCritDischarge", 40.0.kmh,
             "Speed below which discharge behaviour applies")
 
     /** Headway addition as a fraction of the desired headway, as an alternative to the absolute form. */
