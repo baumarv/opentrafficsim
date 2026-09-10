@@ -265,12 +265,6 @@ public final class MirovaParameterSnapshot implements Serializable
     /** Leader deceleration abandoning an active relaxation, as a scalar. */
     public final Acceleration relaxationAbortDecelerationScalar;
 
-    /** Speed relaxation time constant tau_v [s]. */
-    public final double relaxationTauSpeedSi;
-
-    /** Speed relaxation time constant, as a scalar. */
-    public final Duration relaxationTauSpeedScalar;
-
     /** Maximum number of leaders considered in car-following [-]. */
     public final double cfMaxLeaders;
 
@@ -372,8 +366,6 @@ public final class MirovaParameterSnapshot implements Serializable
         this.relaxationMaxLifetimeFactor = p.getParameter(MirovaParameters.RELAXATION_MAX_LIFETIME_FACTOR);
         this.relaxationAbortDecelerationScalar =
                 p.getParameter(MirovaParameters.RELAXATION_ABORT_DECELERATION);
-        this.relaxationTauSpeedScalar = p.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
-        this.relaxationTauSpeedSi = this.relaxationTauSpeedScalar.si;
         this.cfMaxLeaders = p.getParameter(MirovaParameters.CF_MAX_LEADERS);
         this.relaxationAccDampingEnabled = p.getParameter(MirovaParameters.RELAXATION_ACC_DAMPING_ENABLED);
         this.relaxationAccDampingFactor = p.getParameter(MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR);
@@ -445,7 +437,7 @@ public final class MirovaParameterSnapshot implements Serializable
     public String toString()
     {
         return "MirovaParameterSnapshot [dt=" + this.dtSi + "s, vCong=" + this.vCongSi + "m/s, s0=" + this.s0Si + "m, tauS="
-                + this.relaxationTauSpaceSi + "s, tauV=" + this.relaxationTauSpeedSi + "s, capacityDrop="
+                + this.relaxationTauSpaceSi + "s, capacityDrop="
                 + this.capacityDropEnabled + "]";
     }
 }

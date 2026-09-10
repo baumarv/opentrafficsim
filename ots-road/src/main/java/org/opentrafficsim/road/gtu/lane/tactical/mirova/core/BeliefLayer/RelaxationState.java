@@ -1,11 +1,8 @@
 package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer;
 
 import org.djunits.unit.LengthUnit;
-import org.djunits.unit.SpeedUnit;
 import org.djunits.value.vdouble.scalar.Duration;
 import org.djunits.value.vdouble.scalar.Length;
-import org.djunits.value.vdouble.scalar.Speed;
-import org.djunits.value.vdouble.scalar.Time;
 
 /**
  * Tracks and computes the relaxation phenomenon according to Keane and Gao (2021).
@@ -49,31 +46,20 @@ public class RelaxationState
     /** The initial space headway deficit [m] at the time of the event (gamma_s). */
     private final Length initialSpaceDeficit;
 
-    /** The initial speed difference [m/s] between the old and new leader (gamma_v). */
-    private final Speed initialSpeedDeficit;
-
     /** The relaxation time constant [s] for the space headway (Tau_s). */
     private final Duration tauSpace;
-
-    /** The relaxation time constant [s] for the leader speed (Tau_v). */
-    private final Duration tauSpeed;
 
     /**
      * Constructs a new RelaxationState to track virtual distance and speed buffers over time.
      * @param startTime the absolute simulation time the lane change or cut-in occurred
      * @param initialSpaceDeficit the initial missing distance to the desired space headway
-     * @param initialSpeedDeficit the speed difference (oldLeaderSpeed - newLeaderSpeed)
      * @param tauSpace the time constant for the spatial exponential decay
-     * @param tauSpeed the time constant for the speed exponential decay
      */
-    public RelaxationState(final Duration startTime, final Length initialSpaceDeficit, final Speed initialSpeedDeficit,
-            final Duration tauSpace, final Duration tauSpeed)
+    public RelaxationState(final Duration startTime, final Length initialSpaceDeficit, final Duration tauSpace)
     {
         this.startTime = startTime;
         this.initialSpaceDeficit = initialSpaceDeficit;
-        this.initialSpeedDeficit = initialSpeedDeficit;
         this.tauSpace = tauSpace;
-        this.tauSpeed = tauSpeed;
     }
 
     /**
@@ -96,31 +82,6 @@ public class RelaxationState
 
         double bufferSi = this.initialSpaceDeficit.si * Math.exp(-elapsedSi / this.tauSpace.si);
         return new Length(bufferSi * fadeFactor(currentTime), LengthUnit.SI);
-    }
-
-    /**
-     * Computes the remaining virtual speed buffer for the given simulation time.
-     * <p>
-     * The virtual buffer decays exponentially based on elapsed time and Tau_v. If the new leader is faster than the old leader
-     * (negative deficit), no buffer is applied. Allowing a negative buffer would artificially reduce the perceived leader
-     * speed, triggering unsafe and unnecessary severe decelerations in the CF model.
-     * </p>
-     * @param currentTime the current absolute simulation time
-     * @return the virtual speed buffer to add to the actual leader speed
-     */
-    public Speed getVirtualSpeedBuffer(final Duration currentTime)
-    {
-        this.currentTimeCache = currentTime; // Update cache for potential future use
-        double elapsedSi = currentTime.si - this.startTime.si;
-
-        // BUGFIX: Prevent negative speed buffers and invalid Tau to avoid massive decelerations.
-        if (elapsedSi < 0.0 || this.initialSpeedDeficit.si <= 0.0 || this.tauSpeed.si <= 0.0)
-        {
-            return Speed.ZERO;
-        }
-
-        double bufferSi = this.initialSpeedDeficit.si * Math.exp(-elapsedSi / this.tauSpeed.si);
-        return Speed.instantiateSI(bufferSi * fadeFactor(currentTime));
     }
 
     /**
@@ -214,8 +175,8 @@ public class RelaxationState
     public String toString()
     {
         return String.format(
-                "RelaxationState[startTime=%.2fs, initialSpaceDeficit=%.2fm, initialSpeedDeficit=%.2fm/s, tauSpace=%.2fs, tauSpeed=%.2fs, virtualSpaceBuffer=%.2fm, virtualSpeedBuffer=%.2fm/s]",
-                this.startTime.si, this.initialSpaceDeficit.si, this.initialSpeedDeficit.si, this.tauSpace.si, this.tauSpeed.si,
-                this.getVirtualSpaceBuffer(this.currentTimeCache).si, this.getVirtualSpeedBuffer(this.currentTimeCache).si);
+                "RelaxationState[startTime=%.2fs, initialSpaceDeficit=%.2fm, tauSpace=%.2fs, virtualSpaceBuffer=%.2fm]",
+                this.startTime.si, this.initialSpaceDeficit.si, this.tauSpace.si,
+                this.getVirtualSpaceBuffer(this.currentTimeCache).si);
     }
 }

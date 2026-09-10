@@ -187,19 +187,6 @@ public final class MirovaParameters implements ConstraintInterface
                         "Spatial relaxation time constant", Duration.instantiateSI(20.0), ConstraintInterface.POSITIVE);
 
         /**
-         * Speed relaxation time constant (Tau_v) for the Keane and Gao (2021) phenomenon.
-         * <p>
-         * <b>Currently without effect, by decision rather than by oversight.</b> Every live call site of
-         * {@code EgoContext.triggerRelaxation} passes {@code Speed.ZERO} as the speed deficit, and
-         * {@code RelaxationState.getVirtualSpeedBuffer} returns zero for a non-positive deficit, so the speed buffer
-         * is never built and this constant never enters a calculation. Two call sites compute a speed deficit and use
-         * it only to choose a branch. Relaxation in this model runs on the space buffer alone.
-         * </p>
-         */
-        public static final ParameterTypeDuration RELAXATION_TAU_SPEED = new ParameterTypeDuration("tau_relax_v",
-                        "Speed relaxation time constant", Duration.instantiateSI(8.0), ConstraintInterface.POSITIVE);
-
-        /**
          * Leader deceleration at which an active relaxation is abandoned, in m/s^2 (negative).
          * <p>
          * The relaxation lets a follower tolerate the short gap a cut-in leaves it, decaying over
