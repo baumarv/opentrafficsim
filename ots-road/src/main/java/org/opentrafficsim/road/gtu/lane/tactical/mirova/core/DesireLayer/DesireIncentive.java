@@ -193,6 +193,12 @@ public abstract class DesireIncentive
     {
         try
         {
+            if (RelativeLane.CURRENT.equals(target) || RelativeLane.CURRENT.equals(source))
+            {
+                this.vehicle.getContext(
+                        org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext.class)
+                        .noteLegalLaneChangeInfoQuery();
+            }
             java.util.SortedSet<LaneChangeInfo> targetInfo =
                     this.infrastructurePerception.getLegalLaneChangeInfo(target);
             java.util.SortedSet<LaneChangeInfo> sourceInfo =

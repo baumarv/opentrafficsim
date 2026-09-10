@@ -78,6 +78,9 @@ public final class DefectDiagnostics
     /** Extended-look-ahead queries that threw, leaving the parameter raised for the rest of the vehicle's life. */
     private static final AtomicLong LOOKAHEAD_LEAKED = new AtomicLong();
 
+    /** Extended-look-ahead queries that found the per-tick perception cache already populated. */
+    private static final AtomicLong LOOKAHEAD_CACHE_WARM = new AtomicLong();
+
     /** Evaluations of the speed-limit transition term. */
     private static final AtomicLong TRANSITION_CALLS = new AtomicLong();
 
@@ -151,6 +154,29 @@ public final class DefectDiagnostics
     public static void lookaheadLeak()
     {
         LOOKAHEAD_LEAKED.incrementAndGet();
+    }
+
+    /**
+     * Records whether the extended-look-ahead query found the answer already computed for this tick.
+     * <p>
+     * The second, larger half of the same defect. {@code DirectInfrastructurePerception.getLegalLaneChangeInfo}
+     * memoises its answer per GTU per simulation step, and the memo is keyed by the relative lane alone -- not by
+     * the look-ahead the answer was computed under. Raising {@code LOOKAHEAD} around the call therefore has no
+     * effect whenever anything else has already asked the same question in the same tick, and conversely a query
+     * that runs first poisons the memo with the extended answer for everyone after it.
+     * </p>
+     * <p>
+     * Which of the two happens is decided by call order inside {@code MirovaTacticalPlanner.update}, so this
+     * counter says which one the model has actually been doing.
+     * </p>
+     * @param cacheWasWarm boolean; true when the same question had already been asked in this tick
+     */
+    public static void lookaheadCacheState(final boolean cacheWasWarm)
+    {
+        if (cacheWasWarm)
+        {
+            LOOKAHEAD_CACHE_WARM.incrementAndGet();
+        }
     }
 
     // =========================================================================================
@@ -240,9 +266,15 @@ public final class DefectDiagnostics
         {
             System.out.printf(Locale.ROOT, "[DEFECT]   calls %d, leaked %d (%.4f %%)%n",
                     lookaheadTotal, leaked, 100.0 * leaked / lookaheadTotal);
+            long warm = LOOKAHEAD_CACHE_WARM.get();
+            System.out.printf(Locale.ROOT,
+                    "[DEFECT]   answered from a memo computed under the normal look-ahead: %d (%.2f %%)"
+                            + " -- for these the extended look-ahead had no effect%n",
+                    warm, 100.0 * warm / lookaheadTotal);
         }
         rows.add("lookahead,calls," + lookaheadTotal + ",");
         rows.add("lookahead,leaked," + leaked + ",");
+        rows.add("lookahead,cacheWarm," + LOOKAHEAD_CACHE_WARM.get() + ",");
 
         System.out.println("[DEFECT] --- speed-limit transition term (LongitudinalControl)");
         long calls = TRANSITION_CALLS.get();
