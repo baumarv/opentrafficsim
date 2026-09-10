@@ -115,7 +115,7 @@ public class CruisingSpeedIncentive extends DesireIncentive
         {
             Speed vRight = infrastructureContext.getAnticipatedSpeed(RelativeLane.RIGHT);
             // no speed gain incentive to the right lane in non-congested situations
-            if (vCur.si >= getParameters().getParameter(ParameterTypes.VCONG).si)
+            if (vCur.si >= getMirovaTacticalPlanner().getParams().vCongSi)
             {
                 dRight = aGain.si * Math.min(vRight.si - vCur.si, 0) / vGain.si;
             }

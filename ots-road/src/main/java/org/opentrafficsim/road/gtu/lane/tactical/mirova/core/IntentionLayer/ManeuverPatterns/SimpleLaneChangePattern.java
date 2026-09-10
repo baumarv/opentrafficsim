@@ -3,14 +3,11 @@ package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.IntentionLayer.Man
 import org.djunits.value.vdouble.scalar.Acceleration;
 import org.djunits.value.vdouble.scalar.Speed;
 import org.opentrafficsim.base.parameters.ParameterException;
-import org.opentrafficsim.base.parameters.ParameterTypes;
-import org.opentrafficsim.base.parameters.Parameters;
 import org.opentrafficsim.core.gtu.GtuException;
 import org.opentrafficsim.core.network.LateralDirectionality;
 import org.opentrafficsim.core.network.NetworkException;
 import org.opentrafficsim.road.gtu.lane.plan.operational.SimpleOperationalPlan;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.NeighborsContext;
@@ -69,25 +66,18 @@ public class SimpleLaneChangePattern extends ManeuverPattern
     }
 
     @Override
-    public boolean checkContext() throws ParameterException
+    public boolean checkContext()
     {
-        try
-        {
-            // Trigger on the discretionary desire only. Using the combined desire made this
-            // pattern declare itself relevant because of a *mandatory* desire it does not own,
-            // so wherever a mandatory lane change is pending - on-ramp, off-ramp, any forced
-            // change - the discretionary pattern competed for the manoeuvre as well.
-            return this.vehicle.getDiscretionaryLaneChangeDesire().magnitude() >= this.vehicle.getParameters()
-                    .getParameter(MirovaParameters.DFREE);
-        }
-        catch (ParameterException exception)
-        {
-            if (DefectDiagnostics.ENABLED)
-            {
-                DefectDiagnostics.swallowed("SimpleLaneChangePattern.checkContext", exception);
-            }
-            return false;
-        }
+        // Trigger on the discretionary desire only. Using the combined desire made this
+        // pattern declare itself relevant because of a *mandatory* desire it does not own,
+        // so wherever a mandatory lane change is pending - on-ramp, off-ramp, any forced
+        // change - the discretionary pattern competed for the manoeuvre as well.
+        //
+        // The try/catch that stood here caught a ParameterException from the DFREE lookup and answered false,
+        // i.e. a failed parameter read silently suppressed the whole pattern. Reading DFREE from the snapshot
+        // cannot fail -- it was resolved when the vehicle was built -- so the catch is gone along with the
+        // lookup that could throw.
+        return this.vehicle.getDiscretionaryLaneChangeDesire().magnitude() >= this.vehicle.getParams().dFree;
     }
 
     @Override
