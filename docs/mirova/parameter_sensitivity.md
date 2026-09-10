@@ -527,7 +527,7 @@ picture the empirical target set shows in §2.
 
 ---
 
-## 9. The merge mechanism: ten changes measured, three kept
+## 9. The merge mechanism: eleven changes measured, four kept
 
 The screen in §4 varies parameters. This section records what happens when the *mechanism*
 is changed instead, because the obvious readings of the merge code are wrong in a way that
@@ -738,7 +738,7 @@ Two alternatives were measured rather than argued. A feasibility form - can the 
 both vehicles' lengths under maximum acceleration in the time the lane affords - is vacuous once
 the eight seconds hold, because it credits the ego with maximum acceleration throughout, and it
 changed nothing (-0.3 %, p = 0.92). And the comparison of the two speeds as they stand, which is
-the self-referential shape of §9.10, does not flutter here: episodes switching branches more than
+the self-referential shape of §9.11, does not flutter here: episodes switching branches more than
 twice fall from 20.1 % to 7.1 % and the worst case from 54 switches to 22, because the attempts
 that were flipping back and forth are the hopeless ones it removes.
 
@@ -838,7 +838,44 @@ vehicles change lanes too late (all 2 343 leave the upstream link on the right, 
 before its end), that the deceleration lane is backed up (a median of two vehicles on it, also
 during a blockage), and that this is what the L3a detector sees (−2.1 km/h, p = 0.19).
 
-### 9.10 Conditions computed from what the behaviour changes
+### 9.10 The congested branch: a knife edge, not a design
+
+The two congested sub-states are chosen and re-chosen by `detectParallelBlock` with the same two
+thresholds in both directions - a distance of 0.4 desired headways and a speed window of 1 m/s. A
+vehicle sitting at either edge switches the state as often as it crosses it, and in a queue both
+edges move constantly. Measured on the acceleration lane, half the vehicles that reach this branch
+switch at least once, a third switch more than four times, and the worst case is 49 switches in a
+single approach at a median speed of 3.65 m/s.
+
+Five rewrites of this branch were tried earlier and rejected; each removed the behaviour along
+with the oscillation, and each raised the standstill share. What none of them tried is leaving the
+two states alone and only damping the switching. Asking the same question with both thresholds
+widened by half on the way *out* of the creeping state - the entry criterion untouched, so what is
+calibrated stays calibrated - over ten paired seeds:
+
+| | Knife edge | Hysteresis | p |
+|---|---|---|---|
+| Switches per vehicle | 4.87 | **1.69** | **< 0.001** |
+| Switches per second | 0.40 | **0.17** | **< 0.001** |
+| Vehicles switching more than four times | 33.2 % | **11.6 %** | **< 0.001** |
+| Worst case in one approach | 46.1 | **16.5** | **< 0.001** |
+| Vehicles switching at all | 51.4 % | 49.9 % | 0.34 |
+
+The last row is the one that matters: the transition still happens where it should, it just stops
+repeating. That is the difference from the five rejected rewrites, which suppressed the transition
+itself.
+
+Traffic outcomes do not move - standstill share on the ramp −6.5 % (p = 0.099), stranded vehicles
+−2.7 % (p = 0.36). This is a claim about the plausibility of the state machine rather than about
+throughput, and a chapter should present it as one: a driver approaching a queue does not
+re-decide between creeping and following forty times in nine seconds.
+
+A note on where this sits. The dispatcher `CongestedMergeState` that used to route into these two
+was removed earlier as dead: its rule always answered with another state, so `update()` never came
+to rest on it and its `executeControl` was unreachable. The branch has been two states since, and
+the oscillation was never about their number.
+
+### 9.11 Conditions computed from what the behaviour changes
 
 Four conditions in this pattern family read a quantity that the behaviour they gate is itself
 moving. They are worth naming as one defect rather than four, because the signature is
@@ -862,14 +899,16 @@ catchability test has the same shape and was expected to flutter for it; measure
 opposite, because what it suppresses is precisely what was oscillating. The shape is a reason to
 measure, not a verdict.
 
-### 9.11 What this means for a capacity chapter
+### 9.12 What this means for a capacity chapter
 
-Seven mechanism changes rejected on measurement and three kept. The rejected ones divide cleanly:
+Seven mechanism changes rejected on measurement and four kept. The rejected ones divide cleanly:
 every one shortened the yield, at the entry, in the magnitude or in the duration, and every one
-raised the standstill share while raising mean ramp speed. The three that worked act before the
-conflict rather than on the response to it - they stop the model overtaking where it cannot
-succeed (§9.7), building speed it cannot afford (§9.8), and holding an exiting vehicle to the
-speed of a stream that is not there (§9.9).
+raised the standstill share while raising mean ramp speed. Three of the four that worked act
+before the conflict rather than on the response to it - they stop the model overtaking where it
+cannot succeed (§9.7), building speed it cannot afford (§9.8), and holding an exiting vehicle to
+the speed of a stream that is not there (§9.9). The fourth changes no behaviour at all and only
+stops the state machine re-deciding the same question forty times in nine seconds (§9.10), which
+is worth having for the plausibility of the model rather than for any quantity it moves.
 
 Read together with §6, where no parameter reaches the capacity drop, the picture is that
 throughput at this bottleneck is not limited by how willing the model's drivers are to merge.
@@ -954,6 +993,7 @@ that a later change made the earlier claim implausible.
 | §9.7 branch position, blocker side and outcome | one 300-minute run, 2025-10-13, seed 4242, plus three arms of 10 paired seeds |
 | §9.8 approach to the lane end | one 300-minute run, 2025-10-13, seed 4242, plus 10 paired seeds, measured again after §9.9 |
 | §9.9 the exit | one 300-minute run with the sampler on L1a, L2a and L3a, plus 10 paired seeds |
+| §9.10 congested oscillation | state sequences on the acceleration lane, 10 paired seeds |
 
 Raw per-run records: `docs/mirova/results/`.
 
