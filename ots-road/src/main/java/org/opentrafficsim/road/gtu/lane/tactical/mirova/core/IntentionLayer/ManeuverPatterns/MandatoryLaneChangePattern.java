@@ -19,7 +19,7 @@ import org.opentrafficsim.road.gtu.lane.perception.headway.HeadwayGtu;
 import org.opentrafficsim.road.gtu.lane.plan.operational.SimpleOperationalPlan;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.MergeGateDiagnostics;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameterSnapshot;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.ContextCategory;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoContext;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.InfrastructureContext;
@@ -636,8 +636,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
     {
         try
         {
-            boolean isDesireHigh = this.vehicle.getLaneChangeDesire().magnitude() >= this.vehicle.getParameters()
-                    .getParameter(MirovaParameters.DMAND);
+            boolean isDesireHigh = this.vehicle.getLaneChangeDesire().magnitude() >= this.vehicle.getParams().dMand;
             if (isDesireHigh)
             {
                 return true;
@@ -647,8 +646,8 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             Length distToMerge = infra.getDistanceToLaneChangeExtendedLookahead();
 
             // Trigger if within 1000m
-            boolean isApproachingMerge = distToMerge.si > 0 && distToMerge.si < this.vehicle.getParameters()
-                    .getParameter(MirovaParameters.extendedLookAheadDistance).si;
+            boolean isApproachingMerge =
+                    distToMerge.si > 0 && distToMerge.si < this.vehicle.getParams().extendedLookAheadDistanceSi;
 
             return isApproachingMerge;
         }
@@ -728,7 +727,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             final EgoContext ego, final org.opentrafficsim.base.parameters.Parameters params,
             final double hysteresis) throws ParameterException
     {
-        double factor = params.getParameter(MirovaParameters.safetyDistanceReductionFactorLaneChange);
+        double factor = MirovaParameterSnapshot.of(params).safetyDistanceReductionFactorLaneChange;
         Length gapThreshold = ego.getDesiredFrontHeadway(dir).times(factor * hysteresis);
         return findBlockingVehicle(neigh, dir, ego, gapThreshold, true, hysteresis) != null;
     }
@@ -984,8 +983,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         {
             try
             {
-                if (this.vehicle.getLaneChangeDesire().magnitude() < this.vehicle.getParameters()
-                        .getParameter(MirovaParameters.DMAND))
+                if (this.vehicle.getLaneChangeDesire().magnitude() < this.vehicle.getParams().dMand)
                 {
                     return FINISHED;
                 }
@@ -1384,8 +1382,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             try
             {
                 InfrastructureContext infra = this.vehicle.getContext(InfrastructureContext.class);
-                if (infra.getDistanceToLaneChangeExtendedLookahead().si >= this.vehicle.getParameters()
-                        .getParameter(MirovaParameters.extendedLookAheadDistance).si)
+                if (infra.getDistanceToLaneChangeExtendedLookahead().si >= this.vehicle.getParams().extendedLookAheadDistanceSi)
                 {
                     return FINISHED;
                 }
@@ -2521,8 +2518,7 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
 
             try
             {
-                if (this.vehicle.getLaneChangeDesire().magnitude() < this.vehicle.getParameters()
-                        .getParameter(MirovaParameters.DMAND))
+                if (this.vehicle.getLaneChangeDesire().magnitude() < this.vehicle.getParams().dMand)
                 {
                     this.vehicle.releaseActionLock();
                     return FINISHED;

@@ -84,7 +84,7 @@ public class KeepRightIncentive extends DesireIncentive
         }
 
         InfrastructureContext infrastructureContext = getMirovaTacticalPlanner().getContext(InfrastructureContext.class);
-        Speed vCong = getParameters().getParameter(ParameterTypes.VCONG);
+        Speed vCong = getMirovaTacticalPlanner().getParams().vCongScalar;
         Speed rightSpeed = infrastructureContext.getAnticipatedSpeed(RelativeLane.RIGHT);
         Length lookahead = getParameters().getParameter(ParameterTypes.LOOKAHEAD);
 
@@ -92,7 +92,7 @@ public class KeepRightIncentive extends DesireIncentive
         if (rightSpeed.ge(getMirovaTacticalPlanner().getGtu().getDesiredSpeed())
                 && Length.instantiateSI(rightDist).ge(lookahead) && rightSpeed.gt(vCong))
         {
-            dRight = getMirovaTacticalPlanner().getParameters().getParameter(MirovaParameters.DFREE);
+            dRight = getMirovaTacticalPlanner().getParams().dFree;
         }
 
         this.desire = new Desire(0.0, dRight, false);

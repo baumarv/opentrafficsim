@@ -559,7 +559,7 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
      */
     public double getDFree() throws ParameterException
     {
-        return getParameters().getParameter(MirovaParameters.DFREE);
+        return getParams().dFree;
     }
 
     /**
@@ -568,7 +568,7 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
      */
     public double getDMand() throws ParameterException
     {
-        return getParameters().getParameter(MirovaParameters.DMAND);
+        return getParams().dMand;
     }
 
     /**
@@ -595,7 +595,7 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
      */
     public Double getSocioSpeedSensitivity() throws ParameterException
     {
-        return getParameters().getParameter(MirovaParameters.socioSpeedSensitivity);
+        return getParams().socioSpeedSensitivity;
     }
 
     /**

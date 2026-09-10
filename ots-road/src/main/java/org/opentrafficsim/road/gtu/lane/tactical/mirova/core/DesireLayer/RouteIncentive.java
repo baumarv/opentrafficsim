@@ -89,7 +89,7 @@ public class RouteIncentive extends DesireIncentive
         // Define relevant lanes to check
         RelativeLane[] lanesToCheck = new RelativeLane[] {RelativeLane.LEFT, RelativeLane.CURRENT, RelativeLane.RIGHT};
         double lookAheadParam = p.getParameter(ParameterTypes.LOOKAHEAD).si;
-        double t0Param = p.getParameter(ParameterTypes.T0).si;
+        double t0Param = getMirovaTacticalPlanner().getParams().t0Si;
 
         for (RelativeLane lane : lanesToCheck)
         {
