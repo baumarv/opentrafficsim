@@ -47,7 +47,15 @@ public final class RelaxationDiagnostics
     /** Relaxations that decayed to nothing and were collected by the housekeeping. */
     private static final AtomicLong EXPIRED = new AtomicLong();
 
-    /** Summed lifetime in seconds, per ending. */
+    /**
+     * Summed lifetime in <b>milliseconds</b> of relaxations ended by the deceleration condition.
+     * <p>
+     * The Javadoc said seconds until Phase 1; the code has always stored milliseconds
+     * ({@code Math.round(lifetimeSeconds * 1000.0)}), as its two siblings below do and say. Both consumers read it as
+     * milliseconds and are correct: {@link #report()} divides by 1000 before printing a mean lifetime in seconds, and
+     * the golden fixture records the raw counter without attaching a unit.
+     * </p>
+     */
     private static final AtomicLong LIFE_DECEL = new AtomicLong();
 
     /** Summed lifetime in milliseconds of relaxations ended by the speed condition. */
