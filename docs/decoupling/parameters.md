@@ -167,7 +167,7 @@ several appear in study grids and removing them would break a scenario definitio
 | `MANDATORY_LANE_CHANGE_LOOK_AHEAD_DISTANCE` (500 m) | — | Superseded by `EXTENDED_LOOK_AHEAD_DISTANCE`. |
 | `CONGESTED_LANE_CHANGE_DURATION` (1.5 s) | — | Read only from commented-out code in `ExecuteLaneChangeState`. The intent — a shorter lane change in a queue — is worth reviving as part of the lane-change command in contract v1. |
 | `VCRIT` (60 km/h) | — | `getVCrit()` has no caller. |
-| snapshot `bSi`, `bCritSi` | — | Snapshot fields for `ParameterTypes.B`/`BCRIT` that nothing reads; the OTS models read the parameters themselves. |
+| snapshot `bCritSi` | — | Snapshot field for `ParameterTypes.BCRIT` that nothing reads; the OTS models read the parameter themselves. **Correction:** an earlier revision of this table also listed `bSi` here. It is wrong — `MandatoryLaneChangePattern` reads it to build the comfortable deceleration for the ramp-end stop. `bSi` stays. |
 | `FAR_ANTICIPATION_ENABLED` | — | Read only inside `AnticipateDownstreamMergePattern`, which is not registered. Set by six studies, where it therefore does nothing. |
 
 ### Deleted in Phase 0.5

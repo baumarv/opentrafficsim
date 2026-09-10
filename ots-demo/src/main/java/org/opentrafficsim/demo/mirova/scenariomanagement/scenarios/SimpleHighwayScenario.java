@@ -260,8 +260,6 @@ public class SimpleHighwayScenario extends ScenarioGenerator
                     public Parameters getParameters() throws ParameterException
                     {
                         Parameters parameters = getDefaultParameters();
-                        parameters.setParameter(ParameterTypes.TMAX, new Duration(1.0, DurationUnit.SI));
-                        parameters.setParameter(ParameterTypes.TMIN, new Duration(0.5, DurationUnit.SI));
                         parameters.setParameter(MirovaParameters.socioSpeedSensitivity, 0.75);
                         return parameters;
                     }
@@ -295,8 +293,6 @@ public class SimpleHighwayScenario extends ScenarioGenerator
                     public Parameters getParameters() throws ParameterException
                     {
                         Parameters parameters = getDefaultParameters();
-                        parameters.setParameter(ParameterTypes.TMAX, new Duration(1.6, DurationUnit.SI));
-                        parameters.setParameter(ParameterTypes.TMIN, new Duration(1.2, DurationUnit.SI));
                         parameters.setParameter(MirovaParameters.vGain, new Speed(80.0, SpeedUnit.KM_PER_HOUR)); // higher vGain
                                                                                                                  // for trucks
                                                                                                                  // to reduce
