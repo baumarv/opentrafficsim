@@ -192,7 +192,7 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
     // =========================================================================================
 
     /**
-     * Speed last observed while a follower was unobstructed, by follower id, with the tick it was seen.
+     * Speed last observed while a follower was unobstructed, by follower id, with the time it was seen [s].
      * <p>
      * The social pressure term is defined on the follower's desired speed, which a driver cannot read. It can be
      * observed, though: a vehicle that nothing is holding up travels at the speed it wants. This remembers that
@@ -213,20 +213,30 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
      */
     private static final double UNOBSTRUCTED_MAX_DECELERATION = -0.1;
 
-    /** Ticks after which an observation is discarded, about 10 s at the configured step. */
-    private static final long UNOBSTRUCTED_EXPIRY_TICKS = 50;
+    /**
+     * Elapsed time after which an observation is discarded [s].
+     * <p>
+     * Elapsed time, not a tick count. The first version counted 50 ticks, which is ten seconds only while every plan
+     * lasts {@code DT}; nothing guarantees that, and a host that chooses another step would silently get another
+     * memory. Bit-identical to the tick form at the configured 0.2 s, which every pattern currently uses.
+     * </p>
+     */
+    private static final double UNOBSTRUCTED_EXPIRY_SECONDS = 10.0;
 
     /** Hard bound on the cache, so a long-lived vehicle cannot accumulate entries without limit. */
     private static final int UNOBSTRUCTED_MAX_ENTRIES = 16;
 
     /**
-     * Returns the current tick, or -1 when the context manager is not available.
-     * @return long; the current tick
+     * Returns the current simulation time [s], or {@code NaN} when the simulator is not reachable.
+     * @return double; the current simulation time [s]
      */
-    private long currentTick()
+    private double currentTimeSi()
     {
-        return this.vehicle == null || this.vehicle.getContextManager() == null ? -1L
-                : this.vehicle.getContextManager().getCurrentTick();
+        if (this.vehicle == null || this.vehicle.getGtu() == null || this.vehicle.getGtu().getSimulator() == null)
+        {
+            return Double.NaN;
+        }
+        return this.vehicle.getGtu().getSimulator().getSimulatorTime().si;
     }
 
     /**
@@ -263,20 +273,24 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
             return;
         }
 
-        long tick = currentTick();
+        double now = currentTimeSi();
+        if (Double.isNaN(now))
+        {
+            return;
+        }
         double[] entry = this.unobstructedSpeed.get(follower.getId());
         if (entry == null)
         {
             if (this.unobstructedSpeed.size() >= UNOBSTRUCTED_MAX_ENTRIES)
             {
-                expireUnobstructedObservations(tick, true);
+                expireUnobstructedObservations(now, true);
             }
-            this.unobstructedSpeed.put(follower.getId(), new double[] {followerSpeedSi, tick});
+            this.unobstructedSpeed.put(follower.getId(), new double[] {followerSpeedSi, now});
         }
         else
         {
             entry[0] = followerSpeedSi;
-            entry[1] = tick;
+            entry[1] = now;
         }
 
         // The same observation feeds this driver's notion of what road users in general want, which is all it has
@@ -291,29 +305,29 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
 
     /**
      * Drops observations whose follower has not been seen for a while.
-     * @param tick long; the current tick
+     * @param now double; the current simulation time [s]
      * @param force boolean; when true, also drop the oldest entry, to respect the size bound
      */
-    private void expireUnobstructedObservations(final long tick, final boolean force)
+    private void expireUnobstructedObservations(final double now, final boolean force)
     {
-        if (this.unobstructedSpeed.isEmpty())
+        if (this.unobstructedSpeed.isEmpty() || Double.isNaN(now))
         {
             return;
         }
         Iterator<Map.Entry<String, double[]>> iterator = this.unobstructedSpeed.entrySet().iterator();
         String oldestKey = null;
-        double oldestTick = Double.MAX_VALUE;
+        double oldestSeen = Double.MAX_VALUE;
         while (iterator.hasNext())
         {
             Map.Entry<String, double[]> entry = iterator.next();
             double seen = entry.getValue()[1];
-            if (tick - seen > UNOBSTRUCTED_EXPIRY_TICKS)
+            if (now - seen > UNOBSTRUCTED_EXPIRY_SECONDS)
             {
                 iterator.remove();
             }
-            else if (seen < oldestTick)
+            else if (seen < oldestSeen)
             {
-                oldestTick = seen;
+                oldestSeen = seen;
                 oldestKey = entry.getKey();
             }
         }
@@ -1542,7 +1556,7 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
 
         if (vehicle.getParams().bcFollowerDesiredSpeedEstimated)
         {
-            expireUnobstructedObservations(currentTick(), false);
+            expireUnobstructedObservations(currentTimeSi(), false);
             observeUnobstructedFollower();
         }
 
