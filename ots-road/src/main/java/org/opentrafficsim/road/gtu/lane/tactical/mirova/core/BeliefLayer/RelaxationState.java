@@ -5,12 +5,32 @@ import org.djunits.value.vdouble.scalar.Duration;
 import org.djunits.value.vdouble.scalar.Length;
 
 /**
- * Tracks and computes the relaxation phenomenon according to Keane and Gao (2021).
+ * Tracks and computes the relaxation phenomenon after Keane and Gao (2021), as a one-parameter model.
  * <p>
- * This class stores the initial space headway deficit (gamma_s) and the speed difference (gamma_v) after a lane change or
- * cut-in. It provides exponentially decaying virtual buffers for both distance and speed. This represents the "2p"
- * (two-parameter) relaxation model, allowing independent decay rates for space and speed errors.
+ * The class stores the initial space headway deficit (gamma_s) left by a lane change or cut-in, and provides an
+ * exponentially decaying virtual distance buffer with the single time constant {@code tau_relax_s}, default
+ * <b>20 s</b>.
  * </p>
+ * <p>
+ * <b>There is no speed buffer.</b> Keane and Gao describe a second, independent decay on the speed difference
+ * (gamma_v), and earlier revisions of this class carried one; it was never fed -- every call site passed
+ * {@code Speed.ZERO} -- and it was removed in Phase 0.5 along with its time constant. Where a cut-in also costs speed,
+ * the deficit is routed into the <i>headway</i> buffer instead: the buffer is seeded with
+ * {@code desiredHeadway x safetyDistanceReductionFactorLaneChange} rather than with the raw gap deficit. Tolerating a
+ * speed difference directly produced collisions.
+ * </p>
+ * <p>
+ * Three further mechanisms sit on top of the buffer and are part of the model, though they live outside this class:
+ * </p>
+ * <ul>
+ * <li><b>Acceleration damping</b> ({@code aRelaxDamping}, {@code EgoContext}): while a relaxation is active, positive
+ * acceleration is scaled by a factor rising back to 1.0 as the buffer decays. The production campaign runs it at 1.00,
+ * i.e. off.</li>
+ * <li><b>Lifetime cap</b> ({@code relaxMaxLifetime}, {@code EgoContext}): a relaxation is collected after three time
+ * constants however large its initial deficit was.</li>
+ * <li><b>Fade-out on abort</b> ({@code tRelaxFade}, this class and {@code MirovaCarFollowingUtil}): an abandoned
+ * relaxation fades to zero over an interval instead of being dropped in one step. See {@link #fadeStart}.</li>
+ * </ul>
  * <p>
  * Copyright (c) 2026 Marvin Baumann / KIT. All rights reserved. <br>
  * BSD-style license. See <a href="https://opentrafficsim.org/docs/license.html">OpenTrafficSim License</a>.
@@ -50,7 +70,7 @@ public class RelaxationState
     private final Duration tauSpace;
 
     /**
-     * Constructs a new RelaxationState to track virtual distance and speed buffers over time.
+     * Constructs a new RelaxationState to track the virtual distance buffer over time.
      * @param startTime the absolute simulation time the lane change or cut-in occurred
      * @param initialSpaceDeficit the initial missing distance to the desired space headway
      * @param tauSpace the time constant for the spatial exponential decay
