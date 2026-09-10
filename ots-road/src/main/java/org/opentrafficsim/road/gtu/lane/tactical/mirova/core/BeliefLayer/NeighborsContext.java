@@ -9,7 +9,6 @@ import org.djunits.value.vdouble.scalar.Duration;
 import org.djunits.value.vdouble.scalar.Length;
 import org.djunits.value.vdouble.scalar.Speed;
 import org.opentrafficsim.base.parameters.ParameterException;
-import org.opentrafficsim.base.parameters.ParameterType;
 import org.opentrafficsim.base.parameters.ParameterTypes;
 import org.opentrafficsim.base.parameters.Parameters;
 import org.opentrafficsim.core.gtu.GtuException;
@@ -21,14 +20,9 @@ import org.opentrafficsim.road.gtu.lane.perception.PerceptionCollectable;
 import org.opentrafficsim.road.gtu.lane.perception.RelativeLane;
 import org.opentrafficsim.road.gtu.lane.perception.categories.neighbors.NeighborsPerception;
 import org.opentrafficsim.road.gtu.lane.perception.headway.HeadwayGtu;
-import org.opentrafficsim.road.gtu.lane.tactical.following.CarFollowingModel;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.MergeGateDiagnostics;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameterSnapshot;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaCarFollowingUtil;
-import org.opentrafficsim.road.gtu.lane.tactical.util.CarFollowingUtil;
-import org.opentrafficsim.road.network.speed.SpeedLimitInfo;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.DefectDiagnostics;
 
 /**
@@ -181,13 +175,7 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
     /** Cache key for lane change possible right flag. */
     public static final String LANE_CHANGE_POSSIBLE_RIGHT = "laneChangePossibleRight";
 
-    /** Cache key for GTU alongside left flag. */
-    public static final String GTU_ALONGSIDE_LEFT = "alongside_LEFT";
-
-    /** Cache key for GTU alongside right flag. */
-    public static final String GTU_ALONGSIDE_RIGHT = "alongside_RIGHT";
-
-    // =========================================================================================
+            // =========================================================================================
     // NEUE FELDER: CUT-IN DETECTION MEMORY
     // =========================================================================================
 
@@ -738,52 +726,6 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
     }
 
     /**
-     * Returns whether there is a GTU alongside in the given direction. Computes (via Perception) and caches the result if not
-     * yet available.
-     * @param dir Direction to check for alongside GTU
-     * @return true if there is a GTU alongside, false if not or if perception unavailable
-     * @throws ParameterException if a parameter lookup fails
-     * @throws NullPointerException if perception context is null
-     * @throws IllegalArgumentException if an illegal argument is provided
-     */
-    public Boolean isGtuAlongside(final LateralDirectionality dir)
-            throws ParameterException, NullPointerException, IllegalArgumentException
-    {
-        String key;
-        if (dir.isLeft())
-        {
-            key = GTU_ALONGSIDE_LEFT;
-        }
-        else if (dir.isRight())
-        {
-            key = GTU_ALONGSIDE_RIGHT;
-        }
-        else
-        {
-            return false; // No alongside for current lane
-        }
-        Boolean cached = getCachedValue(key, Boolean.class);
-        if (cached != null)
-        {
-            return cached;
-        }
-        try
-        {
-            boolean result = this.vehicle.getPerception().getPerceptionCategory(NeighborsPerception.class).isGtuAlongside(dir);
-            cacheValue(key, result, true);
-            return result;
-        }
-        catch (OperationalPlanException e)
-        {
-            if (DefectDiagnostics.ENABLED)
-            {
-                DefectDiagnostics.swallowed("NeighborsContext.isGtuAlongside", e);
-            }
-            return false;
-        }
-    }
-
-    // ----------------------------------------------------------------------
     // Single Leader Accessors
     // ----------------------------------------------------------------------
 

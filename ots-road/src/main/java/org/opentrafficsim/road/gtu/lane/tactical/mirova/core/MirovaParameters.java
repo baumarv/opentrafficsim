@@ -255,10 +255,6 @@ public final class MirovaParameters implements ConstraintInterface
                         new ParameterTypeDouble("relaxMaxLifetime",
                                         "Longest a relaxation may run, in multiples of tau_s", 3.0, POSITIVE);
 
-        /** Time To Collision (TTC) threshold for emergency braking. */
-        public static final ParameterTypeDuration ttc_emergency_braking = new ParameterTypeDuration("TTC_EMERGENCY_BRAKING",
-                        "Time To Collision (TTC) threshold for emergency braking", Duration.instantiateSI(2.0), POSITIVE);
-
         public static final ParameterTypeDouble CF_MAX_LEADERS = new ParameterTypeDouble("CF_MAX_LEADERS",
                         "Maximum number of leaders considered in car-following", 2, POSITIVE);
 

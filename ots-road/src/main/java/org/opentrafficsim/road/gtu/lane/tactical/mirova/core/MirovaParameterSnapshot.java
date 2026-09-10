@@ -271,9 +271,6 @@ public final class MirovaParameterSnapshot implements Serializable
     /** Speed relaxation time constant, as a scalar. */
     public final Duration relaxationTauSpeedScalar;
 
-    /** Time-to-collision threshold for emergency braking [s]. */
-    public final double ttcEmergencyBrakingSi;
-
     /** Maximum number of leaders considered in car-following [-]. */
     public final double cfMaxLeaders;
 
@@ -377,7 +374,6 @@ public final class MirovaParameterSnapshot implements Serializable
                 p.getParameter(MirovaParameters.RELAXATION_ABORT_DECELERATION);
         this.relaxationTauSpeedScalar = p.getParameter(MirovaParameters.RELAXATION_TAU_SPEED);
         this.relaxationTauSpeedSi = this.relaxationTauSpeedScalar.si;
-        this.ttcEmergencyBrakingSi = p.getParameter(MirovaParameters.ttc_emergency_braking).si;
         this.cfMaxLeaders = p.getParameter(MirovaParameters.CF_MAX_LEADERS);
         this.relaxationAccDampingEnabled = p.getParameter(MirovaParameters.RELAXATION_ACC_DAMPING_ENABLED);
         this.relaxationAccDampingFactor = p.getParameter(MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR);
