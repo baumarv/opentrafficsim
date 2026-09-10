@@ -1140,7 +1140,15 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         try
         {
             LaneBasedGtu egoGtu = this.vehicle.getGtu();
-            Length lookahead = this.vehicle.getParams().extendedLookAheadDistanceScalar;
+            // BC-6. The default projects the path 1000 m ahead to find the lane the ego will merge into, and
+            // MandatoryLaneChangePattern then reads the speed of every vehicle on it. Neither half is something a
+            // driver can do, or a host with only near-field traffic can answer. Under the switch the projection is
+            // bounded by the ego's own look-ahead -- the same range the rest of its perception uses -- so a merge
+            // lane further away than that is simply not found, and the reference speed cascade falls through to its
+            // speed-limit fallback rather than being told a number from beyond the horizon.
+            Length lookahead = this.vehicle.getParams().bcMergeRefRangeLimited
+                    ? this.vehicle.getParameters().getParameter(ParameterTypes.LOOKAHEAD)
+                    : this.vehicle.getParams().extendedLookAheadDistanceScalar;
 
             LanePathInfo pathInfo = AbstractLaneBasedTacticalPlanner.buildLanePathInfo(egoGtu, lookahead);
             if (pathInfo == null || pathInfo.laneList().isEmpty())

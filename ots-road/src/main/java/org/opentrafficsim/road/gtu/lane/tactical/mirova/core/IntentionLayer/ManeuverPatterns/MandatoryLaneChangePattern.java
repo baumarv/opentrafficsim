@@ -372,16 +372,15 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 Lane targetLane = infra.getDownstreamAdjacentLane(dir);
                 if (targetLane != null)
                 {
-                    // BC-6. The scan reads the speed and position of every vehicle on a lane that may be a kilometre
-                    // downstream -- not something a driver can see, and not something a host with only near-field
-                    // traffic can answer. Under the switch the segment is bounded by the ego's own look-ahead, the
-                    // same range the rest of its perception uses, and an empty segment answers POSITIVE_INFINITY,
-                    // which isUsableReference rejects and the cascade carries on to the speed-limit fallback.
+                    // BC-6 does its work in getDownstreamAdjacentLane, which under the switch will not return a
+                    // lane further away than the ego can see -- so by the time control reaches here the target lane
+                    // is within the horizon and the scan over it is legitimate. The segment is additionally capped
+                    // at the look-ahead, which is inert at the configured 295 m against a 150 m window but keeps the
+                    // two ranges from contradicting each other if either constant moves.
                     Length scanLength = REFERENCE_SPEED_SCAN_LENGTH;
                     if (vehicle.getParams().bcMergeRefRangeLimited)
                     {
-                        Length visible = vehicle.getParameters().getParameter(ParameterTypes.LOOKAHEAD);
-                        scanLength = Length.min(scanLength, visible);
+                        scanLength = Length.min(scanLength, vehicle.getParameters().getParameter(ParameterTypes.LOOKAHEAD));
                     }
                     reference = infra.getLaneAverageSpeed(targetLane, Length.ZERO, scanLength,
                             REFERENCE_SPEED_SAMPLE_SIZE, ScanDirection.BACK_TO_FRONT);
