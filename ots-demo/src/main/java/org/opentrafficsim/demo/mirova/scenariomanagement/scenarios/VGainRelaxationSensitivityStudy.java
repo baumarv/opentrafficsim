@@ -1,5 +1,7 @@
 package org.opentrafficsim.demo.mirova.scenariomanagement.scenarios;
 
+import org.djunits.value.vdouble.scalar.Speed;
+import org.djunits.value.vdouble.scalar.Duration;
 import java.io.File;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -100,8 +102,8 @@ public class VGainRelaxationSensitivityStudy implements StudyDefinition
             final double carSi = kmh / 3.6;
             CELLS.put("vgain" + label(kmh), params ->
             {
-                params.set("car." + MirovaParameters.vGain.getId(), carSi);
-                params.set("truck." + MirovaParameters.vGain.getId(), carSi * TRUCK_VGAIN_RATIO);
+                params.set("car." + MirovaParameters.vGain.getId(), Speed.instantiateSI(carSi));
+                params.set("truck." + MirovaParameters.vGain.getId(), Speed.instantiateSI(carSi * TRUCK_VGAIN_RATIO));
                 params.set(KEY_VGAIN_KMH, kmh);
                 params.set(KEY_TAU_RELAX, 20.0);
             });
@@ -111,8 +113,8 @@ public class VGainRelaxationSensitivityStudy implements StudyDefinition
         {
             CELLS.put("tau" + label(tau), params ->
             {
-                params.set("car." + MirovaParameters.RELAXATION_TAU_SPACE.getId(), tau);
-                params.set("truck." + MirovaParameters.RELAXATION_TAU_SPACE.getId(), tau);
+                params.set("car." + MirovaParameters.RELAXATION_TAU_SPACE.getId(), Duration.instantiateSI(tau));
+                params.set("truck." + MirovaParameters.RELAXATION_TAU_SPACE.getId(), Duration.instantiateSI(tau));
                 params.set(KEY_VGAIN_KMH, 54.0);
                 params.set(KEY_TAU_RELAX, tau);
             });

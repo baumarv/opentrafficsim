@@ -1,5 +1,6 @@
 package org.opentrafficsim.demo.mirova.scenariomanagement;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.io.File;
@@ -643,6 +644,41 @@ public abstract class ScenarioGenerator
      * @param value Object; the input value (Number, String, Boolean, or target type)
      * @throws ParameterException when setting the parameter fails
      */
+    /** The SI unit of each unit-typed parameter class, for the message of {@link #rejectBareNumber}. */
+    private static final Map<Class<?>, String> SI_UNIT_OF = new LinkedHashMap<>();
+
+    static
+    {
+        SI_UNIT_OF.put(org.djunits.value.vdouble.scalar.Duration.class, "seconds");
+        SI_UNIT_OF.put(org.djunits.value.vdouble.scalar.Length.class, "metres");
+        SI_UNIT_OF.put(org.djunits.value.vdouble.scalar.Speed.class, "metres per second");
+        SI_UNIT_OF.put(org.djunits.value.vdouble.scalar.Acceleration.class, "metres per second squared");
+        SI_UNIT_OF.put(org.djunits.value.vdouble.scalar.Frequency.class, "hertz");
+        SI_UNIT_OF.put(org.djunits.value.vdouble.scalar.LinearDensity.class, "per metre");
+    }
+
+    /**
+     * Refuses a bare number where a unit-typed parameter was expected.
+     * <p>
+     * Until Phase 1 a bare number for a unit-typed parameter was silently read as SI. That is how the production set,
+     * which writes {@code set("car.VGAIN", 15.0)} meaning 15 km/h, came to run every published result at 15 m/s --
+     * 54 km/h, a factor of 3.6. The conversion cannot tell the two apart, so it no longer guesses.
+     * </p>
+     * @param pt ParameterType&lt;?&gt;; the parameter that was being set
+     * @param valueClass Class&lt;?&gt;; its value class
+     * @param value double; the bare number offered
+     * @throws IllegalArgumentException always
+     */
+    private static void rejectBareNumber(final ParameterType<?> pt, final Class<?> valueClass, final double value)
+    {
+        String unit = SI_UNIT_OF.get(valueClass);
+        String type = valueClass.getSimpleName();
+        throw new IllegalArgumentException("Parameter '" + pt.getId() + "' is a " + type
+                + " and was given the bare number " + value + ". A bare number cannot carry a unit, and reading it as SI"
+                + (unit == null ? "" : " (" + unit + ")") + " is how vGain came to run at 54 km/h instead of the"
+                + " intended 15. Pass a typed value, for example " + type + ".instantiateSI(" + value + ").");
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
     protected static void applyParameter(Parameters parameters, ParameterType<?> pt, Object value) throws ParameterException
     {
@@ -663,21 +699,9 @@ public abstract class ScenarioGenerator
             {
                 convertedValue = (int) doubleVal;
             }
-            else if (valueClass == org.djunits.value.vdouble.scalar.Duration.class)
+            else
             {
-                convertedValue = org.djunits.value.vdouble.scalar.Duration.instantiateSI(doubleVal);
-            }
-            else if (valueClass == org.djunits.value.vdouble.scalar.Length.class)
-            {
-                convertedValue = org.djunits.value.vdouble.scalar.Length.instantiateSI(doubleVal);
-            }
-            else if (valueClass == org.djunits.value.vdouble.scalar.Speed.class)
-            {
-                convertedValue = org.djunits.value.vdouble.scalar.Speed.instantiateSI(doubleVal);
-            }
-            else if (valueClass == org.djunits.value.vdouble.scalar.Acceleration.class)
-            {
-                convertedValue = org.djunits.value.vdouble.scalar.Acceleration.instantiateSI(doubleVal);
+                rejectBareNumber(pt, valueClass, doubleVal);
             }
         }
         else if (value instanceof String)

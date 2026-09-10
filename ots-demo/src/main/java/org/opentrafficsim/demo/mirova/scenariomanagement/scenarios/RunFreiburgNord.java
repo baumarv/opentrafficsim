@@ -1,5 +1,6 @@
 package org.opentrafficsim.demo.mirova.scenariomanagement.scenarios;
 
+import org.djunits.value.vdouble.scalar.Speed;
 import java.io.File;
 
 import org.djunits.unit.DurationUnit;
@@ -40,10 +41,10 @@ public class RunFreiburgNord
             params.set("demandSmooth", false);
 
             // Behavioral parameters matching the study
-            params.set("car." + ParameterTypes.T.getId(), 1.00);
-            params.set("truck." + ParameterTypes.T.getId(), 1.30);
-            params.set("car." + MirovaParameters.vGain.getId(), 15.0);
-            params.set("truck." + MirovaParameters.vGain.getId(), 30.0);
+            params.set("car." + ParameterTypes.T.getId(), Duration.instantiateSI(1.00));
+            params.set("truck." + ParameterTypes.T.getId(), Duration.instantiateSI(1.30));
+            params.set("car." + MirovaParameters.vGain.getId(), Speed.instantiateSI(15.0));
+            params.set("truck." + MirovaParameters.vGain.getId(), Speed.instantiateSI(30.0));
 
             ScenarioSimulationScript script = scenario.buildSimulationScript(params);
             script.setGuiEnabled(true);

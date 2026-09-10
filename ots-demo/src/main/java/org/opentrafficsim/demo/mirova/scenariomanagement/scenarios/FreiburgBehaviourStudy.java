@@ -1,5 +1,8 @@
 package org.opentrafficsim.demo.mirova.scenariomanagement.scenarios;
 
+import org.djunits.value.vdouble.scalar.Length;
+import org.djunits.value.vdouble.scalar.Duration;
+import org.djunits.value.vdouble.scalar.Acceleration;
 import java.io.File;
 import java.util.List;
 import java.util.Locale;
@@ -223,14 +226,14 @@ public class FreiburgBehaviourStudy implements StudyDefinition
                 combination, ACC_DAMPING_FACTOR, SAFETY_DISTANCE_FACTOR);
 
         // The truck headway of the fixed combination is overridden here, since this study sweeps it.
-        params.set("truck." + ParameterTypes.T.getId(), truckT);
-        params.set("truck." + ParameterTypes.A.getId(), truckA);
-        params.set("truck." + ParameterTypes.S0.getId(), truckS0);
+        params.set("truck." + ParameterTypes.T.getId(), Duration.instantiateSI(truckT));
+        params.set("truck." + ParameterTypes.A.getId(), Acceleration.instantiateSI(truckA));
+        params.set("truck." + ParameterTypes.S0.getId(), Length.instantiateSI(truckS0));
 
         // Only cars merge onto the mainline in any number here, so the follower thresholds are swept for cars; the
         // truck values stay at the study baseline rather than acquiring a setting the sweep never justified.
-        params.set("car." + MirovaParameters.minFollowerDecelerationThreshold.getId(), follower[0]);
-        params.set("car." + MirovaParameters.maxFollowerDecelerationThreshold.getId(), follower[1]);
+        params.set("car." + MirovaParameters.minFollowerDecelerationThreshold.getId(), Acceleration.instantiateSI(follower[0]));
+        params.set("car." + MirovaParameters.maxFollowerDecelerationThreshold.getId(), Acceleration.instantiateSI(follower[1]));
 
         // Recorded so runParams.txt names the cell rather than only carrying the values it derives from.
         params.set(KEY_FOLLOWER_MIN, follower[0]);

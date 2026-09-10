@@ -1,5 +1,8 @@
 package org.opentrafficsim.demo.mirova.scenariomanagement.scenarios;
 
+import org.djunits.value.vdouble.scalar.Speed;
+import org.djunits.value.vdouble.scalar.Duration;
+import org.djunits.value.vdouble.scalar.Acceleration;
 import java.io.File;
 
 import org.opentrafficsim.base.parameters.ParameterTypes;
@@ -81,10 +84,10 @@ public class RunFreiburgParallel
                                                 varParams.set("demandSmooth", false);
 
                                                 // Car parameters
-                                                varParams.set("car." + ParameterTypes.T.getId(), carT);
-                                                varParams.set("car." + MirovaParameters.vGain.getId(), 15.0);
-                                                varParams.set("car." + MirovaParameters.A_MAX.getId(), 3.5);
-                                                varParams.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(), -2.0);
+                                                varParams.set("car." + ParameterTypes.T.getId(), Duration.instantiateSI(carT));
+                                                varParams.set("car." + MirovaParameters.vGain.getId(), Speed.instantiateSI(15.0));
+                                                varParams.set("car." + MirovaParameters.A_MAX.getId(), Acceleration.instantiateSI(3.5));
+                                                varParams.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(), Acceleration.instantiateSI(-2.0));
                                                 varParams.set("car." + MirovaParameters.farAnticipationEnabled.getId(), false);
                                                 varParams.set("car." + MirovaParameters.safetyDistanceReductionFactorLaneChange.getId(),
                                                                 RED_FAC);
@@ -93,11 +96,10 @@ public class RunFreiburgParallel
                                                 varParams.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_ENABLED.getId(), true);
 
                                                 // Truck parameters
-                                                varParams.set("truck." + ParameterTypes.T.getId(), truckT);
-                                                varParams.set("truck." + MirovaParameters.vGain.getId(), 30.0);
-                                                varParams.set("truck." + MirovaParameters.A_MAX.getId(), 1.3);
-                                                varParams.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(),
-                                                                -0.5);
+                                                varParams.set("truck." + ParameterTypes.T.getId(), Duration.instantiateSI(truckT));
+                                                varParams.set("truck." + MirovaParameters.vGain.getId(), Speed.instantiateSI(30.0));
+                                                varParams.set("truck." + MirovaParameters.A_MAX.getId(), Acceleration.instantiateSI(1.3));
+                                                varParams.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(), Acceleration.instantiateSI(-0.5));
                                                 varParams.set("truck." + MirovaParameters.cooperativeLaneChangesEnabled.getId(), false);
                                                 varParams.set("truck." + MirovaParameters.farAnticipationEnabled.getId(), false);
                                                 varParams.set("truck."

@@ -1,5 +1,6 @@
 package org.opentrafficsim.demo.mirova.scenariomanagement.scenarios;
 
+import org.djunits.value.vdouble.scalar.Duration;
 import java.io.File;
 import java.util.List;
 import java.util.Locale;
@@ -182,8 +183,8 @@ public class FreiburgCombinationStudy implements StudyDefinition
             final double accDampingFactor, final double safetyDistanceFactor)
     {
         ScenarioParameters params = facility.forDate(date, demandCsvPath, strict);
-        params.set("car." + ParameterTypes.T.getId(), combination.carT());
-        params.set("truck." + ParameterTypes.T.getId(), combination.truckT());
+        params.set("car." + ParameterTypes.T.getId(), Duration.instantiateSI(combination.carT()));
+        params.set("truck." + ParameterTypes.T.getId(), Duration.instantiateSI(combination.truckT()));
 
         // Both swept factors apply to cars and trucks alike, so a grid cell is described by three numbers rather
         // than six.
