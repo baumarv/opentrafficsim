@@ -1,6 +1,8 @@
 package org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer;
 
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
@@ -23,8 +25,27 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.DefectDiagn
 public class VehicleContextManager
 {
 
+    /**
+     * The order in which the categories are updated, stated rather than inherited from a hash table.
+     * <p>
+     * {@link #updateFromPerception()} used to iterate a {@code HashMap}, so the order was whatever the hash codes
+     * of the four names happened to produce -- {@code MacroTraffic, Infrastructure, Neighbors, Ego}. That is
+     * reproducible, and it is what every published result was produced with, but it is not a decision anyone made,
+     * and the update methods are not independent: {@code NeighborsContext} detects a change of leader and calls
+     * into {@code EgoContext} to open a relaxation, while {@code EgoContext} collects expired relaxations. Under
+     * the inherited order the collection runs after the creation, so a relaxation opened on a space deficit below
+     * 0.1 m is collected in the same tick it was created in.
+     * </p>
+     * <p>
+     * This constant reproduces the inherited order exactly. The order the dependency actually calls for --
+     * {@code Ego} first, then {@code Neighbors} -- is a behaviour change and is offered separately, behind
+     * {@code MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED} (added in step 5), so that the two can be compared.
+     * </p>
+     */
+    private static final String[] UPDATE_ORDER = {"MacroTraffic", "Infrastructure", "Neighbors", "Ego"};
+
     /** All registered context categories, keyed by name. */
-    private final Map<String, ContextCategory> categories = new HashMap<>();
+    private final Map<String, ContextCategory> categories = new LinkedHashMap<>();
 
     /** Reference to the associated ego vehicle. */
     private final MirovaTacticalPlanner vehicle;
@@ -117,14 +138,44 @@ public class VehicleContextManager
     // ----------------------------------------------------------------------
 
     /**
+     * Returns the registered categories in the order they are to be updated.
+     * <p>
+     * The categories {@link #UPDATE_ORDER} names come first and in that order; anything registered beyond them
+     * follows in registration order, so a category added later is updated rather than silently skipped.
+     * </p>
+     * @return the categories to update, in order
+     */
+    private List<ContextCategory> orderedCategories()
+    {
+        List<ContextCategory> ordered = new ArrayList<>(this.categories.size());
+        for (String name : UPDATE_ORDER)
+        {
+            ContextCategory category = this.categories.get(name);
+            if (category != null)
+            {
+                ordered.add(category);
+            }
+        }
+        for (ContextCategory category : this.categories.values())
+        {
+            if (!ordered.contains(category))
+            {
+                ordered.add(category);
+            }
+        }
+        return ordered;
+    }
+
+    /**
      * Triggers the update process for all registered categories that implement the {@link UpdatableContext} interface.
      * <p>
-     * Called once per simulation tick to refresh all context values from perception.
+     * Called once per simulation tick to refresh all context values from perception. The order is {@link #UPDATE_ORDER},
+     * followed by any category registered later that the constant does not name.
      * </p>
      */
     public void updateFromPerception()
     {
-        for (ContextCategory category : this.categories.values())
+        for (ContextCategory category : orderedCategories())
         {
             if (category instanceof UpdatableContext)
             {
