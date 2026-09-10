@@ -477,7 +477,13 @@ public class ScenarioManager {
             System.out.println("[PROGRESS] 1/1 simulations completed (100%, 0 failed)");
             return true;
         } catch (Throwable e) {
-            Throwable rootCause = e.getCause() != null ? e.getCause() : e;
+            // Unwrap the whole chain, not one level. A failure inside GTU.move arrives wrapped in a
+            // reflective InvocationTargetException, so printing e.getCause() printed the wrapper and
+            // discarded the exception that actually explains the failure.
+            Throwable rootCause = e;
+            while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
+                rootCause = rootCause.getCause();
+            }
             StringBuilder sb = new StringBuilder();
             sb.append("Seed ").append(prepared.seed).append(" failed: ").append(rootCause.toString()).append("\n");
             for (StackTraceElement element : rootCause.getStackTrace()) {
