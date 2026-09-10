@@ -40,6 +40,8 @@ import org.djunits.value.vdouble.vector.FrequencyVector;
 import org.djunits.value.vdouble.vector.data.DoubleVectorData;
 import org.djunits.value.storage.StorageType;
 
+import org.opentrafficsim.road.gtu.lane.tactical.LaneBasedTacticalPlanner;
+import org.opentrafficsim.road.gtu.lane.tactical.LaneBasedTacticalPlannerFactory;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlannerFactory;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ReactiveLayer.MirovaIdmPlusFactory;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.DefaultMirovaPerceptionFactory;
@@ -1119,6 +1121,73 @@ public abstract class ScenarioGenerator
     }
 
     /**
+     * A hook that may wrap or replace the tactical planner factory a scenario builds, per vehicle class.
+     * <p>
+     * The seam exists so that an external planner -- the TaMA recording planner, for instance -- can be put in front of
+     * the MiRoVA factory without reflection and without a scenario knowing anything about it. It is applied to the
+     * factory after the parameter overrides have been wired into it, so a decorator sees a fully configured factory.
+     * </p>
+     */
+    @FunctionalInterface
+    public interface TacticalPlannerFactoryHook
+    {
+        /**
+         * Returns the factory to use, given the one the scenario built.
+         * @param vehicleClass String; {@code "car"} or {@code "truck"}, the class whose factory this is
+         * @param built LaneBasedTacticalPlannerFactory&lt;? extends LaneBasedTacticalPlanner&gt;; the factory the
+         *            scenario built, fully configured
+         * @return LaneBasedTacticalPlannerFactory&lt;? extends LaneBasedTacticalPlanner&gt;; the factory to use; return
+         *         {@code built} to leave it alone
+         */
+        LaneBasedTacticalPlannerFactory<? extends LaneBasedTacticalPlanner> apply(String vehicleClass,
+                LaneBasedTacticalPlannerFactory<? extends LaneBasedTacticalPlanner> built);
+    }
+
+    /** The installed hook, or {@code null} when none is. */
+    private static TacticalPlannerFactoryHook tacticalPlannerFactoryHook = null;
+
+    /**
+     * Installs a hook that wraps or replaces the tactical planner factory of every scenario built afterwards.
+     * <p>
+     * Static because a run is one JVM with one scenario and the injector -- a test, a recording harness, an external
+     * runner -- has no reference to the generator instance the scenario management creates. Pass {@code null} to remove
+     * it. Not thread-safe, and not meant to be: install it before the run starts.
+     * </p>
+     * @param hook TacticalPlannerFactoryHook; the hook, or {@code null} to remove the installed one
+     */
+    public static void setTacticalPlannerFactoryHook(final TacticalPlannerFactoryHook hook)
+    {
+        tacticalPlannerFactoryHook = hook;
+    }
+
+    /**
+     * Returns the installed hook, or {@code null}.
+     * @return TacticalPlannerFactoryHook; the installed hook, or {@code null}
+     */
+    public static TacticalPlannerFactoryHook getTacticalPlannerFactoryHook()
+    {
+        return tacticalPlannerFactoryHook;
+    }
+
+    /**
+     * Applies the installed hook to a factory, or returns it unchanged when no hook is installed.
+     * @param vehicleClass String; {@code "car"} or {@code "truck"}
+     * @param built LaneBasedTacticalPlannerFactory&lt;? extends LaneBasedTacticalPlanner&gt;; the factory built
+     * @return LaneBasedTacticalPlannerFactory&lt;? extends LaneBasedTacticalPlanner&gt;; the factory to use
+     */
+    protected static LaneBasedTacticalPlannerFactory<? extends LaneBasedTacticalPlanner> hookTacticalPlannerFactory(
+            final String vehicleClass, final LaneBasedTacticalPlannerFactory<? extends LaneBasedTacticalPlanner> built)
+    {
+        if (tacticalPlannerFactoryHook == null)
+        {
+            return built;
+        }
+        LaneBasedTacticalPlannerFactory<? extends LaneBasedTacticalPlanner> hooked =
+                tacticalPlannerFactoryHook.apply(vehicleClass, built);
+        return hooked == null ? built : hooked;
+    }
+
+    /**
      * Builds the strategical planner factory for cars using the Mirova tactical planner. Applies standard defaults for cars and
      * then dynamically applies any parameter overrides matching the "car.<parameterId>" prefix from ScenarioParameters.
      * @return LaneBasedStrategicalPlannerFactory<?>; the strategical planner factory for cars
@@ -1153,7 +1222,8 @@ public abstract class ScenarioGenerator
                     }
                 };
 
-        return new LaneBasedStrategicalRoutePlannerFactory(mirovaTacticalPlannerFactoryCars);
+        return new LaneBasedStrategicalRoutePlannerFactory(
+                hookTacticalPlannerFactory("car", mirovaTacticalPlannerFactoryCars));
     }
 
     /**
@@ -1191,7 +1261,8 @@ public abstract class ScenarioGenerator
                     }
                 };
 
-        return new LaneBasedStrategicalRoutePlannerFactory(mirovaTacticalPlannerFactoryTrucks);
+        return new LaneBasedStrategicalRoutePlannerFactory(
+                hookTacticalPlannerFactory("truck", mirovaTacticalPlannerFactoryTrucks));
     }
 
     /**
