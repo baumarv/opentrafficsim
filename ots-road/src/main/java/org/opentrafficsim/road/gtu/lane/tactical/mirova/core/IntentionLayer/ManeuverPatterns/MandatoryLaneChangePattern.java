@@ -323,7 +323,12 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
         }
 
         // 2. Local macroscopic perception of the adjacent lane.
-        if (!isUsableReference(reference))
+        //
+        // Skipped to the right. TrafficPerception answers for a lane with nobody on it with a free-flow estimate,
+        // which is the speed of a stream that is not there. To the left that is a fair guess: the lane is the
+        // mainline and an empty one does flow freely. To the right it is the lane the ego leaves the road by, and
+        // the guess then measures an exiting vehicle against a speed no deceleration lane carries.
+        if (!isUsableReference(reference) && !dir.isRight())
         {
             try
             {
@@ -355,7 +360,26 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
             }
         }
 
-        // 4. Empty target lane: assume it flows at the legal speed limit, bounded to a speed a merger can reach.
+        // 4. Nothing measurable on the target lane.
+        //
+        // To the right there is then no stream to synchronise with, and the ego's own speed is the honest
+        // reference: the speed criterion neither admits nor refuses on a quantity that does not exist, while the
+        // gap conditions still apply in full. Measured before this, the readiness test refused 87 to 89 % of its
+        // evaluations on the through lane of the weaving segment, judging vehicles travelling at 54 km/h against
+        // a reference of 115 to 132 km/h.
+        if (!isUsableReference(reference) && dir.isRight())
+        {
+            try
+            {
+                reference = vehicle.getContext(EgoContext.class).getEgoSpeed();
+            }
+            catch (Exception exception)
+            {
+                reference = null;
+            }
+        }
+
+        // Otherwise assume the lane flows at the legal speed limit, bounded to a speed a merger can reach.
         if (!isUsableReference(reference))
         {
             Speed speedLimit = null;
