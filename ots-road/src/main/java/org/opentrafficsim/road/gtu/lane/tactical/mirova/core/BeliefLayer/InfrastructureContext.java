@@ -840,20 +840,21 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         catch (RuntimeException exception)
         {
             // Only unchecked exceptions can escape here: getLegalLaneChangeInfo declares none, and the two checked
-            // exceptions this method reports come from getPerceptionCategory, which is called before the parameter
-            // is raised. The leak is therefore narrower than it looks -- but not impossible, since the query walks
-            // the lane structure and can fail on a null record.
-            //
-            // Counted, then rethrown unchanged: the parameter is deliberately left raised, exactly as before, so
-            // that the instrumentation measures the defect rather than repairing it. The repair is a separate
-            // commit, so that a difference in the reference run can be attributed to one or the other.
+            // exceptions this method reports come from getPerceptionCategory, which runs before the parameter is
+            // raised. Narrow, but not impossible -- the query walks the lane structure and can fail on a null record.
             if (DefectDiagnostics.ENABLED)
             {
                 DefectDiagnostics.lookaheadLeak();
             }
             throw exception;
         }
-        this.vehicle.getParameters().resetParameter(ParameterTypes.LOOKAHEAD);
+        finally
+        {
+            // The reset belongs here and not after the query. Left where it was, an exception from the query
+            // carried the raised look-ahead out of the method and the vehicle kept it for the rest of its life,
+            // widening every perception range it feeds and the route desire computed from them.
+            this.vehicle.getParameters().resetParameter(ParameterTypes.LOOKAHEAD);
+        }
         if (DefectDiagnostics.ENABLED)
         {
             DefectDiagnostics.lookaheadRestored();
