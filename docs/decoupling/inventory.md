@@ -236,7 +236,7 @@ negative when the ego has drawn level); `speed: Speed`; `acceleration: Accelerat
 | 9 | `laneIsDrivable(side)` | `Boolean` | InfrastructureContext:717-733 | adjacent | Folds "not a shoulder" and "lane type compatible with my vehicle class". |
 | 10 | `routeLaneChanges(lane, range)` | `(remaining: Distance, changes: Int)?` | InfrastructureContext, RouteIncentive, DesireIncentive, GapOpener, MandatoryLC | `LOOKAHEAD` (295 m) **and** `extendedLookAheadDistance` (1000 m) | The route signal. The 1000 m variant is what forces the `LOOKAHEAD` mutation today; make the range an argument. |
 | 11 | `physicalDistanceToLaneEnd(lane)` | `Distance?` (null = no end in range) | InfrastructureContext, MandatoryLC (12×), AnticipateDownstreamMerge | `LOOKAHEAD` | Dead-end only, distinct from #10. |
-| 12 | `speedLimitAt(lane, distance)` | `SpeedLimitInfo` (legal + vehicle-class + curvature + bumps) | InfrastructureContext (0 m and 200 m), RouteIncentive (per lane, 0 m), LongitudinalControl (full prospect) | 200 m | The full *prospect* is needed only by `SpeedLimitUtil.considerSpeedLimitTransitions` — see §E.5. |
+| 12 | `speedLimitAt(lane, distance)` | legal limit + vehicle-class limit | InfrastructureContext (0 m and 200 m), RouteIncentive (per lane, 0 m) | 200 m | **Reduced in Phase 0.5.** The full *prospect* was needed only by `considerSpeedLimitTransitions`, which provably never fires — nothing in OTS populates curvature or speed bumps. See §E.5. |
 | 13 | `parallelMergeAhead(side)` | `Boolean` | ProhibitDeadEndIncentive:60 | `LOOKAHEAD` | Derived: a second adjacent lane ends within lookahead while the first continues. Keep as a derived answer, not as topology. |
 
 ### Long-range and macroscopic
@@ -606,12 +606,18 @@ outside the factory, but the perception categories and `SpeedLimitUtil` may read
 not establish which keys are genuinely required. **Should I trace this before Phase 1?** It
 determines the size of the core parameter set.
 
-**E.5 — `SpeedLimitUtil.considerSpeedLimitTransitions` ([LongitudinalControl.java:105](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/core/ReactiveLayer/LongitudinalControl.java#L105)).**
-It is the only consumer of the *full* speed-limit prospect (curvature, bumps, upcoming limits) and
-therefore the only reason query 12 must return a prospect rather than a single value. On the
-Freiburg-Nord facility it plausibly never binds. **Reimplement it in the core, drop it, or keep it
-as a host-supplied "infrastructure deceleration" input?** Dropping it would simplify query 12
-considerably.
+**E.5 — RESOLVED in Phase 0.5. The term cannot fire at all.**
+`SpeedLimitUtil.considerSpeedLimitTransitions` reacts only to `SpeedLimitTypes.CURVATURE` and
+`SPEED_BUMP`, and **nothing in the OTS source tree ever populates either** — every `addSpeedInfo`
+call site uses `MAX_VEHICLE_SPEED` and `FIXED_SIGN` only. The loop therefore runs zero iterations
+and the method returns `POSITIVE_INFINITY` unconditionally, on any network the standard parser
+builds. Confirmed empirically as well: 0 finite candidates in 56.7 million evaluations over the
+Phase 0.5 instrumentation campaign.
+
+Consequences, now settled rather than open: **query 12 becomes a list of legal speed limits with
+distances**, not a prospect; curvature and speed bumps leave the contract; and the call in
+`LongitudinalControl` is provably inert, since the candidate it produces is always discarded by
+`aTrans.lt(POSITIVE_INFINITY)`.
 
 **E.6 — Infinity sentinels under kotlin-units.**
 The Belief layer uses `Length.POSITIVE_INFINITY`, `Speed.POSITIVE_INFINITY`,
