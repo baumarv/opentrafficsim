@@ -21,6 +21,7 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgSmoot
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgValidationStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgMergeGridStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgParameterStudy;
+import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.Phase05ReferenceStudy;
 
 /**
  * Lookup of the known {@link StudyDefinition} implementations by short name.
@@ -58,6 +59,7 @@ public final class StudyRegistry
         STUDIES.put("capdrop", FreiburgCapacityDropStudy.class);
         STUDIES.put("susceptibility", FreiburgSusceptibilityStudy.class);
         STUDIES.put("relaxation", FreiburgRelaxationStudy.class);
+        STUDIES.put("phase05", Phase05ReferenceStudy.class);
         STUDIES.put("final", FreiburgFinalStudy.class);
     }
 
