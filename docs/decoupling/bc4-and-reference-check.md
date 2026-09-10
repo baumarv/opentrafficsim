@@ -145,6 +145,7 @@ sources are available.
 | 9 | Reference §8: `b_coop` = −2.0 m/s² car, −0.5 truck | **−3.0, −1.0** | 1.5× and 2× stronger. See §3. |
 | 10 | Reference §8: `f_LC` = 0.5 | **0.40** | −20 %. See §3. |
 | 11 | Reference §8: `x_ext` = 1000 m, "extended anticipation look-ahead" | The value stands, the mechanism does not: the look-ahead mutation it fed was measured inert and deleted in Phase 0.5. The parameter now bounds the merge-lane path projection only. | The symbol survives with a different meaning |
+| 12 | Reference §8: `v_gain` = 15 km/h car, 30 truck | **54 / 108 km/h.** The study sets bare `15.0` / `30.0`, and `ScenarioGenerator.applyParameter` converts a bare number for a `ParameterTypeSpeed` with `Speed.instantiateSI` — metres per second. Measured through that code path. | 3.6× on the parameter scaling every discretionary desire. Table and code disagree by exactly a unit conversion, and which side is wrong cannot be decided from the code. **Nothing changed; the campaign is unaffected because every variant shares it.** |
 
 ### The plan duration in v1
 
@@ -166,7 +167,7 @@ shorter interval is running a different model, and `EvaluationLate` makes the co
 
 `mirova_model_reference.md` §8 stands in for the paper's `tab:parameters` until the TR-B source is in.
 Every row against the value the production run actually resolves — taken from the registered run, not
-from the constants (see `default-parameters.md` §0). Sixteen rows: **ten agree, four deviate
+from the constants (see `default-parameters.md` §0). Sixteen rows: **nine agree, five deviate
 numerically, two agree in value but not in meaning.**
 
 | Symbol | Reference (car / truck) | Runs (car / truck) | |
@@ -174,7 +175,7 @@ numerically, two agree in value but not in meaning.**
 | `d_free` | 0.365 | 0.365 / same | ✅ |
 | `d_mand` | 0.577 | 0.577 / same | ✅ |
 | `d_search` | 0.788 | 0.788 / same, **but never read** | ⚠️ value agrees, the θ call site passes `d_free` instead (§2.1) |
-| `v_gain` | 15 km/h / 30 km/h | 15 / 30 | ✅ set by the study; the declared default is LMRS's 69.6 |
+| `v_gain` | 15 km/h / 30 km/h | **54 / 108 km/h** | ❌ the study's bare `15.0` / `30.0` are read as SI, so m/s; factor 3.6 |
 | `v_cong` | 60 km/h | 60 / same | ✅ |
 | `a` | 1.2 m/s² | **1.4 / 1.25** | ❌ **+17 % for cars** |
 | `a_max` | 3.5 / 1.3 m/s² | 3.5 / 1.3 | ✅ |
@@ -188,7 +189,7 @@ numerically, two agree in value but not in meaning.**
 | `x_coop` | 100 m | 100 / same | ✅ |
 | `t_undercut` | 5 s | 5 / same | ✅ |
 
-### The four numeric deviations
+### The five numeric deviations
 
 **They are not errors, they are the calibration** — but the paper's table is what a reader will
 reproduce from, and none of the four is small enough to be rounding.
@@ -213,6 +214,12 @@ axis of every one tested.
 **`f_LC` (0.5 → 0.40).** The lane-change safety-distance reduction is 20 % tighter than documented,
 and it interacts multiplicatively with `s0` — so this row and the `s0` row cannot be read
 independently of each other.
+
+**`v_gain` (15 → 54 km/h car, 30 → 108 truck).** Not a calibration at all but a unit: the study writes
+a bare `15.0` and the generator reads bare numbers for a speed as SI. The table's number is right, its
+unit is not — or the other way round, and the code cannot tell us which. Full detail and the measured
+conversion in `default-parameters.md` §6. **This is the one deviation of the five that may be
+unintended**, and it is 3.6× on the parameter that scales every discretionary desire.
 
 ### The two that agree in value only
 

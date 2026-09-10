@@ -21,6 +21,7 @@ import edu.kit.ifv.units.Acceleration
 import edu.kit.ifv.units.Distance
 import edu.kit.ifv.units.Speed
 import edu.kit.ifv.units.kmh
+import edu.kit.ifv.units.metersPerSecond
 import edu.kit.ifv.units.meters
 import edu.kit.ifv.units.metersPerSecondSquared
 import kotlin.time.Duration
@@ -320,10 +321,18 @@ object DriverParameterKeys {
     // Social interaction
     // -----------------------------------------------------------------------------------------
 
-    /** Speed-difference scale in the cruising and social pressure desire terms. */
+    /**
+     * Speed-difference scale in the cruising and social pressure desire terms.
+     *
+     * **15 m/s, which is 54 km/h — not the 15 km/h of the model reference's table.** The study writes
+     * a bare `15.0` into a `ParameterTypeSpeed`, and the scenario generator converts bare numbers with
+     * `Speed.instantiateSI`, so the model receives 15 m/s. Trucks likewise receive 108 km/h, not 30.
+     * This is what every published run used; whether it is what was intended is open. See
+     * `default-parameters.md` §6.
+     */
     @JvmField
     val SPEED_GAIN: ParameterKey<Speed> =
-        ParameterKey("vGain", 15.0.kmh,
+        ParameterKey("vGain", 15.0.metersPerSecond,
             Bound.POSITIVE, Provenance.UNKNOWN, "Speed-difference scale for lane-change desire")
 
     /**
@@ -555,7 +564,7 @@ object DriverPresets {
         .with(DriverParameterKeys.STANDSTILL_GAP, 6.0.meters)
         .with(DriverParameterKeys.DESIRED_ACCELERATION, 1.25.metersPerSecondSquared)
         .with(DriverParameterKeys.MAX_ACCELERATION, 1.3.metersPerSecondSquared)
-        .with(DriverParameterKeys.SPEED_GAIN, 30.0.kmh)
+        .with(DriverParameterKeys.SPEED_GAIN, 30.0.metersPerSecond)
         .with(DriverParameterKeys.COOPERATIVE_DECELERATION, 1.0.metersPerSecondSquared)
         .with(DriverParameterKeys.COOPERATION_ENABLED, false)
 }
