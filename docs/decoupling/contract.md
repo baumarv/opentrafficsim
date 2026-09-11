@@ -416,6 +416,14 @@ a parameter at runtime.**
 particular leader, applied by the core *before* the call, by passing a buffered `gap`. The model
 itself is memoryless and therefore substitutable.
 
+**A relaxation is not opened only by a cut-in.** As model v1 the core reproduces the Java model's
+seeding exactly, which means it also opens one when a driver first acquires a leader — every vehicle
+enters the network relaxed — and when a leader *recedes*, because the trigger reads the speed
+difference and not the gap. Both are entries 17 and 18 of the mismatch catalogue
+(`bc4-and-reference-check.md` §7), both are reproduced rather than corrected, and both are pending
+the recalibration decision: changing either raises or lowers the discharge rate the published
+calibration was fitted against.
+
 The model is **one-parameter**. `mirova_model_reference.md` §6 says so explicitly — a single constant
 `τ_relax = 20 s`, with speed-deficit relaxation "not implemented separately" — and that matches the
 code. `CLAUDE.md` §5 described a two-parameter model with τ_s ≈ 15 s until Phase 0.5 corrected it; the
