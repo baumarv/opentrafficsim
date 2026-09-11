@@ -139,9 +139,13 @@ byte count, the host to check, and the first bytes of what actually arrived.
 ### Build recipe
 
 ```bash
-mvn install -pl ots-demo -am -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Djacoco.skip=true
+mvn clean install -pl ots-demo -am -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Djacoco.skip=true
 ```
 
+- `clean` first. An incremental build keeps every class file already in `target/classes`: classes
+  whose source has been deleted, and `Unresolved compilation problem` stubs an IDE wrote there. Both
+  pass a green build and fail only when a run calls into them. The clean chain build is the remedy
+  issues 5 and 6 of the troubleshooting guide prescribe, and it must run online, as it does here.
 - `install`, not `package`: `ots-demo` resolves `ots-road`/`ots-xml` from `.m2`, so changes
   there only take effect once installed
   (see [docs/mirova/troubleshooting_and_compilation.md](../docs/mirova/troubleshooting_and_compilation.md)).

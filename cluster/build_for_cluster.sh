@@ -6,8 +6,8 @@
 # modules), builds all modules required by ots-demo, and writes the runtime classpath and
 # directory layout the batch script expects.
 #
-# Safe to re-run: an existing working toolchain is reused without downloading, and Maven
-# rebuilds only what changed.
+# Safe to re-run: an existing working toolchain is reused without downloading. Maven always
+# builds from clean, so a re-run never keeps a stale class (see step 2).
 #
 # Usage:  export MIROVA_WORKSPACE=<workspace name>
 #         ./cluster/build_for_cluster.sh
@@ -44,7 +44,11 @@ echo "[2/4] Building and installing ots-demo and its module dependencies"
 # All three skip flags are required — see docs/mirova/troubleshooting_and_compilation.md.
 # -Dmaven.javadoc.skip=true in particular is what a plain -DskipTests build is missing:
 # the javadoc plugin fails on pre-existing Javadoc issues in ots-road.
-mvn install -pl ots-demo -am -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Djacoco.skip=true
+# 'clean' first. An incremental build keeps every class file already in target/classes: classes
+# whose source has since been deleted, and 'Unresolved compilation problem' stubs an IDE wrote
+# there. Neither is noticed until a run calls into it. A clean build costs a few minutes per
+# checkout; a stale class costs a job array.
+mvn clean install -pl ots-demo -am -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Djacoco.skip=true
 
 echo
 echo "[3/4] Generating runtime classpath -> ${CP_FILE}"
