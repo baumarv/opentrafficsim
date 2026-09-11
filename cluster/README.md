@@ -227,6 +227,12 @@ path, any working directory.
 `--chdir` makes the relative `logs/` paths in the `#SBATCH --output`/`--error` directives land
 in the workspace (those directives are literal and cannot call `ws_find` themselves).
 
+Before it launches a run, every array task searches the class directories named in `cp.txt` for
+Eclipse `Unresolved compilation problem` stubs, and exits `2`, listing the offending files, if it
+finds one. Such a class loads and passes a green build, then fails the first time a run calls into
+it, so without the check a contaminated tree would take down every task of the array. The remedy is
+a clean rebuild with `build_for_cluster.sh`.
+
 Configure via environment variables — no need to edit the script:
 
 | Variable | Default | Meaning |
