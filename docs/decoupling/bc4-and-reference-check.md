@@ -150,6 +150,8 @@ sources are available.
 | 14 | Reference §3 lists four incentives; the code contains five | **`SocialInteractionsIncentives` has never been registered** — it does not appear in `setDesireLayer` in any commit of that file, on any branch, since it was written in `b894e7ffd` (2026-06-22). | The reference and the *registration* agree; the **code** carries a fifth incentive that never runs. Its parameters `socio` and the social half of `vGain` are therefore inert, and so is **BC-4**, whose only consumer it is. See §5. |
 | 15 | — | Checked and agreeing: the arbitration hysteresis is `HYSTERESIS_MULTIPLIER = 1.10` (`HybridPlanArbitrator:37`), as reference §5 states. | no action |
 | 16 | The parameter set a vehicle is built with | **Two sets exist per vehicle**, differing in the `FSPEED` draw; MiRoVA reads one and `LaneBasedGtu.getDesiredSpeed()` the other. | See §6. |
+| 17 | Reference §6 and Keane & Gao: a relaxation is "triggered on leader change / cut-in", i.e. by an event that leaves a real headway deficit | **A vehicle seeds a relaxation on its own first tactical tick**, having no remembered leader. `NeighborsContext:1574` treats the first leader ever seen as an ID change -- the comment there says so: *"Check for ID change, EVEN IF lastLeaderId was null"* -- and with no previous leader the reference speed falls back to the ego's own (`:1584`). Any leader slower than the ego then yields `gammaV > 0`. | **9 of 11 relaxations in the TaMA sample.** The buffer is seeded with `max(targetHeadway × fGap, gammaS)` (`EgoContext:278`), which at 1.10 s, 110 km/h and `fGap` = 0.40 is ≈ 13 m and does not depend on the actual gap; with τ = 20 s and the 3τ cap it runs up to 60 s. Every vehicle therefore enters the network relaxed. |
+| 18 | As above | **A receding leader can seed a relaxation.** The guard at `:1577` admits a leader that is accelerating and not much slower, and the branch taken depends on `gammaV` -- the *previous* leader's speed minus the new one's -- not on the gap. When `gammaV > 0` the buffer is seeded even though `gammaS` is zero, i.e. although the gap already exceeds the desired headway. | **2 of 11 in the same sample.** A driver tolerating a headway deficit it does not have. |
 
 ### The plan duration in v1
 
@@ -392,3 +394,54 @@ used as evidence.
 `DriverParameters` is resolved once at construction and there is exactly one set per agent, so this defect
 is unrepresentable there — which is the argument for the design, not an accident of it. The host draws
 `fSpeed` once and passes it in.
+
+---
+
+## 7. The two relaxation entries in detail
+
+Observed by the TaMA recording (11 relaxations in the sample, 9 + 2 as above); the *mechanism* below is
+traced in the code here, the *counts* are theirs and are not re-measured.
+
+Both follow from one line and one branch.
+
+**The trigger is an identity change, and the first identity counts as a change.**
+
+```java
+// NeighborsContext:1573-1574
+// BUGFIX: Check for ID change, EVEN IF lastLeaderId was null.
+if (!currentId.equals(this.lastLeaderId))
+```
+
+`lastLeaderId` is `null` until a leader is seen, so the first leader a vehicle ever perceives is an
+"identity change". The reference speed then falls back to the ego's own speed (`:1584`), so a leader any
+slower than the ego produces `gammaV > 0`. A vehicle generated behind slower traffic is relaxed from its
+first tick.
+
+**The seeded buffer does not depend on the gap.**
+
+```java
+// EgoContext:275-280
+if (gammaV.si > 0.0)
+{
+    triggerRelaxation(newLeader.getId(), Length.max(targetHeadway.times(safetyDistanceReductionFactor), gammaS), ...);
+}
+```
+
+The speed-deficit branch seeds `max(T·v·fGap, gammaS)` — a *fraction of the desired headway*, not the
+measured deficit. When the gap already exceeds the desired headway, `gammaS` is zero and the buffer is
+still `T·v·fGap`. That is the receding-leader case, and it is also why the first-tick buffer is ≈ 13 m
+whatever the vehicle is actually following.
+
+**Is this a defect?** It is at least a divergence from what both the reference and Keane & Gao describe,
+where relaxation is the decay of a deficit that exists. Seeding a deficit that does not exist is a
+different model. But `docs/decoupling/inventory.md` §C.6 already records the deliberate part of this: the
+speed deficit is routed into the headway buffer *because tolerating it directly produced collisions*, and
+the seeding constant is the calibrated `fGap`. **Whether the first-tick case is intended is a question for
+the author, not a finding**: it makes every vehicle enter relaxed, which raises the discharge rate the
+calibration was fitted against — so changing it is a behaviour change of the campaign-sized kind, not a
+tidy-up.
+
+For the core contract: `contract.md` §8 specifies relaxation as the decay of a headway deficit opened by a
+cut-in. **If the first-tick seeding is kept, the contract understates the model** and §8 needs a sentence
+saying that a relaxation is also opened when a driver first acquires a leader. Recorded here rather than
+changed, for the same reason.
