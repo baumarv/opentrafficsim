@@ -285,6 +285,21 @@ public class SimpleLaneChangePattern extends ManeuverPattern
             return baseUtility;
         }
 
+        /**
+         * Returns the side this state moves the vehicle towards.
+         * <p>
+         * Fixed when the state is constructed and never changed afterwards, so it is the same while the state is still
+         * waiting for its gap as once the crossing is under way. That makes it the one reliable source of the side during
+         * the wait: a waiting tick's plan carries no lane-change direction, and the indicator it sets can be discarded by
+         * the arbitration.
+         * </p>
+         * @return LateralDirectionality; the direction this state was constructed with
+         */
+        public LateralDirectionality getDirection()
+        {
+            return this.direction;
+        }
+
         @Override
         public String toString()
         {
