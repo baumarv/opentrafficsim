@@ -142,7 +142,7 @@ Adding a new study requires **no** change to this entry point or the sbatch scri
 | File | Role |
 |---|---|
 | `mirova_env.sh` | Single source for workspace resolution (`resolve_workspace`, requires `MIROVA_WORKSPACE`, no `$HOME` fallback) and Java/Maven toolchain activation (`activate_toolchain`) — since bwUniCluster 3.0 provides no Java/Maven module, both are provisioned as tarballs into the workspace. |
-| `build_for_cluster.sh` | Builds the project (`mvn install -pl ots-demo -am -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Djacoco.skip=true`), provisions Java/Maven idempotently with download validation, writes `cp.txt` (classpath). |
+| `build_for_cluster.sh` | Builds the project from clean (`mvn clean install -pl ots-demo -am -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Djacoco.skip=true`), provisions Java/Maven idempotently with download validation, writes `cp.txt` (classpath). |
 | `run_mirova.sbatch` | The SLURM job array script. One array task = two bundled individual runs (global indices `2×TaskID` and `2×TaskID+1`). Each of the two runs gets `-XX:ActiveProcessorCount=1` and its own log file; CPU affinity is read from the task's own affinity mask at runtime (`taskset -cp $$`), never assumed. Requires `MIROVA_CLUSTER_DIR` — `sbatch` runs a *copy* of the script from the job spool directory, so it cannot locate its own directory. |
 | `dates.txt` | The date list for the `dates`/`combos` studies — currently a placeholder (9 dates carried over from the earlier nine-date study), still to be replaced with the real 32 dates. |
 | `generate_demand_csvs.ps1` / `.py` | Generate the full-day demand CSVs on the Windows workstation, where the detector database is reachable. Never run on the cluster. |
