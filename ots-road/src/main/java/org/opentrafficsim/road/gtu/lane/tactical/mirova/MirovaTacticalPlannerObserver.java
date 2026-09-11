@@ -19,9 +19,10 @@ import org.opentrafficsim.road.gtu.lane.plan.operational.SimpleOperationalPlan;
  * {@link MirovaTacticalPlanner#getDiscretionaryLaneChangeDesire} for the two halves,
  * {@link MirovaTacticalPlanner#getKnowledgeChunks} with {@code getDesire()} on each for the per-incentive
  * contributions, {@link MirovaTacticalPlanner#getActivePattern} and
- * {@link MirovaTacticalPlanner#getCurrentActionState} for what is driving, and {@link MirovaTacticalPlanner#getParams}
- * for the parameters it resolved. The plan carries the acceleration, the lane-change direction and the indicator
- * intent.
+ * {@link MirovaTacticalPlanner#getCurrentActionState} for what is driving, {@link MirovaTacticalPlanner#getParams}
+ * for the parameters it resolved, and {@link MirovaTacticalPlanner#getArbitrationProposals} for what each relevant
+ * pattern proposed before the arbitration chose between them. The plan carries the acceleration, the lane-change
+ * direction and the indicator intent.
  * </p>
  * <h3>Read-only, and why that is a promise rather than a guarantee</h3>
  * <p>

@@ -20,6 +20,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.following.CarFollowingModel;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.*;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ArbitrationLayer.HybridPlanArbitrator;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ArbitrationLayer.PatternSelector;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ArbitrationLayer.ScoredOperationalPlan;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.*;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.Desire;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.DesireLayer.DesireIncentive;
@@ -360,6 +361,22 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     public ManeuverPattern getActivePattern()
     {
         return this.lastActivePattern;
+    }
+
+    /**
+     * Returns what each relevant pattern proposed in the most recent tick, before the arbitration chose between them.
+     * <p>
+     * One entry per pattern that produced a plan, in the order the patterns were asked: the pattern, its action state, the
+     * proposed plan with its acceleration, lane-change direction and indicator intent, and the utility the arbitration
+     * scored it with. See {@link HybridPlanArbitrator#getLastProposals} for when the list is empty and what the utility
+     * includes.
+     * </p>
+     * @return List&lt;ScoredOperationalPlan&gt;; the arbitration's input for the most recent tick, possibly empty, never
+     *         {@code null}
+     */
+    public List<ScoredOperationalPlan> getArbitrationProposals()
+    {
+        return this.hybridArbitrator.getLastProposals();
     }
 
     /**
