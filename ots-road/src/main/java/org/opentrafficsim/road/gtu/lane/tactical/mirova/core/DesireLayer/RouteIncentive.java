@@ -169,7 +169,10 @@ public class RouteIncentive extends DesireIncentive
 
         // --- Build Desire vector ------------------------------------------------
 
-        // Return desire with the "mandatory" flag set to true
-        return new Desire(dLeft, dRight, true);
+        // Return desire with the "mandatory" flag set to true, and cache it like every other incentive does.
+        // The planner aggregates the return value, not the field, so the field was dead and stayed at Desire.zero()
+        // for the life of every vehicle -- invisible to the model, wrong for anything that reads the incentive.
+        this.desire = new Desire(dLeft, dRight, true);
+        return this.desire;
     }
 }
