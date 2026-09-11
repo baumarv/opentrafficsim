@@ -45,6 +45,15 @@ public class HybridPlanArbitrator
     /** The action state that was active when the last plan was selected (for planner state sync). */
     private ActionState lastActiveState = null;
 
+    /**
+     * What the patterns proposed in the most recent tick, in the order they were asked, before any of them was chosen.
+     * <p>
+     * Kept only so that an observer can read the arbitration's input once the tick is settled. It is the list the
+     * arbitration builds anyway; keeping a reference to it costs a field write per tick and no allocation.
+     * </p>
+     */
+    private List<ScoredOperationalPlan> lastProposals = Collections.emptyList();
+
     // ----------------------------------------------------------------------
     // Construction
     // ----------------------------------------------------------------------
@@ -88,6 +97,9 @@ public class HybridPlanArbitrator
     public SimpleOperationalPlan arbitrate(final ArrayList<ManeuverPattern> relevantPatterns)
             throws ParameterException, NullPointerException, IllegalArgumentException, GtuException, NetworkException
     {
+        // Nothing proposed yet this tick. It stays empty on a committed tick, which never reaches the proposal stage.
+        this.lastProposals = Collections.emptyList();
+
         // ----------------------------------------------------------------
         // STEP 1 — Commitment check (lane-change patterns only)
         // If an LC pattern holds the action lock, its plan wins unconditionally.
@@ -128,6 +140,9 @@ public class HybridPlanArbitrator
             }
             proposals.add(new ScoredOperationalPlan(plan, utility, pattern, pattern.getCurrentActionState()));
         }
+
+        // The arbitration's input, kept for an observer. Nothing below modifies the list.
+        this.lastProposals = proposals;
 
         if (proposals.isEmpty())
         {
@@ -214,5 +229,31 @@ public class HybridPlanArbitrator
     public ActionState getLastActiveState()
     {
         return this.lastActiveState;
+    }
+
+    /**
+     * Returns what each relevant pattern proposed in the most recent tick: one entry per pattern that produced a plan, in
+     * the order the patterns were asked, with the plan it proposed, the action state that proposed it and the utility it was
+     * scored with.
+     * <p>
+     * This is the arbitration's input, not its outcome. The utility is the value the arbitration compared, so for the
+     * pattern active in the previous tick it includes the hysteresis factor. There is no separate priority: utility is the
+     * only score, and whether it decided the tick or the minimum acceleration did depends on the desire threshold.
+     * </p>
+     * <p>
+     * Empty when the tick never reached the proposal stage, because a committed lane change held the action lock and ran
+     * alone, and when no relevant pattern produced a plan, so the tick fell back to plain car-following. A pattern that was
+     * asked but returned no plan does not appear.
+     * </p>
+     * <p>
+     * The list cannot be modified, but the plans, patterns and states in it are the live objects, so the same read-only
+     * promise applies as for {@link org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlannerObserver}.
+     * It describes the most recent tick in which the arbitration ran.
+     * </p>
+     * @return List&lt;ScoredOperationalPlan&gt;; the proposals of the most recent tick, possibly empty, never {@code null}
+     */
+    public List<ScoredOperationalPlan> getLastProposals()
+    {
+        return Collections.unmodifiableList(this.lastProposals);
     }
 }
