@@ -146,6 +146,10 @@ sources are available.
 | 10 | Reference §8: `f_LC` = 0.5 | **0.40** | −20 %. See §3. |
 | 11 | Reference §8: `x_ext` = 1000 m, "extended anticipation look-ahead" | The value stands, the mechanism does not: the look-ahead mutation it fed was measured inert and deleted in Phase 0.5. The parameter now bounds the merge-lane path projection only. | The symbol survives with a different meaning |
 | 12 | Reference §8: `v_gain` = 15 km/h car, 30 truck | **RESOLVED by decision.** The model now carries 15 / 30 km/h; the published 15 / 30 m/s survives as the `legacy` variant and the tag `published-model`. | See the history below. |
+| 13 | Reference §4 describes `AnticipateDownstreamMergePattern` as part of the pattern library, with two states, a two-threshold activation and priorities 0.15 / 0.25 | **Not registered.** Commented out in `MirovaTacticalPlannerFactory:178` since `acb1ba544` (2026-08-26, "deactivate the downstream merge anticipation"). | The paper describes a pattern no published run contained. The reason is recorded in the code: its activation cannot tell a lane drop from the end of the modelled network, so every vehicle on the final link was pinned at `VCONG`. A paired ten-seed comparison moved speed at `det_L5a` by +29 and +47 km/h with nothing else significant, and one seed in ten collapsed the facility. |
+| 14 | Reference §3 lists four incentives; the code contains five | **`SocialInteractionsIncentives` has never been registered** — it does not appear in `setDesireLayer` in any commit of that file, on any branch, since it was written in `b894e7ffd` (2026-06-22). | The reference and the *registration* agree; the **code** carries a fifth incentive that never runs. Its parameters `socio` and the social half of `vGain` are therefore inert, and so is **BC-4**, whose only consumer it is. See §5. |
+| 15 | — | Checked and agreeing: the arbitration hysteresis is `HYSTERESIS_MULTIPLIER = 1.10` (`HybridPlanArbitrator:37`), as reference §5 states. | no action |
+| 16 | The parameter set a vehicle is built with | **Two sets exist per vehicle**, differing in the `FSPEED` draw; MiRoVA reads one and `LaneBasedGtu.getDesiredSpeed()` the other. | See §6. |
 
 ### The plan duration in v1
 
@@ -243,3 +247,148 @@ mutation it fed was measured inert (100.0000 % of 136.5 M calls served from a st
 and BC-6 bounds what remains to the driver's own perception. The symbol in the table no longer names
 what the code does with it.
 
+---
+
+## 5. What the production configuration actually registers
+
+Evidence for the whole section:
+[`MirovaTacticalPlannerFactory.java:140-180`](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/MirovaTacticalPlannerFactory.java#L140-L180).
+Identical at the tag `published-model`, verified with `git show published-model:…` — so this is what every
+published run contained.
+
+### Desire layer — four of five
+
+| Incentive | Registered | Evidence |
+|---|---|---|
+| `CruisingSpeedIncentive` | **yes** | `:141` |
+| `KeepRightIncentive` | **yes** | `:142` |
+| `RouteIncentive` | **yes** | `:143` |
+| `ProhibitDeadEndIncentive` | **yes** | `:144` |
+| `SocialInteractionsIncentives` | **no — never** | absent from `setDesireLayer`; `git log -S` over that file on all branches returns nothing since the class was written |
+| `CongestionIncentive` | n/a | deleted in Phase 0.5, unregistered before that |
+
+### Intention layer — four of five
+
+| Pattern | Registered | Evidence |
+|---|---|---|
+| `SimpleLaneChangePattern` (the reference's *Discretionary*) | **yes**, exclusive | `:155` |
+| `PreventUndercuttingPattern` | **yes**, parallel | `:158` |
+| `MandatoryLaneChangePattern` | **yes**, exclusive | `:159` |
+| `GapOpenerPattern` | **yes**, parallel | `:160` |
+| `AnticipateDownstreamMergePattern` | **no** | `:178`, commented out with the ten-seed evidence, since `acb1ba544` (2026-08-26) |
+| `AnticipateAdjacentCongestionPattern` | n/a | deleted in Phase 0.5; the reference notes it left the paper's scope too |
+
+### Correcting one attribution
+
+**`GapOpenerPattern` is registered and live.** The ten-seed comparison in the factory comment belongs to
+`AnticipateDownstreamMergePattern`, which sits directly below it. `GapOpenerPattern` was registered in
+`44d04e6c1` and has never been removed; its `checkAbility()` returns `true` unconditionally and its
+`checkContext()` fires whenever a neighbour with an active indicator is within `x_coop` = 100 m. The only
+gate inside it is `cooperativeLaneChangesEnabled`, and that guards one branch only — the *evasive lane
+change* in `evasiveChangePossible` (`:433`). The production set switches that off for trucks, so **trucks
+open gaps but do not dodge sideways**; cars do both.
+
+### What this does to BC-2 and BC-4
+
+**BC-2 is live.** Its site is `GapOpenerPattern.leaderCanCooperate`, reached from `findNewCandidate`
+(`:234`) and from the running state (`:522`). The `coreset` variant measures a real change.
+
+**BC-4 is inert.** Its only consumer is `SocialInteractionsIncentives.followerSocialPressure`, in the
+incentive that is never registered. **`bcFollowerDesiredSpeedEstimated` therefore changes nothing in any
+run — including `coreset` and `bc4_followerdesired`.** The campaign will measure exactly zero there, and
+that is a property of the registration, not a null result about the estimator.
+
+Three consequences follow, and they are not cosmetic:
+
+1. **`contract.md` §0 overstates the core's reference model.** `coreset` differs from `reference` by BC-1,
+   BC-2, BC-6 and BC-8 — four switches, not five.
+2. **The contract's `PerceivedVehicle` argument for dropping `desiredSpeed` still holds**, but the
+   *justification changes*: the field is not observable, and in this configuration nothing reads it either.
+3. **If the social incentive is meant to run, it is a behaviour change to register it** — a large one, since
+   `socio` and the social half of `vGain` would come alive at once. That is a decision, not a fix.
+
+---
+
+## 6. Two parameter sets per vehicle
+
+**Every production vehicle is built with two `Parameters` objects, and MiRoVA reads the one the GTU does
+not.**
+
+The order in
+[`LaneBasedStrategicalRoutePlannerFactory.create`](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/strategical/LaneBasedStrategicalRoutePlannerFactory.java#L126-L133):
+
+```java
+LaneBasedStrategicalRoutePlanner strategicalPlanner = new LaneBasedStrategicalRoutePlanner(
+        this.tacticalPlannerFactory.create(gtu), route, gtu, origin, destination, this.routeGenerator);
+gtu.setParameters(nextParameters(gtu.getType()));   // <-- after the planner exists
+```
+
+and inside `MirovaTacticalPlannerFactory.create` (`:66-79`):
+
+```java
+gtu.setParameters(getParameters());                 // set A
+MirovaTacticalPlanner planner = new MirovaTacticalPlanner(...);   // captures A
+setDesireLayer(planner);                            // the incentives capture A
+```
+
+`nextParameters` returns the *peeked* set — a second, independent call to
+`MirovaTacticalPlannerFactory.getParameters()` — so the GTU ends up holding **set B** while the planner,
+its snapshot and its incentives hold **set A**.
+
+### What differs between A and B
+
+**Exactly one value: `FSPEED`.** Both sets come from the same `getParameters()`, which applies the same
+deterministic `car.*` / `truck.*` overrides; the strategical factory's `ParameterFactory` in this path is
+`ParameterFactoryDefault`, whose `setValues` is empty. The one non-deterministic element is
+`AbstractIdmFactory.getParameters`, which draws `FSPEED` from `N(123.7/120, 0.1)` **on every call**.
+
+### Who reads which
+
+| Reader | Set | Evidence |
+|---|---|---|
+| `MirovaCarFollowingUtil`, `LongitudinalControl` — every car-following call | **A** | `vehicle.getParameters()` where `vehicle` is the planner (`MirovaTacticalPlanner:606`) |
+| `MirovaParameterSnapshot` — every constant parameter | **A** | `MirovaTacticalPlanner:154-155` |
+| The desire layer | **A** | `DesireIncentive:80` captures `gtu.getParameters()` **at construction**, which is inside `create`, before B is installed |
+| `LaneBasedGtu.getDesiredSpeed()` → `EgoContext.getDesiredSpeed()` → the whole belief layer | **B** | `LaneBasedGtu:1463` passes `getParameters()`; `EgoContext:425` calls `gtu.getDesiredSpeed()` |
+| `LaneBasedGtu.getCarFollowingAcceleration()` (OTS-internal, and the skip-this-tick path) | **B** | same |
+
+So the desired speed the belief layer believes in is evaluated with a different `FSPEED` than the
+car-following that acts on it. That is precisely the reported symptom.
+
+### Are the published results affected?
+
+**In principle yes, in practice only in the tail — and this is an estimate from the distributions, not a
+measurement.**
+
+Desired speed is `min(limit × FSPEED, maxVehicleSpeed)`. The two sets can differ only where the `FSPEED`
+term binds:
+
+- **Cars.** Limit 200 km/h, so `200 × FSPEED ~ N(206, 20)` km/h, against a drawn maximum speed of
+  80–200 km/h with a median near 133. The term binds only for cars drawn near the top of that
+  distribution — about 6 % of cars exceed 180 km/h — and then only when the draw falls low. A rough
+  product of the two gives **on the order of 1–2 % of cars**, with a difference of a few km/h where it
+  occurs.
+- **Trucks.** Limit 120 km/h, `120 × FSPEED ~ N(123.7, 12)`, against a maximum speed drawn uniformly over
+  79–100 km/h. `P(120 × FSPEED < 100) ≈ 2.4 %`.
+
+It affects the free-flow speed choice of the fastest few percent of vehicles, which does feed capacity,
+but not by a mechanism that would move a calibration target. **It cannot be dismissed without measuring,
+and it should not be corrected before the campaign** — correcting it changes behaviour, and the campaign
+is running.
+
+### Does the resolved-parameter comparison reflect what vehicles used?
+
+**For every key it compares, yes.** All 27 behavioural keys are set deterministically through the
+`car.*` / `truck.*` overrides and are identical in A and B; the comparison resolves them through the same
+`applyParameter` path the generator uses.
+
+**`FSPEED` is outside it, by construction.** No study sets it, so it never appeared in the comparison, and
+it is the one value that differs between the two sets. A comparison over resolved *overrides* cannot see a
+parameter that is drawn rather than set — which is worth remembering the next time such a comparison is
+used as evidence.
+
+### For the core
+
+`DriverParameters` is resolved once at construction and there is exactly one set per agent, so this defect
+is unrepresentable there — which is the argument for the design, not an accident of it. The host draws
+`fSpeed` once and passes it in.

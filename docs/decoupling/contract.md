@@ -45,7 +45,7 @@ all switches off.
 |---|---|---|
 | BC-1 — EMA coefficient from the actual `dt` | **yes** | §6: every time constant is evaluated on elapsed time. A step-dependent constant is not portable to a host whose step the core does not control. |
 | BC-2 — leader cooperation judged with the ego's own parameters | **yes** | §3: the neighbour's parameters and car-following model are not in `PerceivedVehicle`. |
-| BC-4 — follower desired speed estimated from observation | **yes** | §3: the neighbour's desired speed is not in `PerceivedVehicle`. |
+| BC-4 — follower desired speed estimated from observation | **yes, but inert in OTS** | §3: the neighbour's desired speed is not in `PerceivedVehicle`. **Its only consumer, `SocialInteractionsIncentives`, has never been registered**, so the switch changes nothing in any OTS run and `coreset` differs from `reference` by four switches, not five. The core still omits the field — it is not observable — but the campaign cannot measure the substitution. See [`bc4-and-reference-check.md`](bc4-and-reference-check.md) §5. |
 | BC-5 — mean speed from perceived leaders | **undecided** | Tied to Q1. If adopted, `meanSpeed` leaves the contract; if not, it stays and every host must answer it. |
 | BC-6 — merge reference range limited to perception | **yes** | §1: `expectedMergeSpeed` is bounded by what the driver can see. |
 | BC-7 — extended look-ahead | **n/a** | The mechanism was deleted in Phase 0.5 after it was measured to be inert. |
@@ -191,6 +191,11 @@ BC-4 to weaken the social pressure where it matters, the answer is a **better ob
 not a return to reading another driver's mind.
 
 ### BC-4 in full
+
+**Inert in OTS.** `SocialInteractionsIncentives` is not registered by `MirovaTacticalPlannerFactory` and
+never has been, so nothing in a run reads a follower's desired speed at all. The estimator below is what
+the core would use *if* the social incentive were part of it; registering that incentive is a behaviour
+change in its own right, and a large one.
 
 The estimator, as implemented and verified against the code
 (see [`bc4-and-reference-check.md`](bc4-and-reference-check.md)):
