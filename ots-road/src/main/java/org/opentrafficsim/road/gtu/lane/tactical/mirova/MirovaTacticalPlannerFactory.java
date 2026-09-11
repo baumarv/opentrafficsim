@@ -59,6 +59,37 @@ public class MirovaTacticalPlannerFactory extends AbstractLaneBasedTacticalPlann
     }
 
     /**
+     * An observer installed on every planner this factory creates, or {@code null} when none is.
+     * <p>
+     * One factory serves one vehicle class, so setting it here installs an observer per class -- which is what the
+     * scenario management's tactical planner factory hook is for: it hands over the fully configured factory of each
+     * class, and a single call here is enough.
+     * </p>
+     */
+    private MirovaTacticalPlannerObserver observer = null;
+
+    /**
+     * Installs an observer on every planner this factory creates from now on, or removes the installed one.
+     * <p>
+     * Planners already created are not affected. Install it before the run starts.
+     * </p>
+     * @param tickObserver MirovaTacticalPlannerObserver; the observer, or {@code null} to remove the installed one
+     */
+    public void setObserver(final MirovaTacticalPlannerObserver tickObserver)
+    {
+        this.observer = tickObserver;
+    }
+
+    /**
+     * Returns the observer this factory installs, or {@code null}.
+     * @return MirovaTacticalPlannerObserver; the observer installed on new planners, or {@code null}
+     */
+    public MirovaTacticalPlannerObserver getObserver()
+    {
+        return this.observer;
+    }
+
+    /**
      * Creates a fully initialized {@link MirovaTacticalPlanner} for the given GTU.
      * @param gtu the lane-based GTU to attach the tactical planner to
      * @return the generated MiRoVA tactical planner
@@ -73,6 +104,10 @@ public class MirovaTacticalPlannerFactory extends AbstractLaneBasedTacticalPlann
                     new MirovaTacticalPlanner(nextCarFollowingModel(gtu), gtu, getPerceptionFactory().generatePerception(gtu));
             setDesireLayer(planner);
             setIntentionLayer(planner);
+            if (this.observer != null)
+            {
+                planner.setObserver(this.observer);
+            }
             return planner;
         }
         catch (Exception e)
