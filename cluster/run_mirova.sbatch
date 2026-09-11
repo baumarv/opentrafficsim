@@ -171,6 +171,35 @@ if [ ! -f "${CP_FILE}" ]; then
     exit 2
 fi
 
+# Refuse to start on a class tree carrying an Eclipse compilation stub. An IDE compiling into
+# target/classes writes, for a source it cannot compile, a class whose method bodies are
+# 'throw new Error("Unresolved compilation problem")'. Such a class loads and links, so the build
+# is green and the JVM starts; it fails only when a run first calls into it, which can be minutes
+# into every task of an array. Only the module output directories on the classpath can carry one -
+# the jars come from Maven - so those are what is searched. run_local_parallel.sh makes the same
+# check locally.
+CLASS_DIRS=()
+IFS=':' read -ra CP_ENTRIES <<< "$(cat "${CP_FILE}")"
+for entry in "${CP_ENTRIES[@]}"; do
+    if [ -d "${entry}" ]; then
+        CLASS_DIRS+=("${entry}")
+    fi
+done
+if [ "${#CLASS_DIRS[@]}" -eq 0 ]; then
+    echo "ERROR: no class directory on the classpath in ${CP_FILE}, so nothing could be verified." >&2
+    echo "       Run cluster/build_for_cluster.sh first." >&2
+    exit 2
+fi
+# '|| true': grep exits 1 when it finds nothing, which under pipefail would end the task right here.
+STUB_COUNT="$(grep -rl "Unresolved compilation" "${CLASS_DIRS[@]}" 2>/dev/null | wc -l || true)"
+if [ "${STUB_COUNT}" -gt 0 ]; then
+    echo "ERROR: ${STUB_COUNT} class file(s) contain an Eclipse 'Unresolved compilation problem' stub:" >&2
+    grep -rl "Unresolved compilation" "${CLASS_DIRS[@]}" 2>/dev/null | head -10 >&2 || true
+    echo "       Refusing to start. Rebuild from clean with cluster/build_for_cluster.sh." >&2
+    exit 2
+fi
+echo "Compilation stub check: ${#CLASS_DIRS[@]} class directories on the classpath, none carries a stub."
+
 TASK_ID="${SLURM_ARRAY_TASK_ID:-0}"
 CLASSPATH_VALUE="$(cat "${CP_FILE}")"
 
