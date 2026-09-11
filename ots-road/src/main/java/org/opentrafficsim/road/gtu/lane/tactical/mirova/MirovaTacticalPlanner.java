@@ -66,6 +66,15 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     /** The lane change object handling the physical lane change constraints. */
     protected final LaneChange laneChange;
 
+    /**
+     * The observer of this planner's ticks, or {@code null} when nobody is watching.
+     * <p>
+     * Not {@code final}: it is installed after construction, by the factory or by a test. A planner with none pays one
+     * null check per tick.
+     * </p>
+     */
+    private MirovaTacticalPlannerObserver observer = null;
+
     /** The maneuver pattern that won the arbitration in the previous simulation step. */
     protected ManeuverPattern lastActivePattern = null;
 
@@ -310,7 +319,47 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
                 this.operationalPlan.getIndicatorIntent().toString(),
                 this.operationalPlan.getLaneChangeDirection().toString());
 
+        // 9. And hand the same settled tick to an observer, if one is installed. Same point in the cycle and the same
+        // reason: it is the only moment at which the pattern, the desires and the acceleration agree with each other.
+        if (this.observer != null)
+        {
+            this.observer.afterTick(getGtu().getSimulator().getSimulatorAbsTime(), this, this.operationalPlan);
+        }
+
         return this.operationalPlan;
+    }
+
+    /**
+     * Installs an observer of this planner's ticks, or removes the installed one.
+     * <p>
+     * The observer is called once per tactical tick, after the plan is settled and before it is returned; see
+     * {@link MirovaTacticalPlannerObserver} for what it may and may not do. Install it before the vehicle starts
+     * moving -- typically from a factory -- rather than mid-run, so that a recording covers whole trajectories.
+     * </p>
+     * @param tickObserver MirovaTacticalPlannerObserver; the observer, or {@code null} to remove the installed one
+     */
+    public void setObserver(final MirovaTacticalPlannerObserver tickObserver)
+    {
+        this.observer = tickObserver;
+    }
+
+    /**
+     * Returns the installed observer, or {@code null}.
+     * @return MirovaTacticalPlannerObserver; the installed observer, or {@code null}
+     */
+    public MirovaTacticalPlannerObserver getObserver()
+    {
+        return this.observer;
+    }
+
+    /**
+     * Returns the maneuver pattern that produced the plan of the most recent tick, or {@code null} when that tick fell
+     * through to plain car-following.
+     * @return ManeuverPattern; the active pattern of the last tick, or {@code null}
+     */
+    public ManeuverPattern getActivePattern()
+    {
+        return this.lastActivePattern;
     }
 
     /**
