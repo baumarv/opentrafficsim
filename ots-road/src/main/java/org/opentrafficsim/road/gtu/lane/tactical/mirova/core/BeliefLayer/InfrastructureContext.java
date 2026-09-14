@@ -28,6 +28,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.AbstractLaneBasedTacticalPlanne
 import org.opentrafficsim.road.gtu.lane.tactical.LanePathInfo;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.MergeReferenceDiagnostics;
 import org.opentrafficsim.road.gtu.lane.perception.headway.HeadwayGtu;
 import org.opentrafficsim.road.gtu.lane.tactical.util.SpeedLimitUtil;
 import org.opentrafficsim.road.network.LaneChangeInfo;
@@ -114,6 +115,9 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
 
     /** Cache key for parallel merge detection on the right. */
     private static final String MERGE_CACHE_KEY_RIGHT = "PARALLEL_MERGE_RIGHT";
+
+    /** The record returned when no downstream adjacent lane exists; immutable, so one instance serves. */
+    private static final DownstreamLaneInfo NO_DOWNSTREAM_LANE = new DownstreamLaneInfo(null, null);
 
     /** Distance threshold [m] below which a lane-end is considered critical. */
     private static final double LANE_END_THRESHOLD = 200.0;
@@ -306,22 +310,44 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
      */
     public Lane getDownstreamAdjacentLane(final LateralDirectionality direction)
     {
+        return downstreamAdjacentLaneInfo(direction).getLane();
+    }
+
+    /**
+     * Returns how far ahead the lane {@link #getDownstreamAdjacentLane} found begins.
+     * <p>
+     * The distance is measured from the ego to the start of that lane along the projected path, so it is the range at
+     * which the merge reference speed taken from it originates. {@code null} when no lane was found.
+     * </p>
+     * @param direction the lateral direction of the target merge lane
+     * @return Length; the distance to the start of the downstream adjacent lane, or {@code null} if there is none
+     */
+    public Length getDownstreamAdjacentLaneDistance(final LateralDirectionality direction)
+    {
+        return downstreamAdjacentLaneInfo(direction).getDistance();
+    }
+
+    /**
+     * Returns the cached downstream lane record for a direction, computing it once per tick.
+     * @param direction the lateral direction of the target merge lane
+     * @return DownstreamLaneInfo; the record, never {@code null}, though its lane may be
+     */
+    private DownstreamLaneInfo downstreamAdjacentLaneInfo(final LateralDirectionality direction)
+    {
         String key = DOWNSTREAM_ADJACENT_LANE_KEYS[direction.ordinal()];
         DownstreamLaneInfo cached = getCachedValue(key, DownstreamLaneInfo.class);
 
         if (cached != null)
         {
-            // Return the cached lane (which might correctly be null if none exists)
-            return cached.getLane();
+            // The cached record, whose lane is correctly null when none exists
+            return cached;
         }
 
         // Not in cache, compute strictly for the requested direction
-        Lane computedLane = computeDownstreamAdjacentLane(direction);
+        DownstreamLaneInfo computed = computeDownstreamAdjacentLane(direction);
+        cacheValue(key, computed, true);
 
-        // Wrap the result in DownstreamLaneInfo so we can cache "null" findings safely
-        cacheValue(key, new DownstreamLaneInfo(computedLane), true);
-
-        return computedLane;
+        return computed;
     }
 
     /**
@@ -1010,7 +1036,7 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
      * @param direction the lateral direction of the target merge lane, or {@code null}/{@code NONE} to search both
      * @return the downstream adjacent lane on the main road, or {@code null} if none is found
      */
-    private Lane computeDownstreamAdjacentLane(final LateralDirectionality direction)
+    private DownstreamLaneInfo computeDownstreamAdjacentLane(final LateralDirectionality direction)
     {
         try
         {
@@ -1018,12 +1044,14 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
             // BC-6. The default projects the path 1000 m ahead to find the lane the ego will merge into, and
             // MandatoryLaneChangePattern then reads the speed of every vehicle on it. Neither half is something a
             // driver can do, or a host with only near-field traffic can answer. Under the switch the projection is
-            // bounded by the ego's own look-ahead -- the same range the rest of its perception uses -- so a merge
-            // lane further away than that is simply not found, and the reference speed cascade falls through to its
-            // speed-limit fallback rather than being told a number from beyond the horizon.
+            // bounded by the ego's own look-ahead -- the same range the rest of its perception uses -- and so is the
+            // fallback below it, so a merge lane further away than that is simply not found, and the reference speed
+            // cascade falls through to its speed-limit fallback rather than being told a number from beyond the
+            // horizon.
             Length extended = this.vehicle.getParams().extendedLookAheadDistanceScalar;
             Length lookahead = extended;
-            if (this.vehicle.getParams().bcMergeRefRangeLimited)
+            boolean bounded = this.vehicle.getParams().bcMergeRefRangeLimited;
+            if (bounded)
             {
                 // getParameterOrNull rather than getParameter: this method declares no checked exception and
                 // catches only GtuException and NetworkException, and a look-ahead that cannot be read is not a
@@ -1031,88 +1059,75 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
                 Length visible = this.vehicle.getParameters().getParameterOrNull(ParameterTypes.LOOKAHEAD);
                 lookahead = visible == null ? extended : visible;
             }
+            double perceptionSi = MergeReferenceDiagnostics.ENABLED ? perceptionRangeSi(extended) : 0.0;
 
             LanePathInfo pathInfo = AbstractLaneBasedTacticalPlanner.buildLanePathInfo(egoGtu, lookahead);
             if (pathInfo == null || pathInfo.laneList().isEmpty())
             {
-                return null; // No path ahead, so no downstream lanes
+                return NO_DOWNSTREAM_LANE; // No path ahead, so no downstream lanes
             }
             GtuType gtuType = egoGtu.getType();
 
-            // Bestimme, welche Richtungen überhaupt geprüft werden sollen
+            // Which directions are to be searched at all
             boolean searchLeft = (direction == null || direction == LateralDirectionality.NONE || direction.isLeft());
             boolean searchRight = (direction == null || direction == LateralDirectionality.NONE || direction.isRight());
 
             List<Lane> lanes = pathInfo.laneList();
-            if (lanes.isEmpty() || lanes.size() <= 1)
+            if (lanes.size() <= 1)
             {
-                return null; // No path ahead, so no downstream lanes
+                return NO_DOWNSTREAM_LANE; // No path ahead, so no downstream lanes
             }
+
+            // How far ahead each candidate lane begins. The projection starts at the ego's own position on the first
+            // lane, so the second begins one lane length less that offset ahead and each further one a lane length
+            // beyond its predecessor. The fallback needs this to be held to the same range as the projection, and the
+            // diagnostics need it to say how far away a merge reference came from.
+            Length distance = lanes.get(0).getLength().minus(pathInfo.referencePosition());
 
             // Iterate over all downstream lanes in the projected path
             for (int i = 1; i < lanes.size(); i++)
             {
                 Lane lcLane = lanes.get(i);
-
-                // Prüfe linke Seite, falls relevant
-                if (searchLeft)
+                Lane adjacent = adjacentMergeLane(lcLane, gtuType, searchLeft, searchRight);
+                if (adjacent != null)
                 {
-                    Set<Lane> adjacentLeft = lcLane.accessibleAdjacentLanesLegal(LateralDirectionality.LEFT, gtuType);
-                    if (adjacentLeft != null && !adjacentLeft.isEmpty())
+                    if (MergeReferenceDiagnostics.ENABLED)
                     {
-                        Lane adj = adjacentLeft.iterator().next();
-                        if (!(adj instanceof Shoulder))
-                        {
-                            return adj;
-                        }
+                        MergeReferenceDiagnostics.laneFound(distance.si, perceptionSi, false);
                     }
+                    return new DownstreamLaneInfo(adjacent, distance);
                 }
-
-                // Prüfe rechte Seite, falls relevant
-                if (searchRight)
-                {
-                    Set<Lane> adjacentRight = lcLane.accessibleAdjacentLanesLegal(LateralDirectionality.RIGHT, gtuType);
-                    if (adjacentRight != null && !adjacentRight.isEmpty())
-                    {
-                        Lane adj = adjacentRight.iterator().next();
-                        if (!(adj instanceof Shoulder))
-                        {
-                            return adj;
-                        }
-                    }
-                }
+                distance = distance.plus(lcLane.getLength());
             }
 
-            // Fallback: check the lane right after the lookahead
+            // Fallback: the lane right after the projection, which begins exactly where the projection ends.
+            //
+            // With BC-6 on that is at or beyond the bound by construction, which is the defect this guard closes:
+            // bounding the projection alone still let the merge reference come from one lane past the horizon, which
+            // is what the switch exists to prevent. The projection can also stop early -- at a dead end, or where the
+            // route leaves the lane -- and then this lane may genuinely still be in range, so the distance decides
+            // rather than an assumption about why the loop ended. With the switch off nothing is refused and the
+            // fallback behaves exactly as before.
             Lane lastLane = lanes.get(lanes.size() - 1);
             if (lastLane != null && !lastLane.nextLanes(gtuType).isEmpty())
             {
-                Lane nextAfterLookahead = lastLane.nextLanes(gtuType).iterator().next();
-                if (searchLeft)
+                if (bounded && distance.gt(lookahead))
                 {
-                    Set<Lane> adjacentLeft =
-                            nextAfterLookahead.accessibleAdjacentLanesLegal(LateralDirectionality.LEFT, gtuType);
-                    if (adjacentLeft != null && !adjacentLeft.isEmpty())
+                    if (MergeReferenceDiagnostics.ENABLED)
                     {
-                        Lane adj = adjacentLeft.iterator().next();
-                        if (!(adj instanceof Shoulder))
-                        {
-                            return adj;
-                        }
+                        MergeReferenceDiagnostics.fallbackRefused();
                     }
+                    return NO_DOWNSTREAM_LANE;
                 }
-                if (searchRight)
+                Lane nextAfterLookahead = lastLane.nextLanes(gtuType).iterator().next();
+                Lane adjacent = adjacentMergeLane(nextAfterLookahead, gtuType, searchLeft, searchRight);
+                if (adjacent != null)
                 {
-                    Set<Lane> adjacentRight =
-                            nextAfterLookahead.accessibleAdjacentLanesLegal(LateralDirectionality.RIGHT, gtuType);
-                    if (adjacentRight != null && !adjacentRight.isEmpty())
+                    if (MergeReferenceDiagnostics.ENABLED)
                     {
-                        Lane adj = adjacentRight.iterator().next();
-                        if (!(adj instanceof Shoulder))
-                        {
-                            return adj;
-                        }
+                        MergeReferenceDiagnostics.laneFound(distance.si, perceptionSi, true);
                     }
+                    return new DownstreamLaneInfo(adjacent, distance);
                 }
             }
 
@@ -1126,7 +1141,61 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
             e.printStackTrace();
         }
 
+        return NO_DOWNSTREAM_LANE;
+    }
+
+    /**
+     * Returns the adjacent lane of one lane of the projected path that a merge could target.
+     * <p>
+     * Left before right where both are searched, and a shoulder is not a lane to merge into. This is the test the
+     * projection loop and the fallback below it both make; it was written out twice before, and the two copies are the
+     * kind that drift.
+     * </p>
+     * @param lane the lane of the path being examined
+     * @param gtuType the GTU type deciding which adjacent lanes are legally accessible
+     * @param searchLeft whether the left side is to be searched
+     * @param searchRight whether the right side is to be searched
+     * @return Lane; the adjacent lane, or {@code null} if there is none on the searched sides
+     */
+    private static Lane adjacentMergeLane(final Lane lane, final GtuType gtuType, final boolean searchLeft,
+            final boolean searchRight)
+    {
+        if (searchLeft)
+        {
+            Set<Lane> adjacentLeft = lane.accessibleAdjacentLanesLegal(LateralDirectionality.LEFT, gtuType);
+            if (adjacentLeft != null && !adjacentLeft.isEmpty())
+            {
+                Lane adjacent = adjacentLeft.iterator().next();
+                if (!(adjacent instanceof Shoulder))
+                {
+                    return adjacent;
+                }
+            }
+        }
+        if (searchRight)
+        {
+            Set<Lane> adjacentRight = lane.accessibleAdjacentLanesLegal(LateralDirectionality.RIGHT, gtuType);
+            if (adjacentRight != null && !adjacentRight.isEmpty())
+            {
+                Lane adjacent = adjacentRight.iterator().next();
+                if (!(adjacent instanceof Shoulder))
+                {
+                    return adjacent;
+                }
+            }
+        }
         return null;
+    }
+
+    /**
+     * Returns the range this driver can see, for the diagnostics to measure a find against.
+     * @param fallback Length; the range to report when the look-ahead cannot be read
+     * @return double; the ego's look-ahead [m]
+     */
+    private double perceptionRangeSi(final Length fallback)
+    {
+        Length visible = this.vehicle.getParameters().getParameterOrNull(ParameterTypes.LOOKAHEAD);
+        return visible == null ? fallback.si : visible.si;
     }
 
     // ----------------------------------------------------------------------
@@ -1246,13 +1315,18 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         /** The downstream adjacent lane, or null if none exists. */
         private final Lane lane;
 
+        /** How far ahead that lane begins, or null when there is no lane. */
+        private final Length distance;
+
         /**
          * Constructor.
          * @param lane the downstream lane, or {@code null} if none was found within the horizon
+         * @param distance the distance from the ego to the start of that lane, or {@code null} when there is none
          */
-        public DownstreamLaneInfo(final Lane lane)
+        public DownstreamLaneInfo(final Lane lane, final Length distance)
         {
             this.lane = lane;
+            this.distance = distance;
         }
 
         /**
@@ -1262,6 +1336,15 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
         public Lane getLane()
         {
             return this.lane;
+        }
+
+        /**
+         * Retrieves how far ahead the cached lane begins.
+         * @return Length; the distance to the start of the lane, or {@code null} when there is no lane
+         */
+        public Length getDistance()
+        {
+            return this.distance;
         }
     }
 
