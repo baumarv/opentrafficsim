@@ -18,6 +18,7 @@ import org.opentrafficsim.road.gtu.lane.perception.RelativeLane;
 import org.opentrafficsim.road.gtu.lane.perception.headway.HeadwayGtu;
 import org.opentrafficsim.road.gtu.lane.plan.operational.SimpleOperationalPlan;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.MergeGateDiagnostics;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.MergeReferenceDiagnostics;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameterSnapshot;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.ContextCategory;
@@ -372,18 +373,35 @@ public class MandatoryLaneChangePattern extends ManeuverPattern
                 Lane targetLane = infra.getDownstreamAdjacentLane(dir);
                 if (targetLane != null)
                 {
-                    // BC-6 does its work in getDownstreamAdjacentLane, which under the switch will not return a
-                    // lane further away than the ego can see -- so by the time control reaches here the target lane
-                    // is within the horizon and the scan over it is legitimate. The segment is additionally capped
-                    // at the look-ahead, which is inert at the configured 295 m against a 150 m window but keeps the
-                    // two ranges from contradicting each other if either constant moves.
+                    // BC-6, the third and last place the range has to hold. getDownstreamAdjacentLane will not
+                    // return a lane whose start lies beyond the horizon, neither from the projection nor from the
+                    // fallback past it -- but the window scanned here is measured from that lane's own start, so a
+                    // lane found at 290 m and scanned over 150 m would still take its reference from traffic 440 m
+                    // away. Under the switch the window is therefore bounded by what is left of the look-ahead, and
+                    // where nothing is left the scan does not happen at all and the cascade falls through to the
+                    // speed-limit fallback. With the switch off the window is the full 150 m, as it has always been.
+                    Length foundAt = infra.getDownstreamAdjacentLaneDistance(dir);
                     Length scanLength = REFERENCE_SPEED_SCAN_LENGTH;
                     if (vehicle.getParams().bcMergeRefRangeLimited)
                     {
-                        scanLength = Length.min(scanLength, vehicle.getParameters().getParameter(ParameterTypes.LOOKAHEAD));
+                        Length visible = vehicle.getParameters().getParameter(ParameterTypes.LOOKAHEAD);
+                        Length remaining = foundAt == null ? visible : visible.minus(foundAt);
+                        scanLength = remaining.le0() ? Length.ZERO : Length.min(scanLength, remaining);
                     }
-                    reference = infra.getLaneAverageSpeed(targetLane, Length.ZERO, scanLength,
-                            REFERENCE_SPEED_SAMPLE_SIZE, ScanDirection.BACK_TO_FRONT);
+                    if (scanLength.gt0())
+                    {
+                        reference = infra.getLaneAverageSpeed(targetLane, Length.ZERO, scanLength,
+                                REFERENCE_SPEED_SAMPLE_SIZE, ScanDirection.BACK_TO_FRONT);
+                        if (MergeReferenceDiagnostics.ENABLED && isUsableReference(reference))
+                        {
+                            // Where this reference originates, against the range this driver can see: the far end of
+                            // the scanned window. With BC-6 on none may lie beyond it; with the switch off this is
+                            // what measures how far beyond it they do lie.
+                            double startSi = foundAt == null ? 0.0 : foundAt.si;
+                            MergeReferenceDiagnostics.referenceTaken(startSi, startSi + scanLength.si,
+                                    vehicle.getParameters().getParameter(ParameterTypes.LOOKAHEAD).si);
+                        }
+                    }
                 }
             }
             catch (Exception exception)
