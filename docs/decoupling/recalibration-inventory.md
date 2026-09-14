@@ -220,6 +220,15 @@ inventing a new one.
 5. **Regenerate `parametertable.tex`** and re-tag. The `legacy` variant and the `published-model` tag
    keep the old results reproducible throughout.
 
+**A defect found after this document was written, and it belongs in the list.** `bcInducedDecelKey`
+(BC-10) gives the two induced-deceleration quantities cache keys of their own. They share one today, so
+whichever runs first in a tick decides what the other reads. Measured on one twenty-minute production cell:
+286 cache hits, **every one** of them serving the other overload's number, differing by more than 5 m/s²
+in 18.5 % of cases, and the merge router's follower branch deciding the opposite way in **28 of 281**
+evaluations. The published model keeps the collision, so nothing already measured moves — but a
+recalibration run with the switch on is calibrating a different merge router, so step 2 should screen at a
+decided value of this switch rather than across it.
+
 **One thing to decide before any of it:** whether `dFree` moves with `vGain` (§3.2, point 5), and
 whether the `T` discrepancy of §1.1 — 1.00 / 1.30 against 1.10 / 1.40 — means the published ensemble
 is not the one the production study resolves.

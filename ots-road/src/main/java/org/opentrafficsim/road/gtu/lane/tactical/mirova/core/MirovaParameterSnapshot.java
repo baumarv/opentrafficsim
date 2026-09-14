@@ -293,6 +293,9 @@ public final class MirovaParameterSnapshot implements Serializable
     /** BC-4: follower desired speed estimated from observation rather than read. */
     public final boolean bcFollowerDesiredSpeedEstimated;
 
+    /** BC-10: the two induced-deceleration quantities cache under keys of their own. */
+    public final boolean bcInducedDecelKey;
+
     /** BC-8: contexts update in dependency order. */
     public final boolean bcContextOrderFixed;
 
@@ -379,6 +382,7 @@ public final class MirovaParameterSnapshot implements Serializable
         this.bcFollowerDesiredSpeedEstimated =
                 p.getParameter(MirovaParameters.FOLLOWER_DESIRED_SPEED_ESTIMATED);
         this.bcContextOrderFixed = p.getParameter(MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED);
+        this.bcInducedDecelKey = p.getParameter(MirovaParameters.INDUCED_DECEL_KEY_DISTINCT);
     }
 
     /**

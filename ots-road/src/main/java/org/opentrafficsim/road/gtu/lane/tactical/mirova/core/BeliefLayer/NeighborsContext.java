@@ -48,6 +48,19 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.DefectDiagn
 public class NeighborsContext extends ContextCategory implements UpdatableContext
 {
 
+    /**
+     * Cache key prefix shared by both induced-deceleration overloads, which is the default and the defect: the two
+     * compute different quantities and whichever runs first in a tick decides what the other reads. BC-10
+     * ({@link MirovaParameters#INDUCED_DECEL_KEY_DISTINCT}) replaces it with the two prefixes below.
+     */
+    private static final String INDUCED_DECEL_SHARED_PREFIX = "inducedDecel_";
+
+    /** Cache key prefix for the deceleration computed from the gap, speed difference and headway a caller supplies. */
+    private static final String INDUCED_DECEL_ARGS_PREFIX = "inducedDecelArgs_";
+
+    /** Cache key prefix for the deceleration derived from the perceived gap against {@code s0 + v*T}. */
+    private static final String INDUCED_DECEL_GAP_PREFIX = "inducedDecelGap_";
+
     /** Cache key for ego deceleration left. */
     public static final String EGO_DECEL_LEFT = "egoDecel_LEFT";
 
@@ -508,7 +521,10 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
             return Acceleration.ZERO;
         }
 
-        String cacheKey = "inducedDecel_" + gtu.getId();
+        // BC-10. By default this shares its key with the overload below, which computes a different quantity from
+        // this vehicle's own gap; with the switch on each caches under its own.
+        String cacheKey = (this.vehicle.getParams().bcInducedDecelKey ? INDUCED_DECEL_ARGS_PREFIX
+                : INDUCED_DECEL_SHARED_PREFIX) + gtu.getId();
         Acceleration cached = getCachedValue(cacheKey, Acceleration.class);
         if (cached != null)
         {
@@ -521,9 +537,12 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
     }
 
     /**
-     * Retrieves or computes the deceleration required by a specific GTU using a simplified kinematic formula.
+     * Retrieves or computes the deceleration the perceived gap to a GTU demands, against {@code s0 + v*T}.
      * <p>
-     * Caches the result per GTU ID within the current simulation step to avoid redundant calculations.
+     * This is the gap-acceptance quantity: the desired headway is derived here from the follower's speed and the
+     * ego's parameters, rather than supplied by the caller as in the overload above. The two are different numbers
+     * for the same vehicle, and by default they share a cache key -- see
+     * {@link MirovaParameters#INDUCED_DECEL_KEY_DISTINCT}.
      * </p>
      * @param gtu the observed neighboring GTU
      * @return minimum required deceleration [m/s&sup2;]
@@ -536,7 +555,9 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
             return Acceleration.ZERO;
         }
 
-        String cacheKey = "inducedDecel_" + gtu.getId();
+        // BC-10, the other half. See the four-argument overload above.
+        String cacheKey = (this.vehicle.getParams().bcInducedDecelKey ? INDUCED_DECEL_GAP_PREFIX
+                : INDUCED_DECEL_SHARED_PREFIX) + gtu.getId();
         Acceleration cached = getCachedValue(cacheKey, Acceleration.class);
         if (cached != null)
         {
