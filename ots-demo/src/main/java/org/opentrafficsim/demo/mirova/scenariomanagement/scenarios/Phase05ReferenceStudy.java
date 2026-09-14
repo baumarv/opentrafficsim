@@ -69,10 +69,11 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * sharing one per GTU. Measured on one production cell, every cache hit on either path was serving the other
  * overload's number, and the merge router's follower branch decided the opposite way in 10 % of its evaluations.
  * The lane-change gate did not flip there at all, so expect the effect on the ramp rather than on the mainline.</li>
- * <li><b>coreset</b> -- the first of two variants that are not a single switch. It turns on BC-1, BC-2, BC-4, BC-6 and BC-8
- * together, because that combination is what the decoupled core reproduces by construction: BC-2 and BC-4 remove
- * fields no driver can observe, BC-6 bounds the merge scan to what one can see, BC-1 puts every time constant on
- * elapsed time, and BC-8 fixes the context update order. BC-5 is left out because it is still undecided. This is
+ * <li><b>coreset</b> -- the first of two variants that are not a single switch. It turns on BC-1, BC-2, BC-4, BC-6,
+ * BC-8 and BC-10 together, because that combination is what the decoupled core reproduces by construction: BC-2 and
+ * BC-4 remove fields no driver can observe, BC-6 bounds the merge scan to what one can see, BC-1 puts every time
+ * constant on elapsed time, BC-8 fixes the context update order, and BC-10 follows from the core having no
+ * induced-deceleration memo at all -- it computes each quantity where it is needed. BC-5 is left out because it is still undecided. This is
  * the run the migration is measured against -- the {@code reference} variant is what the publications rest on, and
  * the two are not the same model. See {@code docs/decoupling/contract.md} section 0.</li>
  * <li><b>coreset-interp</b> -- the core set plus BC-9. Which of the two is the core reference depends on whether
@@ -149,7 +150,8 @@ public class Phase05ReferenceStudy implements StudyDefinition
                         MirovaParameters.LEADER_HEADWAY_FROM_OWN_MODEL.getId(),
                         MirovaParameters.FOLLOWER_DESIRED_SPEED_ESTIMATED.getId(),
                         MirovaParameters.MERGE_REFERENCE_RANGE_LIMITED.getId(),
-                        MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED.getId()));
+                        MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED.getId(),
+                        MirovaParameters.INDUCED_DECEL_KEY_DISTINCT.getId()));
         VARIANTS.put(LEGACY_LABEL, List.of());
         VARIANTS.put(CORE_SET_INTERP_LABEL,
                 List.of(MirovaParameters.EMA_ALPHA_FROM_ACTUAL_DT.getId(),
@@ -157,6 +159,7 @@ public class Phase05ReferenceStudy implements StudyDefinition
                         MirovaParameters.FOLLOWER_DESIRED_SPEED_ESTIMATED.getId(),
                         MirovaParameters.MERGE_REFERENCE_RANGE_LIMITED.getId(),
                         MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED.getId(),
+                        MirovaParameters.INDUCED_DECEL_KEY_DISTINCT.getId(),
                         MirovaParameters.DESIRE_INTERPOLATION_FIXED.getId()));
     }
 

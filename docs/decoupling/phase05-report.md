@@ -379,6 +379,13 @@ quantity they wrote; the merge router is the one site that reads the other overl
 **Expected.** An effect on the ramp, not on the mainline, and only through the merge router: a tenth of its follower
 evaluations route the other way, between merging ahead of the follower and waiting for the gap.
 
+**In `coreset`.** The core has no induced-deceleration memo -- `egoDeceleration`, `followerDeceleration` and
+`inducedDeceleration` are three functions, each computing its own quantity -- so it reproduces the switched
+behaviour by construction, as it does for BC-2 and BC-6. Note that the core file carrying those three claims the
+one-argument rule equals `egoDeceleration` "to the bit" and that the shared key therefore does not matter: that
+holds for a vehicle ahead and not for a follower, where the rear headway carries a slow-follower floor. The 28
+flips above are follower evaluations.
+
 ### BC-4 — not implemented; estimator proposed for approval
 
 The review asked for the estimator to be proposed before it is written.
@@ -424,10 +431,11 @@ against decision 1.
 
 ## 7. Step 6 — run configurations
 
-> **Added in Phase 1.** The study now carries an eighth variant, `coreset`, which turns on BC-1, BC-2,
-> BC-4, BC-6 and BC-8 **together**. That combination is not a curiosity: it is what the decoupled core
+> **Added in Phase 1.** The study carries the variant `coreset`, which turns on BC-1, BC-2,
+> BC-4, BC-6, BC-8 and BC-10 **together**. That combination is not a curiosity: it is what the decoupled core
 > reproduces by construction, because BC-2 and BC-4 remove fields no driver can observe, BC-6 bounds
-> the merge scan to visible traffic, BC-1 puts every time constant on elapsed time and BC-8 fixes the
+> the merge scan to visible traffic, BC-10 follows from the core having no induced-deceleration memo to
+> share a key in, BC-1 puts every time constant on elapsed time and BC-8 fixes the
 > update order. BC-5 is left out while Q1 is open. **`reference` is the run the publications rest on;
 > `coreset` is the run the migration is measured against, and the two are not the same model.** See
 > [`contract.md`](contract.md) §0. Registration counts, verified against the built classes: 5280 runs
