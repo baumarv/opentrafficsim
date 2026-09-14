@@ -562,7 +562,7 @@ The order follows the dependency arrows upward, so that OTS remains runnable at 
 (each stage keeps a thin OTS-side shim over the newly-moved core code).
 
 **Blocked on the BC campaign (added in Phase 1).** The core does not reproduce the Phase 0.5 reference
-run: it embodies BC-1, BC-2, BC-4, BC-6 and BC-8, and BC-5 is undecided
+run: it embodies BC-1, BC-2, BC-4, BC-6, BC-8, BC-10 and BC-12, BC-5 is undecided and BC-11 is out
 (see [`contract.md`](contract.md) §0). Stages **0 to 2 are unaffected** — relaxation, parameters and
 IDM+ are the same code either way — but **stages 4, 5 and 6 must not start before the campaign has
 been evaluated**, because until then the target behaviour of the layers they move is not fixed:

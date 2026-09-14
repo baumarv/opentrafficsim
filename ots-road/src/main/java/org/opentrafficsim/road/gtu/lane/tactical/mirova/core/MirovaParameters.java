@@ -480,6 +480,28 @@ public final class MirovaParameters implements ConstraintInterface
                         new ParameterTypeBoolean("bcHeadwayFactorKey",
                                         "BC-11: car-following cache keyed by leader and headway factor", false);
 
+        /**
+         * BC-12. Let the deceleration-threshold cache keys cover the direction they were computed for.
+         * <p>
+         * {@code EgoContext.getEgoDecelerationThreshold} and {@code getFollowerDecelerationThreshold} pick their
+         * per-tick key with {@code (dir == LEFT) ? ..._LEFT : ..._RIGHT}, so a call for
+         * {@link org.opentrafficsim.core.network.LateralDirectionality#NONE} is both answered from and written into
+         * the RIGHT entry. {@code MandatoryLaneChangePattern.getTargetDirection()} returns
+         * {@code dominantDirection()} live, which is NONE whenever the two desires are within 1e-3, so this happens.
+         * A NONE call interpolates on a directional desire of 0 and therefore always stores the minimum threshold.
+         * </p>
+         * <p>
+         * With this set NONE keys separately and no longer writes the RIGHT entry. Measured on the two production
+         * cells the correction is inert -- 3 and 15 poisoned reads, all of them equal to what the reader's own
+         * direction would have computed -- because the condition that produces NONE also drives the right desire
+         * below {@code dMand}, where the interpolation clamps to that same minimum. That agreement is circumstance,
+         * not construction: NONE also arises with both desires above {@code dMand}, and there the two differ.
+         * </p>
+         */
+        public static final ParameterTypeBoolean DECEL_THRESHOLD_KEY_DISTINCT =
+                        new ParameterTypeBoolean("bcDecelThresholdKey",
+                                        "BC-12: deceleration-threshold cache keys cover NONE", false);
+
         /** Whether acceleration damping during active headway relaxation is enabled. */
         public static final ParameterTypeBoolean RELAXATION_ACC_DAMPING_ENABLED =
                         new ParameterTypeBoolean("aRelaxDampingEnabled",

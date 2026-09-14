@@ -84,6 +84,12 @@ public class EgoContext extends ContextCategory implements UpdatableContext
     /** Cache key for follower deceleration threshold (right). */
     public static final String FOLLOWER_DECELERATION_THRESHOLD_RIGHT = "followerDecelerationThresholdRight";
 
+    /** Cache key for the ego deceleration threshold of an undecided direction. BC-12 only. */
+    public static final String EGO_DECELERATION_THRESHOLD_NONE = "egoDecelerationThresholdNone";
+
+    /** Cache key for the follower deceleration threshold of an undecided direction. BC-12 only. */
+    public static final String FOLLOWER_DECELERATION_THRESHOLD_NONE = "followerDecelerationThresholdNone";
+
     /** Cache key for maximum physical acceleration. */
     public static final String MAX_PHYSICAL_ACCELERATION = "maxPhysicalAcceleration";
 
@@ -435,7 +441,8 @@ public class EgoContext extends ContextCategory implements UpdatableContext
      */
     public Acceleration getEgoDecelerationThreshold(final LateralDirectionality dir) throws ParameterException
     {
-        String key = (dir == LateralDirectionality.LEFT) ? EGO_DECELERATION_THRESHOLD_LEFT : EGO_DECELERATION_THRESHOLD_RIGHT;
+        String key = thresholdKey(dir, EGO_DECELERATION_THRESHOLD_LEFT, EGO_DECELERATION_THRESHOLD_RIGHT,
+                EGO_DECELERATION_THRESHOLD_NONE);
 
         Acceleration cached = getCachedValue(key, Acceleration.class);
         if (cached != null)
@@ -456,8 +463,8 @@ public class EgoContext extends ContextCategory implements UpdatableContext
      */
     public Acceleration getFollowerDecelerationThreshold(final LateralDirectionality dir) throws ParameterException
     {
-        String key = (dir == LateralDirectionality.LEFT) ? FOLLOWER_DECELERATION_THRESHOLD_LEFT
-                : FOLLOWER_DECELERATION_THRESHOLD_RIGHT;
+        String key = thresholdKey(dir, FOLLOWER_DECELERATION_THRESHOLD_LEFT, FOLLOWER_DECELERATION_THRESHOLD_RIGHT,
+                FOLLOWER_DECELERATION_THRESHOLD_NONE);
 
         Acceleration cached = getCachedValue(key, Acceleration.class);
         if (cached != null)
@@ -468,6 +475,34 @@ public class EgoContext extends ContextCategory implements UpdatableContext
         Acceleration result = computeFollowerDecelerationThreshold(dir);
         cacheValue(key, result, true);
         return result;
+    }
+
+    /**
+     * Returns the key a deceleration threshold for the given direction caches under.
+     * <p>
+     * BC-12. By default anything that is not LEFT takes the RIGHT key, which is the defect: a call for NONE -- which
+     * {@code MandatoryLaneChangePattern.getTargetDirection()} produces whenever the two desires are within 1e-3 --
+     * is answered from and written into the RIGHT entry, although it interpolates on a directional desire of 0 and
+     * so always yields the minimum threshold. With the switch on NONE keys separately.
+     * </p>
+     * @param dir LateralDirectionality; the direction asked for
+     * @param left String; the key for LEFT
+     * @param right String; the key for RIGHT
+     * @param none String; the key for NONE, used only with BC-12 on
+     * @return String; the cache key
+     */
+    private String thresholdKey(final LateralDirectionality dir, final String left, final String right,
+            final String none)
+    {
+        if (dir == LateralDirectionality.LEFT)
+        {
+            return left;
+        }
+        if (dir != LateralDirectionality.RIGHT && this.vehicle.getParams().bcDecelThresholdKey)
+        {
+            return none;
+        }
+        return right;
     }
 
     /**

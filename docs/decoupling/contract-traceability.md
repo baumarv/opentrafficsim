@@ -4,7 +4,8 @@ Every live row of inventory §A against the contract element that takes it over.
 [`contract.md`](contract.md) and the drafts in [`contract/`](contract/).
 
 **Which behaviour.** The contract elements below implement the core's reference model, not the
-Phase 0.5 reference run: BC-1, BC-2, BC-4, BC-6 and BC-8 are in by construction, BC-5 is undecided.
+Phase 0.5 reference run: BC-1, BC-2, BC-4, BC-6, BC-8, BC-10 and BC-12 are in by construction, BC-5 is
+undecided and BC-11 is deliberately out.
 See [`contract.md`](contract.md) §0.
 
 **Reading it.** *Core* = the element in the Kotlin drafts. *Adapter* = `mirova-ots` only; the core

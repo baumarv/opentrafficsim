@@ -84,6 +84,10 @@ with. See `phase05-report.md` for what each one changes.
 | `bcMeanSpeedFromLeaders` | `MEAN_SPEED_FROM_PERCEIVED_LEADERS` | `MacroTrafficContext.computeAverageSpeed` |
 | `bcMergeRefRangeLimited` | `MERGE_REFERENCE_RANGE_LIMITED` | `MandatoryLaneChangePattern.getMergeReferenceSpeed` |
 | `bcContextOrderFixed` | `CONTEXT_UPDATE_ORDER_FIXED` | `VehicleContextManager.orderedCategories` |
+| `bcDesireInterpolation` | `DESIRE_INTERPOLATION_FIXED` | `MirovaTacticalPlanner.updateLaneChangeDesire` |
+| `bcInducedDecelKey` | `INDUCED_DECEL_KEY_DISTINCT` | `NeighborsContext.getInducedDeceleration` overloads |
+| `bcHeadwayFactorKey` | `HEADWAY_FACTOR_KEY_DISTINCT` | `MirovaCarFollowingUtil.cacheKey` |
+| `bcDecelThresholdKey` | `DECEL_THRESHOLD_KEY_DISTINCT` | `EgoContext.thresholdKey` |
 
 ---
 

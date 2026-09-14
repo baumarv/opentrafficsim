@@ -74,11 +74,19 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * the congested day, 109 on the free-flow one -- but a wrong acceleration propagates, and the commanded plan differs
  * on 26 % and 42 % of ticks respectively. <b>Not in the core set</b>: the core reproduces the leader-only key
  * deliberately (ADR-014), so adopting this would make the core set something the core does not embody.</li>
+ * <li><b>bc12_decelthreshold</b> -- the two deceleration-threshold cache keys cover NONE instead of folding it
+ * onto the RIGHT key, so a call for an undecided direction no longer answers, or poisons, a genuine RIGHT query in
+ * the same tick. Measured inert on both production cells: of 18 407 and 18 849 genuine RIGHT reads, 3 and 15 were
+ * served a NONE-written entry, and every one of them equalled what the reader's own direction would have computed,
+ * because the condition producing NONE also drives the right desire below {@code dMand} where the interpolation
+ * clamps to the same minimum. It is registered because that agreement is circumstance and not construction, and the
+ * campaign moves the desires. <b>In the core set</b>: the core has no such memo and no NONE at all.</li>
  * <li><b>coreset</b> -- the first of two variants that are not a single switch. It turns on BC-1, BC-2, BC-4, BC-6,
- * BC-8 and BC-10 together, because that combination is what the decoupled core reproduces by construction: BC-2 and
+ * BC-8, BC-10 and BC-12 together, because that combination is what the decoupled core reproduces by construction: BC-2 and
  * BC-4 remove fields no driver can observe, BC-6 bounds the merge scan to what one can see, BC-1 puts every time
  * constant on elapsed time, BC-8 fixes the context update order, and BC-10 follows from the core having no
- * induced-deceleration memo at all -- it computes each quantity where it is needed. BC-5 is left out because it is still undecided. This is
+ * induced-deceleration memo at all -- it computes each quantity where it is needed, and BC-12 from the same absence
+ * on the deceleration thresholds, which the core takes a desire for rather than a direction. BC-5 is left out because it is still undecided. This is
  * the run the migration is measured against -- the {@code reference} variant is what the publications rest on, and
  * the two are not the same model. See {@code docs/decoupling/contract.md} section 0.</li>
  * <li><b>coreset-interp</b> -- the core set plus BC-9. Which of the two is the core reference depends on whether
@@ -92,7 +100,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * <p>
  * With {@code --variants=reference} only the baseline is registered, and
  * {@code --variants=reference,coreset,coreset-interp} runs the three baselines the migration needs; the default
- * registers all ten. Enabling the defect counters is orthogonal and done through the JVM:
+ * registers all thirteen. Enabling the defect counters is orthogonal and done through the JVM:
  * {@code -Dmirova.defectDiag=true -Dmirova.defectDiagFile=<out>/defects.csv}.
  * </p>
  * <p>
@@ -151,13 +159,15 @@ public class Phase05ReferenceStudy implements StudyDefinition
         VARIANTS.put("bc9_interp", List.of(MirovaParameters.DESIRE_INTERPOLATION_FIXED.getId()));
         VARIANTS.put("bc10_induceddecel", List.of(MirovaParameters.INDUCED_DECEL_KEY_DISTINCT.getId()));
         VARIANTS.put("bc11_headwaykey", List.of(MirovaParameters.HEADWAY_FACTOR_KEY_DISTINCT.getId()));
+        VARIANTS.put("bc12_decelthreshold", List.of(MirovaParameters.DECEL_THRESHOLD_KEY_DISTINCT.getId()));
         VARIANTS.put(CORE_SET_LABEL,
                 List.of(MirovaParameters.EMA_ALPHA_FROM_ACTUAL_DT.getId(),
                         MirovaParameters.LEADER_HEADWAY_FROM_OWN_MODEL.getId(),
                         MirovaParameters.FOLLOWER_DESIRED_SPEED_ESTIMATED.getId(),
                         MirovaParameters.MERGE_REFERENCE_RANGE_LIMITED.getId(),
                         MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED.getId(),
-                        MirovaParameters.INDUCED_DECEL_KEY_DISTINCT.getId()));
+                        MirovaParameters.INDUCED_DECEL_KEY_DISTINCT.getId(),
+                        MirovaParameters.DECEL_THRESHOLD_KEY_DISTINCT.getId()));
         VARIANTS.put(LEGACY_LABEL, List.of());
         VARIANTS.put(CORE_SET_INTERP_LABEL,
                 List.of(MirovaParameters.EMA_ALPHA_FROM_ACTUAL_DT.getId(),
@@ -166,6 +176,7 @@ public class Phase05ReferenceStudy implements StudyDefinition
                         MirovaParameters.MERGE_REFERENCE_RANGE_LIMITED.getId(),
                         MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED.getId(),
                         MirovaParameters.INDUCED_DECEL_KEY_DISTINCT.getId(),
+                        MirovaParameters.DECEL_THRESHOLD_KEY_DISTINCT.getId(),
                         MirovaParameters.DESIRE_INTERPOLATION_FIXED.getId()));
     }
 

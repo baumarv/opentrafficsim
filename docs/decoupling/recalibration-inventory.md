@@ -237,6 +237,17 @@ the commanded plan then differs on 26 % and 42 % of ticks. The published model k
 this one is **not** in the core set, because the core reproduces the leader-only key by decision (ADR-014), so
 a recalibration has to decide the switch *and* whether the core follows.
 
+**A fourth instance, currently inert, and it is on the list for that reason.** `bcDecelThresholdKey`
+(BC-12) stops a lane-change direction of NONE from folding onto the RIGHT key of the two
+deceleration-threshold memos, where it both reads and overwrites a genuine RIGHT answer. On both
+production cells the correction changes nothing — 3 and 15 poisoned reads, all equal to what the reader
+would have computed itself, and the recording with the switch on is byte-identical to the one with it off.
+That equality holds only because the desires that produce NONE are near zero and therefore below `dMand`,
+where the interpolation clamps both to the same minimum. A recalibration that moves `dMand`, or that
+raises the desires, breaks that coincidence and the switch starts to matter. It is in the core set, so
+the core reference already has it on; what needs deciding is the published model, and that decision
+cannot be read off today's numbers.
+
 **One thing to decide before any of it:** whether `dFree` moves with `vGain` (§3.2, point 5), and
 whether the `T` discrepancy of §1.1 — 1.00 / 1.30 against 1.10 / 1.40 — means the published ensemble
 is not the one the production study resolves.
