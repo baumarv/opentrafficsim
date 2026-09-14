@@ -420,6 +420,49 @@ day (42 %).
 **Not in the core set.** The core reproduces the leader-only key by decision -- ADR-014, and `RelaxedCarFollowing`
 says so in as many words. See [`contract.md`](contract.md) §0.
 
+### BC-12 `bcDecelThresholdKey` — the deceleration-threshold keys cover NONE
+
+**Changes.** `EgoContext.getEgoDecelerationThreshold` and `getFollowerDecelerationThreshold` pick their per-tick key
+with `(dir == LEFT) ? ..._LEFT : ..._RIGHT`. Anything that is not LEFT therefore takes the RIGHT key, and a call for
+`LateralDirectionality.NONE` is both answered from and written into the RIGHT entry.
+`MandatoryLaneChangePattern.getTargetDirection()` returns `dominantDirection()` live, and that is NONE whenever the
+two desires are within `1e-3`, so NONE does arrive. With the switch on NONE keys separately.
+
+**Why it looks worse than the other three.** A NONE call interpolates on `getDirectionalDesire(NONE)`, which is
+`0.0`, so it always stores the *minimum* threshold — the least negative value the interpolation can produce. A
+genuine RIGHT read served that entry gets a floor that is too lenient at the five `max`/`min` clamps
+(`MandatoryLaneChangePattern` at four sites, `PreventUndercuttingPattern` at one) and a comparison that is too strict
+at the lane-change gate. Unlike the other instances of this class the call does not merely misread, it writes.
+
+**Measured, and the premise does not hold.** Two twenty-minute production cells, every switch at its default, with a
+probe whose inertness is proven by both recordings reproducing their references exactly:
+
+| | 2025-10-27, congested | 2025-09-22, free flow |
+|---|---|---|
+| `getEgoDecelerationThreshold(NONE)` | 9 419 | 7 997 |
+| genuine `ego/RIGHT` calls | 18 407 | 18 849 |
+| RIGHT reads served a NONE-written entry | **3** | **15** |
+| of those, \|served − own\| = 0 | 3 (100 %) | 15 (100 %) |
+| gate decisions changed, ego / follower / overall | 0 / 0 / 0 of 30 100 | 0 / 0 / 0 of 32 471 |
+| `getFollowerDecelerationThreshold(NONE)` | 0 | 0 |
+
+There is a reason the difference is always zero, and it is worth stating because it is not luck in the individual
+case: `dominantDirection()` returns NONE when `|left − right| < 1e-3`, which in practice means both desires are near
+zero; the genuine RIGHT read in that tick therefore has a right desire below `dMand`, where the interpolation clamps
+to fraction 0 — the same minimum the NONE call stored. The two agree *because* the condition producing NONE also
+drives the right desire under the mandatory threshold.
+
+That is circumstance, not construction. NONE also arises when the two desires are close *above* `dMand`, and there a
+NONE write would store −2.0 m/s² where the genuine RIGHT read wants a value interpolated down to −4.0. It did not
+occur in either cell — 0 of 18 — but nothing in the code prevents it, and the campaign moves the desires.
+
+**Proven on both cells.** Off and on are *both* byte-identical to their references: `e8dcc434…` on 2025-10-27 and
+`303125a4…` on 2025-09-22, 0 of 337 568 and 0 of 353 570 ticks differing. The switch is a no-op at the current
+parameters, which is the result and not a failure to detect one.
+
+**In the core set.** The core produces the corrected behaviour by construction, one step beyond BC-10: it has no memo
+on these two quantities at all, and no NONE to alias. See [`contract.md`](contract.md) §0.
+
 ### BC-4 — not implemented; estimator proposed for approval
 
 The review asked for the estimator to be proposed before it is written.
@@ -466,14 +509,16 @@ against decision 1.
 ## 7. Step 6 — run configurations
 
 > **Added in Phase 1.** The study carries the variant `coreset`, which turns on BC-1, BC-2,
-> BC-4, BC-6, BC-8 and BC-10 **together**. That combination is not a curiosity: it is what the decoupled core
+> BC-4, BC-6, BC-8, BC-10 and BC-12 **together**. That combination is not a curiosity: it is what the decoupled core
 > reproduces by construction, because BC-2 and BC-4 remove fields no driver can observe, BC-6 bounds
 > the merge scan to visible traffic, BC-10 follows from the core having no induced-deceleration memo to
-> share a key in, BC-1 puts every time constant on elapsed time and BC-8 fixes the
+> share a key in, BC-12 from the same absence on the deceleration thresholds — which the core takes a
+> desire for rather than a direction, and whose `Side` has no NONE to alias — BC-1 puts every time
+> constant on elapsed time and BC-8 fixes the
 > update order. BC-5 is left out while Q1 is open. **`reference` is the run the publications rest on;
 > `coreset` is the run the migration is measured against, and the two are not the same model.** See
-> [`contract.md`](contract.md) §0. Registration counts, verified against the built classes: 5760 runs
-> for all twelve variants over sixteen dates at thirty replications, 960 for
+> [`contract.md`](contract.md) §0. Registration counts, verified against the built classes: 6240 runs
+> for all thirteen variants over sixteen dates at thirty replications, 960 for
 > `--variants=reference,coreset`.
 
 
