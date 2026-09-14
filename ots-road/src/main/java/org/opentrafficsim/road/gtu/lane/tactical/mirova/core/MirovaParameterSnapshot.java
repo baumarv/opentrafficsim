@@ -293,6 +293,9 @@ public final class MirovaParameterSnapshot implements Serializable
     /** BC-4: follower desired speed estimated from observation rather than read. */
     public final boolean bcFollowerDesiredSpeedEstimated;
 
+    /** BC-11: whether the car-following cache key carries the headway factor of the call. */
+    public final boolean bcHeadwayFactorKey;
+
     /** BC-10: the two induced-deceleration quantities cache under keys of their own. */
     public final boolean bcInducedDecelKey;
 
@@ -383,6 +386,7 @@ public final class MirovaParameterSnapshot implements Serializable
                 p.getParameter(MirovaParameters.FOLLOWER_DESIRED_SPEED_ESTIMATED);
         this.bcContextOrderFixed = p.getParameter(MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED);
         this.bcInducedDecelKey = p.getParameter(MirovaParameters.INDUCED_DECEL_KEY_DISTINCT);
+        this.bcHeadwayFactorKey = p.getParameter(MirovaParameters.HEADWAY_FACTOR_KEY_DISTINCT);
     }
 
     /**

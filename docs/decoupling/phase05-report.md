@@ -386,6 +386,40 @@ one-argument rule equals `egoDeceleration` "to the bit" and that the shared key 
 holds for a vehicle ahead and not for a follower, where the rear headway carries a slow-follower floor. The 28
 flips above are follower evaluations.
 
+### BC-11 `bcHeadwayFactorKey` — the car-following cache keyed by the headway it was computed at
+
+**Changes.** `EgoContext.tickAccelerationCache` is keyed by the leader's id, while the value also depends on the
+desired headway in force: `followWithReducedHeadway` multiplies `T` by a factor for one call, which is the whole
+mechanism by which `PreventUndercuttingPattern` yields. Two calls for the same leader in one tick therefore answer
+each other. With the switch on the key carries the factor. The relaxation lookups keep the leader's own id.
+
+**Affects.** Every consumer of the per-tick cache in a tick where that leader was also asked about at a different
+headway: `LongitudinalControl`, `LateralExecution`, the gap opener, and `PreventUndercuttingPattern` itself.
+
+**Measured**, on two twenty-minute production cells with every switch at its default. The contamination is rare and
+asymmetric, and the second day is the telling one because yielding is a free-flow mechanism:
+
+| | 2025-10-27, congested | 2025-09-22, free flow |
+|---|---|---|
+| cache hits | 312 344 | 326 860 |
+| hits at a different factor | **23** (0.01 %) | **109** (0.03 %) |
+| direction | all 23 read 1.00, written 0.44 | **93 read 1.00, written 0.44**; 16 the other way |
+| \|served − own\| | mean 0.13, max 0.31 m/s² | mean 2.46, max 4.53 m/s² |
+| `prepareLaneChange` command changed | 0 of 3206 | 0 of 5183 |
+
+**The defect is not the one the name suggests.** On the free-flow day the dominant direction is a *plain*
+car-following call being served a *yielding* number -- the reduction leaking out of the pattern that asked for it,
+into the acceleration the vehicle actually commands, where nothing clamps it. Inside `PreventUndercuttingPattern` the
+comfortable floor and the `min` against the ego's own car-following acceleration absorbed every contaminated value,
+which is why its own command never changed.
+
+**Expected, and measured on the recordings.** A few contaminated reads propagate: with the switch on, the commanded
+plan differs on **88 993 of 337 568** ticks on the congested day (26 %) and **148 717 of 353 570** on the free-flow
+day (42 %).
+
+**Not in the core set.** The core reproduces the leader-only key by decision -- ADR-014, and `RelaxedCarFollowing`
+says so in as many words. See [`contract.md`](contract.md) §0.
+
 ### BC-4 — not implemented; estimator proposed for approval
 
 The review asked for the estimator to be proposed before it is written.
@@ -438,8 +472,8 @@ against decision 1.
 > share a key in, BC-1 puts every time constant on elapsed time and BC-8 fixes the
 > update order. BC-5 is left out while Q1 is open. **`reference` is the run the publications rest on;
 > `coreset` is the run the migration is measured against, and the two are not the same model.** See
-> [`contract.md`](contract.md) §0. Registration counts, verified against the built classes: 5280 runs
-> for all eleven variants over sixteen dates at thirty replications, 960 for
+> [`contract.md`](contract.md) §0. Registration counts, verified against the built classes: 5760 runs
+> for all twelve variants over sixteen dates at thirty replications, 960 for
 > `--variants=reference,coreset`.
 
 

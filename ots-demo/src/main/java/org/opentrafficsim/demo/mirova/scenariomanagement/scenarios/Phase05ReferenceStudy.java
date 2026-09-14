@@ -69,6 +69,11 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * sharing one per GTU. Measured on one production cell, every cache hit on either path was serving the other
  * overload's number, and the merge router's follower branch decided the opposite way in 10 % of its evaluations.
  * The lane-change gate did not flip there at all, so expect the effect on the ramp rather than on the mainline.</li>
+ * <li><b>bc11_headwaykey</b> -- the car-following cache key carries the headway factor the call asked for, so a
+ * yielding call and a plain one for the same leader no longer answer each other. Few hits are contaminated -- 23 on
+ * the congested day, 109 on the free-flow one -- but a wrong acceleration propagates, and the commanded plan differs
+ * on 26 % and 42 % of ticks respectively. <b>Not in the core set</b>: the core reproduces the leader-only key
+ * deliberately (ADR-014), so adopting this would make the core set something the core does not embody.</li>
  * <li><b>coreset</b> -- the first of two variants that are not a single switch. It turns on BC-1, BC-2, BC-4, BC-6,
  * BC-8 and BC-10 together, because that combination is what the decoupled core reproduces by construction: BC-2 and
  * BC-4 remove fields no driver can observe, BC-6 bounds the merge scan to what one can see, BC-1 puts every time
@@ -145,6 +150,7 @@ public class Phase05ReferenceStudy implements StudyDefinition
         VARIANTS.put("bc8_ctxorder", List.of(MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED.getId()));
         VARIANTS.put("bc9_interp", List.of(MirovaParameters.DESIRE_INTERPOLATION_FIXED.getId()));
         VARIANTS.put("bc10_induceddecel", List.of(MirovaParameters.INDUCED_DECEL_KEY_DISTINCT.getId()));
+        VARIANTS.put("bc11_headwaykey", List.of(MirovaParameters.HEADWAY_FACTOR_KEY_DISTINCT.getId()));
         VARIANTS.put(CORE_SET_LABEL,
                 List.of(MirovaParameters.EMA_ALPHA_FROM_ACTUAL_DT.getId(),
                         MirovaParameters.LEADER_HEADWAY_FROM_OWN_MODEL.getId(),

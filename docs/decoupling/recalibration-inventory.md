@@ -229,6 +229,14 @@ evaluations. The published model keeps the collision, so nothing already measure
 recalibration run with the switch on is calibrating a different merge router, so step 2 should screen at a
 decided value of this switch rather than across it.
 
+**A second cache defect, and this one is larger.** `bcHeadwayFactorKey` (BC-11) keys the per-tick
+car-following cache by the headway factor a call asked for, not by the leader alone. Few reads are
+contaminated -- 23 on a congested production cell, 109 on a free-flow one -- but on the free-flow day 93 of
+those 109 are a *plain* car-following call served the *yielding* number, differing by a mean of 2.5 m/s², and
+the commanded plan then differs on 26 % and 42 % of ticks. The published model keeps the defect. Unlike BC-10
+this one is **not** in the core set, because the core reproduces the leader-only key by decision (ADR-014), so
+a recalibration has to decide the switch *and* whether the core follows.
+
 **One thing to decide before any of it:** whether `dFree` moves with `vGain` (§3.2, point 5), and
 whether the `T` discrepancy of §1.1 — 1.00 / 1.30 against 1.10 / 1.40 — means the published ensemble
 is not the one the production study resolves.
