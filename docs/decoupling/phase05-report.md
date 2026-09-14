@@ -359,6 +359,26 @@ order it survives.
 **Expected.** Almost nothing. A deficit under 10 cm means the new leader is barely inside the desired
 headway. The variant exists to confirm that, and to catch any ordering dependency I have not spotted.
 
+### BC-10 `bcInducedDecelKey` — one cache key per quantity, not per vehicle
+
+**Changes.** `NeighborsContext.getGtuDeceleration` has two overloads that compute different things and share the key
+`"inducedDecel_" + id`. The four-argument one is handed the gap, the speed difference and the desired headway by its
+caller -- the ego's front headway for the lane-change gate, its rear headway for the follower gate -- while the
+one-argument one derives `s0 + v*T` itself for gap acceptance. Whichever runs first in a tick decides what the other
+reads. With the switch on each caches under its own key.
+
+**Affects.** Every place either overload is read: the lane-change gate (`checkIfLaneChangeIsPossible`), the gap
+opener's candidate test, and the merge router's follower branch in `MandatoryLaneChangePattern`.
+
+**Measured**, on one twenty-minute production cell with every switch at its default: 286 cache hits, **100 %** of them
+served a value the other overload had computed; `|served - own|` a mean of 16.6 m/s² and above 5 m/s² in 18.5 % of
+cases, equal in 1.7 %. Decision flips: the lane-change gate 0 of 30100 on each of its two tests, the gap opener 0 of
+1032, and **the merge router's follower branch 28 of 281, 10 %**. The gates are unaffected because they read the
+quantity they wrote; the merge router is the one site that reads the other overload's number and acts on it.
+
+**Expected.** An effect on the ramp, not on the mainline, and only through the merge router: a tenth of its follower
+evaluations route the other way, between merging ahead of the follower and waiting for the gap.
+
 ### BC-4 — not implemented; estimator proposed for approval
 
 The review asked for the estimator to be proposed before it is written.
@@ -410,8 +430,8 @@ against decision 1.
 > the merge scan to visible traffic, BC-1 puts every time constant on elapsed time and BC-8 fixes the
 > update order. BC-5 is left out while Q1 is open. **`reference` is the run the publications rest on;
 > `coreset` is the run the migration is measured against, and the two are not the same model.** See
-> [`contract.md`](contract.md) §0. Registration counts, verified against the built classes: 3840 runs
-> for all eight variants over sixteen dates at thirty replications, 960 for
+> [`contract.md`](contract.md) §0. Registration counts, verified against the built classes: 5280 runs
+> for all eleven variants over sixteen dates at thirty replications, 960 for
 > `--variants=reference,coreset`.
 
 

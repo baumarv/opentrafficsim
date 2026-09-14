@@ -442,6 +442,26 @@ public final class MirovaParameters implements ConstraintInterface
                         new ParameterTypeBoolean("bcContextOrderFixed",
                                         "BC-8: contexts update in dependency order", false);
 
+        /**
+         * BC-10. Give the two induced-deceleration quantities cache keys of their own.
+         * <p>
+         * {@code NeighborsContext.getGtuDeceleration} has two overloads that compute different things and share the
+         * key {@code "inducedDecel_" + id}: the four-argument one is handed a gap, a speed difference and a desired
+         * headway by the caller -- the ego's own front or rear headway for a lane change -- while the one-argument
+         * one derives its own from {@code s0 + v*T} for gap acceptance. Whichever runs first in a tick decides what
+         * the other one reads.
+         * </p>
+         * <p>
+         * Measured on one twenty-minute production cell: 286 cache hits, every one of them served a value the other
+         * overload had computed, differing by more than 5 m/s&sup2; in 18.5 % of cases; the merge router's follower
+         * branch then took the opposite decision in 28 of 281 evaluations. With this set each overload caches under
+         * its own key and computes its own quantity.
+         * </p>
+         */
+        public static final ParameterTypeBoolean INDUCED_DECEL_KEY_DISTINCT =
+                        new ParameterTypeBoolean("bcInducedDecelKey",
+                                        "BC-10: induced deceleration cached per quantity, not per GTU", false);
+
         /** Whether acceleration damping during active headway relaxation is enabled. */
         public static final ParameterTypeBoolean RELAXATION_ACC_DAMPING_ENABLED =
                         new ParameterTypeBoolean("aRelaxDampingEnabled",

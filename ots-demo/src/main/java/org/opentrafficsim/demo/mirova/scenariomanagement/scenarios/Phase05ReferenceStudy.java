@@ -65,6 +65,10 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * stepping from 1 to 0 at DMAND. The default call site passes DFREE as the upper threshold, which lies below the
  * lower one, so the interpolation branch is unreachable. Affects every vehicle whose mandatory and discretionary
  * desires conflict while the mandatory one exceeds 0.577 -- on the ramp, the common case. Expect a real effect.</li>
+ * <li><b>bc10_induceddecel</b> -- the two induced-deceleration quantities cache under keys of their own instead of
+ * sharing one per GTU. Measured on one production cell, every cache hit on either path was serving the other
+ * overload's number, and the merge router's follower branch decided the opposite way in 10 % of its evaluations.
+ * The lane-change gate did not flip there at all, so expect the effect on the ramp rather than on the mainline.</li>
  * <li><b>coreset</b> -- the first of two variants that are not a single switch. It turns on BC-1, BC-2, BC-4, BC-6 and BC-8
  * together, because that combination is what the decoupled core reproduces by construction: BC-2 and BC-4 remove
  * fields no driver can observe, BC-6 bounds the merge scan to what one can see, BC-1 puts every time constant on
@@ -139,6 +143,7 @@ public class Phase05ReferenceStudy implements StudyDefinition
         VARIANTS.put("bc6_mergerange", List.of(MirovaParameters.MERGE_REFERENCE_RANGE_LIMITED.getId()));
         VARIANTS.put("bc8_ctxorder", List.of(MirovaParameters.CONTEXT_UPDATE_ORDER_FIXED.getId()));
         VARIANTS.put("bc9_interp", List.of(MirovaParameters.DESIRE_INTERPOLATION_FIXED.getId()));
+        VARIANTS.put("bc10_induceddecel", List.of(MirovaParameters.INDUCED_DECEL_KEY_DISTINCT.getId()));
         VARIANTS.put(CORE_SET_LABEL,
                 List.of(MirovaParameters.EMA_ALPHA_FROM_ACTUAL_DT.getId(),
                         MirovaParameters.LEADER_HEADWAY_FROM_OWN_MODEL.getId(),
