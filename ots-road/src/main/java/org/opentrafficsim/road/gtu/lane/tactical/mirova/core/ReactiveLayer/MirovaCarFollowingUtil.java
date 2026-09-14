@@ -69,6 +69,27 @@ public final class MirovaCarFollowingUtil
     public static Acceleration followSingleLeader(final MirovaTacticalPlanner vehicle, final HeadwayGtu leader)
             throws ParameterException, GtuException
     {
+        return followSingleLeader(vehicle, leader, 1.0);
+    }
+
+    /**
+     * The same, told which fraction of the desired time headway the caller has asked for.
+     * <p>
+     * The factor is not applied here -- the caller has already multiplied {@code T} by it -- it only says what the
+     * answer will have been computed under, so that the per-tick cache can key by it. See
+     * {@link MirovaParameters#HEADWAY_FACTOR_KEY_DISTINCT} (BC-11): by default the key is the leader's id alone and
+     * a reduced-headway call is served whatever was cached first.
+     * </p>
+     * @param vehicle MirovaTacticalPlanner; the tactical planner of the ego vehicle
+     * @param leader HeadwayGtu; the actual, unmanipulated perception of the leader GTU
+     * @param headwayFactor double; the fraction of the desired time headway in force, 1.0 for a plain call
+     * @return Acceleration; the acceleration calculated by the car-following model
+     * @throws ParameterException if a required parameter is missing
+     * @throws GtuException if GTU state cannot be accessed
+     */
+    private static Acceleration followSingleLeader(final MirovaTacticalPlanner vehicle, final HeadwayGtu leader,
+            final double headwayFactor) throws ParameterException, GtuException
+    {
         if (leader == null)
         {
             return freeAcceleration(vehicle);
@@ -76,11 +97,13 @@ public final class MirovaCarFollowingUtil
 
         EgoContext ego = vehicle.getContext(EgoContext.class);
         String leaderId = leader.getId();
+        // The relaxation lookups below keep the leader's own id: they are about that vehicle, not about this call.
+        String cacheKey = cacheKey(vehicle, leaderId, headwayFactor);
 
         // 1. Check Cache (Early Exit for Performance)
-        if (leaderId != null)
+        if (cacheKey != null)
         {
-            Acceleration cachedAcc = ego.getCachedAcceleration(leaderId);
+            Acceleration cachedAcc = ego.getCachedAcceleration(cacheKey);
             if (cachedAcc != null)
             {
                 return cachedAcc; // Spart den kompletten Berechnungsbaum!
@@ -177,12 +200,34 @@ public final class MirovaCarFollowingUtil
         }
 
         // 4. Store the result in the cache for subsequent calls in this tick
-        if (leaderId != null)
+        if (cacheKey != null)
         {
-            ego.cacheAcceleration(leaderId, result);
+            ego.cacheAcceleration(cacheKey, result);
         }
 
         return result;
+    }
+
+    /**
+     * Returns the key this call's answer is cached under.
+     * <p>
+     * BC-11. By default the leader's id alone, which is the defect: the value also depends on the desired headway
+     * the call asked for. With the switch on the factor is part of the key, so two calls at different factors do not
+     * answer each other.
+     * </p>
+     * @param vehicle MirovaTacticalPlanner; the ego vehicle
+     * @param leaderId String; the leader's id, or {@code null} when it has none
+     * @param headwayFactor double; the fraction of the desired time headway in force
+     * @return String; the cache key, or {@code null} when the answer is not to be cached
+     */
+    private static String cacheKey(final MirovaTacticalPlanner vehicle, final String leaderId,
+            final double headwayFactor)
+    {
+        if (leaderId == null)
+        {
+            return null;
+        }
+        return vehicle.getParams().bcHeadwayFactorKey ? leaderId + "@" + headwayFactor : leaderId;
     }
 
 
@@ -293,7 +338,7 @@ public final class MirovaCarFollowingUtil
                 parameters.getParameter(ParameterTypes.T).times(headwayFactor));
         try
         {
-            return followSingleLeader(vehicle, leader);
+            return followSingleLeader(vehicle, leader, headwayFactor);
         }
         finally
         {

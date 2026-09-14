@@ -462,6 +462,24 @@ public final class MirovaParameters implements ConstraintInterface
                         new ParameterTypeBoolean("bcInducedDecelKey",
                                         "BC-10: induced deceleration cached per quantity, not per GTU", false);
 
+        /**
+         * BC-11. Let the car-following cache key carry the headway factor the call asked for.
+         * <p>
+         * {@code EgoContext.tickAccelerationCache} is keyed by the leader's id alone, while the value also depends
+         * on the desired headway in force: {@code MirovaCarFollowingUtil.followWithReducedHeadway} multiplies
+         * {@code T} by a factor for the duration of one call, which is the whole mechanism by which
+         * {@code PreventUndercuttingPattern} yields. Where a plain acceleration for that leader was cached earlier
+         * in the same tick, the reduced call is served the plain number and the reduction does nothing.
+         * </p>
+         * <p>
+         * With this set the key carries the factor, so a call at a different factor computes its own answer. The
+         * relaxation lookups keep the leader's own id, which is what they are about.
+         * </p>
+         */
+        public static final ParameterTypeBoolean HEADWAY_FACTOR_KEY_DISTINCT =
+                        new ParameterTypeBoolean("bcHeadwayFactorKey",
+                                        "BC-11: car-following cache keyed by leader and headway factor", false);
+
         /** Whether acceleration damping during active headway relaxation is enabled. */
         public static final ParameterTypeBoolean RELAXATION_ACC_DAMPING_ENABLED =
                         new ParameterTypeBoolean("aRelaxDampingEnabled",
