@@ -299,15 +299,32 @@ Adopting BC-5 may let that special case be removed, which would be a real simpli
 
 ### BC-6 `bcMergeRefRangeLimited` — bound the merge reference to what the ego can see
 
-**Changes.** Two bounds, of which the first is the one that matters.
+**Changes.** Three bounds. The section said two, and called the second inert; both were wrong, and
+what follows is the corrected description.
 
 `InfrastructureContext.getDownstreamAdjacentLane` projects the ego's path **1000 m** ahead to find the
 lane it will merge into, and `getMergeReferenceSpeed` then reads the speed and position of every
-vehicle on a 150 m window of it. Under the switch the *projection* is bounded by the ego's own
-`LOOKAHEAD` instead, so a merge lane further away than the ego can see is simply not found, step 3 of
-the cascade yields nothing, and the reference falls through to the speed-limit fallback the cascade
-already has. The 150 m window is additionally capped at `LOOKAHEAD`, which is inert at the current
-values but keeps the two ranges from contradicting each other if either constant moves.
+vehicle on a 150 m window of it. Under the switch:
+
+1. the **projection** is bounded by the ego's own `LOOKAHEAD`;
+2. the **fallback below the projection** -- which steps one lane past it, to `lastLane.nextLanes()` --
+   is consulted only while the lane it reaches still begins within that bound. That lane begins where
+   the projection ends, so under the switch it is at or beyond the bound by construction; the
+   distance accumulated along the projection decides, because the projection can also stop early, at
+   a dead end or where the route leaves the lane, and then the lane may genuinely still be in range;
+3. the **scanned window** is capped at what is left of the look-ahead. A window is measured from the
+   found lane's own start, so a lane found at 290 m and scanned over 150 m would otherwise take its
+   reference from traffic 440 m away.
+
+Where nothing is left of the look-ahead the scan does not happen, step 3 of the cascade yields
+nothing, and the reference falls through to the speed-limit fallback the cascade already has.
+
+**Measured**, on the twenty-minute production cell of 2025-10-27 with `-Dmirova.mergeRefDiag=true`.
+With every switch at its default: 10994 merge lanes found, **100 %** of them beyond the ego's
+look-ahead, the furthest at 1804 m; 4341 references taken, **100 %** of them reaching beyond it, the
+furthest sampled point at 1954 m. All but **7** of those lanes came from the fallback rather than from
+the projection, which is why bounding the projection alone changed nothing about where a reference
+came from. With the switch on: no lane found at all, and the bound refusing the fallback 4049 times.
 
 **Range and justification.** The ego's own `LOOKAHEAD`, 295 m by default. Using the same constant the
 rest of its perception uses means the model holds one notion of how far this driver can see, rather
