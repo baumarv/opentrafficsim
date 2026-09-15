@@ -248,6 +248,38 @@ raises the desires, breaks that coincidence and the switch starts to matter. It 
 the core reference already has it on; what needs deciding is the published model, and that decision
 cannot be read off today's numbers.
 
+**The lane-change desire is not bounded, and the threshold interpolation assumes it is.**
+`computeEgoDecelerationThreshold` and `computeFollowerDecelerationThreshold` map the directional desire
+onto `(desire − dMand) / (1 − dMand)` and clamp the result to `[0, 1]`, which is the LMRS form and takes
+the desire to lie in `[0, 1]`. It does not: measured over every threshold computation on two production
+cells, the directional desire reaches **5.70** on 2025-10-27 and **7.02** on 2025-09-22, and `Desire`
+clamps nowhere. The top clamp therefore does real work — **10.5 %** and **8.5 %** of ego computations sit
+pinned at `maxEgoDecelerationThreshold`, and everything from a desire of 1.0 upward is indistinguishable.
+
+| fraction | ego, 2025-10-27 | ego, 2025-09-22 |
+|---|---|---|
+| at the lower clamp (`minEgoDecelerationThreshold`) | 82.5 % | 84.1 % |
+| interpolating strictly between | 7.0 % | 7.4 % |
+| at the upper clamp (`maxEgoDecelerationThreshold`) | 10.5 % | 8.5 % |
+
+Two consequences for step 2. Calibrating `maxEgoDecelerationThreshold` acts only on the 8–10 % of
+evaluations that reach the top clamp, and it cannot separate a desire of 1.0 from one of 7. And `dMand`
+is the parameter that decides how much of the model sees any interpolation at all, so it should be
+screened before, not alongside, the two threshold bounds. Whether the desires ought to be bounded at 1 is
+a modelling question and not a decoupling one — it is recorded here because it changes what a
+recalibration of these three parameters can mean, and because it is invisible in the published outputs.
+
+**Checked and cleared, so it is not re-opened:** `PreventUndercuttingPattern` asks for the LEFT
+deceleration threshold unconditionally at its shadowing site. That is not a wrong argument — the pattern
+is left-only by construction, triggered by `getRightSideOvertakingAhead()`, shadowing the left leader and
+exiting by a lane change to the left. Measured anyway, because the pattern does run while the dominant
+desire points right (676 of 1133 ticks on the congested cell, 656 of 1859 on the free-flow one): the LEFT
+threshold equalled the one the dominant direction calls for in **100 %** of those ticks, and the
+commanded plan changed in **none** of them, with either the dominant or the RIGHT threshold substituted.
+The threshold clamp binds at that site in 65 and 166 ticks, so this is not a site where nothing happens —
+the argument simply does not matter there, because both directional desires are below `dMand` in
+free-flowing traffic, which is the only traffic this pattern runs in. No switch.
+
 **One thing to decide before any of it:** whether `dFree` moves with `vGain` (§3.2, point 5), and
 whether the `T` discrepancy of §1.1 — 1.00 / 1.30 against 1.10 / 1.40 — means the published ensemble
 is not the one the production study resolves.
