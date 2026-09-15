@@ -253,8 +253,9 @@ cannot be read off today's numbers.
 onto `(desire − dMand) / (1 − dMand)` and clamp the result to `[0, 1]`, which is the LMRS form and takes
 the desire to lie in `[0, 1]`. It does not: measured over every threshold computation on two production
 cells, the directional desire reaches **5.70** on 2025-10-27 and **7.02** on 2025-09-22, and `Desire`
-clamps nowhere. The top clamp therefore does real work — **10.5 %** and **8.5 %** of ego computations sit
-pinned at `maxEgoDecelerationThreshold`, and everything from a desire of 1.0 upward is indistinguishable.
+clamps nowhere. Separately from that — and not caused by it, see the correction below — the fraction's own
+clamps do most of the work: **10.5 %** and **8.5 %** of ego computations sit pinned at
+`maxEgoDecelerationThreshold`, where every desire from 1.0 upward is the same input.
 
 | fraction | ego, 2025-10-27 | ego, 2025-09-22 |
 |---|---|---|
@@ -278,15 +279,33 @@ path for one incentive; the measurement above says the desire leaves the scale r
 is only where a bound belongs — at the incentive or at the combination — not whether the scale is being
 left.
 
+**Whose defect the resolution loss is — corrected.** An earlier version of this section attributed the
+pile-up at the upper clamp to the missing cap on the desire. That is wrong, and the correction matters for
+which parameter to screen. The interpolation clamps its *fraction* to `[0, 1]`, so any desire at or above
+1 gives a fraction of exactly 1 whether or not the desire itself is capped: a desire of 1.0 and a desire
+of 7 are the same input to the threshold either way. The resolution loss therefore belongs to the `[0, 1]`
+clamp on the fraction, not to the unbounded desire, and capping the desire (BC-13) does not recover any of
+it — proven, not argued: with `bcDesireCapped` on, the deceleration thresholds are unchanged.
+
+**`dMand` remains the lever for it**, and that is what makes it actionable. The fraction is
+`(desire − dMand) / (1 − dMand)`, so `dMand` alone decides where both clamps fall and therefore how much
+of the desire range the thresholds can still resolve — at the measured value, 82–84 % of evaluations sit
+at the lower clamp and 8–10 % at the upper, leaving about 7 % where the two bounds do anything at all.
+
 **Ordering for step 2.** Screen `dMand` **before** `minEgoDecelerationThreshold` and
-`maxEgoDecelerationThreshold`, not alongside them. `dMand` decides how much of the model sees any
-interpolation at all — at the measured value it leaves 82–84 % of evaluations at the lower clamp — so the
-two bounds have a different meaning at each `dMand`, and a design that varies all three together cannot
-separate them. Calibrating `maxEgoDecelerationThreshold` reaches only the 8–10 % of evaluations at the top
-clamp, where a desire of 1.0 and one of 7 are the same input.
+`maxEgoDecelerationThreshold`, not alongside them. The two bounds have a different meaning at each
+`dMand` — they act only on the fraction of evaluations `dMand` leaves strictly between the clamps — so a
+design that varies all three together cannot separate them.
+
+**A saving in the same design: BC-13 is separable from those two bounds.** Since the cap does not reach
+the threshold interpolation at all (above), `bcDesireCapped` and the two deceleration-threshold bounds do
+not interact through that path, and BC-13 need not be crossed with them. It acts on the *other* consumers
+of the desire — the comparisons against `dFree`, `dSync` and `dCoop`, the LMRS weighting, the pattern
+gates and `dominantDirection()` — so it belongs in a screening block with those, not in the threshold
+block. That removes a two-way crossing from the design at no cost in information.
 
 Whether the desires ought to be bounded at 1 is a modelling decision and is Marvin's to take; nothing is
-clamped here. It is recorded because it changes what a recalibration of these three parameters can mean,
+clamped by default. It is recorded because it changes what a recalibration of these parameters can mean,
 and because it is invisible in the published outputs.
 
 **Where the excess comes from: one incentive, not the combination rule.** Measured over every desire
@@ -347,11 +366,23 @@ comparisons against `dFree`, `dSync` and `dCoop`, the LMRS weighting, the patter
 turns unequal large desires into ties. So BC-13 and the two threshold bounds are close to separable in a
 screening design, which is convenient and was not obvious.
 
-*It does not revive BC-12, although it was predicted to.* Capped ties produce more NONE, and NONE is
-exactly what BC-12 is about, so BC-13 should have made BC-12's collision reachable. Measured: running
-`bcDesireCapped` with and without `bcDecelThresholdKey` gives byte-identical recordings on both cells, 0
-of 337 486 and 0 of 353 581 ticks. BC-12 stays inert even under the condition that was expected to break
-it. It remains in the core set on the structural argument, not on a measured effect.
+*A prediction, and its refutation — recorded as such because the prediction was made in writing before
+the measurement.* When BC-12 was found inert, the reason given was that the desires producing NONE are
+near zero and therefore below `dMand`, where the interpolation clamps both directions to the same
+minimum; and it was stated explicitly that this is "circumstance, not construction", since NONE also
+arises when the two desires are close *above* `dMand`, where the values would differ. BC-13 creates
+exactly that case: capping both sides at 1 turns unequal large desires into ties, so it was predicted to
+make BC-12's collision reachable at last.
+
+**It does not.** Running `bcDesireCapped` with and without `bcDecelThresholdKey` gives byte-identical
+recordings on both cells — 0 of 337 486 ticks on 2025-10-27 and 0 of 353 581 on 2025-09-22. BC-12 stays
+inert under the very condition predicted to break it.
+
+That strengthens rather than weakens the BC-12 decision, and changes its basis: it is in the core set
+because the core has no such memo and no NONE to alias — a structural argument that holds whatever the
+desires do — and not because the collision happens to be harmless at the current parameters. The
+recalibration therefore does not need to re-measure BC-12 against each candidate parameter set; it needs
+only to keep the structural claim true.
 
 **Checked and cleared, so it is not re-opened:** `PreventUndercuttingPattern` asks for the LEFT
 deceleration threshold unconditionally at its shadowing site. That is not a wrong argument — the pattern
