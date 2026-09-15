@@ -609,6 +609,13 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
      */
     public Acceleration getEgoDeceleration(final LateralDirectionality dir)
     {
+    // Key convention, and a trap: the ternary below sends anything that is not LEFT -- NONE included -- to
+    // the RIGHT key, so a NONE call is answered from, and may overwrite, the RIGHT entry. NONE does not
+    // reach this getter today, which is the only reason it is harmless; that was measured, not assumed.
+    // Five getters share this shape and one change to dominantDirection(), to getTargetDirection(), or to
+    // any caller that starts passing NONE makes all five live at once. Before editing this method or its
+    // callers, read docs/decoupling/cache-audit.md section 2. The correct form is directionKeys(prefix),
+    // which gives one key per enum constant including NONE.
         String name = dir.isLeft() ? EGO_DECEL_LEFT : EGO_DECEL_RIGHT;
         Acceleration cached = getCachedValue(name, Acceleration.class);
         if (cached != null)
@@ -628,6 +635,13 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
      */
     public Acceleration getFollowerDeceleration(final LateralDirectionality dir)
     {
+    // Key convention, and a trap: the ternary below sends anything that is not LEFT -- NONE included -- to
+    // the RIGHT key, so a NONE call is answered from, and may overwrite, the RIGHT entry. NONE does not
+    // reach this getter today, which is the only reason it is harmless; that was measured, not assumed.
+    // Five getters share this shape and one change to dominantDirection(), to getTargetDirection(), or to
+    // any caller that starts passing NONE makes all five live at once. Before editing this method or its
+    // callers, read docs/decoupling/cache-audit.md section 2. The correct form is directionKeys(prefix),
+    // which gives one key per enum constant including NONE.
         String name = dir.isLeft() ? FOLLOWER_DECEL_LEFT : FOLLOWER_DECEL_RIGHT;
         Acceleration cached = getCachedValue(name, Acceleration.class);
         if (cached != null)
@@ -1511,6 +1525,13 @@ public class NeighborsContext extends ContextCategory implements UpdatableContex
      */
     public Boolean getIfLaneChangePossible(final LateralDirectionality dir) throws GtuException, NetworkException
     {
+    // Key convention, and a trap: the ternary below sends anything that is not LEFT -- NONE included -- to
+    // the RIGHT key, so a NONE call is answered from, and may overwrite, the RIGHT entry. NONE does not
+    // reach this getter today, which is the only reason it is harmless; that was measured, not assumed.
+    // Five getters share this shape and one change to dominantDirection(), to getTargetDirection(), or to
+    // any caller that starts passing NONE makes all five live at once. Before editing this method or its
+    // callers, read docs/decoupling/cache-audit.md section 2. The correct form is directionKeys(prefix),
+    // which gives one key per enum constant including NONE.
         String name = dir.isLeft() ? LANE_CHANGE_POSSIBLE_LEFT : LANE_CHANGE_POSSIBLE_RIGHT;
         Boolean cached = getCachedValue(name, Boolean.class);
         if (cached != null)

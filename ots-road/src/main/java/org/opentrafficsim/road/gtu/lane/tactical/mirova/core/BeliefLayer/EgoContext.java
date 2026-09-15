@@ -485,6 +485,12 @@ public class EgoContext extends ContextCategory implements UpdatableContext
      * is answered from and written into the RIGHT entry, although it interpolates on a directional desire of 0 and
      * so always yields the minimum threshold. With the switch on NONE keys separately.
      * </p>
+     * <p>
+     * This is one of six getters keyed by a lateral direction, and the only pair where the aliasing was
+     * measured to matter enough to warrant a switch. The others are listed in
+     * {@code docs/decoupling/cache-audit.md} section 2; a change to {@code dominantDirection()}, to
+     * {@code getTargetDirection()}, or to any caller that starts passing NONE makes them live at once.
+     * </p>
      * @param dir LateralDirectionality; the direction asked for
      * @param left String; the key for LEFT
      * @param right String; the key for RIGHT
