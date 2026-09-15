@@ -520,6 +520,13 @@ against decision 1.
 > [`contract.md`](contract.md) §0. Registration counts, verified against the built classes: 6240 runs
 > for all thirteen variants over sixteen dates at thirty replications, 960 for
 > `--variants=reference,coreset`.
+>
+> **Ask this of the built classes whenever a variant is added.** The count stated here was 5760 for
+> twelve variants until BC-12, and it was already wrong by then: registering BC-11 added a variant
+> without the count being updated, so the figure understated the campaign by 480 runs for one commit.
+> It is derived from `VARIANTS`, not maintained by hand — `ScenarioManager.countRuns()` after
+> registering the study with `--dates=cluster/dates.txt --replications=30` is the only figure worth
+> writing down.
 
 
 `Phase05ReferenceStudy`, registered as **`phase05`**, on the production parameter set so the reference
