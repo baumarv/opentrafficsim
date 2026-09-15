@@ -262,12 +262,71 @@ pinned at `maxEgoDecelerationThreshold`, and everything from a desire of 1.0 upw
 | interpolating strictly between | 7.0 % | 7.4 % |
 | at the upper clamp (`maxEgoDecelerationThreshold`) | 10.5 % | 8.5 % |
 
-Two consequences for step 2. Calibrating `maxEgoDecelerationThreshold` acts only on the 8–10 % of
-evaluations that reach the top clamp, and it cannot separate a desire of 1.0 from one of 7. And `dMand`
-is the parameter that decides how much of the model sees any interpolation at all, so it should be
-screened before, not alongside, the two threshold bounds. Whether the desires ought to be bounded at 1 is
-a modelling question and not a decoupling one — it is recorded here because it changes what a
-recalibration of these three parameters can mean, and because it is invisible in the published outputs.
+**This contradicts the model's own specification.** `mirova_model_reference.md` fixes the scale twice — §2
+gives the desire layer's output as `d_L, d_R ∈ [−1, 1]`, and the symbol conventions call it "the `[−1, 1]`
+desire scale" on which every `d_•` threshold is defined. The specification is not merely silent about the
+excess: §3 prescribes the aggregation as an unweighted sum over incentives, `D_r,j = Σ_k d_k,j` and
+`d_j = D_r,j + θ_v,j · D_v,j`, with `θ_v,j ∈ [0, 1]`. A sum whose result is asserted to lie in `[−1, 1]`
+holds only if the summands are individually small or never co-occur, and the specification says neither.
+So the inconsistency is in the model description as well as in the code, which is why it cannot be settled
+by reading the code alone.
+
+It is also the same question as the `socio` bound restored in `f6d06fe7f`, and for the same stated reason:
+that bound was put back because a `socio` above 1, multiplied by a pressure in `[0, 1)`, would let *one
+incentive alone* put the desire outside the `[−1, 1]` scale the thresholds live on. The bound closed that
+path for one incentive; the measurement above says the desire leaves the scale regardless, so the question
+is only where a bound belongs — at the incentive or at the combination — not whether the scale is being
+left.
+
+**Ordering for step 2.** Screen `dMand` **before** `minEgoDecelerationThreshold` and
+`maxEgoDecelerationThreshold`, not alongside them. `dMand` decides how much of the model sees any
+interpolation at all — at the measured value it leaves 82–84 % of evaluations at the lower clamp — so the
+two bounds have a different meaning at each `dMand`, and a design that varies all three together cannot
+separate them. Calibrating `maxEgoDecelerationThreshold` reaches only the 8–10 % of evaluations at the top
+clamp, where a desire of 1.0 and one of 7 are the same input.
+
+Whether the desires ought to be bounded at 1 is a modelling decision and is Marvin's to take; nothing is
+clamped here. It is recorded because it changes what a recalibration of these three parameters can mean,
+and because it is invisible in the published outputs.
+
+**Where the excess comes from: one incentive, not the combination rule.** Measured over every desire
+evaluation on the two cells, with the probe again inert (both recordings reproduce their references).
+
+| | 2025-10-27 | 2025-09-22 |
+|---|---|---|
+| desire evaluations | 337 568 | 353 570 |
+| `CruisingSpeedIncentive` alone above 1 | **58 826 (17.4 %)**, max **7.88** | **49 255 (13.9 %)**, max **9.51** |
+| `RouteIncentive` alone above 1 | 271 (0.08 %), max 1.03 | 231 (0.07 %), max 1.03 |
+| `KeepRightIncentive` | never, max 0.365 (`dFree`) | never, max 0.365 |
+| `ProhibitDeadEndIncentive` | never, max 0.577 (`dMand`) | never, max 0.577 |
+| combined desire above 1 | 58 906 (17.4 %) | 51 783 (14.6 %) |
+| …of which **one incentive alone** exceeds 1 | **51 490 (87.4 %)** | **43 973 (84.9 %)** |
+| …of which only the **sum** exceeds 1 | 7 416 (12.6 %) | 7 810 (15.1 %) |
+| largest contributor `CruisingSpeedIncentive` | 53 909 (91.5 %) | 46 020 (88.9 %) |
+| max combined desire, left / right | 5.70 / 6.85 | 7.02 / 7.91 |
+
+`KeepRightIncentive` and `ProhibitDeadEndIncentive` are structurally bounded — they emit `dFree` and
+`−dMand`, both parameters below 1 — and `RouteIncentive` only just crosses. The excess is
+`CruisingSpeedIncentive`, whose desire is `a_gain · (v_adj − v_cur) / v_gain`, an unbounded ratio: nothing
+limits the speed difference against `v_gain`, so the desire is whatever that quotient happens to be.
+(`SocialInteractionsIncentives` never contributed on either cell — it is a fifth class in the package that
+never runs, and the specification's table lists only the other four.)
+
+**The bound belongs at the `Desire` type, and that is where MiRoVA dropped it.** OTS's own LMRS has the
+*identical* unbounded expression in `IncentiveSpeedWithCourtesy` — this is inherited, not a MiRoVA
+divergence in the formula. It is harmless in OTS because `org.opentrafficsim.road.gtu.lane.tactical.util.lmrs.Desire`
+is a record whose canonical constructor caps the value: `this.left = left <= 1 ? left : 1;`, documented as
+"Values above 1 are not valid and should be limited to 1", with `LmrsUtil` limiting again at the point of
+use. Every OTS desire, single-incentive or combined, is capped at construction. MiRoVA's own `Desire`
+class reproduced the formula without the cap.
+
+So this is the `socio` case a second time — OTS bounds, MiRoVA does not — and it decides where a bound
+would go. Capping in MiRoVA's `Desire` constructor covers both findings at once, because `add` and
+`combine` build their results through it: it bounds the single incentive that causes 85–87 % of the excess
+and the summation that causes the rest. Bounding only `CruisingSpeedIncentive` would leave the 12–15 % of
+exceedances that come from summing sub-1 discretionary terms. Note one asymmetry before deciding: OTS caps
+above at 1 and deliberately leaves negative values unbounded ("Values below 0 are allowed"), whereas the
+MiRoVA specification states a symmetric `[−1, 1]`.
 
 **Checked and cleared, so it is not re-opened:** `PreventUndercuttingPattern` asks for the LEFT
 deceleration threshold unconditionally at its shadowing site. That is not a wrong argument — the pattern
