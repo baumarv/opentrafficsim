@@ -420,6 +420,11 @@ day (42 %).
 **Not in the core set.** The core reproduces the leader-only key by decision -- ADR-014, and `RelaxedCarFollowing`
 says so in as many words. See [`contract.md`](contract.md) §0.
 
+> **The cache and key audit is complete**, and is written up in
+> [`cache-audit.md`](cache-audit.md): every memo in the tree, whether its key covers what its value
+> depends on, three real collisions (BC-10, BC-11, BC-12), five more with the same shape that
+> measurement showed to be unreachable or inert, and two findings that are not collisions.
+
 ### BC-13 `bcDesireCapped` — the lane-change desire is capped at 1 above
 
 **Changes.** MiRoVA's `Desire` takes whatever its incentives produce. With the switch on it caps the totals at 1 and
