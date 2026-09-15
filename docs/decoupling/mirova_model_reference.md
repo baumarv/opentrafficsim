@@ -47,6 +47,21 @@ d_j   = D_r,j + θ_v,j · D_v,j
 
 `θ_v,j ∈ [0,1]`: 1 if mandatory/discretionary agree or mandatory is weak (`≤ d_mand`); 0 if they conflict and mandatory is strong (`≥ d_search`); linearly interpolated in between.
 
+> **Open in this document — for the paper revision, not a code question.** §2 states the desire layer's
+> output as `d_L, d_R ∈ [−1, 1]`, and §9 calls that "the `[−1, 1]` desire scale" on which every `d_•`
+> threshold is defined. The aggregation above is an unweighted sum. **A stated range of `[−1, 1]` and an
+> unweighted sum are consistent only if the summands are individually small or never co-occur, and this
+> document asserts neither.** The gap is therefore in the model description and not only in the code: the
+> aggregation rule must either name a cap or take another form. Measured on two twenty-minute production
+> cells, without a cap **one evaluation in six leaves the scale all thresholds are defined on** — the
+> combined desire exceeds 1 in 17.4 % and 14.6 % of evaluations and reaches 7.9 and 9.5, essentially all
+> of it from `CruisingSpeedIncentive`, whose `a_gain · (v_adj − v_cur) / v_gain` is an unbounded ratio.
+> The implementation now offers the cap behind `bcDesireCapped` (BC-13), following OTS's LMRS, which caps
+> at construction: **above at 1, open below**, since a negative desire means a change is actively unwanted
+> and no threshold lives there. When that switch is adopted this document should be corrected to the
+> implementation — `(−∞, 1]`, with the reason the lower bound stays open — rather than the reverse.
+> See [`recalibration-inventory.md`](recalibration-inventory.md).
+
 Incentives implemented:
 
 | Incentive | Type | Purpose |
