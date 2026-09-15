@@ -44,6 +44,30 @@ public final class Desire
     /** Whether this desire vector fundamentally contains a mandatory motivation. */
     private final boolean mandatory;
 
+    /**
+     * BC-13: whether this desire is on the capped scale.
+     * <p>
+     * Carried by the value rather than read from a parameter, because a {@code Desire} has no vehicle. The incentives
+     * set it from {@code bcDesireCapped}; {@link #add}, {@link #scale} and {@link #combine} propagate it, so anything
+     * derived from a capped desire is capped too.
+     * </p>
+     */
+    private final boolean capped;
+
+    /** The largest value a desire may take when capped. See {@link MirovaParameters#DESIRE_CAPPED}. */
+    private static final double DESIRE_MAXIMUM = 1.0;
+
+    /**
+     * Applies the BC-13 cap.
+     * @param value double; the raw desire
+     * @param cap boolean; whether to cap
+     * @return double; the value, at most {@link #DESIRE_MAXIMUM} when capped, unchanged below
+     */
+    private static double capped(final double value, final boolean cap)
+    {
+        return cap && value > DESIRE_MAXIMUM ? DESIRE_MAXIMUM : value;
+    }
+
     // ----------------------------------------------------------------------
     // Construction
     // ----------------------------------------------------------------------
@@ -60,14 +84,33 @@ public final class Desire
      */
     public Desire(final double left, final double right, final boolean mandatory)
     {
-        this.left = left;
-        this.right = right;
+        this(left, right, mandatory, false);
+    }
+
+    /**
+     * The same, told whether this desire is on the capped scale.
+     * <p>
+     * BC-13. A single-source desire caps its total and the one component that carries it identically, so the
+     * decomposition stays consistent with the total.
+     * </p>
+     * @param left double; directional desire to move left (positive = stronger)
+     * @param right double; directional desire to move right (positive = stronger)
+     * @param mandatory boolean; true if this represents a mandatory desire (required maneuver)
+     * @param cap boolean; whether to cap at 1 above, from {@code bcDesireCapped}
+     */
+    public Desire(final double left, final double right, final boolean mandatory, final boolean cap)
+    {
+        double l = capped(left, cap);
+        double r = capped(right, cap);
+        this.left = l;
+        this.right = r;
         this.mandatory = mandatory;
+        this.capped = cap;
 
         if (mandatory)
         {
-            this.leftMandatory = left;
-            this.rightMandatory = right;
+            this.leftMandatory = l;
+            this.rightMandatory = r;
             this.leftDiscretionary = 0.0;
             this.rightDiscretionary = 0.0;
         }
@@ -75,8 +118,8 @@ public final class Desire
         {
             this.leftMandatory = 0.0;
             this.rightMandatory = 0.0;
-            this.leftDiscretionary = left;
-            this.rightDiscretionary = right;
+            this.leftDiscretionary = l;
+            this.rightDiscretionary = r;
         }
     }
 
@@ -93,13 +136,46 @@ public final class Desire
     private Desire(final double left, final double right, final double leftMandatory, final double rightMandatory,
             final double leftDiscretionary, final double rightDiscretionary, final boolean mandatory)
     {
-        this.left = left;
-        this.right = right;
+        this(left, right, leftMandatory, rightMandatory, leftDiscretionary, rightDiscretionary, mandatory, false);
+    }
+
+    /**
+     * The same, told whether this desire is on the capped scale.
+     * <p>
+     * BC-13. Only the totals are capped here, as in OTS, whose {@code Desire} has nothing but totals. The mandatory
+     * and discretionary components stay as the uncapped provenance of the total, so where the cap binds the total is
+     * no longer their sum. Nothing reads them as one: the thresholds interpolate on the total.
+     * </p>
+     * @param left double; total left desire
+     * @param right double; total right desire
+     * @param leftMandatory double; purely mandatory left component
+     * @param rightMandatory double; purely mandatory right component
+     * @param leftDiscretionary double; purely discretionary left component
+     * @param rightDiscretionary double; purely discretionary right component
+     * @param mandatory boolean; true if any mandatory motivation is present
+     * @param cap boolean; whether to cap at 1 above, from {@code bcDesireCapped}
+     */
+    private Desire(final double left, final double right, final double leftMandatory, final double rightMandatory,
+            final double leftDiscretionary, final double rightDiscretionary, final boolean mandatory,
+            final boolean cap)
+    {
+        this.capped = cap;
+        this.left = capped(left, cap);
+        this.right = capped(right, cap);
         this.leftMandatory = leftMandatory;
         this.rightMandatory = rightMandatory;
         this.leftDiscretionary = leftDiscretionary;
         this.rightDiscretionary = rightDiscretionary;
         this.mandatory = mandatory;
+    }
+
+    /**
+     * Whether this desire is on the capped scale. BC-13.
+     * @return boolean; true when the cap applies to this value and to anything derived from it
+     */
+    public boolean isCapped()
+    {
+        return this.capped;
     }
 
     /**
@@ -214,7 +290,8 @@ public final class Desire
     {
         return new Desire(this.left + other.left, this.right + other.right, this.leftMandatory + other.leftMandatory,
                 this.rightMandatory + other.rightMandatory, this.leftDiscretionary + other.leftDiscretionary,
-                this.rightDiscretionary + other.rightDiscretionary, this.mandatory || other.mandatory);
+                this.rightDiscretionary + other.rightDiscretionary, this.mandatory || other.mandatory,
+                this.capped || other.capped);
     }
 
     /**
@@ -225,7 +302,7 @@ public final class Desire
     public Desire scale(final double factor)
     {
         return new Desire(this.left * factor, this.right * factor, this.leftMandatory * factor, this.rightMandatory * factor,
-                this.leftDiscretionary * factor, this.rightDiscretionary * factor, this.mandatory);
+                this.leftDiscretionary * factor, this.rightDiscretionary * factor, this.mandatory, this.capped);
     }
 
     /**
@@ -263,7 +340,7 @@ public final class Desire
         boolean combinedMandatory = totalMandLeft > 0 || totalMandRight > 0;
 
         return new Desire(leftCombined, rightCombined, totalMandLeft, totalMandRight, effectiveDisLeft, effectiveDisRight,
-                combinedMandatory);
+                combinedMandatory, mandatoryDesire.capped || discretionaryDesire.capped);
     }
 
     // ----------------------------------------------------------------------

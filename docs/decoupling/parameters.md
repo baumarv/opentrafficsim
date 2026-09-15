@@ -88,6 +88,7 @@ with. See `phase05-report.md` for what each one changes.
 | `bcInducedDecelKey` | `INDUCED_DECEL_KEY_DISTINCT` | `NeighborsContext.getInducedDeceleration` overloads |
 | `bcHeadwayFactorKey` | `HEADWAY_FACTOR_KEY_DISTINCT` | `MirovaCarFollowingUtil.cacheKey` |
 | `bcDecelThresholdKey` | `DECEL_THRESHOLD_KEY_DISTINCT` | `EgoContext.thresholdKey` |
+| `bcDesireCapped` | `DESIRE_CAPPED` | `Desire` constructors, set by the five incentives |
 
 ---
 

@@ -328,6 +328,31 @@ exceedances that come from summing sub-1 discretionary terms. Note one asymmetry
 above at 1 and deliberately leaves negative values unbounded ("Values below 0 are allowed"), whereas the
 MiRoVA specification states a symmetric `[−1, 1]`.
 
+**The cap is now a switch: `bcDesireCapped` (BC-13), default off.** It caps the desire totals at 1 above
+and leaves them open below, in `Desire`'s constructors, which is where OTS caps and therefore covers both
+the single incentive behind 85–87 % of the excess and the summation behind the rest. This is the largest
+switch in the campaign by what it touches — the desire is read by the thresholds, the pattern gates, the
+LMRS weighting and `dominantDirection()` — and it moves **18 484 of 337 568** ticks on the congested cell
+(5.5 %) and **1 323 of 353 570** on the free-flow one (0.37 %), with the switch off byte-identical to both
+references.
+
+Two things a recalibration should know before screening it.
+
+*The cap does not touch the deceleration thresholds.* They interpolate on `(desire − dMand) / (1 − dMand)`
+clamped to `[0, 1]`, so a desire of 1 and a desire of 7 already give a fraction of exactly 1. The
+thresholds have been absorbing the excess silently all along, and the resolution loss recorded above is a
+property of that clamp, not of the missing cap. What the cap moves is every *other* consumer: the
+comparisons against `dFree`, `dSync` and `dCoop`, the LMRS weighting, the pattern gates, and
+`dominantDirection()`, which returns NONE when the two sides are within `1e-3` — capping both sides at 1
+turns unequal large desires into ties. So BC-13 and the two threshold bounds are close to separable in a
+screening design, which is convenient and was not obvious.
+
+*It does not revive BC-12, although it was predicted to.* Capped ties produce more NONE, and NONE is
+exactly what BC-12 is about, so BC-13 should have made BC-12's collision reachable. Measured: running
+`bcDesireCapped` with and without `bcDecelThresholdKey` gives byte-identical recordings on both cells, 0
+of 337 486 and 0 of 353 581 ticks. BC-12 stays inert even under the condition that was expected to break
+it. It remains in the core set on the structural argument, not on a measured effect.
+
 **Checked and cleared, so it is not re-opened:** `PreventUndercuttingPattern` asks for the LEFT
 deceleration threshold unconditionally at its shadowing site. That is not a wrong argument — the pattern
 is left-only by construction, triggered by `getRightSideOvertakingAhead()`, shadowing the left leader and

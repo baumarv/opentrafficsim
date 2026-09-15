@@ -293,6 +293,9 @@ public final class MirovaParameterSnapshot implements Serializable
     /** BC-4: follower desired speed estimated from observation rather than read. */
     public final boolean bcFollowerDesiredSpeedEstimated;
 
+    /** BC-13: whether the lane-change desire is capped at 1 above. */
+    public final boolean bcDesireCapped;
+
     /** BC-12: whether the deceleration-threshold cache keys cover NONE. */
     public final boolean bcDecelThresholdKey;
 
@@ -391,6 +394,7 @@ public final class MirovaParameterSnapshot implements Serializable
         this.bcInducedDecelKey = p.getParameter(MirovaParameters.INDUCED_DECEL_KEY_DISTINCT);
         this.bcHeadwayFactorKey = p.getParameter(MirovaParameters.HEADWAY_FACTOR_KEY_DISTINCT);
         this.bcDecelThresholdKey = p.getParameter(MirovaParameters.DECEL_THRESHOLD_KEY_DISTINCT);
+        this.bcDesireCapped = p.getParameter(MirovaParameters.DESIRE_CAPPED);
     }
 
     /**

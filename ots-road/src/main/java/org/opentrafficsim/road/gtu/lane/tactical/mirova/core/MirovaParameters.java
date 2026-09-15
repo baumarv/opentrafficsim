@@ -502,6 +502,27 @@ public final class MirovaParameters implements ConstraintInterface
                         new ParameterTypeBoolean("bcDecelThresholdKey",
                                         "BC-12: deceleration-threshold cache keys cover NONE", false);
 
+        /**
+         * BC-13. Cap the lane-change desire at 1, as OTS's own LMRS caps its own.
+         * <p>
+         * The desire layer's output is specified to lie on the scale every {@code d_*} threshold is defined on, and the
+         * deceleration thresholds interpolate on it with {@code (desire - dMand) / (1 - dMand)} clamped to
+         * {@code [0, 1]}. It does not stay on that scale: {@code CruisingSpeedIncentive} computes
+         * {@code a_gain * (v_adj - v_cur) / v_gain}, an unbounded ratio, and measured over two production cells the
+         * combined desire exceeds 1 in 17.4 % and 14.6 % of evaluations, reaching 7.9 and 9.5.
+         * </p>
+         * <p>
+         * OTS has the identical unbounded expression in {@code IncentiveSpeedWithCourtesy}; it is harmless there
+         * because {@code org.opentrafficsim.road.gtu.lane.tactical.util.lmrs.Desire} caps at construction
+         * ({@code this.left = left <= 1 ? left : 1}). MiRoVA reproduced the formula and not the cap. With this set
+         * the cap returns, at the same place and with the same asymmetry: above at 1, open below, because a negative
+         * desire means a change is actively unwanted and no threshold lives there.
+         * </p>
+         */
+        public static final ParameterTypeBoolean DESIRE_CAPPED =
+                        new ParameterTypeBoolean("bcDesireCapped",
+                                        "BC-13: lane-change desire capped at 1 above, open below", false);
+
         /** Whether acceleration damping during active headway relaxation is enabled. */
         public static final ParameterTypeBoolean RELAXATION_ACC_DAMPING_ENABLED =
                         new ParameterTypeBoolean("aRelaxDampingEnabled",

@@ -420,6 +420,38 @@ day (42 %).
 **Not in the core set.** The core reproduces the leader-only key by decision -- ADR-014, and `RelaxedCarFollowing`
 says so in as many words. See [`contract.md`](contract.md) §0.
 
+### BC-13 `bcDesireCapped` — the lane-change desire is capped at 1 above
+
+**Changes.** MiRoVA's `Desire` takes whatever its incentives produce. With the switch on it caps the totals at 1 and
+leaves them open below, which is what OTS's own LMRS does at construction. The cap is carried by the value — a
+`Desire` has no vehicle — so the incentives set it from the parameter and `add`, `scale` and `combine` propagate it.
+
+**Why.** Every `d_•` threshold is defined on the scale the specification gives as `[−1, 1]`, and the desire leaves
+it: measured over every evaluation on two production cells, the combined desire exceeds 1 in **17.4 %** and
+**14.6 %** of evaluations and reaches **7.9** and **9.5**. Essentially all of it is `CruisingSpeedIncentive`, whose
+`a_gain · (v_adj − v_cur) / v_gain` is an unbounded ratio; `KeepRight` and `ProhibitDeadEnd` are structurally
+bounded by `dFree` and `dMand`, and `Route` only grazes 1.03. OTS has the identical unbounded expression in
+`IncentiveSpeedWithCourtesy` and is unaffected because its `Desire` record caps at construction
+(`this.left = left <= 1 ? left : 1`). MiRoVA reproduced the formula and not the cap — the `socio` case a second
+time.
+
+**Where the cap does *not* act, which is worth stating because it is the obvious guess.** It does not change the
+deceleration thresholds. Those interpolate on `(desire − dMand) / (1 − dMand)` clamped to `[0, 1]`, so any desire at
+or above 1 already yields a fraction of exactly 1, capped or not. The thresholds were absorbing the excess silently
+all along. What the cap moves is every *other* consumer of the desire — the comparisons against `dFree`, `dSync`
+and `dCoop`, the LMRS weighting, the pattern gates, and `dominantDirection()`, which compares the two sides and
+returns NONE when they are within `1e-3`: capping both sides at 1 turns unequal large desires into ties.
+
+**Proven on both cells**, recorded through the planner observer:
+
+(a) switch off: `e8dcc43420f564cd152f75aaa5054315` on 2025-10-27 and `303125a4b9b9860751ffe4b4ecca4bd8` on
+2025-09-22 — both references exactly. The published model keeps the uncapped desire.
+(b) switch on: **18 484 of 337 568** ticks differ on the congested day (5.5 %) and **1 323 of 353 570** on the
+free-flow day (0.37 %).
+
+**Not in the core set.** The core reproduces the uncapped desire faithfully — no cap in the type, the incentive or
+the combination. See [`contract.md`](contract.md) §0.
+
 ### BC-12 `bcDecelThresholdKey` — the deceleration-threshold keys cover NONE
 
 **Changes.** `EgoContext.getEgoDecelerationThreshold` and `getFollowerDecelerationThreshold` pick their per-tick key
@@ -517,8 +549,8 @@ against decision 1.
 > constant on elapsed time and BC-8 fixes the
 > update order. BC-5 is left out while Q1 is open. **`reference` is the run the publications rest on;
 > `coreset` is the run the migration is measured against, and the two are not the same model.** See
-> [`contract.md`](contract.md) §0. Registration counts, verified against the built classes: 6240 runs
-> for all thirteen variants over sixteen dates at thirty replications, 960 for
+> [`contract.md`](contract.md) §0. Registration counts, verified against the built classes: 6720 runs
+> for all fourteen variants over sixteen dates at thirty replications, 960 for
 > `--variants=reference,coreset`.
 >
 > **Ask this of the built classes whenever a variant is added.** The count stated here was 5760 for

@@ -140,7 +140,7 @@ public class SocialInteractionsIncentives extends DesireIncentive
             // Ignore and keep dRight 0.0
         }
 
-        this.desire = new Desire(dLeft, dRight, false); // discretionary desire
+        this.desire = new Desire(dLeft, dRight, false, this.vehicle.getParams().bcDesireCapped); // discretionary desire
         return this.desire;
     }
 

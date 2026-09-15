@@ -130,7 +130,7 @@ public class CruisingSpeedIncentive extends DesireIncentive
         }
 
         // Create and return the computed non-mandatory desire
-        this.desire = new Desire(dLeft, dRight, false);
+        this.desire = new Desire(dLeft, dRight, false, this.vehicle.getParams().bcDesireCapped);
         return this.desire;
     }
 }

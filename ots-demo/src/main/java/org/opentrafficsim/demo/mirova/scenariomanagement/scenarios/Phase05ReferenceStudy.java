@@ -81,6 +81,13 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * because the condition producing NONE also drives the right desire below {@code dMand} where the interpolation
  * clamps to the same minimum. It is registered because that agreement is circumstance and not construction, and the
  * campaign moves the desires. <b>In the core set</b>: the core has no such memo and no NONE at all.</li>
+ * <li><b>bc13_desirecap</b> -- the lane-change desire is capped at 1 above and left open below, which is what
+ * OTS's own LMRS {@code Desire} does at construction. MiRoVA reproduced the unbounded
+ * {@code a_gain * (v_adj - v_cur) / v_gain} of {@code IncentiveSpeedWithCourtesy} without OTS's cap, so the combined
+ * desire exceeds 1 in 17.4 % and 14.6 % of evaluations and reaches 7.9 and 9.5, although every deceleration
+ * threshold interpolates on a fraction of it clamped to {@code [0, 1]}. This is the largest single switch in the
+ * campaign: it moves the desire itself, on which the thresholds, the pattern gates and the LMRS weighting all
+ * depend.</li>
  * <li><b>coreset</b> -- the first of two variants that are not a single switch. It turns on BC-1, BC-2, BC-4, BC-6,
  * BC-8, BC-10 and BC-12 together, because that combination is what the decoupled core reproduces by construction: BC-2 and
  * BC-4 remove fields no driver can observe, BC-6 bounds the merge scan to what one can see, BC-1 puts every time
@@ -100,7 +107,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * <p>
  * With {@code --variants=reference} only the baseline is registered, and
  * {@code --variants=reference,coreset,coreset-interp} runs the three baselines the migration needs; the default
- * registers all thirteen. Enabling the defect counters is orthogonal and done through the JVM:
+ * registers all fourteen. Enabling the defect counters is orthogonal and done through the JVM:
  * {@code -Dmirova.defectDiag=true -Dmirova.defectDiagFile=<out>/defects.csv}.
  * </p>
  * <p>
@@ -160,6 +167,7 @@ public class Phase05ReferenceStudy implements StudyDefinition
         VARIANTS.put("bc10_induceddecel", List.of(MirovaParameters.INDUCED_DECEL_KEY_DISTINCT.getId()));
         VARIANTS.put("bc11_headwaykey", List.of(MirovaParameters.HEADWAY_FACTOR_KEY_DISTINCT.getId()));
         VARIANTS.put("bc12_decelthreshold", List.of(MirovaParameters.DECEL_THRESHOLD_KEY_DISTINCT.getId()));
+        VARIANTS.put("bc13_desirecap", List.of(MirovaParameters.DESIRE_CAPPED.getId()));
         VARIANTS.put(CORE_SET_LABEL,
                 List.of(MirovaParameters.EMA_ALPHA_FROM_ACTUAL_DT.getId(),
                         MirovaParameters.LEADER_HEADWAY_FROM_OWN_MODEL.getId(),

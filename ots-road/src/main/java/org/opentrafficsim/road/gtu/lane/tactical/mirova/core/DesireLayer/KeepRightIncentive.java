@@ -95,7 +95,7 @@ public class KeepRightIncentive extends DesireIncentive
             dRight = getMirovaTacticalPlanner().getParams().dFree;
         }
 
-        this.desire = new Desire(0.0, dRight, false);
+        this.desire = new Desire(0.0, dRight, false, this.vehicle.getParams().bcDesireCapped);
         return this.desire;
     }
 }
