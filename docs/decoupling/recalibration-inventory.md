@@ -384,6 +384,26 @@ desires do — and not because the collision happens to be harmless at the curre
 recalibration therefore does not need to re-measure BC-12 against each candidate parameter set; it needs
 only to keep the structural claim true.
 
+**Before touching any direction-keyed cache, re-read the audit.** Six per-tick caches are keyed with
+`dir == LEFT ? … : …`, which sends `NONE` to the RIGHT entry. One pair is a real collision and sits behind
+BC-12; the other four are harmless *today*, and only because of where NONE currently arrives — three never
+receive it (measured: 0 calls on both cells), one is unreachable because its single caller loops over an
+explicit `{LEFT, RIGHT}` array (reasoned from the call site), and one, `getIfLaneAvailable`, does receive
+it 16 997 and 15 177 times but is measured inert for two independent reasons. **This is a property of the
+key convention, not four separate cases.** A recalibration that changes `dominantDirection()` — its `1e-3`
+tie window is the obvious candidate, and BC-13 already widens the set of ties — or that gives any of these
+getters a new caller, can make five latent aliases live in one change, with no test failing to say so.
+The full table, with numbers and with each verdict marked measured or reasoned, is in
+[`cache-audit.md`](cache-audit.md) §2; pointers sit at each getter and at `dominantDirection()` in the
+code.
+
+**Also on the list: `getLaneAverageSpeed` keys the lane by id without the link.** All five value-bearing
+arguments are in the key, so this is not a collision in the audit's sense, but the lane is identified as
+`lane.getId()` where the rest of the tree uses `link.getId() + "/" + lane.getId()`. Uniqueness is
+therefore an assumption about the *network* rather than a property of the key: it may hold on
+Freiburg-Nord and need not hold on another facility, and the model travels. Reasoned from the code, not
+measured — no collision was observed, and none would be visible if it happened.
+
 **Checked and cleared, so it is not re-opened:** `PreventUndercuttingPattern` asks for the LEFT
 deceleration threshold unconditionally at its shadowing site. That is not a wrong argument — the pattern
 is left-only by construction, triggered by `getRightSideOvertakingAhead()`, shadowing the left leader and

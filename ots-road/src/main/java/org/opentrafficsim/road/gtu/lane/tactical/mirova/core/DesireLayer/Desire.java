@@ -391,6 +391,11 @@ public final class Desire
      * Determines the dominant total direction of this desire.
      * @return LateralDirectionality; LEFT or RIGHT, or NONE if no dominant direction exists
      */
+    // This method is where NONE comes from, and NONE is load-bearing elsewhere. Six per-tick caches are
+    // keyed with `dir == LEFT ? ... : ...`, which sends NONE to the RIGHT entry; today that is harmless
+    // only because of where NONE currently arrives, which was measured rather than assumed. Widening the
+    // tie window below, or returning NONE in a new situation, can make five of those aliases live in one
+    // change. See docs/decoupling/cache-audit.md section 2 before altering this.
     public LateralDirectionality dominantDirection()
     {
         if (Math.abs(this.left - this.right) < 1e-3)

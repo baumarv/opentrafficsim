@@ -286,6 +286,13 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
      */
     public boolean getIfLaneAvailable(final LateralDirectionality laneChangeDirection)
     {
+    // Key convention, and the one site NONE does reach: 16 997 and 15 177 times on the two production
+    // cells. Measured harmless for two independent reasons -- NONE was served an entry a genuine RIGHT
+    // query had already written in 100 % of cases, so it never writes and cannot poison a later read; and
+    // the served answer equalled what NONE would have computed for itself in all 32 174 cross-reads,
+    // because isLeft() is false for NONE so every branch below takes the RIGHT path anyway. Both were
+    // measured, not reasoned. Four other getters share this shape. Before editing this method or its
+    // callers, read docs/decoupling/cache-audit.md section 2.
         String cacheKey = laneChangeDirection == LateralDirectionality.LEFT ? LEFT_LANE_AVAILABLE : RIGHT_LANE_AVAILABLE;
         Boolean cached = getCachedValue(cacheKey, Boolean.class);
         if (cached != null)
@@ -492,6 +499,9 @@ public class InfrastructureContext extends ContextCategory implements UpdatableC
     public boolean getParallelMerge(final LateralDirectionality dir) throws ParameterException
     {
         // Prevent dynamic String concatenation by routing to static constants
+    // Key convention: anything that is not LEFT takes the RIGHT key. Unreachable today only because this
+        // getter's single caller loops over an explicit {LEFT, RIGHT} array. See
+        // docs/decoupling/cache-audit.md section 2 before giving it another caller.
         String cacheKey = (dir == LateralDirectionality.LEFT) ? MERGE_CACHE_KEY_LEFT : MERGE_CACHE_KEY_RIGHT;
 
         // Check the general updatable context cache (assuming a method like getContextValue or direct map access exists)

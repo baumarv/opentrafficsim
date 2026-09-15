@@ -16,11 +16,19 @@ its reference (`e8dcc43420f564cd152f75aaa5054315`, `303125a4b9b9860751ffe4b4ecca
 
 ## 1. The three real collisions — all behind switches
 
-| | cache | key by default | what the value also depends on | switch |
-|---|---|---|---|---|
-| 1 | `EgoContext.tickAccelerationCache`, via `MirovaCarFollowingUtil` | `leaderId` | the headway factor the call asked for (`T` is multiplied for the duration of one call) | **BC-11** `bcHeadwayFactorKey` |
-| 2 | `NeighborsContext` induced deceleration, two overloads | `"inducedDecel_" + gtuId` | *which overload* — the two compute different quantities — and, for one of them, three caller-supplied arguments | **BC-10** `bcInducedDecelKey` |
-| 3 | `EgoContext` ego and follower deceleration thresholds | `dir == LEFT ? …_LEFT : …_RIGHT` | the direction, via `getDirectionalDesire(dir)`; `NONE` aliases onto the RIGHT key | **BC-12** `bcDecelThresholdKey` |
+All three were **[measured]** before the switch was written, and each switch was then proven off
+byte-identical and on quantified.
+
+| | cache | key by default | what the value also depends on | reach, measured | switch |
+|---|---|---|---|---|---|
+| 1 | `EgoContext.tickAccelerationCache`, via `MirovaCarFollowingUtil` | `leaderId` | the headway factor the call asked for (`T` is multiplied for the duration of one call) | 23 and 109 contaminated hits; commanded plan differs on 26 % and 42 % of ticks | **BC-11** `bcHeadwayFactorKey` |
+| 2 | `NeighborsContext` induced deceleration, two overloads | `"inducedDecel_" + gtuId` | *which overload* — the two compute different quantities — and, for one of them, three caller-supplied arguments | 28 of 281 merge-router evaluations decided on the other overload's number | **BC-10** `bcInducedDecelKey` |
+| 3 | `EgoContext` ego and follower deceleration thresholds | `dir == LEFT ? …_LEFT : …_RIGHT` | the direction, via `getDirectionalDesire(dir)`; `NONE` aliases onto the RIGHT key | 3 and 15 poisoned reads, all equal to the reader's own value; 0 decision changes; switch on is byte-identical | **BC-12** `bcDecelThresholdKey` |
+
+BC-12 is the one to read carefully before reusing this table as evidence: its collision is real and its
+*effect* is nil at current parameters, and it was predicted that BC-13 (capping the desire, which creates
+ties and therefore more NONE) would make it bite. **Measured: it does not** — 0 of 337 486 and 0 of
+353 581 ticks. It is in the core set on the structural argument, not on a measured effect.
 
 The published model keeps all three; see [`phase05-report.md`](phase05-report.md) for what each switch does
 and what it moves, and [`contract.md`](contract.md) §0 for which are in the core set (BC-10 and BC-12 yes,
@@ -33,13 +41,17 @@ That shape occurs five more times. It bites only if `NONE` actually arrives, whi
 than assumed, because `MandatoryLaneChangePattern.getTargetDirection()` returns `dominantDirection()` live
 and *can* be NONE.
 
-| cache | site | NONE reached? | verdict |
-|---|---|---|---|
-| `egoDecel_LEFT/RIGHT` | `NeighborsContext.getEgoDeceleration` | **no** — 0 of 30 100 and 32 471 calls | latent |
-| `followerDecel_LEFT/RIGHT` | `NeighborsContext.getFollowerDeceleration` | **no** — same call path, 0 NONE | latent |
-| `laneChangePossibleLeft/Right` | `NeighborsContext.getIfLaneChangePossible` | **no** — 0 of 29 328 and 31 000 calls | latent |
-| `PARALLEL_MERGE_LEFT/RIGHT` | `InfrastructureContext.getParallelMerge` | **no** — its only caller loops over an explicit `{LEFT, RIGHT}` array | unreachable by construction |
-| `leftLaneAvailable` / `rightLaneAvailable` | `InfrastructureContext.getIfLaneAvailable` | **yes — 16 997 and 15 177 times** | reached but inert, see below |
+Each verdict below is marked **[measured]** or **[reasoned]**, because the two are not equally durable: a
+measured verdict holds for the parameters and the two cells it was taken on, and a reasoned one holds
+until the code it reasons about changes.
+
+| cache | site | NONE reached? | verdict | basis |
+|---|---|---|---|---|
+| `egoDecel_LEFT/RIGHT` | `NeighborsContext.getEgoDeceleration` | **no** — 0 of 30 100 and 32 471 calls | latent | **[measured]** probe on both cells |
+| `followerDecel_LEFT/RIGHT` | `NeighborsContext.getFollowerDeceleration` | **no** — 0 NONE | latent | **[measured]**, same call path |
+| `laneChangePossibleLeft/Right` | `NeighborsContext.getIfLaneChangePossible` | **no** — 0 of 29 328 and 31 000 calls | latent | **[measured]** |
+| `PARALLEL_MERGE_LEFT/RIGHT` | `InfrastructureContext.getParallelMerge` | **no** | unreachable | **[reasoned]** — its only caller loops over an explicit `{LEFT, RIGHT}` array; holds only while that stays its only caller |
+| `leftLaneAvailable` / `rightLaneAvailable` | `InfrastructureContext.getIfLaneAvailable` | **yes — 16 997 and 15 177 times** | reached but inert | **[measured]**, twice over — see below |
 
 `getIfLaneAvailable` is the one case where NONE does arrive, and it is worth recording why it is
 nevertheless harmless, because the reason is not the one that made BC-12 harmless:
@@ -52,9 +64,18 @@ nevertheless harmless, because the reason is not the one that made BC-12 harmles
   every branch takes the RIGHT path anyway; only the OTS query `getLegalLaneChangePossibility(CURRENT, dir)`
   sees the difference, and OTS's own memo keys `(fromLane, lat)` correctly and agreed here.
 
-No switch is proposed for any of these five. They are recorded so that a future change to
-`dominantDirection()`, to `getTargetDirection()`, or to any caller that begins passing NONE is known to
-make five latent aliases live at once.
+No switch is proposed for any of these five. **They are one finding, not five.** The shape is a property
+of the key convention — `dir == LEFT ? … : …` cannot express NONE — and what keeps it harmless is only
+where NONE currently arrives. A change to `dominantDirection()` (its `1e-3` tie window is the obvious
+candidate, and BC-13 already widens the set of ties), to `getTargetDirection()`, or to any caller that
+begins passing NONE makes five latent aliases live in one change, and nothing in the test suite would
+report it. Short pointers therefore sit in the code at each of the five getters and at
+`dominantDirection()` itself, referring here; the audit document alone would not be found at the moment it
+matters.
+
+The correct form already exists in the same tree: `ContextCategory.directionKeys(prefix)` builds one key
+per enum constant, NONE included, and `downstreamAdjacentLane_*` and `anticipatedLaneDrop_*` use it. Any
+fix should adopt that rather than add a third branch.
 
 ## 3. Correctly keyed
 
@@ -77,7 +98,8 @@ make five latent aliases live at once.
 
 ## 4. Two findings that are not collisions
 
-**`ContextCategory.values` is never cleared and has no reader.** `cacheValue(key, v, true)` writes into
+**`ContextCategory.values` is never cleared and has no reader.** **[reasoned]** — established by reading
+the code and by a call-site search, not by measurement; no growth figure was taken. `cacheValue(key, v, true)` writes into
 both `cache` and `values`; `invalidateCache()` clears only `cache`. Nothing reads `values`:
 `getValue`/`getAllValues` are reached only through `MirovaTacticalPlanner.getContextValue`, which has **no
 callers anywhere in the tree**. So every value a vehicle ever caches is retained for that vehicle's whole
@@ -86,10 +108,14 @@ it ever perceives. It is dead weight rather than a defect — but it is also sta
 if anything ever did read it, since entries outlive the tick they describe by design. Recommended for
 deletion in the port; the core has no equivalent.
 
-**`laneAverageSpeed_` keys the lane by id alone.** The key covers all five arguments — lane, start, end,
-`maxVehicles`, scan direction — so it is not a collision in the sense of this audit. But it identifies the
-lane by `lane.getId()`, where the rest of the tree uses `link.getId() + "/" + lane.getId()`; two lanes with
-the same id on different links would collide. Not observed, and the per-tick lifetime makes it narrow.
+**`laneAverageSpeed_` keys the lane by id alone.** **[reasoned]** — no collision was observed, and none
+would have been visible if it had happened, so this is read from the code and not measured. The key covers
+all five arguments — lane, start, end, `maxVehicles`, scan direction — so it is not a collision in this
+audit's sense. But it identifies the lane by `lane.getId()`, where the rest of the tree uses
+`link.getId() + "/" + lane.getId()`. That makes uniqueness **an assumption about the network rather than a
+property of the key**: two lanes sharing an id on different links collide, which may well be impossible on
+Freiburg-Nord and need not be on the next facility. The model travels; the assumption does not. The
+per-tick lifetime narrows the window but does not close it. On the recalibration list for that reason.
 
 **Over-keyed, harmless.** `desiredFrontHeadway_{LEFT,RIGHT,CURRENT}` holds three keys for a value that does
 not depend on the direction at all — `computeDesiredFrontHeadway()` takes no argument. Three entries, one
