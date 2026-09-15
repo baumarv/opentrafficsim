@@ -33,6 +33,8 @@ To save context window token usage and avoid parsing raw codebase files, refer d
   [docs/decoupling/phase05-report.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/decoupling/phase05-report.md)
 - **Parameter reference** (every parameter, its default, where it is read, snapshot or live, and which are dead):
   [docs/decoupling/parameters.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/decoupling/parameters.md)
+- **Cache and key audit** (every memo in the MiRoVA tree, whether its key covers what its value depends on,
+  and which collisions are real): [docs/decoupling/cache-audit.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/decoupling/cache-audit.md)
 - **Python Pipeline (diss_mvb)**: [docs/mirova/python_pipeline.md](file:///d:/Mitarbeitende/gw2128/repositories/opentrafficsim/docs/mirova/python_pipeline.md)
 
 
