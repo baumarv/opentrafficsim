@@ -186,7 +186,8 @@ them separately would invite the wrong conclusion about either.
 ## State afterwards
 
 - Branch `perf/djunits-hash-cache-experiment`, created from `laneChangeIncentive_Reengineering` at
-  `18fc06115`. **The production branch was not touched.**
+  `18fc06115`. **The production branch was not touched.** (Branch archived as the annotated tag
+  `archive-perf-djunits-hash-cache-experiment`, `575cc3ce6`, and deleted.)
 - `pom.xml` is byte-identical to `HEAD`; `djunits.version` is back to `5.2.1`.
 - `RunFreiburgMergeWatch.java` restored to its committed state.
 - `5.2.1-mirova-patched` remains installed in the **local** `.m2` only. It is inert — nothing resolves
