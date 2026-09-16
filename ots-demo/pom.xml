@@ -45,5 +45,25 @@
       <url>https://repo.osgeo.org/repository/release/</url>
     </repository>
   </repositories>
-  
+
+  <profiles>
+    <!--
+      TaMA on the runtime classpath, so that a scenario can select it with the parameter tacticalPlanner=tama
+      (see TacticalPlannerProvider). Runtime scope only: nothing in OTS compiles against TaMA, and without the profile
+      the build is unchanged. The bundle is self-contained and comes from mavenLocal, published from the TaMA
+      repository with ./gradlew :tama-ots:publishToMavenLocal.
+    -->
+    <profile>
+      <id>tama</id>
+      <dependencies>
+        <dependency>
+          <groupId>edu.kit.ifv.tama</groupId>
+          <artifactId>tama-ots-bundle</artifactId>
+          <version>0.1.0-SNAPSHOT</version>
+          <scope>runtime</scope>
+        </dependency>
+      </dependencies>
+    </profile>
+  </profiles>
+
 </project>
