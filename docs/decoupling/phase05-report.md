@@ -5,8 +5,53 @@ behaviour-preserving migration and behaviour-changing correction never appear in
 measurement. Branch `decoupling_phase05`, thirteen commits, each labelled `[no behaviour change]` or
 `[behaviour change]`.
 
-**Nothing in this branch changes what the model does at default settings.** Every behaviour change
-sits behind a parameter whose default reproduces the model the published results were produced with.
+~~**Nothing in this branch changes what the model does at default settings.** Every behaviour change
+sits behind a parameter whose default reproduces the model the published results were produced with.~~
+
+> **Correction (2026-09-16).** The sentence above holds for the commits this report labels, measured
+> against their own parent — and not for "the model the published results were produced with". The
+> branch `decoupling_phase05` also carries, before the labelled work begins, **eight unlabelled commits
+> of 2026-09-08 … 09-10 that change the model at defaults**. The reference standard, `final_v1`, ran
+> before all eight of them.
+>
+> **Where the guarantee holds.** From `edefa9805` (09-10 12:26, the parent of the first labelled commit
+> `e257bbedb`) to `2ccc1b362`, every commit is labelled, and the switch defaults reproduce `edefa9805`.
+> Evidence: 60 simulated minutes of `RunFreiburgMergeWatch` (seed 42, 2025-10-13 13:00–16:00, car/truck
+> T = 1.0/1.3 s, vGain 15/30 m/s as that harness hard-codes it) give a trajectory file with md5
+> `0e4e3faf…` and 99 114 lines at `edefa9805`, `9eb7ab856` and `2ccc1b362` alike. The harness fixes vGain,
+> so this proof does not cover `abe9125bd`, which moves the *study* default of vGain and is labelled
+> `[behaviour change]` for that reason.
+>
+> **Where it does not.** Between `fbce85dbe` (09-04, where `final_v1` ran) and `edefa9805`:
+>
+> | commit | date | subject | what it changes at defaults | evidence (from the commit message) |
+> |---|---|---|---|---|
+> | `e958ed365` | 09-08 15:21 | fix(undercutting): stop the pattern firing on the acceleration lane | `PreventUndercuttingPattern` stands down while the ego's lane ends | one seed: flow +4.0 %, time on ramp −6.1 % |
+> | `f6b13ca37` | 09-08 17:10 | fix(undercutting): judge congestion by the traffic, not by the speed being reduced | congestion test reads traffic, not the ego's speed | before: 555 on/off episodes over 300 vehicles in an hour, median 1.0 s |
+> | `1de363b14` | 09-09 15:05 | fix(desire): read the speed limit only for lanes that are in the cross-section | 12 vehicles per 300-min run are no longer deleted by a null dereference | removals 12 → 0; standstill share 9.74 → 9.62 % |
+> | `802593157` | 09-09 16:14 | fix(merge): judge room to overtake by the speed the ego wants, not the one it has | merge gap test | ten paired seeds: stranded at ramp end 3.42 → 3.04 % (−11.2 %, p < 0.001) |
+> | `74a0a9021` | 09-09 18:38 | fix(merge): do not accelerate after a blocker that is pulling away | merge speed-building | stranded at ramp end → 3.09 % (−9.8 %, p < 0.001) |
+> | `c155bfb46` | 09-10 09:04 | fix(merge): stop building merge speed once the lane end cannot be reached under control | merge speed-building | stranded 3.09 → 2.17 %, standstill 9.61 → 7.07 % |
+> | `c7929297a` | 09-10 10:44 | fix(merge): do not invent a stream speed for an empty lane to the right | exit reference speed | vehicles standing on the weaving segment 41.5 → 0.9 |
+> | `42bb55c66` | 09-10 11:39 | fix(merge): give the congested branch a hysteresis instead of a knife edge | congested-branch switching | switches per vehicle 4.87 → 1.69 |
+>
+> **Count.** The list handed over for this correction said seven. Eight are listed because `1de363b14`
+> belongs here on the same test as the others: it changes trajectories at defaults (vehicles that were
+> deleted now drive on), although its aggregate metrics barely move. The other Java commits in the range
+> do not: `148062f6d` and `e411f7f1b` are refactors whose messages report byte-identical output, and
+> `375607e75`, `af9f1d654`, `08d77f87d`, `47ef4fc31`, `cb87de79f` add logging; `c3477979c` and
+> `41d473cba` change only the `RunFreiburgMergeWatch` harness. None of the eight carries a label, and
+> none sits behind a switch.
+>
+> **What `final_v1` ran on.** One cell of `final_v1` (2025-10-27, seed 42) re-run at `fbce85dbe` reproduces
+> the archived output exactly: unzipped trajectories 106 590 153 bytes, md5 `a99d7755…`, detector output
+> identical; the only differences are platform artefacts (a `²` in one header line encoded UTF-8 vs cp1252,
+> LF vs CRLF in a header-only file). Its resolved parameters match the `legacy` variant as corrected on
+> `agent/legacy-final-v1` with no value differing. See `docs/fork-merge-plan.md`, section D.
+>
+> **Consequence.** A `reference` or `legacy` run on this branch is **not** `final_v1`: it carries eight
+> model changes `final_v1` did not have (and, for `reference`, the vGain of `abe9125bd`). `final_v1`
+> itself is reproduced at `fbce85dbe` only.
 
 **The instrumentation campaign has run** -- 15 runs, three calibration dates, five replications each,
 all successful. Its results are in §2.5, and they settle three of the open questions.
