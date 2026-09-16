@@ -16,8 +16,8 @@ intended and understood -- overwriting a reference is how a regression net stops
 
 | File | Case | Rows |
 |:--|:--|--:|
-| `freiburg-merge.trace.csv.gz` | `FreiburgNord`, 20 min from 2025-10-13 13:00, seed 42, merge-watch calibration | 318 436 |
-| `merge.trace.csv.gz` | `MergeScenario`, 600 s, seed 42, demand ramp 1000..6500 veh/h | 289 395 |
+| `freiburg-merge.trace.csv.gz` | `FreiburgNord`, 20 min from 2025-10-13 13:00, seed 42, merge-watch calibration | 321 253 |
+| `merge.trace.csv.gz` | `MergeScenario`, 600 s, seed 42, demand ramp 1000..6500 veh/h | 288 961 |
 
 `freiburg-merge` is the primary case: it is the real network under measured demand, and it takes its
 parameters from `RunFreiburgMergeWatch.watchParameters()` rather than from a copy, so a change to
