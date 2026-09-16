@@ -157,8 +157,16 @@ public final class RunFreiburgMergeWatch
         private static final double COMFORTABLE_DECELERATION = Double.parseDouble(System.getProperty(
                         "mirova.b", Double.toString(FreiburgFinalStudy.B)));
 
-        /** Speed gain of cars, driving the socio-speed sensitivity [km/h]. Study baseline: 15.0. */
-        private static final double CAR_V_GAIN = 15.0;
+        /**
+         * Speed gain of cars, driving the socio-speed sensitivity: the production set's own value, typed.
+         * <p>
+         * This was a bare {@code 15.0} labelled [km/h] and passed through {@code Speed.instantiateSI}, i.e. 15 m/s, overriding
+         * the production set's 15 km/h. The harness - and the {@code freiburg-merge} FSM reference trace that takes its
+         * parameters from {@link #watchParameters} - therefore ran the old value and could not see a change to it. Taken from
+         * {@link FreiburgStudyParameters#CAR_V_GAIN} now, like every other parameter here comes from the study it mirrors.
+         * </p>
+         */
+        private static final Speed CAR_V_GAIN = FreiburgStudyParameters.CAR_V_GAIN;
 
         /** Maximum acceleration of cars [m/s^2]. Study baseline: 3.5. */
         private static final double CAR_A_MAX = 3.5;
@@ -247,8 +255,8 @@ public final class RunFreiburgMergeWatch
         private static final double TRUCK_S0 = Double.parseDouble(
                         System.getProperty("mirova.truckS0", Double.toString(2.0 * FreiburgFinalStudy.S0_CAR)));
 
-        /** Speed gain of trucks [km/h]. Study baseline: 30.0. */
-        private static final double TRUCK_V_GAIN = 30.0;
+        /** Speed gain of trucks: the production set's own value. See {@link #CAR_V_GAIN}. */
+        private static final Speed TRUCK_V_GAIN = FreiburgStudyParameters.TRUCK_V_GAIN;
 
         /** Maximum acceleration of trucks [m/s^2]. Study baseline: 1.3. */
         private static final double TRUCK_A_MAX = 1.3;
@@ -371,7 +379,7 @@ public final class RunFreiburgMergeWatch
                                 org.djunits.value.vdouble.scalar.Acceleration
                                                 .instantiateSI(RELAXATION_ABORT_DECELERATION));
                 params.set("truck." + ParameterTypes.B.getId(), Acceleration.instantiateSI(COMFORTABLE_DECELERATION));
-                params.set("car." + MirovaParameters.vGain.getId(), Speed.instantiateSI(CAR_V_GAIN));
+                params.set("car." + MirovaParameters.vGain.getId(), CAR_V_GAIN);
                 params.set("car." + MirovaParameters.A_MAX.getId(), Acceleration.instantiateSI(CAR_A_MAX));
                 params.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(), Acceleration.instantiateSI(CAR_COOPERATIVE_DECELERATION_THRESHOLD));
                 params.set("car." + MirovaParameters.farAnticipationEnabled.getId(), CAR_FAR_ANTICIPATION);
@@ -389,7 +397,7 @@ public final class RunFreiburgMergeWatch
                 params.set("truck." + ParameterTypes.T.getId(), Duration.instantiateSI(TRUCK_T));
                 params.set("truck." + ParameterTypes.A.getId(), Acceleration.instantiateSI(TRUCK_A));
                 params.set("truck." + ParameterTypes.S0.getId(), Length.instantiateSI(TRUCK_S0));
-                params.set("truck." + MirovaParameters.vGain.getId(), Speed.instantiateSI(TRUCK_V_GAIN));
+                params.set("truck." + MirovaParameters.vGain.getId(), TRUCK_V_GAIN);
                 params.set("truck." + MirovaParameters.A_MAX.getId(), Acceleration.instantiateSI(TRUCK_A_MAX));
                 params.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(), Acceleration.instantiateSI(TRUCK_COOPERATIVE_DECELERATION_THRESHOLD));
                 params.set("truck." + MirovaParameters.cooperativeLaneChangesEnabled.getId(), TRUCK_COOPERATIVE_LANE_CHANGES);
