@@ -131,12 +131,11 @@ public class Phase05ReferenceStudy implements StudyDefinition
     public static final String CORE_SET_INTERP_LABEL = "coreset-interp";
 
     /**
-     * Label of the variant that reproduces the published parameterisation explicitly.
+     * Label of the variant that carries the parameters of {@code final_v1}, the reference standard.
      * <p>
-     * Every switch at its default, as {@code reference} has them, and the speed gain of the published results --
-     * 15 m/s for cars, 30 m/s for trucks. Since the intended values became the model values, {@code reference} is no
-     * longer the published model and this variant is. See {@link FreiburgProductionStudy#LEGACY_LABEL} and the tag
-     * {@code published-model}.
+     * Every switch at its default, and the cell of {@link FreiburgFinalStudy#cellFor} with the speed gain {@code final_v1}
+     * ran -- 15 m/s for cars, 30 m/s for trucks -- rather than this study's production cell. Parameters, not model: see
+     * {@link FreiburgFinalStudy#LEGACY_LABEL} and the tag {@code campaign-final-v1}.
      * </p>
      * <p>
      * <b>Not in the default variant set</b>, so the campaign's run count is unchanged; select it with
@@ -259,8 +258,10 @@ public class Phase05ReferenceStudy implements StudyDefinition
                 String scenarioName = facility.scenarioName(date, label);
                 manager.addScenario(scenarioName, facility.getGeneratorClass());
 
-                ScenarioParameters params = FreiburgCongestedBranchStudy.forCell(facility, date, demandCsvPath, strict,
-                        FreiburgProductionStudy.B, FreiburgProductionStudy.S0_CAR, FreiburgProductionStudy.A_CAR);
+                ScenarioParameters params = LEGACY_LABEL.equals(label)
+                        ? FreiburgFinalStudy.cellFor(facility, date, demandCsvPath, strict)
+                        : FreiburgCongestedBranchStudy.forCell(facility, date, demandCsvPath, strict,
+                                FreiburgProductionStudy.B, FreiburgProductionStudy.S0_CAR, FreiburgProductionStudy.A_CAR);
                 if (LEGACY_LABEL.equals(label))
                 {
                     FreiburgProductionStudy.applyPublishedSpeedGain(params);
