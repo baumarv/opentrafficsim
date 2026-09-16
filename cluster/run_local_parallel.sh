@@ -93,6 +93,20 @@ if [ "$STUBS" -gt 0 ]; then
   exit 1
 fi
 echo "[cp] snapshot verified clean: no compilation stubs"
+
+# Which commit these classes are. Locally the classes come from whatever compiled last - Maven or the IDE - so
+# the stamp is written here, against the snapshot, and only when HEAD is clean. What this cannot see is a
+# target/classes compiled from an earlier HEAD and never rebuilt; hence the rebuild below is part of the recipe,
+# not optional: `mvn clean compile -pl ots-demo -am` after every checkout, then this script.
+bash "$REPO/cluster/stamp_build.sh" "$REPO" "$SNAPSHOT/ots-demo" run_local_parallel.sh || exit 1
+OLDEST_CLASS_DIR_AGE=$(find "$REPO"/ots-*/target/classes -maxdepth 0 -printf '%T@
+' 2>/dev/null | sort -n | head -1 | cut -d. -f1)
+HEAD_TIME=$(git -C "$REPO" log -1 --format=%ct HEAD)
+if [ -n "$OLDEST_CLASS_DIR_AGE" ] && [ "$OLDEST_CLASS_DIR_AGE" -lt "$HEAD_TIME" ]; then
+  echo "[cp] REFUSING TO RUN: a module's target/classes is older than the HEAD commit, so it may not be HEAD's build." >&2
+  echo "[cp]   mvn clean install -pl ots-demo -am -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Djacoco.skip=true" >&2
+  exit 1
+fi
 MODULES=""
 for d in "$SNAPSHOT"/*; do
   [ -d "$d" ] && MODULES="$MODULES$d;"

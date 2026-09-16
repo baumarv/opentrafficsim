@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.opentrafficsim.demo.mirova.scenariomanagement.BuildProvenance;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioManager;
 import org.opentrafficsim.demo.mirova.scenariomanagement.StudyDefinition;
 import org.opentrafficsim.demo.mirova.scenariomanagement.StudyRegistry;
@@ -111,6 +112,9 @@ public final class RunMirovaClusterStudy
             // Pre-warm JAXBContext on the main thread
             XmlParser.warmUpJAXBContext();
 
+            // Fail in seconds rather than after JAXB warm-up, and put the build at the top of the log.
+            BuildProvenance.require();
+            System.out.println("Build:            " + BuildProvenance.describe());
             System.out.println("Study:            " + study.getName() + " (" + study.getDescription() + ")");
             System.out.println("Run index:        " + globalIndex + " of " + totalRuns);
             System.out.println("Output directory: " + outputDirectory.getAbsolutePath());
