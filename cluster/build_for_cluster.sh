@@ -37,6 +37,9 @@ echo "  $(mvn -version 2>/dev/null | head -1)"
 
 cd "${REPO_ROOT}"
 
+# Before compiling: a run records the commit it was built from, which is only true of a clean tree.
+bash "${CLUSTER_DIR}/stamp_build.sh" "${REPO_ROOT}" --check-only build_for_cluster.sh
+
 echo
 echo "[2/4] Building and installing ots-demo and its module dependencies"
 # 'install' (not 'package'): ots-demo resolves ots-road/ots-xml from the local .m2
@@ -49,6 +52,10 @@ echo "[2/4] Building and installing ots-demo and its module dependencies"
 # there. Neither is noticed until a run calls into it. A clean build costs a few minutes per
 # checkout; a stale class costs a job array.
 mvn clean install -pl ots-demo -am -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Djacoco.skip=true
+
+# After compiling, into the classes every run loads first: the commit, checked clean once more. A run without
+# this file refuses to start (BuildProvenance), and copies it into its run folder as build.txt.
+bash "${CLUSTER_DIR}/stamp_build.sh" "${REPO_ROOT}" "${REPO_ROOT}/ots-demo/target/classes" build_for_cluster.sh
 
 echo
 echo "[3/4] Generating runtime classpath -> ${CP_FILE}"

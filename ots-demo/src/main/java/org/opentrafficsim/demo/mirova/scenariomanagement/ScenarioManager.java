@@ -316,6 +316,8 @@ public class ScenarioManager {
         // build output folder
         File runFolder = new File(variationFolder, "run_seed_" + seed);
         runFolder.mkdirs();
+        // Before anything is simulated: the commit this run was built from, or no run at all.
+        BuildProvenance.recordInto(runFolder);
 
         generator.setOutputDirectory(runFolder);
 
