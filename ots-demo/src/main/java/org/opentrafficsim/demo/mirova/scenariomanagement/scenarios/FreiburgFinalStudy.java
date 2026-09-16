@@ -106,8 +106,25 @@ public class FreiburgFinalStudy implements StudyDefinition
      */
     public static final int DEFAULT_REPLICATIONS = 50;
 
-    /** The label of the single variation. */
+    /** The label of the default variation. */
     public static final String VARIANT_LABEL = "final";
+
+    /**
+     * Label of the variant that carries the parameters of the {@code final_v1} campaign, the reference standard.
+     * <p>
+     * {@code final_v1} ran this study's cell with the speed gain as it then stood: <b>15 m/s for cars and 30 m/s for
+     * trucks</b>, a bare number read as SI where km/h was intended. The intended values are now the model values, so
+     * {@link #VARIANT_LABEL} no longer resolves to what {@code final_v1} ran, and this variant does. Its runParams are
+     * identical to those of {@code final_v1} (see {@code docs/fork-merge-plan.md}).
+     * </p>
+     * <p>
+     * <b>Parameters, not model.</b> Run from a later commit, this variant runs the parameters of {@code final_v1} on that
+     * commit's model. Eight commits between {@code final_v1} and the Phase 0.5 work change the model at defaults; the
+     * outputs of {@code final_v1} itself are reproduced only at the tag {@code campaign-final-v1}.
+     * </p>
+     */
+    public static final String LEGACY_LABEL = "legacy";
+
 
     @Override
     public String getName()
@@ -145,33 +162,69 @@ public class FreiburgFinalStudy implements StudyDefinition
         int replications = Integer.parseInt(
                 options.getOrDefault("replications", String.valueOf(DEFAULT_REPLICATIONS)));
 
+        // The default is the final set alone, so the campaign's run count is unchanged; --variants=legacy selects the
+        // final_v1 parameters.
+        String variantOption = options.get("variants");
+        List<String> wanted = variantOption == null || variantOption.trim().isEmpty() ? List.of(VARIANT_LABEL)
+                : List.of(variantOption.trim().split("\\s*,\\s*"));
+        for (String label : wanted)
+        {
+            if (!VARIANT_LABEL.equals(label) && !LEGACY_LABEL.equals(label))
+            {
+                throw new IllegalArgumentException(
+                        "Study 'final' has no variant '" + label + "'; known: " + VARIANT_LABEL + ", " + LEGACY_LABEL);
+            }
+        }
+
         Map<String, File> demandPerDate = DateStudy.resolveDemandCsvs(dates, demandLocation, pattern, strict);
 
         for (String date : dates)
         {
             String demandCsvPath = demandPerDate.get(date).getAbsolutePath();
-            String scenarioName = facility.scenarioName(date, VARIANT_LABEL);
-            manager.addScenario(scenarioName, facility.getGeneratorClass());
-
-            ScenarioParameters params = FreiburgCombinationStudy.forCombination(facility, date, demandCsvPath,
-                    strict, HEADWAY, DAMPING, SAFETY_DISTANCE_FACTOR);
-            params.set("car." + ParameterTypes.B.getId(), Acceleration.instantiateSI(B));
-            params.set("truck." + ParameterTypes.B.getId(), Acceleration.instantiateSI(B));
-            params.set("car." + ParameterTypes.S0.getId(), Length.instantiateSI(S0_CAR));
-            params.set("truck." + ParameterTypes.S0.getId(), Length.instantiateSI(2.0 * S0_CAR));
-            params.set("car." + ParameterTypes.A.getId(), Acceleration.instantiateSI(A_CAR));
-            for (String type : new String[] {"car.", "truck."})
+            for (String label : wanted)
             {
-                params.set(type + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), CAPACITY_DROP);
-                params.set(type + MirovaParameters.RELAXATION_FADE_DURATION.getId(),
-                        Duration.instantiateSI(RELAXATION_FADE_SECONDS));
-                params.set(type + MirovaParameters.RELAXATION_MAX_LIFETIME_FACTOR.getId(),
-                        RELAXATION_MAX_LIFETIME);
-                params.set(type + MirovaParameters.RELAXATION_ABORT_DECELERATION.getId(),
-                        Acceleration.instantiateSI(RELAXATION_ABORT));
+                String scenarioName = facility.scenarioName(date, label);
+                manager.addScenario(scenarioName, facility.getGeneratorClass());
+                ScenarioParameters params = cellFor(facility, date, demandCsvPath, strict);
+                if (LEGACY_LABEL.equals(label))
+                {
+                    FreiburgProductionStudy.applyPublishedSpeedGain(params);
+                }
+                manager.addParameterVariation(scenarioName, params);
             }
-            manager.addParameterVariation(scenarioName, params);
         }
         manager.setReplications(replications);
+    }
+
+    /**
+     * Builds one cell of the final ensemble: the headway pair, deceleration, stopped distance, acceleration and the
+     * corrected relaxation. The one definition of the set, used by this study's variants and by the {@code legacy} variant
+     * of every other study.
+     * @param facility TrafficFacility; the facility
+     * @param date String; the study date
+     * @param demandCsvPath String; the demand file of that date
+     * @param strict boolean; whether a missing demand file aborts
+     * @return ScenarioParameters; the cell, with the speed gain of the current model
+     */
+    public static ScenarioParameters cellFor(final TrafficFacility facility, final String date, final String demandCsvPath,
+            final boolean strict)
+    {
+        ScenarioParameters params = FreiburgCombinationStudy.forCombination(facility, date, demandCsvPath, strict, HEADWAY,
+                DAMPING, SAFETY_DISTANCE_FACTOR);
+        params.set("car." + ParameterTypes.B.getId(), Acceleration.instantiateSI(B));
+        params.set("truck." + ParameterTypes.B.getId(), Acceleration.instantiateSI(B));
+        params.set("car." + ParameterTypes.S0.getId(), Length.instantiateSI(S0_CAR));
+        params.set("truck." + ParameterTypes.S0.getId(), Length.instantiateSI(2.0 * S0_CAR));
+        params.set("car." + ParameterTypes.A.getId(), Acceleration.instantiateSI(A_CAR));
+        for (String type : new String[] {"car.", "truck."})
+        {
+            params.set(type + MirovaParameters.CAPACITY_DROP_ENABLED.getId(), CAPACITY_DROP);
+            params.set(type + MirovaParameters.RELAXATION_FADE_DURATION.getId(),
+                    Duration.instantiateSI(RELAXATION_FADE_SECONDS));
+            params.set(type + MirovaParameters.RELAXATION_MAX_LIFETIME_FACTOR.getId(), RELAXATION_MAX_LIFETIME);
+            params.set(type + MirovaParameters.RELAXATION_ABORT_DECELERATION.getId(),
+                    Acceleration.instantiateSI(RELAXATION_ABORT));
+        }
+        return params;
     }
 }
