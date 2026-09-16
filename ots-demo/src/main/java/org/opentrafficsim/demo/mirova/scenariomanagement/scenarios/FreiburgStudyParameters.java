@@ -147,8 +147,9 @@ public final class FreiburgStudyParameters
      * <p>
      * <b>The model is uncalibrated until it is recalibrated.</b> The parameter scales every discretionary lane-change
      * desire, and the calibration that produced the headway, the damping and the safety-distance factor was carried
-     * out against the larger value; some of those may have been compensating for it. Use the {@code legacy} variant,
-     * or the tag {@code published-model}, to reproduce the published results.
+     * out against the larger value; some of those may have been compensating for it. The {@code legacy} variant runs the
+     * parameters of {@code final_v1} on the current model; {@code final_v1} itself is reproduced at the tag
+     * {@code campaign-final-v1}.
      * </p>
      */
     public static final Speed CAR_V_GAIN = new Speed(15.0, SpeedUnit.KM_PER_HOUR);

@@ -327,7 +327,7 @@ object DriverParameterKeys {
      * **15 km/h — the intended value, and not the one the published results ran with.** The study wrote
      * a bare `15.0` into a `ParameterTypeSpeed` and the generator read bare numbers as SI, so every
      * published run used 15 m/s, i.e. 54 km/h, and trucks 108. The intended values are now the model
-     * values; the published pair survives as the `legacy` study variant and the `published-model` tag.
+     * values; the published pair survives as the `legacy` study variant and the `campaign-final-v1` tag.
      *
      * **The model is uncalibrated at this value** until it is recalibrated jointly with the parameters
      * that may have been compensating for the larger one. See `default-parameters.md` §6 and

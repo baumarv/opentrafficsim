@@ -145,7 +145,7 @@ sources are available.
 | 9 | Reference §8: `b_coop` = −2.0 m/s² car, −0.5 truck | **−3.0, −1.0** | 1.5× and 2× stronger. See §3. |
 | 10 | Reference §8: `f_LC` = 0.5 | **0.40** | −20 %. See §3. |
 | 11 | Reference §8: `x_ext` = 1000 m, "extended anticipation look-ahead" | The value stands, the mechanism does not: the look-ahead mutation it fed was measured inert and deleted in Phase 0.5. The parameter now bounds the merge-lane path projection only. | The symbol survives with a different meaning |
-| 12 | Reference §8: `v_gain` = 15 km/h car, 30 truck | **RESOLVED by decision.** The model now carries 15 / 30 km/h; the published 15 / 30 m/s survives as the `legacy` variant and the tag `published-model`. | See the history below. |
+| 12 | Reference §8: `v_gain` = 15 km/h car, 30 truck | **RESOLVED by decision.** The model now carries 15 / 30 km/h; the published 15 / 30 m/s survives as the `legacy` variant and the tag `campaign-final-v1` (2026-09-16: `published-model` deleted, it reproduced neither campaign). | See the history below. |
 | 13 | Reference §4 describes `AnticipateDownstreamMergePattern` as part of the pattern library, with two states, a two-threshold activation and priorities 0.15 / 0.25 | **Not registered.** Commented out in `MirovaTacticalPlannerFactory:178` since `acb1ba544` (2026-08-26, "deactivate the downstream merge anticipation"). | The paper describes a pattern no published run contained. The reason is recorded in the code: its activation cannot tell a lane drop from the end of the modelled network, so every vehicle on the final link was pinned at `VCONG`. A paired ten-seed comparison moved speed at `det_L5a` by +29 and +47 km/h with nothing else significant, and one seed in ten collapsed the facility. |
 | 14 | Reference §3 lists four incentives; the code contains five | **`SocialInteractionsIncentives` has never been registered** — it does not appear in `setDesireLayer` in any commit of that file, on any branch, since it was written in `b894e7ffd` (2026-06-22). | The reference and the *registration* agree; the **code** carries a fifth incentive that never runs. Its parameters `socio` and the social half of `vGain` are therefore inert, and so is **BC-4**, whose only consumer it is. See §5. |
 | 15 | — | Checked and agreeing: the arbitration hysteresis is `HYSTERESIS_MULTIPLIER = 1.10` (`HybridPlanArbitrator:37`), as reference §5 states. | no action |
@@ -233,6 +233,9 @@ Three things follow, and all three are in place:
 1. **The published results are preserved.** They were produced at 15 / 30 m/s. The tag
    `published-model` marks the last commit with that parameterisation, and the `legacy` variant of
    both studies reproduces it explicitly, so no checkout is needed to run it.
+   *Correction 2026-09-16: `published-model` reproduced neither campaign and is deleted; `final_v1` ran at
+   `fbce85dbe`, now tag `campaign-final-v1`, and `legacy` carries `final_v1`'s parameters on the current model
+   (`docs/fork-merge-plan.md`, section D).*
 2. **The trap is closed** so that this cannot recur: a bare number for a unit-typed parameter is now
    refused, naming the key and the unit it would have assumed.
 3. **The model is uncalibrated at the new value.** The headway, the damping and the safety-distance
@@ -258,7 +261,9 @@ what the code does with it.
 Evidence for the whole section:
 [`MirovaTacticalPlannerFactory.java:140-180`](../../ots-road/src/main/java/org/opentrafficsim/road/gtu/lane/tactical/mirova/MirovaTacticalPlannerFactory.java#L140-L180).
 Identical at the tag `published-model`, verified with `git show published-model:…` — so this is what every
-published run contained.
+published run contained. *(2026-09-16: that tag sat at `9eb7ab856`, after eight model fixes `final_v1` did not
+have, and is deleted; this section's registration list is unaffected by them — none of the eight registers or
+removes a pattern or incentive.)*
 
 ### Desire layer — four of five
 

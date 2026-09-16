@@ -57,12 +57,10 @@ deliberate trade with the measurements behind it:
 it happens, how long it lasts, at what discharge. This set follows the capacities, which is the
 decision taken."
 
-**[inferred]** Which of the two the papers report is not stated anywhere I can find. The
-`published-model` tag and the `legacy` variant pin **1.10 / 1.40**, because that is what
-`FreiburgProductionStudy` resolves today — if TR-B or HEUREKA report the final ensemble instead, the
-tag is on the wrong set and I need to be told. **This is the one thing in this document that should
-be checked before anything else**, because it decides which parameterisation the recalibration has to
-reproduce.
+**[resolved 2026-09-16]** The reference standard is `final_v1`, **1.00 / 1.30**. The former
+`published-model` tag and `legacy` variant pinned 1.10 / 1.40 and were on the wrong set: the tag is deleted,
+`campaign-final-v1` marks `fbce85dbe`, where `final_v1` ran (re-run byte-identical), and `legacy` now resolves
+to `final_v1`'s parameters (`production-v1` keeps 1.10 / 1.40). See `docs/fork-merge-plan.md`, section D.
 
 Note also that the two candidates differ in *which* target they satisfy, and the recalibration will
 face the same trade at a corrected `vGain`: more discretionary lane changing lowers capacity and
@@ -217,8 +215,8 @@ inventing a new one.
    outcome worth hoping for and the one nobody should assume.
 3. **Grid only what the screen moves**, as step 9 did.
 4. **Validate out of sample** on the seven extension dates, which were added for exactly this.
-5. **Regenerate `parametertable.tex`** and re-tag. The `legacy` variant and the `published-model` tag
-   keep the old results reproducible throughout.
+5. **Regenerate `parametertable.tex`** and tag the recalibrated campaign. The `legacy` variant and the
+   `campaign-final-v1` tag keep the old results reproducible throughout.
 
 **A defect found after this document was written, and it belongs in the list.** `bcInducedDecelKey`
 (BC-10) gives the two induced-deceleration quantities cache keys of their own. They share one today, so
