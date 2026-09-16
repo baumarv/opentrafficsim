@@ -39,7 +39,10 @@ fi
 STATUS="$(git -C "${REPO}" status --porcelain=v1 --untracked-files=all)"
 TRACKED_CHANGES="$(printf '%s\n' "${STATUS}" | grep -v '^??' | grep -v '^$' || true)"
 UNTRACKED_INPUTS="$(printf '%s\n' "${STATUS}" | grep -E '^\?\? (ots-[^/]+/src/|(.*/)?pom\.xml$|cluster/demand/)' || true)"
-UNTRACKED_OTHER="$(printf '%s\n' "${STATUS}" | grep '^??' | grep -vE '^\?\? (ots-[^/]+/src/|(.*/)?pom\.xml$|cluster/demand/)' | wc -l | tr -d '[:space:]')"
+# '|| true' inside the braces: grep exits 1 on no match, which pipefail would turn into the end of the script -
+# on a clean tree, and on a tree whose only untracked files are inputs.
+UNTRACKED_OTHER="$(printf '%s\n' "${STATUS}" | { grep '^??' || true; } \
+    | { grep -vE '^\?\? (ots-[^/]+/src/|(.*/)?pom\.xml$|cluster/demand/)' || true; } | wc -l | tr -d '[:space:]')"
 
 if [ -n "${TRACKED_CHANGES}" ] || [ -n "${UNTRACKED_INPUTS}" ]; then
     echo "ERROR: the working tree is dirty; refusing to stamp a build whose commit would not describe its sources." >&2
