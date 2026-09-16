@@ -330,10 +330,9 @@ public final class ParameterTableGenerator
                     + "$v_\\mathrm{gain}$ carries its intended value and has not yet been recalibrated jointly with "
                     + "the parameters marked as coupled.");
             w.println();
-            writeTable(w, legacy, "published", "Parameters behind the published results (TR-B, HEUREKA). Identical to "
-                    + "the table above except for the speed gain, which the published runs used at 15 and 30 m/s "
-                    + "(54 and 108\\,km/h); see the tag \\texttt{published-model} and the \\texttt{legacy} study "
-                    + "variant.");
+            writeTable(w, legacy, "published", "Parameters of the reference ensemble final\\_v1: the \\texttt{legacy} "
+                    + "study variant, with the speed gain at 15 and 30 m/s (54 and 108\\,km/h) as every campaign ran it. "
+                    + "The ensemble itself is reproduced at the tag \\texttt{campaign-final-v1}.");
         }
         System.out.println("written: " + file.getAbsolutePath());
     }
