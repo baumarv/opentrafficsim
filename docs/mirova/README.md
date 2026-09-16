@@ -8,6 +8,29 @@ Welcome to the documentation for the **MiRoVA** framework — a modular, cogniti
 
 ---
 
+## ⚠️ What `main` runs at defaults, and where the campaigns are
+
+**The default model of `main` is uncalibrated.** It carries, relative to the reference ensemble `final_v1`:
+
+- **eight defect fixes** made after `final_v1` (2026-09-08 … 10: `e958ed365`, `f6b13ca37`, `1de363b14`,
+  `802593157`, `74a0a9021`, `c155bfb46`, `c7929297a`, `42bb55c66`) — unlabelled at the time, listed in the
+  correction at the top of [`docs/decoupling/phase05-report.md`](../decoupling/phase05-report.md); one of them
+  stops twelve vehicle deletions per run;
+- **vGain at its intended 15 / 30 km/h** (`abe9125bd`), where every campaign ran 15 / 30 m/s.
+
+The headway, relaxation and safety-distance parameters were calibrated before both. Until recalibration:
+
+| to reproduce | run |
+|---|---|
+| `final_v1`, the reference standard | tag **`campaign-final-v1`** (`fbce85dbe`) — the only commit that reproduces it |
+| `final_v3` (final_v1's parameters, after the eight fixes) | `--study=final --variants=legacy` on `main` (byte-identical to the archive for the cell checked), or tag `campaign-final-v3` |
+| `production_v1` (T = 1.10 / 1.40 s) | tag `campaign-production-v1` (commit inferred, not re-run), variant `production-v1` for its parameters |
+
+Figures made before recalibration come from `main` with `--variants=legacy` and state the commit, which every run
+now records in `build.txt`. Evidence: [`docs/fork-merge-plan.md`](../fork-merge-plan.md), sections D and E.
+
+---
+
 ## 🗺️ Documentation Directory Map
 
 This documentation is divided into modular files. Each file corresponds to a specific concern so that an AI agent or developer can read **only the file relevant to their task** — saving context and avoiding unnecessary full-codebase parsing.
