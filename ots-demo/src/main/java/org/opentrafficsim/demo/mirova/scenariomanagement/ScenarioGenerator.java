@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.ServiceLoader;
 import java.util.function.Supplier;
 
 import org.opentrafficsim.base.parameters.ParameterType;
@@ -1167,6 +1168,15 @@ public abstract class ScenarioGenerator
                 LaneBasedTacticalPlannerFactory<? extends LaneBasedTacticalPlanner> built);
     }
 
+    /**
+     * Scenario parameter naming the tactical planner every vehicle drives with: {@code "mirova"} (the default) or the name of
+     * a {@link TacticalPlannerProvider} on the classpath, {@code "tama"} for TaMA.
+     */
+    public static final String KEY_TACTICAL_PLANNER = "tacticalPlanner";
+
+    /** The value of {@link #KEY_TACTICAL_PLANNER} that keeps the MiRoVA planner the scenario builds. */
+    public static final String MIROVA_PLANNER = "mirova";
+
     /** The installed hook, or {@code null} when none is. */
     private static TacticalPlannerFactoryHook tacticalPlannerFactoryHook = null;
 
@@ -1212,6 +1222,47 @@ public abstract class ScenarioGenerator
     }
 
     /**
+     * Replaces the factory a scenario built with the one the {@link #KEY_TACTICAL_PLANNER} parameter selects.
+     * <p>
+     * {@code "mirova"} returns {@code built} unchanged. Any other name must match exactly one {@link TacticalPlannerProvider}
+     * found through {@link ServiceLoader}; none, or more than one, is a configuration error and fails the run before it starts
+     * rather than silently driving with MiRoVA. The static {@link TacticalPlannerFactoryHook} is applied afterwards, so a
+     * recording or measuring harness still wraps whichever planner was selected.
+     * </p>
+     * @param vehicleClass String; {@code "car"} or {@code "truck"}
+     * @param built LaneBasedTacticalPlannerFactory&lt;? extends LaneBasedTacticalPlanner&gt;; the MiRoVA factory the scenario built
+     * @param params ScenarioParameters; the scenario's parameters
+     * @return LaneBasedTacticalPlannerFactory&lt;? extends LaneBasedTacticalPlanner&gt;; the factory to use
+     */
+    protected static LaneBasedTacticalPlannerFactory<? extends LaneBasedTacticalPlanner> selectTacticalPlannerFactory(
+            final String vehicleClass, final LaneBasedTacticalPlannerFactory<? extends LaneBasedTacticalPlanner> built,
+            final ScenarioParameters params)
+    {
+        String name = params.getOrDefault(KEY_TACTICAL_PLANNER, MIROVA_PLANNER, String.class);
+        if (MIROVA_PLANNER.equals(name))
+        {
+            return built;
+        }
+        List<TacticalPlannerProvider> matching = new ArrayList<>();
+        List<String> available = new ArrayList<>();
+        for (TacticalPlannerProvider provider : ServiceLoader.load(TacticalPlannerProvider.class))
+        {
+            available.add(provider.name());
+            if (name.equals(provider.name()))
+            {
+                matching.add(provider);
+            }
+        }
+        if (matching.size() != 1)
+        {
+            throw new IllegalStateException("Scenario parameter " + KEY_TACTICAL_PLANNER + "=" + name + " matches "
+                    + matching.size() + " tactical planner provider(s) on the classpath; available: " + available
+                    + ". Put exactly one provider of that name on the classpath, or use " + MIROVA_PLANNER + ".");
+        }
+        return matching.get(0).apply(vehicleClass, built);
+    }
+
+    /**
      * Builds the strategical planner factory for cars using the Mirova tactical planner. Applies standard defaults for cars and
      * then dynamically applies any parameter overrides matching the "car.<parameterId>" prefix from ScenarioParameters.
      * @return LaneBasedStrategicalPlannerFactory<?>; the strategical planner factory for cars
@@ -1247,7 +1298,7 @@ public abstract class ScenarioGenerator
                 };
 
         return new LaneBasedStrategicalRoutePlannerFactory(
-                hookTacticalPlannerFactory("car", mirovaTacticalPlannerFactoryCars));
+                hookTacticalPlannerFactory("car", selectTacticalPlannerFactory("car", mirovaTacticalPlannerFactoryCars, params)));
     }
 
     /**
@@ -1286,7 +1337,8 @@ public abstract class ScenarioGenerator
                 };
 
         return new LaneBasedStrategicalRoutePlannerFactory(
-                hookTacticalPlannerFactory("truck", mirovaTacticalPlannerFactoryTrucks));
+                hookTacticalPlannerFactory("truck",
+                        selectTacticalPlannerFactory("truck", mirovaTacticalPlannerFactoryTrucks, params)));
     }
 
     /**
