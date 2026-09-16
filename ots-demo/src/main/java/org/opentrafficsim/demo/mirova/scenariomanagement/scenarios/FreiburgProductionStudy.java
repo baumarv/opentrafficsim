@@ -94,19 +94,29 @@ public class FreiburgProductionStudy implements StudyDefinition
     public static final String VARIANT_LABEL = "production";
 
     /**
-     * Label of the variant that reproduces the published parameterisation explicitly.
+     * Label of the variant that carries the parameters of {@code final_v1}, the reference standard.
      * <p>
-     * The results published in TR-B and HEUREKA were produced with a speed gain of <b>15 m/s for cars and 30 m/s for
-     * trucks</b> -- 54 and 108 km/h. Those values arose from a bare number being read as SI where km/h was intended,
-     * and the intended values are now the model values. This variant sets the published pair back, explicitly, so that
-     * the published model stays runnable from the current code base without checking out the tag
-     * {@code published-model}.
+     * The same cell as {@link FreiburgFinalStudy#LEGACY_LABEL}: headway <b>1.00 / 1.30 s</b> and the corrected
+     * relaxation of {@link FreiburgFinalStudy#cellFor}, with the speed gain of that campaign, <b>15 m/s for cars and
+     * 30 m/s for trucks</b> -- 54 and 108 km/h, a bare number read as SI where km/h was intended.
+     * </p>
+     * <p>
+     * It used to carry this study's own headway, 1.10 / 1.40 s, which is what the 270-run production ensemble ran and not
+     * what {@code final_v1} ran. That set is {@link #PRODUCTION_V1_LABEL} now. Parameters, not model: run from a later
+     * commit this variant runs the parameters of {@code final_v1} on that commit's model; see
+     * {@link FreiburgFinalStudy#LEGACY_LABEL}.
      * </p>
      * <p>
      * It is <b>not</b> part of the default variant set: selecting it takes {@code --variants=...,legacy}.
      * </p>
      */
     public static final String LEGACY_LABEL = "legacy";
+
+    /**
+     * Label of the variant that carries the parameters of the 270-run production ensemble ({@code production_v1}): this
+     * study's own cell, headway 1.10 / 1.40 s, with the speed gain of 15 / 30 m/s it ran. Not part of the default set.
+     */
+    public static final String PRODUCTION_V1_LABEL = "production-v1";
 
     /**
      * Applies the published speed gain to a cell, overriding whatever the production set carries.
@@ -160,10 +170,10 @@ public class FreiburgProductionStudy implements StudyDefinition
                 : List.of(variantOption.trim().split("\\s*,\\s*"));
         for (String label : wanted)
         {
-            if (!VARIANT_LABEL.equals(label) && !LEGACY_LABEL.equals(label))
+            if (!VARIANT_LABEL.equals(label) && !LEGACY_LABEL.equals(label) && !PRODUCTION_V1_LABEL.equals(label))
             {
                 throw new IllegalArgumentException("Study 'production' has no variant '" + label + "'; known: "
-                        + VARIANT_LABEL + ", " + LEGACY_LABEL);
+                        + VARIANT_LABEL + ", " + LEGACY_LABEL + ", " + PRODUCTION_V1_LABEL);
             }
         }
 
@@ -176,9 +186,10 @@ public class FreiburgProductionStudy implements StudyDefinition
             {
                 String scenarioName = facility.scenarioName(date, label);
                 manager.addScenario(scenarioName, facility.getGeneratorClass());
-                ScenarioParameters params = FreiburgCongestedBranchStudy.forCell(facility, date, demandCsvPath, strict,
-                        B, S0_CAR, A_CAR);
-                if (LEGACY_LABEL.equals(label))
+                ScenarioParameters params = LEGACY_LABEL.equals(label)
+                        ? FreiburgFinalStudy.cellFor(facility, date, demandCsvPath, strict)
+                        : FreiburgCongestedBranchStudy.forCell(facility, date, demandCsvPath, strict, B, S0_CAR, A_CAR);
+                if (LEGACY_LABEL.equals(label) || PRODUCTION_V1_LABEL.equals(label))
                 {
                     applyPublishedSpeedGain(params);
                 }
