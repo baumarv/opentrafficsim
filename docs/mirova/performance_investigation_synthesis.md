@@ -112,8 +112,9 @@ byte-identical detector and trajectory output.
 
 ## Working record
 
-The experiment branch `perf/djunits-hash-cache-experiment` is kept as the archived working record:
-the patch tooling, `cluster/profile_matrix.sh` and `RunProfileMatrix.java` live there and are
-deliberately not merged into production. The evaluation pipeline that produced these numbers is a
+The experiment is kept as the archived working record in the annotated tag
+`archive-perf-djunits-hash-cache-experiment` (`575cc3ce6`; the branch `perf/djunits-hash-cache-experiment` was
+deleted after the tag was pushed): the patch tooling, `cluster/profile_matrix.sh` and `RunProfileMatrix.java` live
+there and are deliberately not merged into production. The evaluation pipeline that produced these numbers is a
 permanent part of the Python tooling, in `diss_mvb/scripts/simulation/ots/profiling/` — including
 the State/Pattern attribution and the trajectory join described above.
