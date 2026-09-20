@@ -1,9 +1,29 @@
-# Running MiRoVA Studies on bwUniCluster 3.0 (SLURM)
+# Running MiRoVA and TaMA Studies on bwUniCluster 3.0 (SLURM)
 
-Runs a MiRoVA study on the cluster as a SLURM job array.
+Runs a study on the cluster as a SLURM job array, on either driver model.
 
 **One array task = two simulation runs, one per core, run concurrently.** Array task *T*
 executes global run indices **2·T** and **2·T+1**.
+
+---
+
+## About this document, and what is verified
+
+This merges two cluster documentations that had drifted apart: this file, which lived with the
+scripts, and a separate handover document, which did not and named a branch that no longer
+exists. **Follow this one.** Where the two disagreed, the disagreement is recorded rather than
+quietly resolved — see [What could not be reconciled](#what-could-not-be-reconciled).
+
+Every instruction carries how it is known to be true:
+
+| Mark | Meaning |
+|:---|:---|
+| **[cluster]** | From the handover document, describing runs actually made on bwUniCluster. **Not re-verified**: the author of this revision has no cluster access. |
+| **[local]** | Verified on a Windows workstation by rehearsing the same procedure from fresh clones, up to and including a full run started exactly as the batch script starts one. Cluster behaviour is *inferred* from it, not observed. |
+| **[script]** | Read out of the scripts in this directory — the same ones the cluster runs. |
+
+**Nothing in the TaMA sections has ever run on the cluster.** They are rehearsed locally and
+marked accordingly, so the first person to run them knows which instruction to distrust first.
 
 ## Why two runs per task
 
@@ -43,14 +63,43 @@ allocation stays correct if the rounding behavior ever changes.
 
 ---
 
+## 0. Access, and what every session needs
+
+| | |
+|:---|:---|
+| Cluster | bwUniCluster 3.0 (`uc3.scc.kit.edu`), SLURM **[cluster]** |
+| Login | `ssh ka_gw2128@uc3.scc.kit.edu` — asks for OTP (authenticator app) and then the service password **[cluster]** |
+| Workspace | `mirova-ots`, at `/pfs/work9/workspace/scratch/ka_gw2128-mirova-ots` **[cluster]** |
+| Production branch | `main` **[cluster]** |
+| Toolchain | Java 17 + Maven 3.9.9 under `$WS/tools/`; bwUniCluster 3.0 has **no** Java or Maven module **[cluster]** |
+
+**Nothing is persistent between sessions.** Every new SSH session — the same user on a different
+login node counts — needs this again:
+
+```bash
+export MIROVA_WORKSPACE=mirova-ots
+export WS=$(ws_find mirova-ots)
+source $WS/opentrafficsim/cluster/mirova_env.sh
+activate_toolchain "$(resolve_workspace)"
+java -version && mvn -version          # confirm before building
+```
+
+> **Do not set `JAVA_HOME` by hand.** The handover document exported
+> `JAVA_HOME=$WS/tools/jdk-17.0.20+8`, a pinned version string. The toolchain is provisioned
+> from Temurin's *latest 17* endpoint and the extracted directory carries whatever version that
+> was (`jdk-17.0.13+11`, say), which `mirova_env.sh` discovers rather than assumes. **[script]**
+> A pinned path breaks silently the first time the JDK is re-provisioned, and it points at a
+> version the provisioning may never have produced. `activate_toolchain` is the single
+> definition; the build script and the batch script source exactly it, so nothing can drift.
+
 ## 1. Allocate a workspace (do this first)
 
 `$HOME` is small, quota-limited and not intended for simulation I/O. bwUniCluster provides
 **workspaces**: large, fast (Lustre) scratch storage with an explicit lifetime.
 
 ```bash
-ws_allocate mirova <days>          # you choose the lifetime
-export MIROVA_WORKSPACE=mirova     # every script below resolves this via ws_find
+ws_allocate mirova-ots <days>          # you choose the lifetime
+export MIROVA_WORKSPACE=mirova-ots # every script below resolves this via ws_find
 ```
 
 > ### ⚠️ Workspace data is NOT backed up
@@ -68,7 +117,7 @@ resolve it — deliberately, rather than silently filling up `$HOME`.
 The build script creates this layout inside the workspace:
 
 ```
-$(ws_find mirova)/
+$(ws_find mirova-ots)/
 ├── cp.txt        # runtime classpath
 ├── demand/       # demand CSVs, copied here from cluster/demand by the build script
 ├── output/       # simulation results, per study
@@ -84,7 +133,7 @@ Before running the date study on the cluster, generate the full-day demand CSVs 
 .\cluster\generate_demand_csvs.ps1
 ```
 
-This reads `cluster/dates.txt`, queries `detektoren_autobahn_freiburg`, and creates full-day (`00:00:00`–`23:55:00`, 5-min aggregation) files named `demand_{date}.csv` in `cluster/demand/`. Then upload the contents of `cluster/demand/` to `$(ws_find mirova)/demand/` on the cluster.
+This reads `cluster/dates.txt`, queries `detektoren_autobahn_freiburg`, and creates full-day (`00:00:00`–`23:55:00`, 5-min aggregation) files named `demand_{date}.csv` in `cluster/demand/`. Then upload the contents of `cluster/demand/` to `$(ws_find mirova-ots)/demand/` on the cluster.
 
 The generator is idempotent and validates output integrity (non-zero volume, expected row count). Use `-Force` to regenerate existing files:
 
@@ -92,15 +141,72 @@ The generator is idempotent and validates output integrity (non-zero volume, exp
 .\cluster\generate_demand_csvs.ps1 -Force
 ```
 
-## 2. Get the repository
+## 2. Get the repository, on the right branch, at a known commit
+
+**The production branch is `main`.** **[cluster]** It was `laneChangeIncentive_Reengineering`;
+that branch was deleted and its content is contained in `main`, which additionally carries the
+eight fixes, `vGain` in km/h and the stamp chain. A checkout still on the old branch has a dead
+upstream: `git pull` there either fails outright or quietly does nothing, leaving the tree
+behind while looking healthy.
+
+Other branches and tags go in **separate checkout directories** inside the workspace, never in
+the production checkout.
+
+### Moving an existing checkout to `main`
+
+Diagnose before changing anything. The fourth command is the one that decides whether this is a
+move or a conversation:
 
 ```bash
-cd "$(ws_find mirova)"
-git clone <repo-url> .        # note the trailing dot
+cd $WS/opentrafficsim
+git rev-parse --abbrev-ref HEAD; git rev-parse HEAD
+git status --porcelain=v1 --untracked-files=all | head -30
+git fetch --prune origin                 # drops the dead remote ref; does not touch the tree
+git log --oneline origin/main..HEAD      # commits that exist ONLY here -- must be empty
+git merge-base --is-ancestor HEAD origin/main && echo contained || echo NOT-contained
+```
+
+If the fifth command prints nothing and the sixth prints `contained`:
+
+```bash
+git checkout main 2>/dev/null || git checkout -b main origin/main
+git merge --ff-only origin/main
+git rev-parse HEAD                       # compare with the commit you intended
+```
+
+If it prints commits, **stop**: work exists only on the cluster and must be looked at before
+anything is switched. Deliberately not suggested here: `git pull` (dead upstream),
+`git clean` (it deletes the demand files and anything else untracked), and switching a dirty
+tree — the stamp refuses a dirty tree anyway, which is the point of it.
+
+After moving, **rebuild**: `target/classes` still holds classes compiled from the old branch,
+and that is exactly what `build_for_cluster.sh`'s `clean` exists to prevent.
+
+### Verifying the checkout is at the intended commit
+
+A build states its own commit (§3a), so the check that matters is that the *run's* commit is the
+one intended, not that the shell says so. Still, before building:
+
+```bash
+git rev-parse --short HEAD               # expected commit
+git status --porcelain | head            # must be empty, or the stamp will refuse
+git ls-files -v | grep -E '^[a-zS]'      # skip-worktree / assume-unchanged: invisible to git status
+```
+
+The last line matters more than it looks: 255 generated JAXB sources were once found carrying
+`skip-worktree`, 253 of them differing from the index. `git status` does not look at such files
+at all, so a tree can be stamped clean while compiling sources that are not the commit's. The
+stamp script checks them **[script]**; this command is how a human sees the same thing.
+
+### A fresh clone
+
+```bash
+cd "$(ws_find mirova-ots)"
+git clone --branch main <repo-url> .    # note the trailing dot
 ```
 
 > The **trailing `.`** clones into the current directory. Without it you get
-> `$(ws_find mirova)/opentrafficsim/` instead — which is perfectly fine, but then run that
+> `$(ws_find mirova-ots)/opentrafficsim/` instead — which is perfectly fine, but then run that
 > copy's scripts (`opentrafficsim/cluster/build_for_cluster.sh`). The scripts locate the
 > project from their own location, so either layout works; what does *not* work is running
 > `mvn` from the workspace root when the repo is one level down — that produces the confusing
@@ -113,7 +219,7 @@ Keeping the repository in the workspace is recommended (the script warns if it's
 ## 3. Build
 
 ```bash
-export MIROVA_WORKSPACE=mirova
+export MIROVA_WORKSPACE=mirova-ots
 ./cluster/build_for_cluster.sh
 ```
 
@@ -155,13 +261,144 @@ mvn clean install -pl ots-demo -am -Dmaven.test.skip=true -Dmaven.javadoc.skip=t
 - The batch script launches `java -cp` directly instead of `mvn exec:java`, avoiding the
   GlassFish JAXB ClassLoader failures documented in the troubleshooting guide.
 
+## 3a. The stamp chain — what makes a result citable
+
+**A run that cannot name the commit it was built from does not start.** **[script]**
+
+```
+build_for_cluster.sh
+  └─ stamp_build.sh --check-only          before compiling: refuse a dirty tree
+  └─ mvn clean install …
+  └─ stamp_build.sh <ots-demo/target/classes>
+        └─ writes mirova-build.properties into the classes every run loads
+              └─ BuildProvenance.require()  — a run without it aborts
+                    └─ copies it into every run folder as build.txt
+```
+
+The dirty check is deliberately strict: any modified, added, deleted or renamed tracked file;
+any untracked file under a module's `src/`, any untracked `pom.xml`, any untracked file in
+`cluster/demand/`; and any file hidden from `git status` by `skip-worktree` or
+`assume-unchanged` whose content differs. There is **no override** for the cluster path. (A
+throwaway IDE run may set `-Dmirova.allowUnrecordedBuild=true`, which marks its output
+`recorded=false` so an evaluation script can refuse it. Never use it for a campaign.)
+
+Why it exists: two campaigns had to be dated from file timestamps and chat history because
+neither the output nor `runParams.txt` said what produced them.
+
+> **Do not run `mvn clean install` by hand as a separate step.** The handover document had it as
+> its own step before calling `build_for_cluster.sh`, which is both redundant — the script does
+> the identical build **[script]** — and a trap: a hand-run Maven build writes no stamp, so
+> whatever is in `target/classes` afterwards carries the *previous* stamp, or none. The script
+> stamps before and after compiling for exactly that reason. Let it do the build.
+
+### What a run's `build.txt` must contain
+
+Check one run folder before trusting a campaign. A MiRoVA run: **[local]**
+
+```
+commit=dd96e348e6baa9acb49e43d38d5e1dc6aad696bd
+describe=vgain-grid-1-40-gdd96e348e
+branch=main
+committedAt=…  builtAt=…  builtBy=build_for_cluster.sh  host=…
+untrackedFilesOutsideInputs=1
+```
+
+A **TaMA** run must carry a second block as well, or the file describes half the model: **[local]**
+
+```
+# TaMA
+tama.describe=327a47b
+tama.kotlinUnits=commit=f2ed2e89… patch=applied extra=none diffSha256=103fca8f…
+tama.composition=mirova-reference/1
+```
+
+`describe` ending in `-dirty` is refused at run start, for TaMA as for OTS. If the `# TaMA`
+block is missing from a run you believe drove on TaMA, **the run did not drive on TaMA** — or
+the bundle predates the stamp. Either way the result is not usable.
+
+`untrackedFilesOutsideInputs` counts untracked files that cannot change a run (build output,
+notes). Non-zero is normal; it is recorded, not forbidden.
+
+## 3b. Running on TaMA instead of MiRoVA
+
+TaMA is a separate repository whose adapter is loaded into an OTS run as one jar. OTS has no
+dependency on TaMA; the jar registers itself through `ServiceLoader`. **Everything in this
+section has been rehearsed locally and never run on the cluster.** **[local]**
+
+### Build order is not the obvious one
+
+`tama-ots` compiles against `org.opentrafficsim:ots-road` — **the same coordinates upstream OTS
+publishes to Maven Central**. If the fork is not installed first, the TaMA build silently
+resolves *upstream* OTS and fails to compile against it (`Unresolved reference
+'DirectedPoint2d'`, because upstream has `OrientedPoint2d`). So:
+
+```bash
+# 1. this fork first, into the local Maven repository
+cd $WS/opentrafficsim
+export MIROVA_TAMA=1
+./cluster/build_for_cluster.sh
+
+# 2. then the TaMA bundle, from a CLEAN TaMA checkout
+cd $WS/tactical-maneuver-architecture
+./tools/prepare-submodules.sh          # kotlin-units + the JDK 8 patch; idempotent
+./gradlew :tama-ots:publishToMavenLocal
+
+# 3. then the classpath again, so cp.txt picks up the bundle
+cd $WS/opentrafficsim
+./cluster/build_for_cluster.sh
+```
+
+`MIROVA_TAMA=1` adds `-Ptama` to **both** the install and the classpath generation. **[script]**
+Without it `cp.txt` simply has no bundle in it, and the failure appears three steps later as
+"no provider named tama". Timings from the local rehearsal, fresh clones into an empty Maven
+repository: fork ~90 s, bundle ~130 s, classpath ~10 s; repository 104 MB. **[local]**
+
+Build the bundle from a **committed** TaMA tree. The jar stamps itself with
+`git describe`, and a dirty tree produces `…-dirty`, which the run then refuses.
+
+### Selecting the model and the composition
+
+```bash
+export MIROVA_TACTICAL_PLANNER=tama                  # omit, or =mirova, for MiRoVA
+export MIROVA_TAMA_COMPOSITION=mirova-reference/1    # optional; default is the reference
+```
+
+Both are threaded into the batch script, including into its `--count` call, so the array size is
+asked under the configuration that will run. **[script]** By hand:
+
+```bash
+java -cp "$(cat $WS/cp.txt)" -Dtama.composition=mirova-reference/1 \
+  org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunMirovaClusterStudy \
+  --study=<STUDY> --output=$WS/output/<DIR> --dates=… --demand=$WS/demand \
+  --tacticalPlanner=tama --index=<N>
+```
+
+`--tacticalPlanner=` is **generic**: it sets the scenario parameter on every parameter variation
+the study registered, so the same study, days, seeds and parameters run on either model with one
+variable changed. That is the only form in which a MiRoVA/TaMA comparison means anything. A name
+matching no provider on the classpath aborts the run rather than quietly using the study's own
+planner. **[script]**
+
+An unknown composition name fails when the scenario is built — before any vehicle exists —
+listing the known ones.
+
+### Confirming TaMA actually drove
+
+The line `Tactical planner: tama (set on N parameter variation(s))` proves only that the
+*parameter* was set. Two checks that draw on something else:
+
+1. the `# TaMA` block in `build.txt` (above);
+2. the output differs from a MiRoVA run of the same cell and seed. The two models move the same
+   traffic to within 0.1 % but not identically — byte-identical detector output would mean the
+   planner was not swapped.
+
 ### Using the toolchain in an interactive shell
 
 `cluster/mirova_env.sh` is the single definition of `JAVA_HOME` and `PATH`; the build script and
 the batch script source exactly this, so nothing can drift:
 
 ```bash
-export MIROVA_WORKSPACE=mirova
+export MIROVA_WORKSPACE=mirova-ots
 source cluster/mirova_env.sh
 activate_toolchain "$(resolve_workspace)"
 java -version && mvn -version
@@ -172,14 +409,21 @@ java -version && mvn -version
 The run enumeration lives in Java, so ask the entry point how many runs the study has:
 
 ```bash
-WS=$(ws_find mirova)
+WS=$(ws_find mirova-ots)
 java -cp "$(cat $WS/cp.txt)" \
   org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunMirovaClusterStudy \
   --study=dates --output=$WS/output/dates \
   --dates=cluster/dates.txt --demand=$WS/demand --count
 ```
 
-This prints a single integer N and runs nothing. Since each task runs **two** runs, set
+This prints a single integer N and runs nothing. **Never work N out in your head.** **[cluster]**
+The check has caught real errors repeatedly: a wrong replication count, a default carried over
+from another study, and — worst, because it looks like success — an IDE-contaminated build
+outside the repository being verified instead of the actual cluster state. Two more were caught
+while this revision was written (see the pitfalls). The number must match what you expect
+*before* `--array` is set.
+
+Since each task runs **two** runs, set
 
 ```
 #SBATCH --array=0-<ceil(N/2)-1>
@@ -211,10 +455,10 @@ never reads this file.
 ## 5. Submit
 
 ```bash
-cd <repository>                                   # e.g. $(ws_find mirova)/opentrafficsim
-export MIROVA_WORKSPACE=mirova
+cd <repository>                                   # e.g. $(ws_find mirova-ots)/opentrafficsim
+export MIROVA_WORKSPACE=mirova-ots
 export MIROVA_CLUSTER_DIR="$PWD/cluster"
-sbatch --chdir="$(ws_find mirova)" cluster/run_mirova.sbatch
+sbatch --chdir="$(ws_find mirova-ots)" cluster/run_mirova.sbatch
 ```
 
 `MIROVA_CLUSTER_DIR` is **required**. `sbatch` copies the submitted script's *content* into
@@ -253,8 +497,8 @@ Example — run the parameter study instead:
 ```bash
 export MIROVA_CLUSTER_DIR="$PWD/cluster"
 export MIROVA_STUDY=paramgrid
-export MIROVA_STUDY_OPTS="--demand=$(ws_find mirova)/demand --strict=true"
-sbatch --chdir="$(ws_find mirova)" --array=0-50 cluster/run_mirova.sbatch   # 102 runs -> 51 tasks
+export MIROVA_STUDY_OPTS="--demand=$(ws_find mirova-ots)/demand --strict=true"
+sbatch --chdir="$(ws_find mirova-ots)" --array=0-50 cluster/run_mirova.sbatch   # 102 runs -> 51 tasks
 ```
 
 Example — the damping bound study (`aRelaxDamping` 0.90 and 1.00 on the best cell of the
@@ -263,8 +507,8 @@ combination campaign, nine dates, ten replications):
 ```bash
 export MIROVA_CLUSTER_DIR="$PWD/cluster"
 export MIROVA_STUDY=damping
-export MIROVA_STUDY_OPTS="--dates=cluster/dates.txt --demand=$(ws_find mirova)/demand --replications=10 --strict=true"
-sbatch --chdir="$(ws_find mirova)" --array=0-89 cluster/run_mirova.sbatch   # 180 runs -> 90 tasks
+export MIROVA_STUDY_OPTS="--dates=cluster/dates.txt --demand=$(ws_find mirova-ots)/demand --replications=10 --strict=true"
+sbatch --chdir="$(ws_find mirova-ots)" --array=0-89 cluster/run_mirova.sbatch   # 180 runs -> 90 tasks
 ```
 
 Ten replications rather than the default six, so the cells are directly comparable with the
@@ -278,8 +522,8 @@ dates):
 ```bash
 export MIROVA_CLUSTER_DIR="$PWD/cluster"
 export MIROVA_STUDY=mergegrid
-export MIROVA_STUDY_OPTS="--dates=cluster/dates_calibration.txt --demand=$(ws_find mirova)/demand --replications=10 --strict=true"
-sbatch --chdir="$(ws_find mirova)" --array=0-134 cluster/run_mirova.sbatch   # 270 runs -> 135 tasks
+export MIROVA_STUDY_OPTS="--dates=cluster/dates_calibration.txt --demand=$(ws_find mirova-ots)/demand --replications=10 --strict=true"
+sbatch --chdir="$(ws_find mirova-ots)" --array=0-134 cluster/run_mirova.sbatch   # 270 runs -> 135 tasks
 ```
 
 ## 6. Resources per task
@@ -327,6 +571,87 @@ per-run failure: exceeding the task's limit gets the **whole task** OOM-killed, 
 run dies alongside the greedy one.
 
 ---
+
+## 7. Watching, verifying and fetching the results
+
+### While it runs **[cluster]**
+
+```bash
+squeue
+```
+
+`ST=PD, REASON=Priority` is **normal** — the fairshare queue, not a fault. It moves by itself
+when capacity frees up; no manual intervention.
+
+Walltime defaults to `03:00:00`. With realistically 90–120 min of simulation per run and two
+runs per task that is tight; for larger campaigns or uncertain node placement set
+`--time=04:00:00` explicitly.
+
+### After it finishes **[cluster]**
+
+```bash
+sacct -j <JOBID> --format=JobID,State,ExitCode,Elapsed --noheader | awk '{print $2}' | sort | uniq -c
+find $WS/output/<DIR> -type d -iname "run_seed_*" | wc -l    # must equal the total runs
+find $WS/output/<DIR> -iname "errors.txt"                     # must find nothing
+```
+
+Add, for a TaMA campaign: **[local]**
+
+```bash
+find $WS/output/<DIR> -name build.txt | head -1 | xargs grep -c "^tama.describe="   # must be 1
+```
+
+Occasional `TIMEOUT` tasks come from neighbour load on shared, non-exclusive nodes and are
+usually not a reason to repeat the campaign — resubmit just those tasks with more walltime:
+
+```bash
+sbatch --array=<task ids, comma separated> --time=04:00:00 ... cluster/run_mirova.sbatch
+```
+
+### Fetching **[cluster]**
+
+```bash
+cd $WS/output
+tar cf <DIR>.tar <DIR>          # deliberately WITHOUT compression: most of it is already zipped
+```
+
+Locally, in **its own PowerShell window** — not the SSH session:
+
+```powershell
+scp ka_gw2128@uc3.scc.kit.edu:/pfs/work9/workspace/scratch/ka_gw2128-mirova-ots/output/<DIR>.tar D:\...\output\
+```
+
+Then unpack locally (`tar xf …`) and delete the archive on the cluster
+(`rm $WS/output/<DIR>.tar`). Workspace storage is limited and **is not backed up**; do not leave
+old archives or output directories lying around.
+
+## Known pitfalls — every one of these actually happened
+
+Carried over from the handover document **[cluster]** unless marked otherwise. Several have
+recurred since they were first written down.
+
+- **Session variables are not persistent.** Every new SSH session — including the same user on a
+  different login node — needs `MIROVA_WORKSPACE`, `WS` and the toolchain again (§0).
+- **`/tmp` is not shared between login nodes.** Anything a later cluster step must read belongs
+  in the workspace, never in `/tmp`.
+- **The executable bit is lost on Windows commits.** Check new `.sh` files on the cluster with
+  `ls -l`; fix it at the source with `git update-index --chmod=+x <file>` and commit that.
+- **Locale-dependent number formatting** once produced folder names with a comma instead of a
+  point. Always format numbers in file names with `Locale.ROOT`.
+- **Pasting several commands at once** regularly merges or truncates lines in the terminal. When
+  in doubt paste one at a time and wait for a clean prompt between them.
+- **A plain `-DskipTests` build fails.** All three skip flags are needed; the javadoc plugin
+  errors on pre-existing Javadoc issues in `ots-road`, unrelated to any study. **[local]**
+- **An incremental build keeps stale classes**, including Eclipse `Unresolved compilation
+  problem` stubs, which pass a green build and fail only when a run calls into them. Always
+  `clean`; every array task additionally scans for such stubs and exits `2`. **[script]**
+- **The run count is a property of the built class, not of your plan.** Two independent cases
+  while preparing this revision: a dry run planned as "two cells" addressed run indices that did
+  not exist, because `production` carries **one** cell per day; and a cell named `vgain15` does
+  not exist in `vgaintau`, because the model's default *is* 15 km/h. Both were caught by asking
+  `--count` first. **[local]**
+- **The TaMA bundle and upstream OTS share Maven coordinates.** Build the fork before the
+  bundle, or the bundle compiles against Maven Central's OTS (§3b). **[local]**
 
 ## Studies
 
@@ -544,9 +869,9 @@ Same grid, same three dates, same seeds as `mergegrid_v2`, so the cells compare 
 ```bash
 export MIROVA_CLUSTER_DIR="$PWD/cluster"
 export MIROVA_STUDY=mergegrid
-export MIROVA_OUTPUT_ROOT="$(ws_find mirova)/output/mergegrid_v3"
-export MIROVA_STUDY_OPTS="--dates=cluster/dates_calibration.txt --demand=$(ws_find mirova)/demand --replications=10 --strict=true"
-sbatch --chdir="$(ws_find mirova)" --array=0-134 cluster/run_mirova.sbatch   # 270 runs -> 135 tasks
+export MIROVA_OUTPUT_ROOT="$(ws_find mirova-ots)/output/mergegrid_v3"
+export MIROVA_STUDY_OPTS="--dates=cluster/dates_calibration.txt --demand=$(ws_find mirova-ots)/demand --replications=10 --strict=true"
+sbatch --chdir="$(ws_find mirova-ots)" --array=0-134 cluster/run_mirova.sbatch   # 270 runs -> 135 tasks
 ```
 
 What to read first, in this order:
@@ -611,9 +936,9 @@ Same grid, same three dates, same seeds as `v3`, so the cells compare directly:
 ```bash
 export MIROVA_CLUSTER_DIR="$PWD/cluster"
 export MIROVA_STUDY=mergegrid
-export MIROVA_OUTPUT_ROOT="$(ws_find mirova)/output/mergegrid_v4"
-export MIROVA_STUDY_OPTS="--dates=cluster/dates_calibration.txt --demand=$(ws_find mirova)/demand --replications=10 --strict=true"
-sbatch --chdir="$(ws_find mirova)" --array=0-134 cluster/run_mirova.sbatch   # 270 runs -> 135 tasks
+export MIROVA_OUTPUT_ROOT="$(ws_find mirova-ots)/output/mergegrid_v4"
+export MIROVA_STUDY_OPTS="--dates=cluster/dates_calibration.txt --demand=$(ws_find mirova-ots)/demand --replications=10 --strict=true"
+sbatch --chdir="$(ws_find mirova-ots)" --array=0-134 cluster/run_mirova.sbatch   # 270 runs -> 135 tasks
 ```
 
 What to read first, in this order:
@@ -668,9 +993,9 @@ The grid:
 ```bash
 export MIROVA_CLUSTER_DIR="$PWD/cluster"
 export MIROVA_STUDY=carparams
-export MIROVA_OUTPUT_ROOT="$(ws_find mirova)/output/carparams_v1"
-export MIROVA_STUDY_OPTS="--dates=cluster/dates_calibration.txt --demand=$(ws_find mirova)/demand --replications=10 --strict=true"
-sbatch --chdir="$(ws_find mirova)" --array=0-89 cluster/run_mirova.sbatch   # 180 runs -> 90 tasks
+export MIROVA_OUTPUT_ROOT="$(ws_find mirova-ots)/output/carparams_v1"
+export MIROVA_STUDY_OPTS="--dates=cluster/dates_calibration.txt --demand=$(ws_find mirova-ots)/demand --replications=10 --strict=true"
+sbatch --chdir="$(ws_find mirova-ots)" --array=0-89 cluster/run_mirova.sbatch   # 180 runs -> 90 tasks
 ```
 
 Car acceleration at 1.25, 1.40 and 1.70, car stopping distance at 2.0 and 3.0 m: six cells per
@@ -721,9 +1046,9 @@ Two questions, and the design answers both:
 ```bash
 export MIROVA_CLUSTER_DIR="$PWD/cluster"
 export MIROVA_STUDY=validation
-export MIROVA_OUTPUT_ROOT="$(ws_find mirova)/output/validation_v1"
-export MIROVA_STUDY_OPTS="--dates=cluster/dates.txt --demand=$(ws_find mirova)/demand --replications=10 --strict=true"
-sbatch --chdir="$(ws_find mirova)" --array=0-134 cluster/run_mirova.sbatch   # 270 runs -> 135 tasks
+export MIROVA_OUTPUT_ROOT="$(ws_find mirova-ots)/output/validation_v1"
+export MIROVA_STUDY_OPTS="--dates=cluster/dates.txt --demand=$(ws_find mirova-ots)/demand --replications=10 --strict=true"
+sbatch --chdir="$(ws_find mirova-ots)" --array=0-134 cluster/run_mirova.sbatch   # 270 runs -> 135 tasks
 ```
 
 **Does it generalise?** Six of the nine dates have never been calibrated on. Their empirical
@@ -830,9 +1155,9 @@ will mix the two:
 ```bash
 export MIROVA_CLUSTER_DIR="$PWD/cluster"
 export MIROVA_STUDY=mergegrid
-export MIROVA_OUTPUT_ROOT="$(ws_find mirova)/output/mergegrid_v2"
-export MIROVA_STUDY_OPTS="--dates=cluster/dates_calibration.txt --demand=$(ws_find mirova)/demand --replications=10 --strict=true"
-sbatch --chdir="$(ws_find mirova)" --array=0-134 cluster/run_mirova.sbatch   # 270 runs -> 135 tasks
+export MIROVA_OUTPUT_ROOT="$(ws_find mirova-ots)/output/mergegrid_v2"
+export MIROVA_STUDY_OPTS="--dates=cluster/dates_calibration.txt --demand=$(ws_find mirova-ots)/demand --replications=10 --strict=true"
+sbatch --chdir="$(ws_find mirova-ots)" --array=0-134 cluster/run_mirova.sbatch   # 270 runs -> 135 tasks
 ```
 
 Two things to check on the first tasks that come back, both seen in the previous
@@ -949,7 +1274,7 @@ To run several runs locally in one go — e.g. interactively, without SLURM — 
 indices `--count` reports:
 
 ```bash
-WS=$(ws_find mirova)
+WS=$(ws_find mirova-ots)
 CLASS=org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunMirovaClusterStudy
 N=$(java -cp "$(cat $WS/cp.txt)" $CLASS --study=dates --output=$WS/output/dates \
       --dates=cluster/dates.txt --demand=$WS/demand --count)
@@ -992,9 +1317,9 @@ The headway is the counterweight, since it sets capacity directly. This study cr
 ```bash
 export MIROVA_CLUSTER_DIR="$PWD/cluster"
 export MIROVA_STUDY=smoothness
-export MIROVA_OUTPUT_ROOT="$(ws_find mirova)/output/smoothness_v1"
-export MIROVA_STUDY_OPTS="--dates=2025-10-27 --demand=$(ws_find mirova)/demand --replications=10 --strict=true"
-sbatch --chdir="$(ws_find mirova)" --array=0-59 cluster/run_mirova.sbatch   # 120 runs -> 60 tasks
+export MIROVA_OUTPUT_ROOT="$(ws_find mirova-ots)/output/smoothness_v1"
+export MIROVA_STUDY_OPTS="--dates=2025-10-27 --demand=$(ws_find mirova-ots)/demand --replications=10 --strict=true"
+sbatch --chdir="$(ws_find mirova-ots)" --array=0-59 cluster/run_mirova.sbatch   # 120 runs -> 60 tasks
 ```
 
 Headways at 0.90/1.20, 1.00/1.30 and 1.10/1.40 crossed with damping at 0.70, 0.85, 0.95 and 1.00:
@@ -1021,3 +1346,41 @@ What to read, in this order:
 The combination sought is the one where 1 and 2 are satisfied at once. Neither axis achieves it
 alone: damping alone removes the breakdown, and headway alone was already exhausted by the
 validation campaign, where tightening it further made three of seven metrics worse.
+---
+
+## What could not be reconciled
+
+Two cluster documentations existed with different content; this file is the merge. These points
+remain open and need someone with cluster access to settle them.
+
+**1. The workspace name — decided on evidence, not verified.** This file's 35 examples said
+`mirova` (`ws_allocate mirova`, `ws_find mirova`); the handover says `mirova-ots` and gives a
+concrete path, `/pfs/work9/workspace/scratch/ka_gw2128-mirova-ots`. A concrete path is the
+stronger evidence, so **every example in this file now reads `mirova-ots`** — a document whose
+own commands disagree is worse than one that is wrong consistently, because the next person
+follows whichever line they happen to read first.
+
+It remains unverified. Confirm with `ws_list` before the first build. If the real name differs,
+the fix is one `sed` over this file; `ws_find` fails loudly rather than resolving to something
+wrong, so the failure mode is safe.
+
+**2. The JDK path.** The handover pins `JAVA_HOME=$WS/tools/jdk-17.0.20+8`; the provisioning
+takes Temurin's *latest 17* and discovers the directory name (§0). The two cannot both be right,
+and `17.0.20` does not correspond to a Temurin build the author could identify. Whatever is
+currently under `$WS/tools/` is the truth; `activate_toolchain` reads it, which is why §0 uses
+that instead.
+
+**3. Whether the production checkout is where this document assumes.** The handover's step 1 is
+`cd $WS/opentrafficsim; git pull` on a branch that no longer exists. What that checkout is
+actually at — which commit, whether it carries commits that exist nowhere else, whether files
+are hidden from `git status` — is unknown here and is the first thing to establish (§2).
+
+**4. Walltime and per-run duration.** The handover states 90–120 min of simulation per run on
+the cluster. The local rehearsal measured about 7 minutes per run for a nine-hour day on a
+workstation. These are not comparable — different hardware, possibly a different study and
+window — and no conclusion is drawn from the difference here. **The cluster figure is the one to
+plan with** until a TaMA run has actually been timed on the cluster.
+
+**5. Nothing about TaMA has run on the cluster.** §3b is a local rehearsal throughout. The most
+likely first failure is the Maven coordinate collision (§3b): a node whose `~/.m2` already holds
+upstream `org.opentrafficsim:ots-road` may build the bundle against it without saying so.
