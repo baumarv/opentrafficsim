@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.opentrafficsim.demo.mirova.scenariomanagement.BuildProvenance;
+import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioGenerator;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioManager;
 import org.opentrafficsim.demo.mirova.scenariomanagement.StudyDefinition;
 import org.opentrafficsim.demo.mirova.scenariomanagement.StudyRegistry;
@@ -53,6 +54,46 @@ public final class RunMirovaClusterStudy
      * @param args String[]; the command line arguments, all of the form {@code --key=value} or {@code --flag}; see the class
      *            documentation
      */
+    /**
+     * Applies {@code --tacticalPlanner=<name>} to every parameter variation the study registered, so that the same study
+     * body, days, seeds and parameters can be run on a different driver model with one flag.
+     * <p>
+     * Deliberately generic rather than a TaMA-specific study: a study definition coupled to one driver model means two
+     * study definitions per question, and two that are meant to be identical drift apart -- which has happened here, with
+     * the production and final studies carrying different T values. This way a MiRoVA/TaMA comparison differs in the flag
+     * and in nothing else.
+     * </p>
+     * <p>
+     * A name that reached no variation is an error rather than a warning: a run that silently ignored the planner it was
+     * asked for would produce results labelled with a model it did not use.
+     * </p>
+     * @param planner String; the requested planner, or {@code null} when the option was not given
+     * @param scenarioManager ScenarioManager; the manager the study has already registered into
+     * @param study StudyDefinition; for the error message
+     */
+    private static void applyTacticalPlanner(final String planner, final ScenarioManager scenarioManager,
+            final StudyDefinition study)
+    {
+        if (planner == null)
+        {
+            return;
+        }
+        String requested = planner.trim();
+        if (requested.isEmpty())
+        {
+            throw new IllegalArgumentException("--" + ScenarioGenerator.KEY_TACTICAL_PLANNER + " needs a value, e.g. '"
+                    + ScenarioGenerator.MIROVA_PLANNER + "' or 'tama'.");
+        }
+        int changed = scenarioManager.setOnAllVariations(ScenarioGenerator.KEY_TACTICAL_PLANNER, requested);
+        if (changed == 0)
+        {
+            throw new IllegalStateException("--" + ScenarioGenerator.KEY_TACTICAL_PLANNER + "=" + requested
+                    + " reached no parameter variation of study '" + study.getName() + "'; the run would silently use "
+                    + "the planner the study built.");
+        }
+        System.out.println("Tactical planner: " + requested + " (set on " + changed + " parameter variation(s))");
+    }
+
     public static void main(final String[] args)
     {
         try
@@ -77,6 +118,7 @@ public final class RunMirovaClusterStudy
 
             ScenarioManager scenarioManager = new ScenarioManager(outputDirectory);
             study.register(scenarioManager, options);
+            applyTacticalPlanner(options.get(ScenarioGenerator.KEY_TACTICAL_PLANNER), scenarioManager, study);
             int totalRuns = scenarioManager.countRuns();
 
             if (totalRuns == 0)
@@ -205,6 +247,8 @@ public final class RunMirovaClusterStudy
         System.err.println("  --count      print the total number of runs and exit (use for '--array=0-<N-1>')");
         System.err.println("  --manifest   write an informational index->run mapping to the given file");
         System.err.println("  --index      the 0-based global index of the single run to execute");
+        System.err.println("  --tacticalPlanner  driver model every vehicle drives: '" + ScenarioGenerator.MIROVA_PLANNER
+                + "' (default) or the name of a provider on the classpath, e.g. 'tama'");
         System.err.println("  Study options, e.g.: --demand=<file|dir> --dates=<list|file> --replications=<n> --strict=true");
     }
 }
