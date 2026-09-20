@@ -62,6 +62,37 @@ public class ScenarioManager {
         this.replications = replications;
     }
 
+    /**
+     * Sets one scenario parameter on every parameter variation of every registered scenario, overwriting whatever the study
+     * put there.
+     * <p>
+     * For a setting that belongs to the run rather than to the study: the same study body, the same days, the same seeds
+     * and the same parameters, with one thing different. {@link ScenarioGenerator#KEY_TACTICAL_PLANNER} is the case it
+     * exists for -- a study coupled to one driver model would be a second study definition per question, and two study
+     * definitions that are meant to be identical drift apart. They have here before, carrying different T values.
+     * </p>
+     * <p>
+     * Call it <b>after</b> the study has registered its scenarios; variations added afterwards do not carry the value. A
+     * scenario with no variations produces no runs, so there is nothing to set on it.
+     * </p>
+     * @param key String; the scenario parameter name
+     * @param value Object; the value every variation is given
+     * @return int; how many variations were changed, so a caller can refuse a setting that reached nothing
+     */
+    public int setOnAllVariations(final String key, final Object value)
+    {
+        int changed = 0;
+        for (ScenarioEntry entry : this.scenarios.values())
+        {
+            for (ScenarioParameters params : entry.parameterVariations)
+            {
+                params.set(key, value);
+                changed++;
+            }
+        }
+        return changed;
+    }
+
     // ------------------------------------------------------------
     // Main execution logic
     // ------------------------------------------------------------

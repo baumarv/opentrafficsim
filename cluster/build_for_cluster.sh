@@ -29,6 +29,24 @@ echo "Workspace:  ${WORKSPACE}"
 echo "Repository: ${REPO_ROOT}"
 warn_if_in_home "${REPO_ROOT}" "the repository"
 
+# MIROVA_TAMA=1 puts the TaMA driver model on the runtime classpath, through the 'tama' Maven profile of ots-demo.
+# The profile must be active for BOTH the install and the classpath generation: the bundle is a runtime-scope
+# dependency, so without it cp.txt simply has no bundle in it and --tacticalPlanner=tama fails at scenario build time
+# with "no provider named tama" - three steps from the cause.
+#
+# The bundle comes from the local Maven repository and is published by the TaMA repository, not by this one:
+#   cd <tama>; ./gradlew :tama-ots:publishToMavenLocal      (after mvn install here, see below)
+# Order matters. tama-ots compiles against org.opentrafficsim:ots-road, which are the same coordinates upstream OTS
+# publishes to Maven Central, so a TaMA build made before this fork is installed resolves UPSTREAM OTS and fails to
+# compile against it. Install this fork first, then publish the bundle, then run this script again for the classpath.
+TAMA_PROFILE=()
+if [ "${MIROVA_TAMA:-0}" = "1" ]; then
+    TAMA_PROFILE=(-Ptama)
+    echo "Driver model: TaMA bundle on the runtime classpath (MIROVA_TAMA=1)"
+else
+    echo "Driver model: MiRoVA only (set MIROVA_TAMA=1 for the TaMA bundle)"
+fi
+
 echo
 echo "[1/4] Toolchain"
 provision_toolchain "${WORKSPACE}"
@@ -51,7 +69,8 @@ echo "[2/4] Building and installing ots-demo and its module dependencies"
 # whose source has since been deleted, and 'Unresolved compilation problem' stubs an IDE wrote
 # there. Neither is noticed until a run calls into it. A clean build costs a few minutes per
 # checkout; a stale class costs a job array.
-mvn clean install -pl ots-demo -am -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Djacoco.skip=true
+mvn "${TAMA_PROFILE[@]}" clean install -pl ots-demo -am \
+    -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Djacoco.skip=true
 
 # After compiling, into the classes every run loads first: the commit, checked clean once more. A run without
 # this file refuses to start (BuildProvenance), and copies it into its run folder as build.txt.
@@ -60,7 +79,7 @@ bash "${CLUSTER_DIR}/stamp_build.sh" "${REPO_ROOT}" "${REPO_ROOT}/ots-demo/targe
 echo
 echo "[3/4] Generating runtime classpath -> ${CP_FILE}"
 mkdir -p "$(dirname "${CP_FILE}")"
-mvn -pl ots-demo dependency:build-classpath -Dmdep.outputFile="${CP_FILE}" \
+mvn "${TAMA_PROFILE[@]}" -pl ots-demo dependency:build-classpath -Dmdep.outputFile="${CP_FILE}" \
     -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Djacoco.skip=true
 
 # Prepend the reactor module output directories. Running the simulation via a direct java
