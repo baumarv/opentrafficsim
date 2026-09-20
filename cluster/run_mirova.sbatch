@@ -216,6 +216,14 @@ if [ "${STUB_COUNT}" -gt 0 ]; then
 fi
 echo "Compilation stub check: ${#CLASS_DIRS[@]} class directories on the classpath, none carries a stub."
 
+# Refuse to start on classes the build stamp does not describe - a hand build without 'clean' leaves the
+# previous stamp beside classes it did not produce. The rule lives in stamp_build.sh, with the other stamp
+# rules and its test, rather than being spelled out a second time here.
+for dir in "${CLASS_DIRS[@]}"; do
+    bash "${CLUSTER_DIR}/stamp_build.sh" --verify-classes "${dir}" || exit 2
+done
+echo "Build stamp check: no class file is newer than the stamp that describes it."
+
 TASK_ID="${SLURM_ARRAY_TASK_ID:-0}"
 CLASSPATH_VALUE="$(cat "${CP_FILE}")"
 
