@@ -1,6 +1,10 @@
 package org.opentrafficsim.xml.bindings;
 
+import java.util.Locale;
+
+import org.djunits.unit.LengthUnit;
 import org.djunits.value.vdouble.scalar.Length;
+import org.djutils.base.NumberParser;
 import org.djutils.exceptions.Throw;
 import org.opentrafficsim.xml.bindings.types.LengthBeginEndType;
 import org.opentrafficsim.xml.bindings.types.LengthBeginEndType.LengthBeginEnd;
@@ -70,7 +74,19 @@ public class LengthBeginEndAdapter extends ExpressionAdapter<LengthBeginEnd, Len
 
             Throw.when(clean.startsWith("-"), IllegalArgumentException.class, "Field %s contains negative value.", field);
 
-            Length length = Length.valueOf(clean);
+            // MIROVA: Length.valueOf parses through `new NumberParser().lenient().trailing()`, which takes the
+            // default FORMAT locale. On a German-locale JVM "2.3 mm" then reads as 23 mm, because '.' is a
+            // grouping separator there - silently, and differently from the same file read on an English-locale
+            // machine. An XML document means the same thing wherever it is read, so the locale is pinned here.
+            // Locale.setDefault is deliberately NOT used: it is global state and would change unrelated sites in
+            // a process running several simulations. Reported upstream; remove this once Length.valueOf is fixed.
+            NumberParser numberParser = new NumberParser().lenient().trailing().locale(Locale.ROOT);
+            double value = numberParser.parseDouble(clean);
+            String unitString = clean.substring(numberParser.getTrailingPosition()).trim();
+            LengthUnit lengthUnit = LengthUnit.BASE.getUnitByAbbreviation(unitString);
+            Throw.when(lengthUnit == null, IllegalArgumentException.class, "Unit %s not found in field %s.", unitString,
+                    field);
+            Length length = new Length(value, lengthUnit);
             return new LengthBeginEndType(new LengthBeginEnd(begin, length));
         }
         catch (Exception exception)
