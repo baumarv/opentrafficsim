@@ -606,7 +606,7 @@ public abstract class ScenarioGenerator
                     ParameterType<?> pt = (ParameterType<?>) field.get(null);
                     if (pt != null)
                     {
-                        PARAMETER_TYPES.put(pt.getId().toLowerCase(), pt);
+                        PARAMETER_TYPES.put(pt.getId().toLowerCase(java.util.Locale.ROOT), pt);
                     }
                 }
                 catch (Exception e)
@@ -626,7 +626,7 @@ public abstract class ScenarioGenerator
                     ParameterType<?> pt = (ParameterType<?>) field.get(null);
                     if (pt != null)
                     {
-                        PARAMETER_TYPES.put(pt.getId().toLowerCase(), pt);
+                        PARAMETER_TYPES.put(pt.getId().toLowerCase(java.util.Locale.ROOT), pt);
                     }
                 }
                 catch (Exception e)
@@ -1284,7 +1284,7 @@ public abstract class ScenarioGenerator
                             String key = entry.getKey();
                             if (key.startsWith("car."))
                             {
-                                String paramId = key.substring(4).toLowerCase();
+                                String paramId = key.substring(4).toLowerCase(java.util.Locale.ROOT);
                                 ParameterType<?> pt = PARAMETER_TYPES.get(paramId);
                                 if (pt != null)
                                 {
@@ -1323,7 +1323,7 @@ public abstract class ScenarioGenerator
                             String key = entry.getKey();
                             if (key.startsWith("truck."))
                             {
-                                String paramId = key.substring(6).toLowerCase();
+                                String paramId = key.substring(6).toLowerCase(java.util.Locale.ROOT);
                                 ParameterType<?> pt = PARAMETER_TYPES.get(paramId);
                                 if (pt != null)
                                 {
