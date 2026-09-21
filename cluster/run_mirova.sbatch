@@ -163,6 +163,14 @@ export MIROVA_SKIP_DEMAND_PREP=1
 # processes do not oversubscribe the allocation. Deliberately 1, not SLURM_CPUS_PER_TASK.
 JAVA_OPTS="-XX:ActiveProcessorCount=1"
 
+# The locale a run reads its input under. A run starts here with `java -cp`, so neither .mvn/jvm.config nor
+# surefire's argLine reaches it - this is the only place that can pin it for a simulation. It matters because
+# DJUnits parses numbers through the default FORMAT locale: on a machine whose locale uses ',' as the decimal
+# separator, "2.3 mm" in a network XML reads as 23 mm, silently and differently from the same file elsewhere.
+# No network in this repository is affected (every Position value is integral), and the one adapter that took
+# that path is fixed, but a run should not depend on the node it lands on.
+JAVA_OPTS="${JAVA_OPTS} -Duser.language=en -Duser.country=US"
+
 # Which TaMA composition the drivers are assembled from, when the run drives on TaMA. The adapter is created by
 # ServiceLoader with no arguments, so a system property is the only route into it from outside the JVM; an unknown
 # name fails when the scenario is built, before any vehicle exists. Recorded in each run's build.txt next to the two
