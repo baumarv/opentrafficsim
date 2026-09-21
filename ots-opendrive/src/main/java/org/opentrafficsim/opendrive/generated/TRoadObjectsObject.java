@@ -17,9 +17,9 @@ import jakarta.xml.bind.annotation.XmlType;
  * 	- For an angular object: definition of the width, length and height.
  * 	- For a circular object: definition of the radius and height.
  * 
- * <p>Java-Klasse für t_road_objects_object complex type.</p>
+ * <p>Java class for t_road_objects_object complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_objects_object">
@@ -237,7 +237,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Ruft den Wert der outline-Eigenschaft ab.
+     * Gets the value of the outline property.
      * 
      * @return
      *     possible object is
@@ -249,7 +249,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der outline-Eigenschaft fest.
+     * Sets the value of the outline property.
      * 
      * @param value
      *     allowed object is
@@ -261,7 +261,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Ruft den Wert der outlines-Eigenschaft ab.
+     * Gets the value of the outlines property.
      * 
      * @return
      *     possible object is
@@ -273,7 +273,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der outlines-Eigenschaft fest.
+     * Sets the value of the outlines property.
      * 
      * @param value
      *     allowed object is
@@ -349,7 +349,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Ruft den Wert der parkingSpace-Eigenschaft ab.
+     * Gets the value of the parkingSpace property.
      * 
      * @return
      *     possible object is
@@ -361,7 +361,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der parkingSpace-Eigenschaft fest.
+     * Sets the value of the parkingSpace property.
      * 
      * @param value
      *     allowed object is
@@ -373,7 +373,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Ruft den Wert der markings-Eigenschaft ab.
+     * Gets the value of the markings property.
      * 
      * @return
      *     possible object is
@@ -385,7 +385,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der markings-Eigenschaft fest.
+     * Sets the value of the markings property.
      * 
      * @param value
      *     allowed object is
@@ -397,7 +397,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Ruft den Wert der borders-Eigenschaft ab.
+     * Gets the value of the borders property.
      * 
      * @return
      *     possible object is
@@ -409,7 +409,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der borders-Eigenschaft fest.
+     * Sets the value of the borders property.
      * 
      * @param value
      *     allowed object is
@@ -466,7 +466,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der t-Eigenschaft fest.
+     * Sets the value of the t property.
      * 
      */
     public void setT(double value) {
@@ -482,7 +482,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der zOffset-Eigenschaft fest.
+     * Sets the value of the zOffset property.
      * 
      */
     public void setZOffset(double value) {
@@ -503,7 +503,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der type-Eigenschaft fest.
+     * Sets the value of the type property.
      * 
      * @param value
      *     allowed object is
@@ -528,7 +528,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der validLength-Eigenschaft fest.
+     * Sets the value of the validLength property.
      * 
      * @param value
      *     allowed object is
@@ -556,7 +556,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der orientation-Eigenschaft fest.
+     * Sets the value of the orientation property.
      * 
      * @param value
      *     allowed object is
@@ -581,7 +581,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der subtype-Eigenschaft fest.
+     * Sets the value of the subtype property.
      * 
      * @param value
      *     allowed object is
@@ -606,7 +606,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der dynamic-Eigenschaft fest.
+     * Sets the value of the dynamic property.
      * 
      * @param value
      *     allowed object is
@@ -631,7 +631,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der hdg-Eigenschaft fest.
+     * Sets the value of the hdg property.
      * 
      * @param value
      *     allowed object is
@@ -656,7 +656,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der name-Eigenschaft fest.
+     * Sets the value of the name property.
      * 
      * @param value
      *     allowed object is
@@ -681,7 +681,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der pitch-Eigenschaft fest.
+     * Sets the value of the pitch property.
      * 
      * @param value
      *     allowed object is
@@ -706,7 +706,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der id-Eigenschaft fest.
+     * Sets the value of the id property.
      * 
      * @param value
      *     allowed object is
@@ -731,7 +731,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der roll-Eigenschaft fest.
+     * Sets the value of the roll property.
      * 
      * @param value
      *     allowed object is
@@ -756,7 +756,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der height-Eigenschaft fest.
+     * Sets the value of the height property.
      * 
      * @param value
      *     allowed object is
@@ -777,7 +777,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der s-Eigenschaft fest.
+     * Sets the value of the s property.
      * 
      */
     public void setS(double value) {
@@ -798,7 +798,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der length-Eigenschaft fest.
+     * Sets the value of the length property.
      * 
      * @param value
      *     allowed object is
@@ -824,7 +824,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der width-Eigenschaft fest.
+     * Sets the value of the width property.
      * 
      * @param value
      *     allowed object is
@@ -849,7 +849,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der radius-Eigenschaft fest.
+     * Sets the value of the radius property.
      * 
      * @param value
      *     allowed object is

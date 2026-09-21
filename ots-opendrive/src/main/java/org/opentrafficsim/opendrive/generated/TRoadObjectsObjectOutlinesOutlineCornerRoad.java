@@ -12,9 +12,9 @@ import jakarta.xml.bind.annotation.XmlType;
 /**
  * Defines a corner point on the object’s outline in road coordinates.
  * 
- * <p>Java-Klasse für t_road_objects_object_outlines_outline_cornerRoad complex type.</p>
+ * <p>Java class for t_road_objects_object_outlines_outline_cornerRoad complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_objects_object_outlines_outline_cornerRoad">
@@ -81,7 +81,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der s-Eigenschaft fest.
+     * Sets the value of the s property.
      * 
      */
     public void setS(double value) {
@@ -97,7 +97,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der t-Eigenschaft fest.
+     * Sets the value of the t property.
      * 
      */
     public void setT(double value) {
@@ -113,7 +113,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der dz-Eigenschaft fest.
+     * Sets the value of the dz property.
      * 
      */
     public void setDz(double value) {
@@ -129,7 +129,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der height-Eigenschaft fest.
+     * Sets the value of the height property.
      * 
      */
     public void setHeight(double value) {
@@ -149,7 +149,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der id-Eigenschaft fest.
+     * Sets the value of the id property.
      * 
      * @param value
      *     allowed object is

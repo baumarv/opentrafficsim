@@ -14,9 +14,9 @@ import jakarta.xml.bind.annotation.XmlType;
 /**
  * Used to provide information about signals along a road. Consists of a main element and an optional lane validity element.
  * 
- * <p>Java-Klasse für t_road_signals_signal complex type.</p>
+ * <p>Java class for t_road_signals_signal complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_signals_signal">
@@ -299,7 +299,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Ruft den Wert der positionRoad-Eigenschaft ab.
+     * Gets the value of the positionRoad property.
      * 
      * @return
      *     possible object is
@@ -311,7 +311,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der positionRoad-Eigenschaft fest.
+     * Sets the value of the positionRoad property.
      * 
      * @param value
      *     allowed object is
@@ -323,7 +323,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Ruft den Wert der positionInertial-Eigenschaft ab.
+     * Gets the value of the positionInertial property.
      * 
      * @return
      *     possible object is
@@ -335,7 +335,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der positionInertial-Eigenschaft fest.
+     * Sets the value of the positionInertial property.
      * 
      * @param value
      *     allowed object is
@@ -392,7 +392,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der s-Eigenschaft fest.
+     * Sets the value of the s property.
      * 
      */
     public void setS(double value) {
@@ -408,7 +408,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der t-Eigenschaft fest.
+     * Sets the value of the t property.
      * 
      */
     public void setT(double value) {
@@ -428,7 +428,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der id-Eigenschaft fest.
+     * Sets the value of the id property.
      * 
      * @param value
      *     allowed object is
@@ -453,7 +453,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der name-Eigenschaft fest.
+     * Sets the value of the name property.
      * 
      * @param value
      *     allowed object is
@@ -478,7 +478,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der dynamic-Eigenschaft fest.
+     * Sets the value of the dynamic property.
      * 
      * @param value
      *     allowed object is
@@ -505,7 +505,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der orientation-Eigenschaft fest.
+     * Sets the value of the orientation property.
      * 
      * @param value
      *     allowed object is
@@ -526,7 +526,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der zOffset-Eigenschaft fest.
+     * Sets the value of the zOffset property.
      * 
      */
     public void setZOffset(double value) {
@@ -546,7 +546,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der country-Eigenschaft fest.
+     * Sets the value of the country property.
      * 
      * @param value
      *     allowed object is
@@ -559,7 +559,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Ruft den Wert der countryRevision-Eigenschaft ab.
+     * Gets the value of the countryRevision property.
      * 
      * @return
      *     possible object is
@@ -571,7 +571,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der countryRevision-Eigenschaft fest.
+     * Sets the value of the countryRevision property.
      * 
      * @param value
      *     allowed object is
@@ -596,7 +596,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der type-Eigenschaft fest.
+     * Sets the value of the type property.
      * 
      * @param value
      *     allowed object is
@@ -621,7 +621,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der subtype-Eigenschaft fest.
+     * Sets the value of the subtype property.
      * 
      * @param value
      *     allowed object is
@@ -646,7 +646,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der value-Eigenschaft fest.
+     * Sets the value of the value property.
      * 
      * @param value
      *     allowed object is
@@ -671,7 +671,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der unit-Eigenschaft fest.
+     * Sets the value of the unit property.
      * 
      * @param value
      *     allowed object is
@@ -696,7 +696,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der height-Eigenschaft fest.
+     * Sets the value of the height property.
      * 
      * @param value
      *     allowed object is
@@ -721,7 +721,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der width-Eigenschaft fest.
+     * Sets the value of the width property.
      * 
      * @param value
      *     allowed object is
@@ -746,7 +746,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der text-Eigenschaft fest.
+     * Sets the value of the text property.
      * 
      * @param value
      *     allowed object is
@@ -772,7 +772,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der hOffset-Eigenschaft fest.
+     * Sets the value of the hOffset property.
      * 
      * @param value
      *     allowed object is
@@ -797,7 +797,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der pitch-Eigenschaft fest.
+     * Sets the value of the pitch property.
      * 
      * @param value
      *     allowed object is
@@ -822,7 +822,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der roll-Eigenschaft fest.
+     * Sets the value of the roll property.
      * 
      * @param value
      *     allowed object is

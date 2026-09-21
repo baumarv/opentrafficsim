@@ -12,9 +12,9 @@ import org.opentrafficsim.xml.bindings.types.StringType;
 
 
 /**
- * <p>Java-Klasse für CorrelationParameterType complex type.</p>
+ * <p>Java class for CorrelationParameterType complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="CorrelationParameterType">
@@ -84,7 +84,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     protected StringType integer;
 
     /**
-     * Ruft den Wert der duration-Eigenschaft ab.
+     * Gets the value of the duration property.
      * 
      * @return
      *     possible object is
@@ -96,7 +96,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der duration-Eigenschaft fest.
+     * Sets the value of the duration property.
      * 
      * @param value
      *     allowed object is
@@ -108,7 +108,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der length-Eigenschaft ab.
+     * Gets the value of the length property.
      * 
      * @return
      *     possible object is
@@ -120,7 +120,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der length-Eigenschaft fest.
+     * Sets the value of the length property.
      * 
      * @param value
      *     allowed object is
@@ -132,7 +132,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der speed-Eigenschaft ab.
+     * Gets the value of the speed property.
      * 
      * @return
      *     possible object is
@@ -144,7 +144,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der speed-Eigenschaft fest.
+     * Sets the value of the speed property.
      * 
      * @param value
      *     allowed object is
@@ -156,7 +156,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der acceleration-Eigenschaft ab.
+     * Gets the value of the acceleration property.
      * 
      * @return
      *     possible object is
@@ -168,7 +168,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der acceleration-Eigenschaft fest.
+     * Sets the value of the acceleration property.
      * 
      * @param value
      *     allowed object is
@@ -180,7 +180,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der linearDensity-Eigenschaft ab.
+     * Gets the value of the linearDensity property.
      * 
      * @return
      *     possible object is
@@ -192,7 +192,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der linearDensity-Eigenschaft fest.
+     * Sets the value of the linearDensity property.
      * 
      * @param value
      *     allowed object is
@@ -204,7 +204,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der frequency-Eigenschaft ab.
+     * Gets the value of the frequency property.
      * 
      * @return
      *     possible object is
@@ -216,7 +216,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der frequency-Eigenschaft fest.
+     * Sets the value of the frequency property.
      * 
      * @param value
      *     allowed object is
@@ -228,7 +228,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der double-Eigenschaft ab.
+     * Gets the value of the double property.
      * 
      * @return
      *     possible object is
@@ -240,7 +240,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der double-Eigenschaft fest.
+     * Sets the value of the double property.
      * 
      * @param value
      *     allowed object is
@@ -252,7 +252,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der fraction-Eigenschaft ab.
+     * Gets the value of the fraction property.
      * 
      * @return
      *     possible object is
@@ -264,7 +264,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der fraction-Eigenschaft fest.
+     * Sets the value of the fraction property.
      * 
      * @param value
      *     allowed object is
@@ -276,7 +276,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der integer-Eigenschaft ab.
+     * Gets the value of the integer property.
      * 
      * @return
      *     possible object is
@@ -288,7 +288,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der integer-Eigenschaft fest.
+     * Sets the value of the integer property.
      * 
      * @param value
      *     allowed object is

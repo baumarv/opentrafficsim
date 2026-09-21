@@ -17,9 +17,9 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
 
 
 /**
- * <p>Java-Klasse für anonymous complex type.</p>
+ * <p>Java class for anonymous complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType>
@@ -106,7 +106,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
     }
 
     /**
-     * Legt den Wert der conflicts-Eigenschaft fest.
+     * Sets the value of the conflicts property.
      * 
      * @param value
      *     allowed object is
@@ -119,7 +119,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
     }
 
     /**
-     * Ruft den Wert der flattener-Eigenschaft ab.
+     * Gets the value of the flattener property.
      * 
      * @return
      *     possible object is
@@ -131,7 +131,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
     }
 
     /**
-     * Legt den Wert der flattener-Eigenschaft fest.
+     * Sets the value of the flattener property.
      * 
      * @param value
      *     allowed object is
@@ -304,9 +304,9 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
 
 
     /**
-     * <p>Java-Klasse für anonymous complex type.</p>
+     * <p>Java class for anonymous complex type</p>.
      * 
-     * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+     * <p>The following schema fragment specifies the expected content contained within this class.</p>
      * 
      * <pre>{@code
      * <complexType>
@@ -349,7 +349,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         protected DoubleType relativeWidth;
 
         /**
-         * Ruft den Wert der none-Eigenschaft ab.
+         * Gets the value of the none property.
          * 
          * @return
          *     possible object is
@@ -361,7 +361,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         }
 
         /**
-         * Legt den Wert der none-Eigenschaft fest.
+         * Sets the value of the none property.
          * 
          * @param value
          *     allowed object is
@@ -373,7 +373,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         }
 
         /**
-         * Ruft den Wert der defaultWidth-Eigenschaft ab.
+         * Gets the value of the defaultWidth property.
          * 
          * @return
          *     possible object is
@@ -385,7 +385,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         }
 
         /**
-         * Legt den Wert der defaultWidth-Eigenschaft fest.
+         * Sets the value of the defaultWidth property.
          * 
          * @param value
          *     allowed object is
@@ -397,7 +397,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         }
 
         /**
-         * Ruft den Wert der fixedWidth-Eigenschaft ab.
+         * Gets the value of the fixedWidth property.
          * 
          * @return
          *     possible object is
@@ -409,7 +409,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         }
 
         /**
-         * Legt den Wert der fixedWidth-Eigenschaft fest.
+         * Sets the value of the fixedWidth property.
          * 
          * @param value
          *     allowed object is
@@ -421,7 +421,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         }
 
         /**
-         * Ruft den Wert der relativeWidth-Eigenschaft ab.
+         * Gets the value of the relativeWidth property.
          * 
          * @return
          *     possible object is
@@ -433,7 +433,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         }
 
         /**
-         * Legt den Wert der relativeWidth-Eigenschaft fest.
+         * Sets the value of the relativeWidth property.
          * 
          * @param value
          *     allowed object is

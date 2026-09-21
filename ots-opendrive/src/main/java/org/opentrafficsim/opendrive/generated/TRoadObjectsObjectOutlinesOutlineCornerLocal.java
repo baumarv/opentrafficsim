@@ -12,9 +12,9 @@ import jakarta.xml.bind.annotation.XmlType;
 /**
  * Used to describe complex forms of objects. Defines a corner point on the object outline relative to the object pivot point in local u/v-coordinates. The pivot point and the orientation of the object are given by the s/t/heading arguments of the <object> element.
  * 
- * <p>Java-Klasse für t_road_objects_object_outlines_outline_cornerLocal complex type.</p>
+ * <p>Java class for t_road_objects_object_outlines_outline_cornerLocal complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_objects_object_outlines_outline_cornerLocal">
@@ -81,7 +81,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der u-Eigenschaft fest.
+     * Sets the value of the u property.
      * 
      */
     public void setU(double value) {
@@ -97,7 +97,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der v-Eigenschaft fest.
+     * Sets the value of the v property.
      * 
      */
     public void setV(double value) {
@@ -113,7 +113,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der z-Eigenschaft fest.
+     * Sets the value of the z property.
      * 
      */
     public void setZ(double value) {
@@ -129,7 +129,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der height-Eigenschaft fest.
+     * Sets the value of the height property.
      * 
      */
     public void setHeight(double value) {
@@ -149,7 +149,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der id-Eigenschaft fest.
+     * Sets the value of the id property.
      * 
      * @param value
      *     allowed object is

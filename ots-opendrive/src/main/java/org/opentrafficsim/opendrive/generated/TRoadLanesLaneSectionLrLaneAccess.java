@@ -11,9 +11,9 @@ import jakarta.xml.bind.annotation.XmlType;
  * Defines access restrictions for certain types of road users.
  * Each element is valid in direction of the increasing s co-ordinate until a new element is defined. If multiple elements are defined, they must be listed in increasing order.
  * 
- * <p>Java-Klasse für t_road_lanes_laneSection_lr_lane_access complex type.</p>
+ * <p>Java class for t_road_lanes_laneSection_lr_lane_access complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_lanes_laneSection_lr_lane_access">
@@ -65,7 +65,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der sOffset-Eigenschaft fest.
+     * Sets the value of the sOffset property.
      * 
      */
     public void setSOffset(double value) {
@@ -85,7 +85,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der rule-Eigenschaft fest.
+     * Sets the value of the rule property.
      * 
      * @param value
      *     allowed object is
@@ -110,7 +110,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der restriction-Eigenschaft fest.
+     * Sets the value of the restriction property.
      * 
      * @param value
      *     allowed object is

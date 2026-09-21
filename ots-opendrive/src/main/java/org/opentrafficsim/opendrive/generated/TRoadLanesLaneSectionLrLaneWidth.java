@@ -12,9 +12,9 @@ import jakarta.xml.bind.annotation.XmlType;
  * Lane width and lane border elements are mutually exclusive within the same lane group. If both width and lane border elements are present for a lane section in the OpenDRIVE file, the application must use the information from the <width> elements.
  * In OpenDRIVE, lane width is described by the <width> element within the <lane> element.
  * 
- * <p>Java-Klasse für t_road_lanes_laneSection_lr_lane_width complex type.</p>
+ * <p>Java class for t_road_lanes_laneSection_lr_lane_width complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_lanes_laneSection_lr_lane_width">
@@ -80,7 +80,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der sOffset-Eigenschaft fest.
+     * Sets the value of the sOffset property.
      * 
      */
     public void setSOffset(double value) {
@@ -96,7 +96,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der a-Eigenschaft fest.
+     * Sets the value of the a property.
      * 
      */
     public void setA(double value) {
@@ -112,7 +112,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der b-Eigenschaft fest.
+     * Sets the value of the b property.
      * 
      */
     public void setB(double value) {
@@ -128,7 +128,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der c-Eigenschaft fest.
+     * Sets the value of the c property.
      * 
      */
     public void setC(double value) {
@@ -144,7 +144,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der d-Eigenschaft fest.
+     * Sets the value of the d property.
      * 
      */
     public void setD(double value) {

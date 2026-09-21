@@ -20,9 +20,9 @@ import org.opentrafficsim.xml.bindings.types.StringType;
 
 
 /**
- * <p>Java-Klasse für anonymous complex type.</p>
+ * <p>Java class for anonymous complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType>
@@ -82,7 +82,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     protected IntegerType stickyLanes;
 
     /**
-     * Ruft den Wert der leftSpeed-Eigenschaft ab.
+     * Gets the value of the leftSpeed property.
      * 
      * @return
      *     possible object is
@@ -94,7 +94,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der leftSpeed-Eigenschaft fest.
+     * Sets the value of the leftSpeed property.
      * 
      * @param value
      *     allowed object is
@@ -106,7 +106,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der rightSpeed-Eigenschaft ab.
+     * Gets the value of the rightSpeed property.
      * 
      * @return
      *     possible object is
@@ -118,7 +118,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der rightSpeed-Eigenschaft fest.
+     * Sets the value of the rightSpeed property.
      * 
      * @param value
      *     allowed object is
@@ -130,7 +130,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der fromLeft-Eigenschaft ab.
+     * Gets the value of the fromLeft property.
      * 
      * @return
      *     possible object is
@@ -142,7 +142,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der fromLeft-Eigenschaft fest.
+     * Sets the value of the fromLeft property.
      * 
      * @param value
      *     allowed object is
@@ -154,7 +154,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der fromRight-Eigenschaft ab.
+     * Gets the value of the fromRight property.
      * 
      * @return
      *     possible object is
@@ -166,7 +166,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der fromRight-Eigenschaft fest.
+     * Sets the value of the fromRight property.
      * 
      * @param value
      *     allowed object is
@@ -178,7 +178,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der gtuType-Eigenschaft ab.
+     * Gets the value of the gtuType property.
      * 
      * @return
      *     possible object is
@@ -190,7 +190,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der gtuType-Eigenschaft fest.
+     * Sets the value of the gtuType property.
      * 
      * @param value
      *     allowed object is
@@ -202,7 +202,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der bias-Eigenschaft ab.
+     * Gets the value of the bias property.
      * 
      * @return
      *     possible object is
@@ -214,7 +214,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der bias-Eigenschaft fest.
+     * Sets the value of the bias property.
      * 
      * @param value
      *     allowed object is
@@ -226,7 +226,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der stickyLanes-Eigenschaft ab.
+     * Gets the value of the stickyLanes property.
      * 
      * @return
      *     possible object is
@@ -238,7 +238,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der stickyLanes-Eigenschaft fest.
+     * Sets the value of the stickyLanes property.
      * 
      * @param value
      *     allowed object is

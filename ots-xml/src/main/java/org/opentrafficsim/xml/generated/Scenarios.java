@@ -12,9 +12,9 @@ import jakarta.xml.bind.annotation.XmlType;
 
 
 /**
- * <p>Java-Klasse für anonymous complex type.</p>
+ * <p>Java class for anonymous complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType>
@@ -48,7 +48,7 @@ import jakarta.xml.bind.annotation.XmlType;
     protected List<ScenarioType> scenario;
 
     /**
-     * Ruft den Wert der defaultInputParameters-Eigenschaft ab.
+     * Gets the value of the defaultInputParameters property.
      * 
      * @return
      *     possible object is
@@ -60,7 +60,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der defaultInputParameters-Eigenschaft fest.
+     * Sets the value of the defaultInputParameters property.
      * 
      * @param value
      *     allowed object is

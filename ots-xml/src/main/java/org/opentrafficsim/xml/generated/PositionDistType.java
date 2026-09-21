@@ -9,9 +9,9 @@ import jakarta.xml.bind.annotation.XmlType;
 
 
 /**
- * <p>Java-Klasse für PositionDistType complex type.</p>
+ * <p>Java class for PositionDistType complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="PositionDistType">
@@ -37,7 +37,7 @@ import jakarta.xml.bind.annotation.XmlType;
     protected String positionUnit;
 
     /**
-     * Ruft den Wert der positionUnit-Eigenschaft ab.
+     * Gets the value of the positionUnit property.
      * 
      * @return
      *     possible object is
@@ -49,7 +49,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der positionUnit-Eigenschaft fest.
+     * Sets the value of the positionUnit property.
      * 
      * @param value
      *     allowed object is

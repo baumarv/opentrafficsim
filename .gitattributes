@@ -3,3 +3,10 @@ text=auto
 # Cluster shell scripts must keep LF endings to run on Linux (bwUniCluster)
 *.sh text eol=lf
 *.sbatch text eol=lf
+
+# XJC generates into the tracked source tree and writes the platform line separator: CRLF on Windows,
+# LF on Linux. Normalised to LF so git compares through the clean filter and a build on either
+# platform leaves the tree clean. This is also upstream OTS' own form (v1.7.6), so normalising
+# removes a merge burden rather than creating one.
+ots-xml/src/main/java/org/opentrafficsim/xml/generated/** text eol=lf
+ots-opendrive/src/main/java/org/opentrafficsim/opendrive/generated/** text eol=lf

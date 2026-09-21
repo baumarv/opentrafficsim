@@ -13,9 +13,9 @@ import org.opentrafficsim.xml.bindings.types.StringType;
 
 
 /**
- * <p>Java-Klasse für HierarchicalType complex type.</p>
+ * <p>Java class for HierarchicalType complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="HierarchicalType">
@@ -46,7 +46,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     protected StringType parent;
 
     /**
-     * Ruft den Wert der parent-Eigenschaft ab.
+     * Gets the value of the parent property.
      * 
      * @return
      *     possible object is
@@ -58,7 +58,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der parent-Eigenschaft fest.
+     * Sets the value of the parent property.
      * 
      * @param value
      *     allowed object is

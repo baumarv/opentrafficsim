@@ -10,9 +10,9 @@ import jakarta.xml.bind.annotation.XmlType;
 /**
  * Data described in OpenCRG is represented by the <CRG> element within the <surface> element.
  * 
- * <p>Java-Klasse für t_road_surface_CRG complex type.</p>
+ * <p>Java class for t_road_surface_CRG complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_surface_CRG">
@@ -129,7 +129,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der file-Eigenschaft fest.
+     * Sets the value of the file property.
      * 
      * @param value
      *     allowed object is
@@ -151,7 +151,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der sStart-Eigenschaft fest.
+     * Sets the value of the sStart property.
      * 
      */
     public void setSStart(double value) {
@@ -168,7 +168,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der sEnd-Eigenschaft fest.
+     * Sets the value of the sEnd property.
      * 
      */
     public void setSEnd(double value) {
@@ -188,7 +188,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der orientation-Eigenschaft fest.
+     * Sets the value of the orientation property.
      * 
      * @param value
      *     allowed object is
@@ -213,7 +213,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der mode-Eigenschaft fest.
+     * Sets the value of the mode property.
      * 
      * @param value
      *     allowed object is
@@ -238,7 +238,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der purpose-Eigenschaft fest.
+     * Sets the value of the purpose property.
      * 
      * @param value
      *     allowed object is
@@ -264,7 +264,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der sOffset-Eigenschaft fest.
+     * Sets the value of the sOffset property.
      * 
      * @param value
      *     allowed object is
@@ -290,7 +290,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der tOffset-Eigenschaft fest.
+     * Sets the value of the tOffset property.
      * 
      * @param value
      *     allowed object is
@@ -316,7 +316,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der zOffset-Eigenschaft fest.
+     * Sets the value of the zOffset property.
      * 
      * @param value
      *     allowed object is
@@ -341,7 +341,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der zScale-Eigenschaft fest.
+     * Sets the value of the zScale property.
      * 
      * @param value
      *     allowed object is
@@ -366,7 +366,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der hOffset-Eigenschaft fest.
+     * Sets the value of the hOffset property.
      * 
      * @param value
      *     allowed object is
