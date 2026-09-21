@@ -27,6 +27,39 @@
 
 set -euo pipefail
 
+# --verify-classes <class directory>: does the stamp beside these classes describe them?
+#
+# A separate mode because it asks about the *artefact*, not about the tree, and it is the one question the rest of
+# this script cannot answer. `mvn install` without `clean` compiles into target/classes but does not touch
+# mirova-build.properties, so a hand build leaves the previous stamp sitting beside classes it did not produce.
+# Measured: after such a build the stamp survived byte-identical with 158 newer class files beside it, where a
+# freshly stamped tree has none. That is worse than a missing stamp - a missing one stops the run (BuildProvenance),
+# a stale one lets every run write a build.txt naming the wrong commit.
+#
+# Deliberately NOT a comparison against `git rev-parse HEAD`: the stamp describes the classes, not the working tree.
+# After a branch switch without a rebuild the two differ legitimately, and a check that rejects correct runs gets
+# worked around instead of fixed.
+#
+# No stamp at all is not this mode's business and passes here; BuildProvenance refuses that case at run start.
+if [ "${1:-}" = "--verify-classes" ]; then
+    DIR="${2:?usage: stamp_build.sh --verify-classes <class directory>}"
+    STAMP="${DIR}/mirova-build.properties"
+    [ -f "${STAMP}" ] || exit 0
+    NEWER="$(find "${DIR}" -name '*.class' -newer "${STAMP}" -print -quit 2>/dev/null || true)"
+    [ -z "${NEWER}" ] && exit 0
+    echo "ERROR: a class file is newer than the build stamp beside it:" >&2
+    echo "         ${NEWER}" >&2
+    echo "       is newer than ${STAMP}" >&2
+    echo "       The stamp does not describe these classes, so every run would write a build.txt naming a commit" >&2
+    echo "       they did not come from. Typically 'mvn install' without 'clean', or a build from an IDE." >&2
+    echo "       Rebuild with cluster/build_for_cluster.sh, which cleans and re-stamps." >&2
+    echo "       NOTE: timestamps on a network file system can be coarse (whole seconds) and are not always" >&2
+    echo "       ordered as the writes were, so this check is set to complain rather than to miss a stale stamp." >&2
+    echo "       A rebuild may therefore clear it even when nothing was wrong. A rebuild is cheap; a campaign" >&2
+    echo "       attributed to the wrong commit is not." >&2
+    exit 4
+fi
+
 REPO="${1:?usage: stamp_build.sh <repository root> <class directory> <builder label>}"
 CLASSES="${2:?usage: stamp_build.sh <repository root> <class directory> <builder label>}"
 BUILDER="${3:?usage: stamp_build.sh <repository root> <class directory> <builder label>}"

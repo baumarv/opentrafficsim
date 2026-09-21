@@ -103,5 +103,37 @@ printf 'class Lf { int z; }\r\n' > "${r}/ots-x/src/Lf.java"
 out="$(bash "${STAMP}" "${r}" --check-only test 2>&1)"; rc=$?
 if [ "${rc}" -eq 3 ]; then echo "pass --check-only refuses a hidden change too"; PASS=$((PASS + 1)); else echo "FAIL --check-only: exit ${rc}"; FAIL=$((FAIL + 1)); fi
 
+# --verify-classes: does the stamp describe the classes it sits beside? The case it exists for was measured on
+# the real repository - `mvn install` without `clean` left the stamp byte-identical with 158 newer class files.
+r="$(new_repo verify-classes)"
+out="$(bash "${STAMP}" --verify-classes "${r}/classes" 2>&1)"; rc=$?
+if [ "${rc}" -eq 0 ]; then echo "pass --verify-classes: no stamp is not this mode's business"; PASS=$((PASS + 1));
+else echo "FAIL --verify-classes with no stamp: exit ${rc}"; echo "${out}" | sed 's/^/     /'; FAIL=$((FAIL + 1)); fi
+
+printf 'class A {}\n' > "${r}/classes/A.class"
+bash "${STAMP}" "${r}" "${r}/classes" test >/dev/null 2>&1
+out="$(bash "${STAMP}" --verify-classes "${r}/classes" 2>&1)"; rc=$?
+if [ "${rc}" -eq 0 ]; then echo "pass --verify-classes accepts a freshly stamped tree"; PASS=$((PASS + 1));
+else echo "FAIL --verify-classes on a fresh stamp: exit ${rc}"; echo "${out}" | sed 's/^/     /'; FAIL=$((FAIL + 1)); fi
+
+# A build that ran afterwards without re-stamping. 'sleep 1' because mtimes are whole seconds on some file
+# systems and the point here is the rule, not the resolution.
+sleep 1
+printf 'class B {}\n' > "${r}/classes/B.class"
+out="$(bash "${STAMP}" --verify-classes "${r}/classes" 2>&1)"; rc=$?
+if [ "${rc}" -eq 4 ] && printf '%s' "${out}" | grep -q "newer than the build stamp"; then
+    echo "pass --verify-classes refuses a stamp older than the classes beside it"; PASS=$((PASS + 1))
+else
+    echo "FAIL --verify-classes stale stamp: exit ${rc}"; echo "${out}" | sed 's/^/     /'; FAIL=$((FAIL + 1))
+fi
+
+# Guard on the guard: if the stale state were not visible by mtime at all, the case above would pass for the
+# wrong reason on a file system that does not order these writes.
+if find "${r}/classes" -name '*.class' -newer "${r}/classes/mirova-build.properties" -print -quit | grep -q .; then
+    echo "pass the stale state really is visible by mtime, so the case above is not vacuous"; PASS=$((PASS + 1))
+else
+    echo "FAIL the stale state is invisible by mtime here; the case above proves nothing"; FAIL=$((FAIL + 1))
+fi
+
 echo "${PASS} passed, ${FAIL} failed"
 [ "${FAIL}" -eq 0 ]
