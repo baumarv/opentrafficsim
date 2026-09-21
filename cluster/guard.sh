@@ -33,6 +33,20 @@
 # On failure each prints what was expected, what it found, and exits ${GUARD_EXIT:-2}. On success `guard`
 # is silent unless GUARD_VERBOSE=1, so a passing script stays readable and a failing one says why.
 #
+# ## Guard the sourcing too
+#
+# `source` failing does not stop a script, and afterwards every `guard` is "command not found" - which
+# bash reports and steps over, so a file full of checks runs with none of them. That is the same defect
+# one level up, and it happened the first time this file was used from another checkout. So:
+#
+#   GUARD_LIB="<path>/cluster/guard.sh"
+#   [ -f "${GUARD_LIB}" ] || { echo "REFUSING TO START: ${GUARD_LIB} not found" >&2; exit 2; }
+#   source "${GUARD_LIB}"
+#   declare -F guard > /dev/null || { echo "REFUSING TO START: no guard functions" >&2; exit 2; }
+#
+# Scripts run under `set -e` still need this: `source` on a missing file returns non-zero, but a script
+# that only sets `set -uo pipefail` - as the cluster scripts do, deliberately - carries on.
+#
 # Copyright (c) 2026 Marvin Baumann / KIT.
 
 # Exit status used when a guard fails. 2 throughout the cluster scripts: "refused to start", as distinct

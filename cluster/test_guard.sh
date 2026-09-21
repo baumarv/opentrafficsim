@@ -71,5 +71,25 @@ check "GUARD_VERBOSE reports passes"       0 "guard ok"            'GUARD_VERBOS
 # Incident 3: a check written as an echo. With guard_empty the same code cannot continue.
 check "the incident that motivated this"   2 "build-logic/bin"     'other="?? build-logic/bin/"; guard_empty "no further changes" "$other"; echo REMOVED-ANYWAY'
 
+# --- sourcing the library must itself be guarded ------------------------------------------------------
+# Found while first using guard.sh from another checkout: `source` on a missing file does not stop a
+# script that runs under `set -uo pipefail`, and every later guard is then "command not found" - bash
+# reports it and steps over it, so a file full of checks runs with none of them.
+out="$(bash -c 'source /nonexistent/guard.sh; guard "x" false; echo REACHED-ANYWAY' 2>&1)"
+if printf '%s' "${out}" | grep -q "REACHED-ANYWAY"; then
+    echo "pass an unguarded source really does leave the guards inert (the reason for the idiom)"
+    PASS=$((PASS + 1))
+else
+    echo "FAIL an unguarded source no longer leaves guards inert; the documented idiom may be stale"
+    FAIL=$((FAIL + 1))
+fi
+out="$(bash -c 'L=/nonexistent/guard.sh; [ -f "$L" ] || { echo "REFUSING"; exit 2; }; source "$L"; echo REACHED-ANYWAY' 2>&1)"
+rc=$?
+if [ "${rc}" -eq 2 ] && ! printf '%s' "${out}" | grep -q "REACHED-ANYWAY"; then
+    echo "pass the documented idiom stops a script whose guard library is missing"; PASS=$((PASS + 1))
+else
+    echo "FAIL the documented idiom did not stop: rc=${rc} ${out}"; FAIL=$((FAIL + 1))
+fi
+
 echo "${PASS} passed, ${FAIL} failed"
 [ "${FAIL}" -eq 0 ]
