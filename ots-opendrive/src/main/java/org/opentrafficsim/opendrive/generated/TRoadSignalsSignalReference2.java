@@ -10,9 +10,9 @@ import jakarta.xml.bind.annotation.XmlType;
 /**
  * Provides a means to link a signal to a series of other elements (for example, objects and signals).
  * 
- * <p>Java-Klasse für t_road_signals_signal_reference complex type.</p>
+ * <p>Java class for t_road_signals_signal_reference complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_signals_signal_reference">
@@ -69,7 +69,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der elementType-Eigenschaft fest.
+     * Sets the value of the elementType property.
      * 
      * @param value
      *     allowed object is
@@ -94,7 +94,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der elementId-Eigenschaft fest.
+     * Sets the value of the elementId property.
      * 
      * @param value
      *     allowed object is
@@ -120,7 +120,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der type-Eigenschaft fest.
+     * Sets the value of the type property.
      * 
      * @param value
      *     allowed object is

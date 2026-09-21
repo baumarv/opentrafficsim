@@ -14,9 +14,9 @@ import jakarta.xml.bind.annotation.XmlType;
 /**
  * Tunnels are modeled as objects in OpenDRIVE. Tunnels apply to the entire cross section of the road within the given range unless a lane validity element with further restrictions is provided as child element.
  * 
- * <p>Java-Klasse für t_road_objects_tunnel complex type.</p>
+ * <p>Java class for t_road_objects_tunnel complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_objects_tunnel">
@@ -182,7 +182,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der s-Eigenschaft fest.
+     * Sets the value of the s property.
      * 
      */
     public void setS(double value) {
@@ -198,7 +198,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der length-Eigenschaft fest.
+     * Sets the value of the length property.
      * 
      */
     public void setLength(double value) {
@@ -218,7 +218,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der name-Eigenschaft fest.
+     * Sets the value of the name property.
      * 
      * @param value
      *     allowed object is
@@ -243,7 +243,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der id-Eigenschaft fest.
+     * Sets the value of the id property.
      * 
      * @param value
      *     allowed object is
@@ -268,7 +268,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der type-Eigenschaft fest.
+     * Sets the value of the type property.
      * 
      * @param value
      *     allowed object is
@@ -293,7 +293,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der lighting-Eigenschaft fest.
+     * Sets the value of the lighting property.
      * 
      * @param value
      *     allowed object is
@@ -318,7 +318,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der daylight-Eigenschaft fest.
+     * Sets the value of the daylight property.
      * 
      * @param value
      *     allowed object is

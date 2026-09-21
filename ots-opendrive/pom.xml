@@ -34,6 +34,12 @@
           <bindingIncludes>
             <bindingInclude>opendrive-bindings.xml</bindingInclude>
           </bindingIncludes>
+          <!-- Generated into the tracked source tree, so every build rewrites these files. Two things must
+               therefore be deterministic across machines, or the build stamp refuses the next build:
+               the line separator (normalised to LF in .gitattributes) and the locale, because XJC emits
+               its Javadoc through a localised bundle - a German JVM writes "Java-Klasse fuer ...".
+               The locale is pinned for every build of this repository in .mvn/jvm.config, which takes
+               arguments only and cannot carry this explanation. -->
           <generateDirectory>src/main/java</generateDirectory>
           <generatePackage>org.opentrafficsim.opendrive.generated</generatePackage>
           <markGenerated>false</markGenerated>

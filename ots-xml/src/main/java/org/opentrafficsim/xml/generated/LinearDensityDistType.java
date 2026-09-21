@@ -13,9 +13,9 @@ import org.opentrafficsim.xml.bindings.types.LinearDensityUnitType;
 
 
 /**
- * <p>Java-Klasse für LinearDensityDistType complex type.</p>
+ * <p>Java class for LinearDensityDistType complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="LinearDensityDistType">
@@ -45,7 +45,7 @@ import org.opentrafficsim.xml.bindings.types.LinearDensityUnitType;
     protected LinearDensityUnitType linearDensityUnit;
 
     /**
-     * Ruft den Wert der linearDensityUnit-Eigenschaft ab.
+     * Gets the value of the linearDensityUnit property.
      * 
      * @return
      *     possible object is
@@ -57,7 +57,7 @@ import org.opentrafficsim.xml.bindings.types.LinearDensityUnitType;
     }
 
     /**
-     * Legt den Wert der linearDensityUnit-Eigenschaft fest.
+     * Sets the value of the linearDensityUnit property.
      * 
      * @param value
      *     allowed object is

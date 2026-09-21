@@ -16,9 +16,9 @@ import org.opentrafficsim.xml.bindings.types.DoubleType;
 
 
 /**
- * <p>Java-Klasse für anonymous complex type.</p>
+ * <p>Java class for anonymous complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType>
@@ -96,7 +96,7 @@ import org.opentrafficsim.xml.bindings.types.DoubleType;
     }
 
     /**
-     * Ruft den Wert der randomStream-Eigenschaft ab.
+     * Gets the value of the randomStream property.
      * 
      * @return
      *     possible object is
@@ -108,7 +108,7 @@ import org.opentrafficsim.xml.bindings.types.DoubleType;
     }
 
     /**
-     * Legt den Wert der randomStream-Eigenschaft fest.
+     * Sets the value of the randomStream property.
      * 
      * @param value
      *     allowed object is
@@ -120,7 +120,7 @@ import org.opentrafficsim.xml.bindings.types.DoubleType;
     }
 
     /**
-     * Ruft den Wert der id-Eigenschaft ab.
+     * Gets the value of the id property.
      * 
      * @return
      *     possible object is
@@ -132,7 +132,7 @@ import org.opentrafficsim.xml.bindings.types.DoubleType;
     }
 
     /**
-     * Legt den Wert der id-Eigenschaft fest.
+     * Sets the value of the id property.
      * 
      * @param value
      *     allowed object is
@@ -145,9 +145,9 @@ import org.opentrafficsim.xml.bindings.types.DoubleType;
 
 
     /**
-     * <p>Java-Klasse für anonymous complex type.</p>
+     * <p>Java class for anonymous complex type</p>.
      * 
-     * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+     * <p>The following schema fragment specifies the expected content contained within this class.</p>
      * 
      * <pre>{@code
      * <complexType>
@@ -176,7 +176,7 @@ import org.opentrafficsim.xml.bindings.types.DoubleType;
         protected DoubleType weight;
 
         /**
-         * Ruft den Wert der id-Eigenschaft ab.
+         * Gets the value of the id property.
          * 
          * @return
          *     possible object is
@@ -188,7 +188,7 @@ import org.opentrafficsim.xml.bindings.types.DoubleType;
         }
 
         /**
-         * Legt den Wert der id-Eigenschaft fest.
+         * Sets the value of the id property.
          * 
          * @param value
          *     allowed object is
@@ -200,7 +200,7 @@ import org.opentrafficsim.xml.bindings.types.DoubleType;
         }
 
         /**
-         * Ruft den Wert der weight-Eigenschaft ab.
+         * Gets the value of the weight property.
          * 
          * @return
          *     possible object is
@@ -212,7 +212,7 @@ import org.opentrafficsim.xml.bindings.types.DoubleType;
         }
 
         /**
-         * Legt den Wert der weight-Eigenschaft fest.
+         * Sets the value of the weight property.
          * 
          * @param value
          *     allowed object is

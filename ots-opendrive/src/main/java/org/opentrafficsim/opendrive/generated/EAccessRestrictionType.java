@@ -9,9 +9,9 @@ import jakarta.xml.bind.annotation.XmlType;
 /**
  * 
  * 
- * <p>Java-Klasse für e_accessRestrictionType.</p>
+ * <p>Java class for e_accessRestrictionType</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * <pre>{@code
  * <simpleType name="e_accessRestrictionType">
  *   <restriction base="{http://www.w3.org/2001/XMLSchema}string">

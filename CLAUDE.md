@@ -58,6 +58,14 @@ All implementations must follow this layered structure:
 - **Performance**: Favor O(1) lookups. Use ID-based caching for expensive car-following evaluations within the same simulation tick.
 - **Imports**: Always include full imports and the mandatory MiRoVA class header.
 - Do not modify `ParameterTypes.T` in tactical states (parameter-hacking is being replaced).
+- **Generated sources are byte-identical on every machine.** `ots-xml` and `ots-opendrive` generate
+  into `src/main/java`, so each build rewrites 255 tracked files and a non-deterministic generator
+  leaves the tree dirty, which the build stamp then refuses. Two things make it deterministic and
+  both are committed: `.mvn/jvm.config` pins the JVM locale (XJC emits its Javadoc through a
+  localised bundle — a German JVM writes "Java-Klasse für …"), and `.gitattributes` normalises those
+  directories to LF. Never regenerate with a different locale and commit the result. Note the pin
+  reaches the Maven JVM only: **not** surefire forks and **not** simulation runs, which start with
+  `java -cp`.
 - **Shell scripts: a check is a condition, never an output.** Any precondition — a clean tree, a file
   that must exist, a command that must succeed — is written so that failing it *ends the script*. Use
   `cluster/guard.sh`: `guard "<what must hold>" <command>`, `guard_empty "<what must be absent>"

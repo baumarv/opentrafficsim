@@ -12,9 +12,9 @@ import org.opentrafficsim.xml.bindings.types.StringType;
 
 
 /**
- * <p>Java-Klasse für RandomStreamSource complex type.</p>
+ * <p>Java class for RandomStreamSource complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="RandomStreamSource">
@@ -52,7 +52,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     protected StringType defined;
 
     /**
-     * Ruft den Wert der default-Eigenschaft ab.
+     * Gets the value of the default property.
      * 
      * @return
      *     possible object is
@@ -64,7 +64,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der default-Eigenschaft fest.
+     * Sets the value of the default property.
      * 
      * @param value
      *     allowed object is
@@ -76,7 +76,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der generation-Eigenschaft ab.
+     * Gets the value of the generation property.
      * 
      * @return
      *     possible object is
@@ -88,7 +88,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der generation-Eigenschaft fest.
+     * Sets the value of the generation property.
      * 
      * @param value
      *     allowed object is
@@ -100,7 +100,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der defined-Eigenschaft ab.
+     * Gets the value of the defined property.
      * 
      * @return
      *     possible object is
@@ -112,7 +112,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der defined-Eigenschaft fest.
+     * Sets the value of the defined property.
      * 
      * @param value
      *     allowed object is

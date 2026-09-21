@@ -16,9 +16,9 @@ import org.opentrafficsim.xml.bindings.types.DurationType;
  *         increase flow based on
  *         bounded-acceleration, Ttc uses time-to-collision.
  * 
- * <p>Java-Klasse für RoomCheckerType complex type.</p>
+ * <p>Java class for RoomCheckerType complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="RoomCheckerType">
@@ -56,7 +56,7 @@ import org.opentrafficsim.xml.bindings.types.DurationType;
     protected DurationType ttc;
 
     /**
-     * Ruft den Wert der cf-Eigenschaft ab.
+     * Gets the value of the cf property.
      * 
      * @return
      *     possible object is
@@ -68,7 +68,7 @@ import org.opentrafficsim.xml.bindings.types.DurationType;
     }
 
     /**
-     * Legt den Wert der cf-Eigenschaft fest.
+     * Sets the value of the cf property.
      * 
      * @param value
      *     allowed object is
@@ -80,7 +80,7 @@ import org.opentrafficsim.xml.bindings.types.DurationType;
     }
 
     /**
-     * Ruft den Wert der cfBa-Eigenschaft ab.
+     * Gets the value of the cfBa property.
      * 
      * @return
      *     possible object is
@@ -92,7 +92,7 @@ import org.opentrafficsim.xml.bindings.types.DurationType;
     }
 
     /**
-     * Legt den Wert der cfBa-Eigenschaft fest.
+     * Sets the value of the cfBa property.
      * 
      * @param value
      *     allowed object is
@@ -104,7 +104,7 @@ import org.opentrafficsim.xml.bindings.types.DurationType;
     }
 
     /**
-     * Ruft den Wert der ttc-Eigenschaft ab.
+     * Gets the value of the ttc property.
      * 
      * @return
      *     possible object is
@@ -116,7 +116,7 @@ import org.opentrafficsim.xml.bindings.types.DurationType;
     }
 
     /**
-     * Legt den Wert der ttc-Eigenschaft fest.
+     * Sets the value of the ttc property.
      * 
      * @param value
      *     allowed object is

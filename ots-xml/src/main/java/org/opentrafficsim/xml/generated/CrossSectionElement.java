@@ -13,9 +13,9 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
 
 
 /**
- * <p>Java-Klasse für CrossSectionElement complex type.</p>
+ * <p>Java class for CrossSectionElement complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="CrossSectionElement">
@@ -115,7 +115,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     protected org.opentrafficsim.xml.bindings.types.LengthType widthEnd;
 
     /**
-     * Ruft den Wert der centerOffset-Eigenschaft ab.
+     * Gets the value of the centerOffset property.
      * 
      * @return
      *     possible object is
@@ -127,7 +127,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Legt den Wert der centerOffset-Eigenschaft fest.
+     * Sets the value of the centerOffset property.
      * 
      * @param value
      *     allowed object is
@@ -139,7 +139,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Ruft den Wert der leftOffset-Eigenschaft ab.
+     * Gets the value of the leftOffset property.
      * 
      * @return
      *     possible object is
@@ -151,7 +151,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Legt den Wert der leftOffset-Eigenschaft fest.
+     * Sets the value of the leftOffset property.
      * 
      * @param value
      *     allowed object is
@@ -163,7 +163,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Ruft den Wert der rightOffset-Eigenschaft ab.
+     * Gets the value of the rightOffset property.
      * 
      * @return
      *     possible object is
@@ -175,7 +175,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Legt den Wert der rightOffset-Eigenschaft fest.
+     * Sets the value of the rightOffset property.
      * 
      * @param value
      *     allowed object is
@@ -187,7 +187,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Ruft den Wert der centerOffsetStart-Eigenschaft ab.
+     * Gets the value of the centerOffsetStart property.
      * 
      * @return
      *     possible object is
@@ -199,7 +199,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Legt den Wert der centerOffsetStart-Eigenschaft fest.
+     * Sets the value of the centerOffsetStart property.
      * 
      * @param value
      *     allowed object is
@@ -211,7 +211,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Ruft den Wert der leftOffsetStart-Eigenschaft ab.
+     * Gets the value of the leftOffsetStart property.
      * 
      * @return
      *     possible object is
@@ -223,7 +223,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Legt den Wert der leftOffsetStart-Eigenschaft fest.
+     * Sets the value of the leftOffsetStart property.
      * 
      * @param value
      *     allowed object is
@@ -235,7 +235,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Ruft den Wert der rightOffsetStart-Eigenschaft ab.
+     * Gets the value of the rightOffsetStart property.
      * 
      * @return
      *     possible object is
@@ -247,7 +247,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Legt den Wert der rightOffsetStart-Eigenschaft fest.
+     * Sets the value of the rightOffsetStart property.
      * 
      * @param value
      *     allowed object is
@@ -259,7 +259,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Ruft den Wert der centerOffsetEnd-Eigenschaft ab.
+     * Gets the value of the centerOffsetEnd property.
      * 
      * @return
      *     possible object is
@@ -271,7 +271,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Legt den Wert der centerOffsetEnd-Eigenschaft fest.
+     * Sets the value of the centerOffsetEnd property.
      * 
      * @param value
      *     allowed object is
@@ -283,7 +283,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Ruft den Wert der leftOffsetEnd-Eigenschaft ab.
+     * Gets the value of the leftOffsetEnd property.
      * 
      * @return
      *     possible object is
@@ -295,7 +295,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Legt den Wert der leftOffsetEnd-Eigenschaft fest.
+     * Sets the value of the leftOffsetEnd property.
      * 
      * @param value
      *     allowed object is
@@ -307,7 +307,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Ruft den Wert der rightOffsetEnd-Eigenschaft ab.
+     * Gets the value of the rightOffsetEnd property.
      * 
      * @return
      *     possible object is
@@ -319,7 +319,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Legt den Wert der rightOffsetEnd-Eigenschaft fest.
+     * Sets the value of the rightOffsetEnd property.
      * 
      * @param value
      *     allowed object is
@@ -331,7 +331,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Ruft den Wert der width-Eigenschaft ab.
+     * Gets the value of the width property.
      * 
      * @return
      *     possible object is
@@ -343,7 +343,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Legt den Wert der width-Eigenschaft fest.
+     * Sets the value of the width property.
      * 
      * @param value
      *     allowed object is
@@ -355,7 +355,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Ruft den Wert der widthStart-Eigenschaft ab.
+     * Gets the value of the widthStart property.
      * 
      * @return
      *     possible object is
@@ -367,7 +367,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Legt den Wert der widthStart-Eigenschaft fest.
+     * Sets the value of the widthStart property.
      * 
      * @param value
      *     allowed object is
@@ -379,7 +379,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Ruft den Wert der widthEnd-Eigenschaft ab.
+     * Gets the value of the widthEnd property.
      * 
      * @return
      *     possible object is
@@ -391,7 +391,7 @@ import org.opentrafficsim.xml.bindings.PositiveLengthAdapter;
     }
 
     /**
-     * Legt den Wert der widthEnd-Eigenschaft fest.
+     * Sets the value of the widthEnd property.
      * 
      * @param value
      *     allowed object is

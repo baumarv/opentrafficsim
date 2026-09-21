@@ -11,9 +11,9 @@ import jakarta.xml.bind.annotation.XmlType;
 /**
  * May replace the default validity with explicit validity information for an object. Multiple validity elements may be defined per object.
  * 
- * <p>Java-Klasse für t_road_objects_object_laneValidity complex type.</p>
+ * <p>Java class for t_road_objects_object_laneValidity complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_objects_object_laneValidity">
@@ -62,7 +62,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der fromLane-Eigenschaft fest.
+     * Sets the value of the fromLane property.
      * 
      * @param value
      *     allowed object is
@@ -87,7 +87,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der toLane-Eigenschaft fest.
+     * Sets the value of the toLane property.
      * 
      * @param value
      *     allowed object is

@@ -12,9 +12,9 @@ import org.opentrafficsim.xml.bindings.types.StringType;
 
 
 /**
- * <p>Java-Klasse für LaneLinkType complex type.</p>
+ * <p>Java class for LaneLinkType complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="LaneLinkType">
@@ -44,7 +44,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     protected StringType link;
 
     /**
-     * Ruft den Wert der lane-Eigenschaft ab.
+     * Gets the value of the lane property.
      * 
      * @return
      *     possible object is
@@ -56,7 +56,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der lane-Eigenschaft fest.
+     * Sets the value of the lane property.
      * 
      * @param value
      *     allowed object is
@@ -68,7 +68,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der link-Eigenschaft ab.
+     * Gets the value of the link property.
      * 
      * @return
      *     possible object is
@@ -80,7 +80,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der link-Eigenschaft fest.
+     * Sets the value of the link property.
      * 
      * @param value
      *     allowed object is

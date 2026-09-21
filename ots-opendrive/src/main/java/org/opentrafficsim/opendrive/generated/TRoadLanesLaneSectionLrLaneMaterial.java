@@ -10,9 +10,9 @@ import jakarta.xml.bind.annotation.XmlType;
 /**
  * Stores information about the material of lanes. Each element is valid until a new element is defined. If multiple elements are defined, they must be listed in increasing order.
  * 
- * <p>Java-Klasse für t_road_lanes_laneSection_lr_lane_material complex type.</p>
+ * <p>Java class for t_road_lanes_laneSection_lr_lane_material complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_lanes_laneSection_lr_lane_material">
@@ -71,7 +71,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der sOffset-Eigenschaft fest.
+     * Sets the value of the sOffset property.
      * 
      */
     public void setSOffset(double value) {
@@ -91,7 +91,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der surface-Eigenschaft fest.
+     * Sets the value of the surface property.
      * 
      * @param value
      *     allowed object is
@@ -112,7 +112,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der friction-Eigenschaft fest.
+     * Sets the value of the friction property.
      * 
      */
     public void setFriction(double value) {
@@ -132,7 +132,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der roughness-Eigenschaft fest.
+     * Sets the value of the roughness property.
      * 
      * @param value
      *     allowed object is

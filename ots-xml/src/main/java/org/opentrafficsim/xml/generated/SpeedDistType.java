@@ -13,9 +13,9 @@ import org.opentrafficsim.xml.bindings.types.SpeedUnitType;
 
 
 /**
- * <p>Java-Klasse für SpeedDistType complex type.</p>
+ * <p>Java class for SpeedDistType complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="SpeedDistType">
@@ -45,7 +45,7 @@ import org.opentrafficsim.xml.bindings.types.SpeedUnitType;
     protected SpeedUnitType speedUnit;
 
     /**
-     * Ruft den Wert der speedUnit-Eigenschaft ab.
+     * Gets the value of the speedUnit property.
      * 
      * @return
      *     possible object is
@@ -57,7 +57,7 @@ import org.opentrafficsim.xml.bindings.types.SpeedUnitType;
     }
 
     /**
-     * Legt den Wert der speedUnit-Eigenschaft fest.
+     * Sets the value of the speedUnit property.
      * 
      * @param value
      *     allowed object is

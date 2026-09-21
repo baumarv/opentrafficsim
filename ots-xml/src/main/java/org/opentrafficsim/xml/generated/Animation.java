@@ -12,9 +12,9 @@ import jakarta.xml.bind.annotation.XmlType;
 
 
 /**
- * <p>Java-Klasse für anonymous complex type.</p>
+ * <p>Java class for anonymous complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType>
@@ -72,7 +72,7 @@ import jakarta.xml.bind.annotation.XmlType;
     protected List<LayerToggleType> layer;
 
     /**
-     * Ruft den Wert der gtuColorers-Eigenschaft ab.
+     * Gets the value of the gtuColorers property.
      * 
      * @return
      *     possible object is
@@ -84,7 +84,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der gtuColorers-Eigenschaft fest.
+     * Sets the value of the gtuColorers property.
      * 
      * @param value
      *     allowed object is
@@ -96,7 +96,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Ruft den Wert der defaults-Eigenschaft ab.
+     * Gets the value of the defaults property.
      * 
      * @return
      *     possible object is
@@ -108,7 +108,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der defaults-Eigenschaft fest.
+     * Sets the value of the defaults property.
      * 
      * @param value
      *     allowed object is

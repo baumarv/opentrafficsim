@@ -12,9 +12,9 @@ import org.opentrafficsim.xml.bindings.types.StringType;
 
 
 /**
- * <p>Java-Klasse für StripeCompatibility complex type.</p>
+ * <p>Java class for StripeCompatibility complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="StripeCompatibility">
@@ -57,7 +57,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     protected StringType direction;
 
     /**
-     * Ruft den Wert der gtuType-Eigenschaft ab.
+     * Gets the value of the gtuType property.
      * 
      * @return
      *     possible object is
@@ -69,7 +69,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der gtuType-Eigenschaft fest.
+     * Sets the value of the gtuType property.
      * 
      * @param value
      *     allowed object is
@@ -81,7 +81,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der direction-Eigenschaft ab.
+     * Gets the value of the direction property.
      * 
      * @return
      *     possible object is
@@ -97,7 +97,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der direction-Eigenschaft fest.
+     * Sets the value of the direction property.
      * 
      * @param value
      *     allowed object is

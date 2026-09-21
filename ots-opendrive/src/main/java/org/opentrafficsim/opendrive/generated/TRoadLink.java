@@ -13,9 +13,9 @@ import jakarta.xml.bind.annotation.XmlType;
 /**
  * Follows the road header if the road is linked to a successor, a predecessor, or a neighbor. Isolated roads may omit this element.
  * 
- * <p>Java-Klasse für t_road_link complex type.</p>
+ * <p>Java class for t_road_link complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_link">
@@ -58,7 +58,7 @@ import jakarta.xml.bind.annotation.XmlType;
     protected List<Object> gAdditionalData;
 
     /**
-     * Ruft den Wert der predecessor-Eigenschaft ab.
+     * Gets the value of the predecessor property.
      * 
      * @return
      *     possible object is
@@ -70,7 +70,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der predecessor-Eigenschaft fest.
+     * Sets the value of the predecessor property.
      * 
      * @param value
      *     allowed object is
@@ -82,7 +82,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Ruft den Wert der successor-Eigenschaft ab.
+     * Gets the value of the successor property.
      * 
      * @return
      *     possible object is
@@ -94,7 +94,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der successor-Eigenschaft fest.
+     * Sets the value of the successor property.
      * 
      * @param value
      *     allowed object is

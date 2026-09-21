@@ -13,9 +13,9 @@ import org.opentrafficsim.opendrive.bindings.RoadLinkTypeAdapter;
 /**
  * For virtual and regular junctions, different attribute sets shall be used. @contactPoint shall be used for regular junctions; @elementS and @elementDir shall be used for virtual junctions.
  * 
- * <p>Java-Klasse für t_road_link_predecessorSuccessor complex type.</p>
+ * <p>Java class for t_road_link_predecessorSuccessor complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_link_predecessorSuccessor">
@@ -87,7 +87,7 @@ import org.opentrafficsim.opendrive.bindings.RoadLinkTypeAdapter;
     }
 
     /**
-     * Legt den Wert der elementId-Eigenschaft fest.
+     * Sets the value of the elementId property.
      * 
      * @param value
      *     allowed object is
@@ -112,7 +112,7 @@ import org.opentrafficsim.opendrive.bindings.RoadLinkTypeAdapter;
     }
 
     /**
-     * Legt den Wert der elementType-Eigenschaft fest.
+     * Sets the value of the elementType property.
      * 
      * @param value
      *     allowed object is
@@ -137,7 +137,7 @@ import org.opentrafficsim.opendrive.bindings.RoadLinkTypeAdapter;
     }
 
     /**
-     * Legt den Wert der contactPoint-Eigenschaft fest.
+     * Sets the value of the contactPoint property.
      * 
      * @param value
      *     allowed object is
@@ -162,7 +162,7 @@ import org.opentrafficsim.opendrive.bindings.RoadLinkTypeAdapter;
     }
 
     /**
-     * Legt den Wert der elementS-Eigenschaft fest.
+     * Sets the value of the elementS property.
      * 
      * @param value
      *     allowed object is
@@ -187,7 +187,7 @@ import org.opentrafficsim.opendrive.bindings.RoadLinkTypeAdapter;
     }
 
     /**
-     * Legt den Wert der elementDir-Eigenschaft fest.
+     * Sets the value of the elementDir property.
      * 
      * @param value
      *     allowed object is

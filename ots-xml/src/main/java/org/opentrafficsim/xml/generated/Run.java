@@ -17,9 +17,9 @@ import org.opentrafficsim.xml.bindings.types.TimeType;
 
 
 /**
- * <p>Java-Klasse für anonymous complex type.</p>
+ * <p>Java class for anonymous complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType>
@@ -74,7 +74,7 @@ import org.opentrafficsim.xml.bindings.types.TimeType;
     protected RandomStreams randomStreams;
 
     /**
-     * Ruft den Wert der startTime-Eigenschaft ab.
+     * Gets the value of the startTime property.
      * 
      * @return
      *     possible object is
@@ -86,7 +86,7 @@ import org.opentrafficsim.xml.bindings.types.TimeType;
     }
 
     /**
-     * Legt den Wert der startTime-Eigenschaft fest.
+     * Sets the value of the startTime property.
      * 
      * @param value
      *     allowed object is
@@ -98,7 +98,7 @@ import org.opentrafficsim.xml.bindings.types.TimeType;
     }
 
     /**
-     * Ruft den Wert der warmupPeriod-Eigenschaft ab.
+     * Gets the value of the warmupPeriod property.
      * 
      * @return
      *     possible object is
@@ -110,7 +110,7 @@ import org.opentrafficsim.xml.bindings.types.TimeType;
     }
 
     /**
-     * Legt den Wert der warmupPeriod-Eigenschaft fest.
+     * Sets the value of the warmupPeriod property.
      * 
      * @param value
      *     allowed object is
@@ -122,7 +122,7 @@ import org.opentrafficsim.xml.bindings.types.TimeType;
     }
 
     /**
-     * Ruft den Wert der runLength-Eigenschaft ab.
+     * Gets the value of the runLength property.
      * 
      * @return
      *     possible object is
@@ -134,7 +134,7 @@ import org.opentrafficsim.xml.bindings.types.TimeType;
     }
 
     /**
-     * Legt den Wert der runLength-Eigenschaft fest.
+     * Sets the value of the runLength property.
      * 
      * @param value
      *     allowed object is
@@ -146,7 +146,7 @@ import org.opentrafficsim.xml.bindings.types.TimeType;
     }
 
     /**
-     * Ruft den Wert der history-Eigenschaft ab.
+     * Gets the value of the history property.
      * 
      * @return
      *     possible object is
@@ -158,7 +158,7 @@ import org.opentrafficsim.xml.bindings.types.TimeType;
     }
 
     /**
-     * Legt den Wert der history-Eigenschaft fest.
+     * Sets the value of the history property.
      * 
      * @param value
      *     allowed object is
@@ -170,7 +170,7 @@ import org.opentrafficsim.xml.bindings.types.TimeType;
     }
 
     /**
-     * Ruft den Wert der numberReplications-Eigenschaft ab.
+     * Gets the value of the numberReplications property.
      * 
      * @return
      *     possible object is
@@ -182,7 +182,7 @@ import org.opentrafficsim.xml.bindings.types.TimeType;
     }
 
     /**
-     * Legt den Wert der numberReplications-Eigenschaft fest.
+     * Sets the value of the numberReplications property.
      * 
      * @param value
      *     allowed object is
@@ -194,7 +194,7 @@ import org.opentrafficsim.xml.bindings.types.TimeType;
     }
 
     /**
-     * Ruft den Wert der randomStreams-Eigenschaft ab.
+     * Gets the value of the randomStreams property.
      * 
      * @return
      *     possible object is
@@ -206,7 +206,7 @@ import org.opentrafficsim.xml.bindings.types.TimeType;
     }
 
     /**
-     * Legt den Wert der randomStreams-Eigenschaft fest.
+     * Sets the value of the randomStreams property.
      * 
      * @param value
      *     allowed object is
