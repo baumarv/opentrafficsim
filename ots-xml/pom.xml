@@ -28,8 +28,25 @@
         </executions>
         <configuration>
           <schemaDirectory>src/main/resources/xsd</schemaDirectory>
+          <!-- Listed explicitly, and sorted, rather than <include>*.xsd</include>. The order in which XJC
+               reads the schemas decides the order of the factory methods it writes into ObjectFactory, and a
+               wildcard is expanded by a directory scan: Windows returns entries sorted, Linux file systems do
+               not. Since the generated sources are committed, that made every build on the other platform
+               rewrite ObjectFactory and leave the tree dirty, which the build stamp then refused.
+               SchemaIncludesTest fails when this list and the directory disagree - an unlisted schema is simply
+               not processed, and without that test its types would be missing in silence unless something
+               happened to reference them. Keep the list sorted; the order is part of what is committed. -->
           <schemaIncludes>
-            <include>*.xsd</include>
+            <include>ots-animation.xsd</include>
+            <include>ots-control.xsd</include>
+            <include>ots-definitions.xsd</include>
+            <include>ots-demand.xsd</include>
+            <include>ots-model.xsd</include>
+            <include>ots-network.xsd</include>
+            <include>ots-run.xsd</include>
+            <include>ots-scenario.xsd</include>
+            <include>ots-types.xsd</include>
+            <include>ots.xsd</include>
           </schemaIncludes>
           <bindingIncludes>
             <bindingInclude>bindings.xml</bindingInclude>
