@@ -13,9 +13,9 @@ import org.opentrafficsim.opendrive.bindings.SpeedUnitAdapter;
 /**
  * Defines the maximum allowed speed on a given lane. Each element is valid in direction of the increasing s-coordinate until a new element is defined.
  * 
- * <p>Java-Klasse für t_road_lanes_laneSection_lr_lane_speed complex type.</p>
+ * <p>Java class for t_road_lanes_laneSection_lr_lane_speed complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_lanes_laneSection_lr_lane_speed">
@@ -68,7 +68,7 @@ import org.opentrafficsim.opendrive.bindings.SpeedUnitAdapter;
     }
 
     /**
-     * Legt den Wert der sOffset-Eigenschaft fest.
+     * Sets the value of the sOffset property.
      * 
      */
     public void setSOffset(double value) {
@@ -84,7 +84,7 @@ import org.opentrafficsim.opendrive.bindings.SpeedUnitAdapter;
     }
 
     /**
-     * Legt den Wert der max-Eigenschaft fest.
+     * Sets the value of the max property.
      * 
      */
     public void setMax(double value) {
@@ -104,7 +104,7 @@ import org.opentrafficsim.opendrive.bindings.SpeedUnitAdapter;
     }
 
     /**
-     * Legt den Wert der unit-Eigenschaft fest.
+     * Sets the value of the unit property.
      * 
      * @param value
      *     allowed object is

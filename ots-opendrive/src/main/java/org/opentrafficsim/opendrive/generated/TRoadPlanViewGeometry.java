@@ -15,9 +15,9 @@ import org.opentrafficsim.opendrive.bindings.LengthAdapter;
 
 
 /**
- * <p>Java-Klasse für t_road_planView_geometry complex type.</p>
+ * <p>Java class for t_road_planView_geometry complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_planView_geometry">
@@ -105,7 +105,7 @@ import org.opentrafficsim.opendrive.bindings.LengthAdapter;
     protected Length length;
 
     /**
-     * Ruft den Wert der line-Eigenschaft ab.
+     * Gets the value of the line property.
      * 
      * @return
      *     possible object is
@@ -117,7 +117,7 @@ import org.opentrafficsim.opendrive.bindings.LengthAdapter;
     }
 
     /**
-     * Legt den Wert der line-Eigenschaft fest.
+     * Sets the value of the line property.
      * 
      * @param value
      *     allowed object is
@@ -129,7 +129,7 @@ import org.opentrafficsim.opendrive.bindings.LengthAdapter;
     }
 
     /**
-     * Ruft den Wert der spiral-Eigenschaft ab.
+     * Gets the value of the spiral property.
      * 
      * @return
      *     possible object is
@@ -141,7 +141,7 @@ import org.opentrafficsim.opendrive.bindings.LengthAdapter;
     }
 
     /**
-     * Legt den Wert der spiral-Eigenschaft fest.
+     * Sets the value of the spiral property.
      * 
      * @param value
      *     allowed object is
@@ -153,7 +153,7 @@ import org.opentrafficsim.opendrive.bindings.LengthAdapter;
     }
 
     /**
-     * Ruft den Wert der arc-Eigenschaft ab.
+     * Gets the value of the arc property.
      * 
      * @return
      *     possible object is
@@ -165,7 +165,7 @@ import org.opentrafficsim.opendrive.bindings.LengthAdapter;
     }
 
     /**
-     * Legt den Wert der arc-Eigenschaft fest.
+     * Sets the value of the arc property.
      * 
      * @param value
      *     allowed object is
@@ -177,7 +177,7 @@ import org.opentrafficsim.opendrive.bindings.LengthAdapter;
     }
 
     /**
-     * Ruft den Wert der poly3-Eigenschaft ab.
+     * Gets the value of the poly3 property.
      * 
      * @return
      *     possible object is
@@ -189,7 +189,7 @@ import org.opentrafficsim.opendrive.bindings.LengthAdapter;
     }
 
     /**
-     * Legt den Wert der poly3-Eigenschaft fest.
+     * Sets the value of the poly3 property.
      * 
      * @param value
      *     allowed object is
@@ -201,7 +201,7 @@ import org.opentrafficsim.opendrive.bindings.LengthAdapter;
     }
 
     /**
-     * Ruft den Wert der paramPoly3-Eigenschaft ab.
+     * Gets the value of the paramPoly3 property.
      * 
      * @return
      *     possible object is
@@ -213,7 +213,7 @@ import org.opentrafficsim.opendrive.bindings.LengthAdapter;
     }
 
     /**
-     * Legt den Wert der paramPoly3-Eigenschaft fest.
+     * Sets the value of the paramPoly3 property.
      * 
      * @param value
      *     allowed object is
@@ -270,7 +270,7 @@ import org.opentrafficsim.opendrive.bindings.LengthAdapter;
     }
 
     /**
-     * Legt den Wert der s-Eigenschaft fest.
+     * Sets the value of the s property.
      * 
      */
     public void setS(double value) {
@@ -286,7 +286,7 @@ import org.opentrafficsim.opendrive.bindings.LengthAdapter;
     }
 
     /**
-     * Legt den Wert der x-Eigenschaft fest.
+     * Sets the value of the x property.
      * 
      */
     public void setX(double value) {
@@ -302,7 +302,7 @@ import org.opentrafficsim.opendrive.bindings.LengthAdapter;
     }
 
     /**
-     * Legt den Wert der y-Eigenschaft fest.
+     * Sets the value of the y property.
      * 
      */
     public void setY(double value) {
@@ -318,7 +318,7 @@ import org.opentrafficsim.opendrive.bindings.LengthAdapter;
     }
 
     /**
-     * Legt den Wert der hdg-Eigenschaft fest.
+     * Sets the value of the hdg property.
      * 
      */
     public void setHdg(double value) {
@@ -338,7 +338,7 @@ import org.opentrafficsim.opendrive.bindings.LengthAdapter;
     }
 
     /**
-     * Legt den Wert der length-Eigenschaft fest.
+     * Sets the value of the length property.
      * 
      * @param value
      *     allowed object is

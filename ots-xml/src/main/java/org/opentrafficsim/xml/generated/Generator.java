@@ -18,9 +18,9 @@ import org.opentrafficsim.xml.bindings.types.StringType;
 
 
 /**
- * <p>Java-Klasse für anonymous complex type.</p>
+ * <p>Java class for anonymous complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType>
@@ -105,7 +105,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     protected LengthBeginEndType position;
 
     /**
-     * Ruft den Wert der gtuTemplate-Eigenschaft ab.
+     * Gets the value of the gtuTemplate property.
      * 
      * @return
      *     possible object is
@@ -117,7 +117,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der gtuTemplate-Eigenschaft fest.
+     * Sets the value of the gtuTemplate property.
      * 
      * @param value
      *     allowed object is
@@ -129,7 +129,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der gtuTemplateMix-Eigenschaft ab.
+     * Gets the value of the gtuTemplateMix property.
      * 
      * @return
      *     possible object is
@@ -141,7 +141,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der gtuTemplateMix-Eigenschaft fest.
+     * Sets the value of the gtuTemplateMix property.
      * 
      * @param value
      *     allowed object is
@@ -153,7 +153,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der route-Eigenschaft ab.
+     * Gets the value of the route property.
      * 
      * @return
      *     possible object is
@@ -165,7 +165,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der route-Eigenschaft fest.
+     * Sets the value of the route property.
      * 
      * @param value
      *     allowed object is
@@ -177,7 +177,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der routeMix-Eigenschaft ab.
+     * Gets the value of the routeMix property.
      * 
      * @return
      *     possible object is
@@ -189,7 +189,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der routeMix-Eigenschaft fest.
+     * Sets the value of the routeMix property.
      * 
      * @param value
      *     allowed object is
@@ -201,7 +201,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der shortestRoute-Eigenschaft ab.
+     * Gets the value of the shortestRoute property.
      * 
      * @return
      *     possible object is
@@ -213,7 +213,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der shortestRoute-Eigenschaft fest.
+     * Sets the value of the shortestRoute property.
      * 
      * @param value
      *     allowed object is
@@ -225,7 +225,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der shortestRouteMix-Eigenschaft ab.
+     * Gets the value of the shortestRouteMix property.
      * 
      * @return
      *     possible object is
@@ -237,7 +237,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der shortestRouteMix-Eigenschaft fest.
+     * Sets the value of the shortestRouteMix property.
      * 
      * @param value
      *     allowed object is
@@ -249,7 +249,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der frequency-Eigenschaft ab.
+     * Gets the value of the frequency property.
      * 
      * @return
      *     possible object is
@@ -261,7 +261,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der frequency-Eigenschaft fest.
+     * Sets the value of the frequency property.
      * 
      * @param value
      *     allowed object is
@@ -273,7 +273,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der roomChecker-Eigenschaft ab.
+     * Gets the value of the roomChecker property.
      * 
      * @return
      *     possible object is
@@ -285,7 +285,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der roomChecker-Eigenschaft fest.
+     * Sets the value of the roomChecker property.
      * 
      * @param value
      *     allowed object is
@@ -297,7 +297,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der randomStream-Eigenschaft ab.
+     * Gets the value of the randomStream property.
      * 
      * @return
      *     possible object is
@@ -309,7 +309,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der randomStream-Eigenschaft fest.
+     * Sets the value of the randomStream property.
      * 
      * @param value
      *     allowed object is
@@ -321,7 +321,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der link-Eigenschaft ab.
+     * Gets the value of the link property.
      * 
      * @return
      *     possible object is
@@ -333,7 +333,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der link-Eigenschaft fest.
+     * Sets the value of the link property.
      * 
      * @param value
      *     allowed object is
@@ -345,7 +345,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der lane-Eigenschaft ab.
+     * Gets the value of the lane property.
      * 
      * @return
      *     possible object is
@@ -357,7 +357,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der lane-Eigenschaft fest.
+     * Sets the value of the lane property.
      * 
      * @param value
      *     allowed object is
@@ -369,7 +369,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der position-Eigenschaft ab.
+     * Gets the value of the position property.
      * 
      * @return
      *     possible object is
@@ -381,7 +381,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der position-Eigenschaft fest.
+     * Sets the value of the position property.
      * 
      * @param value
      *     allowed object is

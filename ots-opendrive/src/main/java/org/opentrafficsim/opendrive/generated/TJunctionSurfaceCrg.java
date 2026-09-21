@@ -10,9 +10,9 @@ import jakarta.xml.bind.annotation.XmlType;
 /**
  * Data described in OpenCRG are represented by the <CRG> element within the <surface> element.
  * 
- * <p>Java-Klasse für t_junction_surface_CRG complex type.</p>
+ * <p>Java class for t_junction_surface_CRG complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_junction_surface_CRG">
@@ -83,7 +83,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der file-Eigenschaft fest.
+     * Sets the value of the file property.
      * 
      * @param value
      *     allowed object is
@@ -112,7 +112,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der mode-Eigenschaft fest.
+     * Sets the value of the mode property.
      * 
      * @param value
      *     allowed object is
@@ -137,7 +137,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der purpose-Eigenschaft fest.
+     * Sets the value of the purpose property.
      * 
      * @param value
      *     allowed object is
@@ -163,7 +163,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der zOffset-Eigenschaft fest.
+     * Sets the value of the zOffset property.
      * 
      * @param value
      *     allowed object is
@@ -188,7 +188,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der zScale-Eigenschaft fest.
+     * Sets the value of the zScale property.
      * 
      * @param value
      *     allowed object is

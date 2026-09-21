@@ -10,9 +10,9 @@ import jakarta.xml.bind.annotation.XmlType;
 /**
  * A road mark may consist of one or more elements. Multiple elements are usually positioned side-by-side. A line definition is valid for a given length of the lane and will be repeated automatically.
  * 
- * <p>Java-Klasse für t_road_lanes_laneSection_lcr_lane_roadMark_type_line complex type.</p>
+ * <p>Java class for t_road_lanes_laneSection_lcr_lane_roadMark_type_line complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_lanes_laneSection_lcr_lane_roadMark_type_line">
@@ -97,7 +97,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der length-Eigenschaft fest.
+     * Sets the value of the length property.
      * 
      * @param value
      *     allowed object is
@@ -118,7 +118,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der space-Eigenschaft fest.
+     * Sets the value of the space property.
      * 
      */
     public void setSpace(double value) {
@@ -135,7 +135,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der tOffset-Eigenschaft fest.
+     * Sets the value of the tOffset property.
      * 
      */
     public void setTOffset(double value) {
@@ -151,7 +151,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der sOffset-Eigenschaft fest.
+     * Sets the value of the sOffset property.
      * 
      */
     public void setSOffset(double value) {
@@ -171,7 +171,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der rule-Eigenschaft fest.
+     * Sets the value of the rule property.
      * 
      * @param value
      *     allowed object is
@@ -196,7 +196,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der width-Eigenschaft fest.
+     * Sets the value of the width property.
      * 
      * @param value
      *     allowed object is
@@ -221,7 +221,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der color-Eigenschaft fest.
+     * Sets the value of the color property.
      * 
      * @param value
      *     allowed object is

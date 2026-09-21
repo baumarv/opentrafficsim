@@ -14,9 +14,9 @@ import jakarta.xml.bind.annotation.XmlType;
 /**
  * Bridges are modeled as objects in OpenDRIVE. Bridges are valid for the whole cross section of a road unless a lane validity record with further restrictions is provided as child element.
  * 
- * <p>Java-Klasse für t_road_objects_bridge complex type.</p>
+ * <p>Java class for t_road_objects_bridge complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_objects_bridge">
@@ -168,7 +168,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der s-Eigenschaft fest.
+     * Sets the value of the s property.
      * 
      */
     public void setS(double value) {
@@ -184,7 +184,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der length-Eigenschaft fest.
+     * Sets the value of the length property.
      * 
      */
     public void setLength(double value) {
@@ -204,7 +204,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der name-Eigenschaft fest.
+     * Sets the value of the name property.
      * 
      * @param value
      *     allowed object is
@@ -229,7 +229,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der id-Eigenschaft fest.
+     * Sets the value of the id property.
      * 
      * @param value
      *     allowed object is
@@ -254,7 +254,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der type-Eigenschaft fest.
+     * Sets the value of the type property.
      * 
      * @param value
      *     allowed object is

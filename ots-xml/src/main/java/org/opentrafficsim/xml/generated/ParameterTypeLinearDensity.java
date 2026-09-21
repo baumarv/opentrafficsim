@@ -12,9 +12,9 @@ import org.opentrafficsim.xml.bindings.types.LinearDensityType;
 
 
 /**
- * <p>Java-Klasse für ParameterTypeLinearDensity complex type.</p>
+ * <p>Java class for ParameterTypeLinearDensity complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="ParameterTypeLinearDensity">
@@ -41,7 +41,7 @@ import org.opentrafficsim.xml.bindings.types.LinearDensityType;
     protected LinearDensityType _default;
 
     /**
-     * Ruft den Wert der default-Eigenschaft ab.
+     * Gets the value of the default property.
      * 
      * @return
      *     possible object is
@@ -53,7 +53,7 @@ import org.opentrafficsim.xml.bindings.types.LinearDensityType;
     }
 
     /**
-     * Legt den Wert der default-Eigenschaft fest.
+     * Sets the value of the default property.
      * 
      * @param value
      *     allowed object is

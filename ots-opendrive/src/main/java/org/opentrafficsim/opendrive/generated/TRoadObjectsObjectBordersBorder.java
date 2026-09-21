@@ -16,9 +16,9 @@ import jakarta.xml.bind.annotation.XmlType;
 /**
  * Specifies a border along certain outline points.
  * 
- * <p>Java-Klasse für t_road_objects_object_borders_border complex type.</p>
+ * <p>Java class for t_road_objects_object_borders_border complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_objects_object_borders_border">
@@ -164,7 +164,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der width-Eigenschaft fest.
+     * Sets the value of the width property.
      * 
      */
     public void setWidth(double value) {
@@ -184,7 +184,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der type-Eigenschaft fest.
+     * Sets the value of the type property.
      * 
      * @param value
      *     allowed object is
@@ -209,7 +209,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der outlineId-Eigenschaft fest.
+     * Sets the value of the outlineId property.
      * 
      * @param value
      *     allowed object is
@@ -234,7 +234,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der useCompleteOutline-Eigenschaft fest.
+     * Sets the value of the useCompleteOutline property.
      * 
      * @param value
      *     allowed object is

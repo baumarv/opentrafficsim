@@ -14,9 +14,9 @@ import jakarta.xml.bind.annotation.XmlType;
 /**
  * Contains information about all possible connections between roads meeting at a physical junction.
  * 
- * <p>Java-Klasse für t_junction complex type.</p>
+ * <p>Java class for t_junction complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_junction">
@@ -183,7 +183,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Ruft den Wert der surface-Eigenschaft ab.
+     * Gets the value of the surface property.
      * 
      * @return
      *     possible object is
@@ -195,7 +195,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der surface-Eigenschaft fest.
+     * Sets the value of the surface property.
      * 
      * @param value
      *     allowed object is
@@ -256,7 +256,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der name-Eigenschaft fest.
+     * Sets the value of the name property.
      * 
      * @param value
      *     allowed object is
@@ -281,7 +281,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der id-Eigenschaft fest.
+     * Sets the value of the id property.
      * 
      * @param value
      *     allowed object is
@@ -306,7 +306,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der type-Eigenschaft fest.
+     * Sets the value of the type property.
      * 
      * @param value
      *     allowed object is

@@ -13,9 +13,9 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
 
 
 /**
- * <p>Java-Klasse für DashOffset complex type.</p>
+ * <p>Java class for DashOffset complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="DashOffset">
@@ -60,7 +60,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
     protected EmptyType syncDownstream;
 
     /**
-     * Ruft den Wert der fixed-Eigenschaft ab.
+     * Gets the value of the fixed property.
      * 
      * @return
      *     possible object is
@@ -72,7 +72,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
     }
 
     /**
-     * Legt den Wert der fixed-Eigenschaft fest.
+     * Sets the value of the fixed property.
      * 
      * @param value
      *     allowed object is
@@ -84,7 +84,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
     }
 
     /**
-     * Ruft den Wert der syncUpstream-Eigenschaft ab.
+     * Gets the value of the syncUpstream property.
      * 
      * @return
      *     possible object is
@@ -96,7 +96,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
     }
 
     /**
-     * Legt den Wert der syncUpstream-Eigenschaft fest.
+     * Sets the value of the syncUpstream property.
      * 
      * @param value
      *     allowed object is
@@ -108,7 +108,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
     }
 
     /**
-     * Ruft den Wert der syncDownstream-Eigenschaft ab.
+     * Gets the value of the syncDownstream property.
      * 
      * @return
      *     possible object is
@@ -120,7 +120,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
     }
 
     /**
-     * Legt den Wert der syncDownstream-Eigenschaft fest.
+     * Sets the value of the syncDownstream property.
      * 
      * @param value
      *     allowed object is
@@ -133,9 +133,9 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
 
 
     /**
-     * <p>Java-Klasse für anonymous complex type.</p>
+     * <p>Java class for anonymous complex type</p>.
      * 
-     * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+     * <p>The following schema fragment specifies the expected content contained within this class.</p>
      * 
      * <pre>{@code
      * <complexType>
@@ -161,7 +161,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         protected LengthType offset;
 
         /**
-         * Ruft den Wert der offset-Eigenschaft ab.
+         * Gets the value of the offset property.
          * 
          * @return
          *     possible object is
@@ -173,7 +173,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         }
 
         /**
-         * Legt den Wert der offset-Eigenschaft fest.
+         * Sets the value of the offset property.
          * 
          * @param value
          *     allowed object is

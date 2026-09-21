@@ -15,9 +15,9 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
 
 
 /**
- * <p>Java-Klasse für DefaultAnimationType complex type.</p>
+ * <p>Java class for DefaultAnimationType complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="DefaultAnimationType">
@@ -103,7 +103,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
     protected DefaultAnimationType.NoTrafficLane noTrafficLane;
 
     /**
-     * Ruft den Wert der link-Eigenschaft ab.
+     * Gets the value of the link property.
      * 
      * @return
      *     possible object is
@@ -115,7 +115,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
     }
 
     /**
-     * Legt den Wert der link-Eigenschaft fest.
+     * Sets the value of the link property.
      * 
      * @param value
      *     allowed object is
@@ -127,7 +127,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
     }
 
     /**
-     * Ruft den Wert der lane-Eigenschaft ab.
+     * Gets the value of the lane property.
      * 
      * @return
      *     possible object is
@@ -139,7 +139,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
     }
 
     /**
-     * Legt den Wert der lane-Eigenschaft fest.
+     * Sets the value of the lane property.
      * 
      * @param value
      *     allowed object is
@@ -151,7 +151,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
     }
 
     /**
-     * Ruft den Wert der stripe-Eigenschaft ab.
+     * Gets the value of the stripe property.
      * 
      * @return
      *     possible object is
@@ -163,7 +163,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
     }
 
     /**
-     * Legt den Wert der stripe-Eigenschaft fest.
+     * Sets the value of the stripe property.
      * 
      * @param value
      *     allowed object is
@@ -175,7 +175,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
     }
 
     /**
-     * Ruft den Wert der shoulder-Eigenschaft ab.
+     * Gets the value of the shoulder property.
      * 
      * @return
      *     possible object is
@@ -187,7 +187,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
     }
 
     /**
-     * Legt den Wert der shoulder-Eigenschaft fest.
+     * Sets the value of the shoulder property.
      * 
      * @param value
      *     allowed object is
@@ -199,7 +199,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
     }
 
     /**
-     * Ruft den Wert der noTrafficLane-Eigenschaft ab.
+     * Gets the value of the noTrafficLane property.
      * 
      * @return
      *     possible object is
@@ -211,7 +211,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
     }
 
     /**
-     * Legt den Wert der noTrafficLane-Eigenschaft fest.
+     * Sets the value of the noTrafficLane property.
      * 
      * @param value
      *     allowed object is
@@ -224,9 +224,9 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
 
 
     /**
-     * <p>Java-Klasse für anonymous complex type.</p>
+     * <p>Java class for anonymous complex type</p>.
      * 
-     * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+     * <p>The following schema fragment specifies the expected content contained within this class.</p>
      * 
      * <pre>{@code
      * <complexType>
@@ -252,7 +252,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         protected ColorType color;
 
         /**
-         * Ruft den Wert der color-Eigenschaft ab.
+         * Gets the value of the color property.
          * 
          * @return
          *     possible object is
@@ -264,7 +264,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         }
 
         /**
-         * Legt den Wert der color-Eigenschaft fest.
+         * Sets the value of the color property.
          * 
          * @param value
          *     allowed object is
@@ -279,9 +279,9 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
 
 
     /**
-     * <p>Java-Klasse für anonymous complex type.</p>
+     * <p>Java class for anonymous complex type</p>.
      * 
-     * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+     * <p>The following schema fragment specifies the expected content contained within this class.</p>
      * 
      * <pre>{@code
      * <complexType>
@@ -311,7 +311,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         protected LengthType width;
 
         /**
-         * Ruft den Wert der color-Eigenschaft ab.
+         * Gets the value of the color property.
          * 
          * @return
          *     possible object is
@@ -323,7 +323,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         }
 
         /**
-         * Legt den Wert der color-Eigenschaft fest.
+         * Sets the value of the color property.
          * 
          * @param value
          *     allowed object is
@@ -335,7 +335,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         }
 
         /**
-         * Ruft den Wert der width-Eigenschaft ab.
+         * Gets the value of the width property.
          * 
          * @return
          *     possible object is
@@ -347,7 +347,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         }
 
         /**
-         * Legt den Wert der width-Eigenschaft fest.
+         * Sets the value of the width property.
          * 
          * @param value
          *     allowed object is
@@ -362,9 +362,9 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
 
 
     /**
-     * <p>Java-Klasse für anonymous complex type.</p>
+     * <p>Java class for anonymous complex type</p>.
      * 
-     * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+     * <p>The following schema fragment specifies the expected content contained within this class.</p>
      * 
      * <pre>{@code
      * <complexType>
@@ -390,7 +390,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         protected ColorType color;
 
         /**
-         * Ruft den Wert der color-Eigenschaft ab.
+         * Gets the value of the color property.
          * 
          * @return
          *     possible object is
@@ -402,7 +402,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         }
 
         /**
-         * Legt den Wert der color-Eigenschaft fest.
+         * Sets the value of the color property.
          * 
          * @param value
          *     allowed object is
@@ -417,9 +417,9 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
 
 
     /**
-     * <p>Java-Klasse für anonymous complex type.</p>
+     * <p>Java class for anonymous complex type</p>.
      * 
-     * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+     * <p>The following schema fragment specifies the expected content contained within this class.</p>
      * 
      * <pre>{@code
      * <complexType>
@@ -445,7 +445,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         protected ColorType color;
 
         /**
-         * Ruft den Wert der color-Eigenschaft ab.
+         * Gets the value of the color property.
          * 
          * @return
          *     possible object is
@@ -457,7 +457,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         }
 
         /**
-         * Legt den Wert der color-Eigenschaft fest.
+         * Sets the value of the color property.
          * 
          * @param value
          *     allowed object is
@@ -472,9 +472,9 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
 
 
     /**
-     * <p>Java-Klasse für anonymous complex type.</p>
+     * <p>Java class for anonymous complex type</p>.
      * 
-     * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+     * <p>The following schema fragment specifies the expected content contained within this class.</p>
      * 
      * <pre>{@code
      * <complexType>
@@ -500,7 +500,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         protected ColorType color;
 
         /**
-         * Ruft den Wert der color-Eigenschaft ab.
+         * Gets the value of the color property.
          * 
          * @return
          *     possible object is
@@ -512,7 +512,7 @@ import org.opentrafficsim.xml.bindings.types.LengthType;
         }
 
         /**
-         * Legt den Wert der color-Eigenschaft fest.
+         * Sets the value of the color property.
          * 
          * @param value
          *     allowed object is

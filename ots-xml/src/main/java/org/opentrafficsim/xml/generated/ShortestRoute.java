@@ -20,9 +20,9 @@ import org.opentrafficsim.xml.bindings.types.StringType;
 
 
 /**
- * <p>Java-Klasse für anonymous complex type.</p>
+ * <p>Java class for anonymous complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType>
@@ -95,7 +95,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     protected StringType gtuType;
 
     /**
-     * Ruft den Wert der from-Eigenschaft ab.
+     * Gets the value of the from property.
      * 
      * @return
      *     possible object is
@@ -107,7 +107,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der from-Eigenschaft fest.
+     * Sets the value of the from property.
      * 
      * @param value
      *     allowed object is
@@ -151,7 +151,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der to-Eigenschaft ab.
+     * Gets the value of the to property.
      * 
      * @return
      *     possible object is
@@ -163,7 +163,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der to-Eigenschaft fest.
+     * Sets the value of the to property.
      * 
      * @param value
      *     allowed object is
@@ -175,7 +175,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der cost-Eigenschaft ab.
+     * Gets the value of the cost property.
      * 
      * @return
      *     possible object is
@@ -187,7 +187,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der cost-Eigenschaft fest.
+     * Sets the value of the cost property.
      * 
      * @param value
      *     allowed object is
@@ -199,7 +199,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der id-Eigenschaft ab.
+     * Gets the value of the id property.
      * 
      * @return
      *     possible object is
@@ -211,7 +211,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der id-Eigenschaft fest.
+     * Sets the value of the id property.
      * 
      * @param value
      *     allowed object is
@@ -223,7 +223,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Ruft den Wert der gtuType-Eigenschaft ab.
+     * Gets the value of the gtuType property.
      * 
      * @return
      *     possible object is
@@ -235,7 +235,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
     }
 
     /**
-     * Legt den Wert der gtuType-Eigenschaft fest.
+     * Sets the value of the gtuType property.
      * 
      * @param value
      *     allowed object is
@@ -248,9 +248,9 @@ import org.opentrafficsim.xml.bindings.types.StringType;
 
 
     /**
-     * <p>Java-Klasse für anonymous complex type.</p>
+     * <p>Java class for anonymous complex type</p>.
      * 
-     * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+     * <p>The following schema fragment specifies the expected content contained within this class.</p>
      * 
      * <pre>{@code
      * <complexType>
@@ -296,7 +296,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
         protected ShortestRoute.Cost.DistanceAndFreeFlowTime distanceAndFreeFlowTime;
 
         /**
-         * Ruft den Wert der distance-Eigenschaft ab.
+         * Gets the value of the distance property.
          * 
          * @return
          *     possible object is
@@ -308,7 +308,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
         }
 
         /**
-         * Legt den Wert der distance-Eigenschaft fest.
+         * Sets the value of the distance property.
          * 
          * @param value
          *     allowed object is
@@ -320,7 +320,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
         }
 
         /**
-         * Ruft den Wert der freeFlowTime-Eigenschaft ab.
+         * Gets the value of the freeFlowTime property.
          * 
          * @return
          *     possible object is
@@ -332,7 +332,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
         }
 
         /**
-         * Legt den Wert der freeFlowTime-Eigenschaft fest.
+         * Sets the value of the freeFlowTime property.
          * 
          * @param value
          *     allowed object is
@@ -344,7 +344,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
         }
 
         /**
-         * Ruft den Wert der distanceAndFreeFlowTime-Eigenschaft ab.
+         * Gets the value of the distanceAndFreeFlowTime property.
          * 
          * @return
          *     possible object is
@@ -356,7 +356,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
         }
 
         /**
-         * Legt den Wert der distanceAndFreeFlowTime-Eigenschaft fest.
+         * Sets the value of the distanceAndFreeFlowTime property.
          * 
          * @param value
          *     allowed object is
@@ -369,9 +369,9 @@ import org.opentrafficsim.xml.bindings.types.StringType;
 
 
         /**
-         * <p>Java-Klasse für anonymous complex type.</p>
+         * <p>Java class for anonymous complex type</p>.
          * 
-         * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+         * <p>The following schema fragment specifies the expected content contained within this class.</p>
          * 
          * <pre>{@code
          * <complexType>
@@ -401,7 +401,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             protected FrequencyType timeCost;
 
             /**
-             * Ruft den Wert der distanceCost-Eigenschaft ab.
+             * Gets the value of the distanceCost property.
              * 
              * @return
              *     possible object is
@@ -413,7 +413,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Legt den Wert der distanceCost-Eigenschaft fest.
+             * Sets the value of the distanceCost property.
              * 
              * @param value
              *     allowed object is
@@ -425,7 +425,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Ruft den Wert der timeCost-Eigenschaft ab.
+             * Gets the value of the timeCost property.
              * 
              * @return
              *     possible object is
@@ -437,7 +437,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Legt den Wert der timeCost-Eigenschaft fest.
+             * Sets the value of the timeCost property.
              * 
              * @param value
              *     allowed object is

@@ -13,9 +13,9 @@ import org.opentrafficsim.xml.bindings.types.DurationUnitType;
 
 
 /**
- * <p>Java-Klasse für DurationDistType complex type.</p>
+ * <p>Java class for DurationDistType complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="DurationDistType">
@@ -45,7 +45,7 @@ import org.opentrafficsim.xml.bindings.types.DurationUnitType;
     protected DurationUnitType durationUnit;
 
     /**
-     * Ruft den Wert der durationUnit-Eigenschaft ab.
+     * Gets the value of the durationUnit property.
      * 
      * @return
      *     possible object is
@@ -57,7 +57,7 @@ import org.opentrafficsim.xml.bindings.types.DurationUnitType;
     }
 
     /**
-     * Legt den Wert der durationUnit-Eigenschaft fest.
+     * Sets the value of the durationUnit property.
      * 
      * @param value
      *     allowed object is
