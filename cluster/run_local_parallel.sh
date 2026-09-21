@@ -140,7 +140,11 @@ for i in $(seq 0 $((TOTAL - 1))); do
   # -XX:ActiveProcessorCount=1 as cluster/README.md prescribes for the local loop: a run is
   # single-threaded, and without it each JVM sizes its GC and common pool for all 32 cores,
   # so twelve of them oversubscribe the machine several times over.
-  OPTS=(-Xmx"$HEAP" -XX:ActiveProcessorCount=1 -Djava.awt.headless=true)
+  # -Duser.language/-Duser.country: the same locale the cluster runs under, so a local run reads its input
+  # identically. DJUnits parses numbers through the default FORMAT locale, and on a German machine "2.3 mm"
+  # in a network XML would read as 23 mm. Same line as in cluster/run_mirova.sbatch; see there for why this
+  # is the only place that can pin it for a run.
+  OPTS=(-Xmx"$HEAP" -XX:ActiveProcessorCount=1 -Djava.awt.headless=true -Duser.language=en -Duser.country=US)
   if [ "$DIAG" = 1 ]; then
     OPTS+=(-Dmirova.defectDiag=true -Dmirova.defectDiagFile="$OUTPUT/defects/run_${i}.csv")
   fi

@@ -559,6 +559,12 @@
         <configuration>
           <runOrder>alphabetical</runOrder>
           <!-- Sets the VM argument line used when unit tests are run. -->
+          <!-- Surefire forks its own JVM, which .mvn/jvm.config does not reach, so the locale is pinned again
+               here. Without it the suite cannot pass on a machine whose locale uses ',' as decimal separator:
+               DJUnits reads "2.3 mm" as 23 mm. Measured on a German Windows machine - LengthBeginEndAdapterTest
+               failed there on unmodified main and passes with this line. The adapter itself is fixed as well
+               (LengthBeginEndAdapter), because a pin does not protect a run started from an IDE. -->
+          <argLine>-Duser.language=en -Duser.country=US</argLine>
           <!-- Skips unit tests if the value of skip.unit.tests property is true -->
           <skipTests>${skip.unit.tests}</skipTests>
           <!-- Excludes integration tests when unit tests are run. -->
