@@ -58,6 +58,18 @@ All implementations must follow this layered structure:
 - **Performance**: Favor O(1) lookups. Use ID-based caching for expensive car-following evaluations within the same simulation tick.
 - **Imports**: Always include full imports and the mandatory MiRoVA class header.
 - Do not modify `ParameterTypes.T` in tactical states (parameter-hacking is being replaced).
+- **Shell scripts: a check is a condition, never an output.** Any precondition — a clean tree, a file
+  that must exist, a command that must succeed — is written so that failing it *ends the script*. Use
+  `cluster/guard.sh`: `guard "<what must hold>" <command>`, `guard_empty "<what must be absent>"
+  "$value"`, `guard_nonempty "<what must be present>" "$value"`. Never compute a value, print it and
+  carry on: that reads exactly like a check that passed, and afterwards the two cannot be told apart.
+  Three such lines produced three false reports in a single session — one took `head`'s exit status
+  instead of `git show`'s, one echoed "removed" after an `rm` that had failed with *Device or resource
+  busy*, one printed "further changes: …" and removed the tree regardless. `cluster/test_guard.sh` pins
+  the behaviour, including that the statement after a failed guard does not run. **Guard the sourcing
+  too**: a failed `source` does not stop a script, and every later `guard` is then "command not found",
+  which bash reports and steps over — a file full of checks running with none of them. The idiom is in
+  `guard.sh`'s header and is tested.
 
 ## 5. Current Focus: Longitudinal Control & Relaxation (Keane & Gao 2021)
 
