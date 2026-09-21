@@ -36,6 +36,26 @@ public final class BuildProvenance
     /** Classpath resource written by {@code cluster/stamp_build.sh}. */
     public static final String RESOURCE = "mirova-build.properties";
 
+    /**
+     * Classpath resource the TaMA bundle carries, naming the commit the driver model was built from.
+     * <p>
+     * Absent from a MiRoVA-only classpath, and that is not an error: the OTS stamp then describes the whole model. It is an
+     * error only when a run drives on TaMA, because the OTS commit alone would then describe half the model -- the bundle
+     * is resolved from a local Maven repository, so a clean OTS tree can be paired with any TaMA tree at all.
+     * </p>
+     */
+    public static final String TAMA_RESOURCE = "tama-build.properties";
+
+    /**
+     * System property naming the TaMA composition a run drives, recorded alongside the builds.
+     * <p>
+     * Read here rather than asked of TaMA, because this class must not depend on the adapter being on the classpath. What
+     * is recorded is therefore what the run <i>requested</i>; the adapter fails at scenario build time on a name it cannot
+     * resolve, so a recorded name that produced a run is a name that resolved.
+     * </p>
+     */
+    public static final String TAMA_COMPOSITION_PROPERTY = "tama.composition";
+
     /** File name of the copy in each run folder. */
     public static final String RUN_FILE = "build.txt";
 
@@ -58,7 +78,7 @@ public final class BuildProvenance
         String stamp = readStamp();
         if (stamp != null)
         {
-            return stamp;
+            return stamp + driverModelRecord();
         }
         if (Boolean.getBoolean(ALLOW_PROPERTY))
         {
@@ -69,6 +89,50 @@ public final class BuildProvenance
                 + "built from, so its output could not be attributed. Build with cluster/build_for_cluster.sh or run through "
                 + "cluster/run_local_parallel.sh (both stamp the build and refuse a dirty tree). For a throwaway run from an "
                 + "IDE only: -D" + ALLOW_PROPERTY + "=true, which marks the output recorded=false.");
+    }
+
+    /**
+     * Returns what is known about the driver model beyond OTS itself: the TaMA bundle's stamp and the composition the run
+     * asked for, or an empty string on a MiRoVA-only classpath.
+     * <p>
+     * Refuses a TaMA build made from a dirty tree, for the same reason {@code stamp_build.sh} refuses a dirty OTS tree: a
+     * commit hash is a claim about the sources, and a dirty tree makes it false. There is deliberately no override; the
+     * {@value #ALLOW_PROPERTY} escape marks a whole run {@code recorded=false} rather than half-recording it.
+     * </p>
+     * @return String; lines to append to the record, beginning with a {@code # TaMA} header, or {@code ""}
+     * @throws IllegalStateException when the TaMA stamp describes a dirty tree
+     */
+    private static String driverModelRecord()
+    {
+        return driverModelRecord(readResource(TAMA_RESOURCE), System.getProperty(TAMA_COMPOSITION_PROPERTY));
+    }
+
+    /**
+     * The driver-model half of the record, from values already read. Split from the classpath lookup so that the rule -
+     * refuse a dirty TaMA build, name the composition the run asked for - can be tested without a resource on the test
+     * classpath.
+     * @param tama String; the content of {@value #TAMA_RESOURCE}, or {@code null} when the bundle is not on the classpath
+     * @param composition String; the requested composition, or {@code null} when the run did not name one
+     * @return String; lines to append to the record, or {@code ""} when there is no TaMA on the classpath
+     * @throws IllegalStateException when the TaMA stamp describes a dirty tree
+     */
+    static String driverModelRecord(final String tama, final String composition)
+    {
+        if (tama == null)
+        {
+            return "";
+        }
+        for (String line : tama.split("\\R"))
+        {
+            if (line.startsWith("tama.describe=") && line.trim().endsWith("-dirty"))
+            {
+                throw new IllegalStateException("The TaMA bundle on the classpath was built from a dirty tree ("
+                        + line.trim() + "), so its commit does not describe the model that would run. Commit or stash in "
+                        + "the TaMA repository, republish the bundle (./gradlew :tama-ots:publishToMavenLocal) and rebuild.");
+            }
+        }
+        String requested = composition == null || composition.isBlank() ? "(provider default)" : composition.trim();
+        return "# TaMA\n" + (tama.endsWith("\n") ? tama : tama + "\n") + "tama.composition=" + requested + "\n";
     }
 
     /**
@@ -120,13 +184,23 @@ public final class BuildProvenance
      */
     private static String readStamp()
     {
-        try (InputStream in = BuildProvenance.class.getClassLoader().getResourceAsStream(RESOURCE))
+        return readResource(RESOURCE);
+    }
+
+    /**
+     * Reads a classpath resource as UTF-8 text.
+     * @param resource String; the resource name
+     * @return String; its content, or {@code null} when absent
+     */
+    private static String readResource(final String resource)
+    {
+        try (InputStream in = BuildProvenance.class.getClassLoader().getResourceAsStream(resource))
         {
             return in == null ? null : new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
         catch (IOException exception)
         {
-            throw new IllegalStateException("Cannot read " + RESOURCE + " from the classpath", exception);
+            throw new IllegalStateException("Cannot read " + resource + " from the classpath", exception);
         }
     }
 }

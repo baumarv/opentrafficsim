@@ -160,6 +160,22 @@ export MIROVA_SKIP_DEMAND_PREP=1
 # processes do not oversubscribe the allocation. Deliberately 1, not SLURM_CPUS_PER_TASK.
 JAVA_OPTS="-XX:ActiveProcessorCount=1"
 
+# Which TaMA composition the drivers are assembled from, when the run drives on TaMA. The adapter is created by
+# ServiceLoader with no arguments, so a system property is the only route into it from outside the JVM; an unknown
+# name fails when the scenario is built, before any vehicle exists. Recorded in each run's build.txt next to the two
+# commits, so the output says which composition produced it rather than leaving it to be inferred.
+# Unset means the provider's own default, the reference composition.
+if [ -n "${MIROVA_TAMA_COMPOSITION:-}" ]; then
+    JAVA_OPTS="${JAVA_OPTS} -Dtama.composition=${MIROVA_TAMA_COMPOSITION}"
+fi
+
+# The driver model every vehicle drives. Appended to the study options below, so that the same study body, days,
+# seeds and parameters run on either model with one variable changed and nothing else.
+PLANNER_OPT=()
+if [ -n "${MIROVA_TACTICAL_PLANNER:-}" ]; then
+    PLANNER_OPT=("--tacticalPlanner=${MIROVA_TACTICAL_PLANNER}")
+fi
+
 # Number of runs bundled into one array task; see the header for why this is 2.
 RUNS_PER_TASK="${MIROVA_RUNS_PER_TASK:-2}"
 
@@ -200,6 +216,14 @@ if [ "${STUB_COUNT}" -gt 0 ]; then
 fi
 echo "Compilation stub check: ${#CLASS_DIRS[@]} class directories on the classpath, none carries a stub."
 
+# Refuse to start on classes the build stamp does not describe - a hand build without 'clean' leaves the
+# previous stamp beside classes it did not produce. The rule lives in stamp_build.sh, with the other stamp
+# rules and its test, rather than being spelled out a second time here.
+for dir in "${CLASS_DIRS[@]}"; do
+    bash "${CLUSTER_DIR}/stamp_build.sh" --verify-classes "${dir}" || exit 2
+done
+echo "Build stamp check: no class file is newer than the stamp that describes it."
+
 TASK_ID="${SLURM_ARRAY_TASK_ID:-0}"
 CLASSPATH_VALUE="$(cat "${CP_FILE}")"
 
@@ -211,7 +235,7 @@ mkdir -p "${OUTPUT_ROOT}" "${WORKSPACE}/logs"
 TOTAL_RUNS="${MIROVA_TOTAL_RUNS:-}"
 if [ -z "${TOTAL_RUNS}" ]; then
     TOTAL_RUNS="$(java -cp "${CLASSPATH_VALUE}" "${MAIN_CLASS}" \
-        --study="${STUDY}" --output="${OUTPUT_ROOT}" "${STUDY_OPTS_ARR[@]}" --count 2>/dev/null \
+        --study="${STUDY}" --output="${OUTPUT_ROOT}" "${STUDY_OPTS_ARR[@]}" "${PLANNER_OPT[@]}" --count 2>/dev/null \
         | tail -1 | tr -d '[:space:]')"
 fi
 if ! [[ "${TOTAL_RUNS}" =~ ^[0-9]+$ ]] || [ "${TOTAL_RUNS}" -lt 1 ]; then
@@ -267,7 +291,7 @@ for (( slot = 0; slot < RUNS_PER_TASK; slot++ )); do
         # shellcheck disable=SC2086  # JAVA_OPTS is intentionally word-split
         taskset -c "${cpu}" java -Xmx"${JAVA_HEAP}" ${JAVA_OPTS} -cp "${CLASSPATH_VALUE}" "${MAIN_CLASS}" \
             --study="${STUDY}" --output="${OUTPUT_ROOT}" --index="${index}" "${STUDY_OPTS_ARR[@]}" \
-            > "${log}" 2>&1 &
+            "${PLANNER_OPT[@]}" > "${log}" 2>&1 &
     else
         # No taskset, or fewer CPUs in the mask than slots: leave placement to the OS
         # scheduler, which spreads two runnable single-threaded processes across the
@@ -276,7 +300,7 @@ for (( slot = 0; slot < RUNS_PER_TASK; slot++ )); do
         # shellcheck disable=SC2086  # JAVA_OPTS is intentionally word-split
         java -Xmx"${JAVA_HEAP}" ${JAVA_OPTS} -cp "${CLASSPATH_VALUE}" "${MAIN_CLASS}" \
             --study="${STUDY}" --output="${OUTPUT_ROOT}" --index="${index}" "${STUDY_OPTS_ARR[@]}" \
-            > "${log}" 2>&1 &
+            "${PLANNER_OPT[@]}" > "${log}" 2>&1 &
     fi
     RUN_PIDS+=("$!")
 done
