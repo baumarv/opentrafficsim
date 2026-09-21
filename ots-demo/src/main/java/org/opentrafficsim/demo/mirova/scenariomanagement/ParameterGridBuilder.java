@@ -169,7 +169,7 @@ public class ParameterGridBuilder
                 params.set(key, val);
 
                 // Automatically handle coupled min/max deceleration logic (case-insensitive)
-                String upperKey = key.toUpperCase();
+                String upperKey = key.toUpperCase(java.util.Locale.ROOT);
                 if (upperKey.endsWith("MIN_FOLLOWER_DECELERATION_THRESHOLD"))
                 {
                     String maxKey = key.substring(0, key.length() - "MIN_FOLLOWER_DECELERATION_THRESHOLD".length())
