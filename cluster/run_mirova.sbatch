@@ -107,6 +107,9 @@ fi
 
 # shellcheck source=cluster/mirova_env.sh
 source "${CLUSTER_DIR}/mirova_env.sh"
+# Every precondition below is stated with guard/guard_empty/guard_nonempty, which abort rather than report.
+# shellcheck source=cluster/guard.sh
+source "${CLUSTER_DIR}/guard.sh"
 
 WORKSPACE="$(resolve_workspace)"
 
@@ -220,7 +223,8 @@ echo "Compilation stub check: ${#CLASS_DIRS[@]} class directories on the classpa
 # previous stamp beside classes it did not produce. The rule lives in stamp_build.sh, with the other stamp
 # rules and its test, rather than being spelled out a second time here.
 for dir in "${CLASS_DIRS[@]}"; do
-    bash "${CLUSTER_DIR}/stamp_build.sh" --verify-classes "${dir}" || exit 2
+    guard "the build stamp in ${dir} describes the classes beside it" \
+        bash "${CLUSTER_DIR}/stamp_build.sh" --verify-classes "${dir}"
 done
 echo "Build stamp check: no class file is newer than the stamp that describes it."
 
