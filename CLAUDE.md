@@ -66,7 +66,10 @@ All implementations must follow this layered structure:
   Three such lines produced three false reports in a single session — one took `head`'s exit status
   instead of `git show`'s, one echoed "removed" after an `rm` that had failed with *Device or resource
   busy*, one printed "further changes: …" and removed the tree regardless. `cluster/test_guard.sh` pins
-  the behaviour, including that the statement after a failed guard does not run.
+  the behaviour, including that the statement after a failed guard does not run. **Guard the sourcing
+  too**: a failed `source` does not stop a script, and every later `guard` is then "command not found",
+  which bash reports and steps over — a file full of checks running with none of them. The idiom is in
+  `guard.sh`'s header and is tested.
 
 ## 5. Current Focus: Longitudinal Control & Relaxation (Keane & Gao 2021)
 
