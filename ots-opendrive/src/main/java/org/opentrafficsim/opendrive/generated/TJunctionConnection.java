@@ -14,9 +14,9 @@ import org.opentrafficsim.opendrive.bindings.ContactPointAdapter;
 /**
  * Provides information about a single connection within a junction.
  * 
- * <p>Java-Klasse für t_junction_connection complex type.</p>
+ * <p>Java class for t_junction_connection complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_junction_connection">
@@ -86,7 +86,7 @@ import org.opentrafficsim.opendrive.bindings.ContactPointAdapter;
     protected EContactPoint contactPoint;
 
     /**
-     * Ruft den Wert der predecessor-Eigenschaft ab.
+     * Gets the value of the predecessor property.
      * 
      * @return
      *     possible object is
@@ -98,7 +98,7 @@ import org.opentrafficsim.opendrive.bindings.ContactPointAdapter;
     }
 
     /**
-     * Legt den Wert der predecessor-Eigenschaft fest.
+     * Sets the value of the predecessor property.
      * 
      * @param value
      *     allowed object is
@@ -110,7 +110,7 @@ import org.opentrafficsim.opendrive.bindings.ContactPointAdapter;
     }
 
     /**
-     * Ruft den Wert der successor-Eigenschaft ab.
+     * Gets the value of the successor property.
      * 
      * @return
      *     possible object is
@@ -122,7 +122,7 @@ import org.opentrafficsim.opendrive.bindings.ContactPointAdapter;
     }
 
     /**
-     * Legt den Wert der successor-Eigenschaft fest.
+     * Sets the value of the successor property.
      * 
      * @param value
      *     allowed object is
@@ -178,7 +178,7 @@ import org.opentrafficsim.opendrive.bindings.ContactPointAdapter;
     }
 
     /**
-     * Legt den Wert der id-Eigenschaft fest.
+     * Sets the value of the id property.
      * 
      * @param value
      *     allowed object is
@@ -204,7 +204,7 @@ import org.opentrafficsim.opendrive.bindings.ContactPointAdapter;
     }
 
     /**
-     * Legt den Wert der type-Eigenschaft fest.
+     * Sets the value of the type property.
      * 
      * @param value
      *     allowed object is
@@ -229,7 +229,7 @@ import org.opentrafficsim.opendrive.bindings.ContactPointAdapter;
     }
 
     /**
-     * Legt den Wert der incomingRoad-Eigenschaft fest.
+     * Sets the value of the incomingRoad property.
      * 
      * @param value
      *     allowed object is
@@ -254,7 +254,7 @@ import org.opentrafficsim.opendrive.bindings.ContactPointAdapter;
     }
 
     /**
-     * Legt den Wert der connectingRoad-Eigenschaft fest.
+     * Sets the value of the connectingRoad property.
      * 
      * @param value
      *     allowed object is
@@ -279,7 +279,7 @@ import org.opentrafficsim.opendrive.bindings.ContactPointAdapter;
     }
 
     /**
-     * Legt den Wert der contactPoint-Eigenschaft fest.
+     * Sets the value of the contactPoint property.
      * 
      * @param value
      *     allowed object is

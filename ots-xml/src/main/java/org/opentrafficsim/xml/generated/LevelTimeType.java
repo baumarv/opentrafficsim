@@ -13,9 +13,9 @@ import org.opentrafficsim.xml.bindings.types.TimeType;
 
 
 /**
- * <p>Java-Klasse für LevelTimeType complex type.</p>
+ * <p>Java class for LevelTimeType complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="LevelTimeType">
@@ -45,7 +45,7 @@ import org.opentrafficsim.xml.bindings.types.TimeType;
     protected TimeType time;
 
     /**
-     * Ruft den Wert der value-Eigenschaft ab.
+     * Gets the value of the value property.
      * 
      * @return
      *     possible object is
@@ -57,7 +57,7 @@ import org.opentrafficsim.xml.bindings.types.TimeType;
     }
 
     /**
-     * Legt den Wert der value-Eigenschaft fest.
+     * Sets the value of the value property.
      * 
      * @param value
      *     allowed object is
@@ -69,7 +69,7 @@ import org.opentrafficsim.xml.bindings.types.TimeType;
     }
 
     /**
-     * Ruft den Wert der time-Eigenschaft ab.
+     * Gets the value of the time property.
      * 
      * @return
      *     possible object is
@@ -81,7 +81,7 @@ import org.opentrafficsim.xml.bindings.types.TimeType;
     }
 
     /**
-     * Legt den Wert der time-Eigenschaft fest.
+     * Sets the value of the time property.
      * 
      * @param value
      *     allowed object is

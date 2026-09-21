@@ -14,9 +14,9 @@ import jakarta.xml.bind.annotation.XmlType;
 /**
  * Lanes may be split into multiple lane sections. Each lane section contains a fixed number of lanes. Every time the number of lanes changes, a new lane section is required. The distance between two succeeding lane sections shall not be zero.
  * 
- * <p>Java-Klasse für t_road_lanes_laneSection complex type.</p>
+ * <p>Java class for t_road_lanes_laneSection complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_lanes_laneSection">
@@ -77,7 +77,7 @@ import jakarta.xml.bind.annotation.XmlType;
     protected TBool singleSide;
 
     /**
-     * Ruft den Wert der left-Eigenschaft ab.
+     * Gets the value of the left property.
      * 
      * @return
      *     possible object is
@@ -89,7 +89,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der left-Eigenschaft fest.
+     * Sets the value of the left property.
      * 
      * @param value
      *     allowed object is
@@ -101,7 +101,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Ruft den Wert der center-Eigenschaft ab.
+     * Gets the value of the center property.
      * 
      * @return
      *     possible object is
@@ -113,7 +113,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der center-Eigenschaft fest.
+     * Sets the value of the center property.
      * 
      * @param value
      *     allowed object is
@@ -125,7 +125,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Ruft den Wert der right-Eigenschaft ab.
+     * Gets the value of the right property.
      * 
      * @return
      *     possible object is
@@ -137,7 +137,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der right-Eigenschaft fest.
+     * Sets the value of the right property.
      * 
      * @param value
      *     allowed object is
@@ -194,7 +194,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der s-Eigenschaft fest.
+     * Sets the value of the s property.
      * 
      */
     public void setS(double value) {
@@ -214,7 +214,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der singleSide-Eigenschaft fest.
+     * Sets the value of the singleSide property.
      * 
      * @param value
      *     allowed object is

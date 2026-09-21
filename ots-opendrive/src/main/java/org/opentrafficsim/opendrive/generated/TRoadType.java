@@ -14,9 +14,9 @@ import jakarta.xml.bind.annotation.XmlType;
 /**
  * A road type element is valid for the entire cross section of a road. It is valid until a new road type element is provided or until the road ends.
  * 
- * <p>Java-Klasse für t_road_type complex type.</p>
+ * <p>Java class for t_road_type complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_type">
@@ -77,7 +77,7 @@ import jakarta.xml.bind.annotation.XmlType;
     protected String country;
 
     /**
-     * Ruft den Wert der speed-Eigenschaft ab.
+     * Gets the value of the speed property.
      * 
      * @return
      *     possible object is
@@ -89,7 +89,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der speed-Eigenschaft fest.
+     * Sets the value of the speed property.
      * 
      * @param value
      *     allowed object is
@@ -146,7 +146,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der s-Eigenschaft fest.
+     * Sets the value of the s property.
      * 
      */
     public void setS(double value) {
@@ -166,7 +166,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der type-Eigenschaft fest.
+     * Sets the value of the type property.
      * 
      * @param value
      *     allowed object is
@@ -191,7 +191,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der country-Eigenschaft fest.
+     * Sets the value of the country property.
      * 
      * @param value
      *     allowed object is

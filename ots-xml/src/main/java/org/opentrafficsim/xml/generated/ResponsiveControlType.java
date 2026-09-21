@@ -18,9 +18,9 @@ import org.opentrafficsim.xml.bindings.types.StringType;
 
 
 /**
- * <p>Java-Klasse für ResponsiveControlType complex type.</p>
+ * <p>Java class for ResponsiveControlType complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="ResponsiveControlType">
@@ -128,9 +128,9 @@ import org.opentrafficsim.xml.bindings.types.StringType;
 
 
     /**
-     * <p>Java-Klasse für anonymous complex type.</p>
+     * <p>Java class for anonymous complex type</p>.
      * 
-     * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+     * <p>The following schema fragment specifies the expected content contained within this class.</p>
      * 
      * <pre>{@code
      * <complexType>
@@ -199,7 +199,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
         protected StringType type;
 
         /**
-         * Ruft den Wert der multipleLane-Eigenschaft ab.
+         * Gets the value of the multipleLane property.
          * 
          * @return
          *     possible object is
@@ -211,7 +211,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
         }
 
         /**
-         * Legt den Wert der multipleLane-Eigenschaft fest.
+         * Sets the value of the multipleLane property.
          * 
          * @param value
          *     allowed object is
@@ -223,7 +223,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
         }
 
         /**
-         * Ruft den Wert der singleLane-Eigenschaft ab.
+         * Gets the value of the singleLane property.
          * 
          * @return
          *     possible object is
@@ -235,7 +235,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
         }
 
         /**
-         * Legt den Wert der singleLane-Eigenschaft fest.
+         * Sets the value of the singleLane property.
          * 
          * @param value
          *     allowed object is
@@ -247,7 +247,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
         }
 
         /**
-         * Ruft den Wert der id-Eigenschaft ab.
+         * Gets the value of the id property.
          * 
          * @return
          *     possible object is
@@ -259,7 +259,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
         }
 
         /**
-         * Legt den Wert der id-Eigenschaft fest.
+         * Sets the value of the id property.
          * 
          * @param value
          *     allowed object is
@@ -271,7 +271,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
         }
 
         /**
-         * Ruft den Wert der type-Eigenschaft ab.
+         * Gets the value of the type property.
          * 
          * @return
          *     possible object is
@@ -283,7 +283,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
         }
 
         /**
-         * Legt den Wert der type-Eigenschaft fest.
+         * Sets the value of the type property.
          * 
          * @param value
          *     allowed object is
@@ -296,9 +296,9 @@ import org.opentrafficsim.xml.bindings.types.StringType;
 
 
         /**
-         * <p>Java-Klasse für anonymous complex type.</p>
+         * <p>Java class for anonymous complex type</p>.
          * 
-         * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+         * <p>The following schema fragment specifies the expected content contained within this class.</p>
          * 
          * <pre>{@code
          * <complexType>
@@ -357,7 +357,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             protected LengthBeginEndType exitPosition;
 
             /**
-             * Ruft den Wert der entryLink-Eigenschaft ab.
+             * Gets the value of the entryLink property.
              * 
              * @return
              *     possible object is
@@ -369,7 +369,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Legt den Wert der entryLink-Eigenschaft fest.
+             * Sets the value of the entryLink property.
              * 
              * @param value
              *     allowed object is
@@ -381,7 +381,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Ruft den Wert der entryLane-Eigenschaft ab.
+             * Gets the value of the entryLane property.
              * 
              * @return
              *     possible object is
@@ -393,7 +393,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Legt den Wert der entryLane-Eigenschaft fest.
+             * Sets the value of the entryLane property.
              * 
              * @param value
              *     allowed object is
@@ -405,7 +405,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Ruft den Wert der entryPosition-Eigenschaft ab.
+             * Gets the value of the entryPosition property.
              * 
              * @return
              *     possible object is
@@ -417,7 +417,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Legt den Wert der entryPosition-Eigenschaft fest.
+             * Sets the value of the entryPosition property.
              * 
              * @param value
              *     allowed object is
@@ -461,7 +461,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Ruft den Wert der exitLink-Eigenschaft ab.
+             * Gets the value of the exitLink property.
              * 
              * @return
              *     possible object is
@@ -473,7 +473,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Legt den Wert der exitLink-Eigenschaft fest.
+             * Sets the value of the exitLink property.
              * 
              * @param value
              *     allowed object is
@@ -485,7 +485,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Ruft den Wert der exitLane-Eigenschaft ab.
+             * Gets the value of the exitLane property.
              * 
              * @return
              *     possible object is
@@ -497,7 +497,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Legt den Wert der exitLane-Eigenschaft fest.
+             * Sets the value of the exitLane property.
              * 
              * @param value
              *     allowed object is
@@ -509,7 +509,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Ruft den Wert der exitPosition-Eigenschaft ab.
+             * Gets the value of the exitPosition property.
              * 
              * @return
              *     possible object is
@@ -521,7 +521,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Legt den Wert der exitPosition-Eigenschaft fest.
+             * Sets the value of the exitPosition property.
              * 
              * @param value
              *     allowed object is
@@ -536,9 +536,9 @@ import org.opentrafficsim.xml.bindings.types.StringType;
 
 
         /**
-         * <p>Java-Klasse für anonymous complex type.</p>
+         * <p>Java class for anonymous complex type</p>.
          * 
-         * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+         * <p>The following schema fragment specifies the expected content contained within this class.</p>
          * 
          * <pre>{@code
          * <complexType>
@@ -583,7 +583,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             protected LengthBeginEndType exitPosition;
 
             /**
-             * Ruft den Wert der link-Eigenschaft ab.
+             * Gets the value of the link property.
              * 
              * @return
              *     possible object is
@@ -595,7 +595,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Legt den Wert der link-Eigenschaft fest.
+             * Sets the value of the link property.
              * 
              * @param value
              *     allowed object is
@@ -607,7 +607,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Ruft den Wert der lane-Eigenschaft ab.
+             * Gets the value of the lane property.
              * 
              * @return
              *     possible object is
@@ -619,7 +619,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Legt den Wert der lane-Eigenschaft fest.
+             * Sets the value of the lane property.
              * 
              * @param value
              *     allowed object is
@@ -631,7 +631,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Ruft den Wert der entryPosition-Eigenschaft ab.
+             * Gets the value of the entryPosition property.
              * 
              * @return
              *     possible object is
@@ -643,7 +643,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Legt den Wert der entryPosition-Eigenschaft fest.
+             * Sets the value of the entryPosition property.
              * 
              * @param value
              *     allowed object is
@@ -655,7 +655,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Ruft den Wert der exitPosition-Eigenschaft ab.
+             * Gets the value of the exitPosition property.
              * 
              * @return
              *     possible object is
@@ -667,7 +667,7 @@ import org.opentrafficsim.xml.bindings.types.StringType;
             }
 
             /**
-             * Legt den Wert der exitPosition-Eigenschaft fest.
+             * Sets the value of the exitPosition property.
              * 
              * @param value
              *     allowed object is

@@ -12,9 +12,9 @@ import jakarta.xml.bind.annotation.XmlType;
 
 
 /**
- * <p>Java-Klasse für t_road_railroad_switch complex type.</p>
+ * <p>Java class for t_road_railroad_switch complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_railroad_switch">
@@ -83,7 +83,7 @@ import jakarta.xml.bind.annotation.XmlType;
     protected ERoadRailroadSwitchPosition position;
 
     /**
-     * Ruft den Wert der mainTrack-Eigenschaft ab.
+     * Gets the value of the mainTrack property.
      * 
      * @return
      *     possible object is
@@ -95,7 +95,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der mainTrack-Eigenschaft fest.
+     * Sets the value of the mainTrack property.
      * 
      * @param value
      *     allowed object is
@@ -107,7 +107,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Ruft den Wert der sideTrack-Eigenschaft ab.
+     * Gets the value of the sideTrack property.
      * 
      * @return
      *     possible object is
@@ -119,7 +119,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der sideTrack-Eigenschaft fest.
+     * Sets the value of the sideTrack property.
      * 
      * @param value
      *     allowed object is
@@ -131,7 +131,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Ruft den Wert der partner-Eigenschaft ab.
+     * Gets the value of the partner property.
      * 
      * @return
      *     possible object is
@@ -143,7 +143,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der partner-Eigenschaft fest.
+     * Sets the value of the partner property.
      * 
      * @param value
      *     allowed object is
@@ -204,7 +204,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der name-Eigenschaft fest.
+     * Sets the value of the name property.
      * 
      * @param value
      *     allowed object is
@@ -229,7 +229,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der id-Eigenschaft fest.
+     * Sets the value of the id property.
      * 
      * @param value
      *     allowed object is
@@ -254,7 +254,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der position-Eigenschaft fest.
+     * Sets the value of the position property.
      * 
      * @param value
      *     allowed object is

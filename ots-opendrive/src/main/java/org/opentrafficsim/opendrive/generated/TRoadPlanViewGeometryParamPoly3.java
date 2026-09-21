@@ -10,9 +10,9 @@ import jakarta.xml.bind.annotation.XmlType;
 /**
  * In OpenDRIVE, parametric cubic curves are represented by <paramPoly3> elements within the <geometry> element.
  * 
- * <p>Java-Klasse für t_road_planView_geometry_paramPoly3 complex type.</p>
+ * <p>Java class for t_road_planView_geometry_paramPoly3 complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_road_planView_geometry_paramPoly3">
@@ -108,7 +108,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der au-Eigenschaft fest.
+     * Sets the value of the au property.
      * 
      */
     public void setAU(double value) {
@@ -124,7 +124,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der bu-Eigenschaft fest.
+     * Sets the value of the bu property.
      * 
      */
     public void setBU(double value) {
@@ -140,7 +140,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der cu-Eigenschaft fest.
+     * Sets the value of the cu property.
      * 
      */
     public void setCU(double value) {
@@ -156,7 +156,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der du-Eigenschaft fest.
+     * Sets the value of the du property.
      * 
      */
     public void setDU(double value) {
@@ -172,7 +172,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der av-Eigenschaft fest.
+     * Sets the value of the av property.
      * 
      */
     public void setAV(double value) {
@@ -188,7 +188,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der bv-Eigenschaft fest.
+     * Sets the value of the bv property.
      * 
      */
     public void setBV(double value) {
@@ -204,7 +204,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der cv-Eigenschaft fest.
+     * Sets the value of the cv property.
      * 
      */
     public void setCV(double value) {
@@ -220,7 +220,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der dv-Eigenschaft fest.
+     * Sets the value of the dv property.
      * 
      */
     public void setDV(double value) {
@@ -242,7 +242,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der pRange-Eigenschaft fest.
+     * Sets the value of the pRange property.
      * 
      * @param value
      *     allowed object is

@@ -12,9 +12,9 @@ import org.opentrafficsim.xml.bindings.types.ClassType;
 
 
 /**
- * <p>Java-Klasse für DesiredSpeedModelType complex type.</p>
+ * <p>Java class for DesiredSpeedModelType complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="DesiredSpeedModelType">
@@ -57,7 +57,7 @@ import org.opentrafficsim.xml.bindings.types.ClassType;
     protected ClassType clazz;
 
     /**
-     * Ruft den Wert der idm-Eigenschaft ab.
+     * Gets the value of the idm property.
      * 
      * @return
      *     possible object is
@@ -69,7 +69,7 @@ import org.opentrafficsim.xml.bindings.types.ClassType;
     }
 
     /**
-     * Legt den Wert der idm-Eigenschaft fest.
+     * Sets the value of the idm property.
      * 
      * @param value
      *     allowed object is
@@ -94,7 +94,7 @@ import org.opentrafficsim.xml.bindings.types.ClassType;
     }
 
     /**
-     * Legt den Wert der socio-Eigenschaft fest.
+     * Sets the value of the socio property.
      * 
      * @param value
      *     allowed object is
@@ -107,7 +107,7 @@ import org.opentrafficsim.xml.bindings.types.ClassType;
     }
 
     /**
-     * Ruft den Wert der clazz-Eigenschaft ab.
+     * Gets the value of the clazz property.
      * 
      * @return
      *     possible object is
@@ -119,7 +119,7 @@ import org.opentrafficsim.xml.bindings.types.ClassType;
     }
 
     /**
-     * Legt den Wert der clazz-Eigenschaft fest.
+     * Sets the value of the clazz property.
      * 
      * @param value
      *     allowed object is

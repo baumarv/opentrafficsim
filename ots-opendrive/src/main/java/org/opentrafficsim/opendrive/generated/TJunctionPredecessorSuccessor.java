@@ -10,9 +10,9 @@ import jakarta.xml.bind.annotation.XmlType;
 /**
  * Provides detailed information about the predecessor / successor road of a virtual connection. Currently, only the @elementType “road” is allowed.
  * 
- * <p>Java-Klasse für t_junction_predecessorSuccessor complex type.</p>
+ * <p>Java class for t_junction_predecessorSuccessor complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="t_junction_predecessorSuccessor">
@@ -79,7 +79,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der elementType-Eigenschaft fest.
+     * Sets the value of the elementType property.
      * 
      * @param value
      *     allowed object is
@@ -104,7 +104,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der elementId-Eigenschaft fest.
+     * Sets the value of the elementId property.
      * 
      * @param value
      *     allowed object is
@@ -125,7 +125,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der elementS-Eigenschaft fest.
+     * Sets the value of the elementS property.
      * 
      */
     public void setElementS(double value) {
@@ -145,7 +145,7 @@ import jakarta.xml.bind.annotation.XmlType;
     }
 
     /**
-     * Legt den Wert der elementDir-Eigenschaft fest.
+     * Sets the value of the elementDir property.
      * 
      * @param value
      *     allowed object is

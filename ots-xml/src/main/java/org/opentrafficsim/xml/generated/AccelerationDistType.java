@@ -13,9 +13,9 @@ import org.opentrafficsim.xml.bindings.types.AccelerationUnitType;
 
 
 /**
- * <p>Java-Klasse für AccelerationDistType complex type.</p>
+ * <p>Java class for AccelerationDistType complex type</p>.
  * 
- * <p>Das folgende Schemafragment gibt den erwarteten Content an, der in dieser Klasse enthalten ist.</p>
+ * <p>The following schema fragment specifies the expected content contained within this class.</p>
  * 
  * <pre>{@code
  * <complexType name="AccelerationDistType">
@@ -45,7 +45,7 @@ import org.opentrafficsim.xml.bindings.types.AccelerationUnitType;
     protected AccelerationUnitType accelerationUnit;
 
     /**
-     * Ruft den Wert der accelerationUnit-Eigenschaft ab.
+     * Gets the value of the accelerationUnit property.
      * 
      * @return
      *     possible object is
@@ -57,7 +57,7 @@ import org.opentrafficsim.xml.bindings.types.AccelerationUnitType;
     }
 
     /**
-     * Legt den Wert der accelerationUnit-Eigenschaft fest.
+     * Sets the value of the accelerationUnit property.
      * 
      * @param value
      *     allowed object is
