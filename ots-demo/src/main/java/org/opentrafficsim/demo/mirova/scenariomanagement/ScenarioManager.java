@@ -358,22 +358,43 @@ public class ScenarioManager {
         ScenarioGenerator.resetAppliedPlanner();
         ScenarioSimulationScript script = generator.buildSimulationScript(effective);
 
-        // The planner that actually drove has to be the one that was asked for. Building the scenario is the only
-        // moment both are known, and it is still before anything is simulated. Without this a run whose parameters
-        // never carried the planner would quietly use the scenario's own one and produce output that looks like the
-        // requested model: build.txt would prove the bundle was on the classpath, not that it steered.
-        String requestedPlanner =
-                effective.getOrDefault(ScenarioGenerator.KEY_TACTICAL_PLANNER, ScenarioGenerator.MIROVA_PLANNER, String.class);
-        String appliedPlanner = ScenarioGenerator.getAppliedPlanner();
-        requirePlannerAsRequested(runFolder.getName(), requestedPlanner, appliedPlanner);
+        // Before anything is simulated: the commit this run was built from, or no run at all.
+        BuildProvenance.recordInto(runFolder);
 
-        // Written by the run, after the planner is resolved: the commit(s) this was built from, and what drove.
-        BuildProvenance.recordInto(runFolder, appliedPlanner, ScenarioGenerator.getAppliedPlannerDescription());
-        writeRunIdentity(runFolder, generator, seed, appliedPlanner, ScenarioGenerator.getAppliedPlannerDescription());
+        // What actually drove cannot be known yet. The planner is selected when the GTU templates are built, which
+        // happens during simulation setup and not while the script is being constructed - measured: a check placed
+        // here reported "built with mirova" for a run that went on to drive on TaMA. It is therefore done after the
+        // run, by recordWhatDrove, which is the earliest moment the fact exists.
+        String requestedPlanner = effective.getOrDefault(ScenarioGenerator.KEY_TACTICAL_PLANNER,
+                ScenarioGenerator.MIROVA_PLANNER, String.class);
 
         script.setGuiEnabled(false);
 
-        return new PreparedRun(script, seed, runFolder);
+        return new PreparedRun(script, seed, runFolder, requestedPlanner, generator);
+    }
+
+    /**
+     * Records what actually drove this run, and refuses the result when it is not what was requested.
+     * <p>
+     * Called after the run, because that is the earliest moment the fact exists: the planner is selected when the GTU
+     * templates are built, which happens during simulation setup rather than while the script is constructed. A check
+     * placed before the run reported "built with mirova" for a run that then drove on TaMA - measured, and the reason
+     * this sits here and not there.
+     * </p>
+     * <p>
+     * Refusing after the simulation costs the run's compute. It still prevents the failure that matters: output filed
+     * under a model that did not produce it. {@code build.txt} proves which bundles were on the classpath; only this
+     * says which of them steered.
+     * </p>
+     * @param prepared PreparedRun; the run that has just finished
+     */
+    private static void recordWhatDrove(final PreparedRun prepared)
+    {
+        String applied = ScenarioGenerator.getAppliedPlanner();
+        String description = ScenarioGenerator.getAppliedPlannerDescription();
+        writeRunIdentity(prepared.runFolder, prepared.generator, prepared.seed, applied, description);
+        BuildProvenance.recordInto(prepared.runFolder, applied, description);
+        requirePlannerAsRequested(prepared.runFolder.getName(), prepared.requestedPlanner, applied);
     }
 
     /**
@@ -589,6 +610,7 @@ public class ScenarioManager {
 
         try {
             prepared.script.start();
+            recordWhatDrove(prepared);
             System.out.println("[PROGRESS] 1/1 simulations completed (100%, 0 failed)");
             return true;
         } catch (Throwable e) {
@@ -718,16 +740,27 @@ public class ScenarioManager {
         /** The output folder of this run. */
         private final File runFolder;
 
+        /** The planner the run's parameters asked for; compared with what drove, after the run. */
+        private final String requestedPlanner;
+
+        /** The generator that built this run, for its scenario name. */
+        private final ScenarioGenerator generator;
+
         /**
          * Constructor.
          * @param script ScenarioSimulationScript; the configured simulation script
          * @param seed long; the seed of this run
          * @param runFolder File; the output folder of this run
+         * @param requestedPlanner String; the planner the parameters asked for
+         * @param generator ScenarioGenerator; the generator that built this run
          */
-        PreparedRun(final ScenarioSimulationScript script, final long seed, final File runFolder) {
+        PreparedRun(final ScenarioSimulationScript script, final long seed, final File runFolder,
+                final String requestedPlanner, final ScenarioGenerator generator) {
             this.script = script;
             this.seed = seed;
             this.runFolder = runFolder;
+            this.requestedPlanner = requestedPlanner;
+            this.generator = generator;
         }
     }
 
