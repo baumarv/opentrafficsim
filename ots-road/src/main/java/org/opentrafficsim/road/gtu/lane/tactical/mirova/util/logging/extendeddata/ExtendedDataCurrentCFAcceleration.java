@@ -4,7 +4,7 @@ import org.djunits.value.vdouble.scalar.Acceleration;
 import org.djunits.value.vfloat.scalar.FloatAcceleration;
 import org.opentrafficsim.kpi.interfaces.GtuData;
 import org.opentrafficsim.road.gtu.lane.LaneBasedGtu;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
+import org.opentrafficsim.road.gtu.lane.tactical.DriverStateObservable;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoContext;
 import org.opentrafficsim.road.network.sampling.GtuDataRoad;
 
@@ -45,11 +45,9 @@ public class ExtendedDataCurrentCFAcceleration extends ExtendedDataAcceleration<
         if (gtu instanceof GtuDataRoad road)
         {
             LaneBasedGtu lgtu = road.getGtu();
-            if (lgtu.getTacticalPlanner() instanceof MirovaTacticalPlanner p)
+            if (lgtu.getTacticalPlanner() instanceof DriverStateObservable p)
             {
-                Acceleration acc =
-                        p.getContext(EgoContext.class).getCachedValue(EgoContext.CURRENT_CF_ACCELERATION, Acceleration.class);
-
+                Acceleration acc = p.carFollowingAcceleration();
                 if (acc == null)
                 {
                     return FloatAcceleration.instantiateSI(Float.NaN);
