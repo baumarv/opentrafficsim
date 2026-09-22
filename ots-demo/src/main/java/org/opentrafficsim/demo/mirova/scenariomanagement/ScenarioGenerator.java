@@ -1193,6 +1193,15 @@ public abstract class ScenarioGenerator
     /** What the applied provider reported about itself; see {@link TacticalPlannerProvider#describe()}. */
     private static volatile String appliedPlannerDescription = MIROVA_PLANNER;
 
+    /** What the run asked for, so the selection can refuse a mismatch at once; {@code null} when nothing asked. */
+    private static volatile String requestedPlanner = null;
+
+    /** Whether any planner selection took place since the last reset; see {@link #requireSelectionHappened}. */
+    private static volatile boolean selectionHappened = false;
+
+    /** Description lines gathered from every application, in order and without repeats. */
+    private static final java.util.Set<String> APPLIED_DESCRIPTION_LINES = new java.util.LinkedHashSet<>();
+
     /**
      * Forgets the planner recorded for the previous run. Called before a run is built.
      */
@@ -1200,6 +1209,103 @@ public abstract class ScenarioGenerator
     {
         appliedPlanner = MIROVA_PLANNER;
         appliedPlannerDescription = MIROVA_PLANNER;
+        requestedPlanner = null;
+        selectionHappened = false;
+        synchronized (APPLIED_DESCRIPTION_LINES)
+        {
+            APPLIED_DESCRIPTION_LINES.clear();
+        }
+    }
+
+    /**
+     * States what this run asked for, so that a selection which resolves to something else can be refused before any
+     * simulation step is taken.
+     * @param planner String; the planner the run's parameters asked for, or {@code null} to ask for nothing
+     */
+    public static void setRequestedPlanner(final String planner)
+    {
+        requestedPlanner = planner;
+    }
+
+    /**
+     * Refuses a selection that resolves to another planner than the run asked for.
+     * <p>
+     * The scenario builds its factories from its own parameters, which are not necessarily the ones the run was
+     * launched with - that is exactly the gap this guards: a study whose variations never carried the planner would
+     * build the scenario's own and produce output labelled with a model that did not drive it.
+     * </p>
+     * @param vehicleClass String; the class being built, for the message
+     * @param resolved String; the planner this selection resolves to
+     * @throws IllegalStateException when the two differ
+     */
+    private static void requireRequestedPlanner(final String vehicleClass, final String resolved)
+    {
+        String asked = requestedPlanner;
+        if (asked != null && !asked.equals(resolved))
+        {
+            throw new IllegalStateException("The run asked for " + KEY_TACTICAL_PLANNER + "=" + asked
+                    + ", but the scenario builds " + vehicleClass + " with " + resolved + ". Refusing during setup, "
+                    + "before any simulation step: the output would be attributed to a model that did not produce it. "
+                    + "The scenario's parameters do not carry the planner - see ScenarioManager.setOnAllVariations.");
+        }
+    }
+
+    /**
+     * Refuses, at the end of setup, a run that asked for a planner the scenario never offered to select.
+     * <p>
+     * Not every scenario routes through {@link #selectTacticalPlannerFactory}: {@code SimpleHighwayScenario} and
+     * {@code MergeScenario} override the factory builders and construct their own - deliberately, because they use
+     * Wiedemann 99 there. For those, {@code tacticalPlanner=tama} selects nothing at all, and without this check the
+     * run would drive MiRoVA and say so only after it had finished. Measured: the parameter reaches the run while the
+     * selection is never called.
+     * </p>
+     * <p>
+     * Called once the network and the templates are built and before the first simulation step, so a misconfigured
+     * campaign pays seconds per task rather than a full run. The message names the scenario, because the fix is to
+     * choose a scenario that can select rather than to change the flag.
+     * </p>
+     * @param scenarioName String; the scenario being set up, for the message
+     * @throws IllegalStateException when a planner was requested that no selection ever saw
+     */
+    public static void requireSelectionHappened(final String scenarioName)
+    {
+        String asked = requestedPlanner;
+        if (asked != null && !MIROVA_PLANNER.equals(asked) && !selectionHappened)
+        {
+            throw new IllegalStateException("The run asked for " + KEY_TACTICAL_PLANNER + "=" + asked + ", but scenario "
+                    + scenarioName + " never asked for a tactical planner provider: it builds its own tactical planner "
+                    + "factory and ignores " + KEY_TACTICAL_PLANNER + " entirely. Refusing at the end of setup, before "
+                    + "the first simulation step. Use a scenario that routes through selectTacticalPlannerFactory - "
+                    + "FreiburgNord does - or run this one on " + MIROVA_PLANNER + ".");
+        }
+    }
+
+    /**
+     * Records one applied selection. Called once per vehicle class, and the classes are built separately, so the
+     * descriptions are gathered rather than overwritten.
+     * <p>
+     * Measured: {@code ServiceLoader.load} runs inside the selection, so each vehicle class gets its own provider
+     * instance, each of which knows only its own class. Overwriting left a run record naming {@code truck} alone,
+     * which reads as if the cars had driven on something else.
+     * </p>
+     * @param planner String; the planner that was applied
+     * @param description String; what it reported about itself
+     */
+    private static void recordApplied(final String planner, final String description)
+    {
+        appliedPlanner = planner;
+        selectionHappened = true;
+        synchronized (APPLIED_DESCRIPTION_LINES)
+        {
+            for (String line : description.split("\\R"))
+            {
+                if (!line.isBlank())
+                {
+                    APPLIED_DESCRIPTION_LINES.add(line.trim());
+                }
+            }
+            appliedPlannerDescription = String.join("\n", APPLIED_DESCRIPTION_LINES);
+        }
     }
 
     /**
@@ -1279,10 +1385,13 @@ public abstract class ScenarioGenerator
             final ScenarioParameters params)
     {
         String name = params.getOrDefault(KEY_TACTICAL_PLANNER, MIROVA_PLANNER, String.class);
+        // The earliest moment the question is settled: OTS is asking for the factory every vehicle of this class will
+        // drive with, during setup and before the first simulation step. Refusing here costs nothing; refusing after
+        // the run costs the run, and a misconfigured campaign would compute every task in full before saying so.
+        requireRequestedPlanner(vehicleClass, name);
         if (MIROVA_PLANNER.equals(name))
         {
-            appliedPlanner = MIROVA_PLANNER;
-            appliedPlannerDescription = MIROVA_PLANNER;
+            recordApplied(MIROVA_PLANNER, MIROVA_PLANNER);
             return built;
         }
         List<TacticalPlannerProvider> matching = new ArrayList<>();
@@ -1304,8 +1413,7 @@ public abstract class ScenarioGenerator
         TacticalPlannerProvider provider = matching.get(0);
         LaneBasedTacticalPlannerFactory<? extends LaneBasedTacticalPlanner> factory = provider.apply(vehicleClass, built);
         // After apply, so a provider that resolves what it drives with while building can report it.
-        appliedPlanner = provider.name();
-        appliedPlannerDescription = provider.describe();
+        recordApplied(provider.name(), provider.describe());
         return factory;
     }
 
