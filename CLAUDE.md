@@ -93,8 +93,20 @@ Replacing parameter-hacking (e.g., temporarily reducing `T` or `s_0`) with a rel
   instead — the buffer is seeded with `desiredHeadway × safetyDistanceReductionFactorLaneChange` rather than
   with the raw gap deficit. Tolerating a speed difference directly produced collisions.
 - Three further mechanisms sit on top of the buffer and are part of the model:
-  - **Acceleration damping** (`aRelaxDamping`, default 0.40): while a relaxation is active, positive
-    acceleration is scaled by a factor rising from 0.40 back to 1.0 as the buffer decays.
+  - **Acceleration damping** (`aRelaxDamping`): while a relaxation is active, positive acceleration is
+    scaled by a factor rising from `aRelaxDamping` back to 1.0 as the buffer decays.
+    **Inert in every calibrated run, and the number to quote is 1.00, not 0.40.**
+    `MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR` *declares* 0.40, but
+    `FreiburgStudyParameters.RELAXATION_DAMPING = 1.00` overrides it before a run sees it — and at 1.00 the
+    scaling factor is 1.0 throughout, so the mechanism does nothing. That is deliberate: the damping was
+    retargeted to 1.00 and **the headway was lengthened at the same time**, because "removing the damping
+    raises the discharge enough to prevent breakdowns … The two axes work against each other on the same
+    quantity and only the pair is meaningful" (`FreiburgStudyParameters`, and
+    `docs/decoupling/recalibration-inventory.md` §1.2, coupling 1).
+    So: **the relaxation as run is three mechanisms, not four** — decay, lifetime cap, fade-out. TaMA's own
+    default is 1.00 for the same reason, which is `final_v1`'s value; a reader comparing the two models
+    should see the same number on both sides. An earlier version of this file quoted 0.40 here, which was
+    the declared default and had not been true of a run for a long time.
   - **Lifetime cap** (`relaxMaxLifetime`, default 3.0): a relaxation is collected after 3·τ_s regardless of
     how large its initial deficit was.
   - **Fade-out on abort** (`tRelaxFade`, default 1.0 s): when a relaxation is abandoned — the leader brakes
