@@ -355,18 +355,22 @@ public class ScenarioManager {
 
         // Create SimulationScript
         ScenarioParameters effective = defaultParams.copy().applyOverridesFrom(runParams);
-        ScenarioGenerator.resetAppliedPlanner();
-        ScenarioSimulationScript script = generator.buildSimulationScript(effective);
-
-        // Before anything is simulated: the commit this run was built from, or no run at all.
-        BuildProvenance.recordInto(runFolder);
-
-        // What actually drove cannot be known yet. The planner is selected when the GTU templates are built, which
-        // happens during simulation setup and not while the script is being constructed - measured: a check placed
-        // here reported "built with mirova" for a run that went on to drive on TaMA. It is therefore done after the
-        // run, by recordWhatDrove, which is the earliest moment the fact exists.
         String requestedPlanner = effective.getOrDefault(ScenarioGenerator.KEY_TACTICAL_PLANNER,
                 ScenarioGenerator.MIROVA_PLANNER, String.class);
+
+        // Announced before anything can select, and the ordering is the point: scenarios differ in WHEN they build
+        // their vehicle factories. FreiburgNord does it from buildGtuTemplates, during simulation setup; SimpleHighway
+        // does it while the script is being constructed. Announcing the request after the script was built therefore
+        // guarded the one and not the other - measured: a run whose variation carried tacticalPlanner=tama recorded
+        // mirova, and only the check after the run caught it.
+        ScenarioGenerator.resetAppliedPlanner();
+        ScenarioGenerator.setRequestedPlanner(requestedPlanner);
+        ScenarioSimulationScript script = generator.buildSimulationScript(effective);
+
+        // Before anything is simulated: the commit this run was built from, or no run at all. What drove is not known
+        // here for every scenario, so it is recorded after the run by recordWhatDrove - the one moment that holds for
+        // all of them.
+        BuildProvenance.recordInto(runFolder);
 
         script.setGuiEnabled(false);
 
