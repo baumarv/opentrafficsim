@@ -22,8 +22,12 @@ Every instruction carries how it is known to be true:
 | **[local]** | Verified on a Windows workstation by rehearsing the same procedure from fresh clones, up to and including a full run started exactly as the batch script starts one. Cluster behaviour is *inferred* from it, not observed. |
 | **[script]** | Read out of the scripts in this directory — the same ones the cluster runs. |
 
-**Nothing in the TaMA sections has ever run on the cluster.** They are rehearsed locally and
-marked accordingly, so the first person to run them knows which instruction to distrust first.
+**The TaMA sections have now been run on the cluster**: a smoke run, a pilot, and the full
+`tamascreen` array of **510 runs**. They were written as local rehearsals and are marked **[local]**
+throughout; that mark understates them now, and the instructions themselves are unchanged by the
+runs. What is *not* recorded anywhere is the campaign's own numbers — see
+[What could not be reconciled](#what-could-not-be-reconciled), item 5, which lists what a second
+person would have to re-measure.
 
 ## Why two runs per task
 
@@ -58,8 +62,19 @@ allocation stays correct if the rounding behavior ever changes.
 | `generate_demand_csvs.ps1` / `.py` | Generates full-day demand CSVs locally on Windows from detector database |
 | `mirova_env.sh` | Single definition of workspace, `JAVA_HOME`/`PATH` and toolchain provisioning (sourced, not executed) |
 | `build_for_cluster.sh` | Provisions Java/Maven, builds the modules, writes `cp.txt` into the workspace |
-| `dates.txt` | Date list for the date study (**template — swap in the real 32 dates**) |
+| `stamp_build.sh` | Records the commit inside the build; refuses a dirty tree (§3a). `test_stamp_build.sh` pins it |
+| `guard.sh` | The precondition idiom every script uses: a check ends the script or it is not a check. `test_guard.sh` pins it |
+| `dates.txt` | The **16** study dates at the A5 Freiburg-Nord on-ramp: the original nine, plus seven added later |
+| `dates_calibration.txt` | **3** of the nine, spanning the observed capacity range — for `mergegrid` |
+| `dates_extension.txt` | The **7** added after the final ensemble; **held out as validation days** |
+| `demand/demand_<date>.csv` | Pre-generated demand, uploaded to `$WS/demand/` |
 | `run_mirova.sbatch` | The SLURM batch script |
+| `run_local_parallel.sh` | Local parallel runner; stamps the build as the cluster path does |
+| `sum_defects.py` | Evaluation helper |
+
+Each date file documents in its own header *why* it holds what it holds; read it before choosing one.
+`dates.txt` is not a template — the dates in it are real, and the array size follows from the run count
+(§4), never from counting lines in this file.
 
 ---
 
@@ -216,6 +231,57 @@ git clone --branch main <repo-url> .    # note the trailing dot
 Keeping the repository in the workspace is recommended (the script warns if it's under
 `$HOME`) — but the source tree is small, so `$HOME` works if you prefer it backed up.
 
+### The TaMA clone, and its deploy key **[cluster]**
+
+Running on TaMA (§3b) needs a **second clone**, of
+`baumarv/tactical-maneuver-architecture`, beside the OTS one:
+
+```
+$(ws_find mirova-ots)/
+├── opentrafficsim/
+└── tactical-maneuver-architecture/
+```
+
+That repository is **private**, so the cluster needs its own credential. It has one, set up as follows:
+
+1. **Generate the key on the cluster**, so the private half never leaves the machine that uses it.
+2. **Add the public half to the TaMA repository as a deploy key, read-only.** Repository-scoped rather
+   than a personal account key, and read-only because the cluster clones and pulls — it never pushes.
+3. **Give it a host alias** in `~/.ssh/config`:
+
+   ```
+   Host github-tama
+       HostName github.com
+       User git
+       IdentityFile ~/.ssh/<the key>
+       IdentitiesOnly yes
+   ```
+
+4. **Clone through the alias:**
+
+   ```bash
+   cd "$(ws_find mirova-ots)"
+   git clone github-tama:baumarv/tactical-maneuver-architecture.git
+   cd tactical-maneuver-architecture && ./tools/prepare-submodules.sh
+   ```
+
+An alias rather than plain `git@github.com:` because a machine may hold several GitHub keys and SSH
+otherwise offers them in its own order, authenticating as whichever is accepted first — so a clone can
+succeed under the wrong identity, or fail with a `Permission denied (publickey)` that names nothing.
+`IdentitiesOnly yes` is the line that makes the alias mean exactly one key.
+
+Check an existing clone with `git -C "$(ws_find mirova-ots)/tactical-maneuver-architecture" remote -v`:
+it should read `github-tama:…`. An `https://` remote will prompt for a password no batch job can answer,
+and `git@github.com:` is the ambiguity above.
+
+> **The key lives in the workspace, and the workspace is not backed up.** If it expires, the key goes
+> with it: generate a new one and register it, rather than looking for a copy.
+>
+> **Read-only has a consequence worth knowing**: nothing on the cluster can push, so a fix made there
+> has to be carried back by hand — and the bundle stamps itself with `git describe`, so an uncommitted
+> change there produces a `-dirty` describe, which the run then refuses (§3a). That is the intended
+> behaviour, not an obstacle to work around.
+
 ## 3. Build
 
 ```bash
@@ -322,8 +388,14 @@ notes). Non-zero is normal; it is recorded, not forbidden.
 ## 3b. Running on TaMA instead of MiRoVA
 
 TaMA is a separate repository whose adapter is loaded into an OTS run as one jar. OTS has no
-dependency on TaMA; the jar registers itself through `ServiceLoader`. **Everything in this
-section has been rehearsed locally and never run on the cluster.** **[local]**
+dependency on TaMA; the jar registers itself through `ServiceLoader`.
+
+**This section has been run on the cluster** — a smoke run, a pilot, and the full `tamascreen` array of
+510 runs — so the build order, the `MIROVA_TAMA=1` classpath, `--count` under the TaMA configuration and
+the per-run verification below have all been carried out at campaign scale. The **[local]** marks are left
+on the individual steps because that is where each was first verified, and because the timings quoted are
+still the workstation's; none of the campaign's own figures has been written down. Treat **[local]** here
+as "measured on a workstation", not as "never done for real".
 
 ### Build order is not the obvious one
 
@@ -431,14 +503,19 @@ Since each task runs **two** runs, set
 
 | Study | N | Tasks = ⌈N/2⌉ | `--array` |
 |:---|---:|---:|:---|
-| dates, 32 dates × 6 replications | 192 | 96 | `0-95` |
-| dates, 9 placeholder dates × 6 | 54 | 27 | `0-26` |
+| dates, 16 dates × 6 replications | 96 | 48 | `0-47` |
+| dates, 9 dates × 6 replications | 54 | 27 | `0-26` |
 | paramgrid, 17 variations × 6 | 102 | 51 | `0-50` |
 | damping, 9 dates × 2 variations × 10 | 180 | 90 | `0-89` |
 | mergegrid, 3 dates × 9 variations × 10 | 270 | 135 | `0-134` |
 | paramgrid, 17 variations × 1 | 17 | 9 | `0-8` |
+| tamascreen, 3 dates × 17 cells × 10 | 510 | 255 | `0-254` |
 
-An **odd** N is fine, as in the last row: the final task finds that its second index
+**These rows are worked examples of the arithmetic, not a substitute for it.** Every N above is what
+the study's shape implies; the N you submit is the one `--count` printed. The two have disagreed
+before — a row here claiming 32 dates outlived the date list by a long way.
+
+An **odd** N is fine, as in the `paramgrid, 17 × 1` row: the final task finds that its second index
 (`2·8+1 = 17`) is beyond the study's 17 runs and launches only one process, logging
 `no run at global index 17 (study has 17); nothing to launch.` The script asks the study for
 N itself at task start, so this needs no manual bookkeeping — set `MIROVA_TOTAL_RUNS` to skip
@@ -583,9 +660,16 @@ squeue
 `ST=PD, REASON=Priority` is **normal** — the fairshare queue, not a fault. It moves by itself
 when capacity frees up; no manual intervention.
 
-Walltime defaults to `03:00:00`. With realistically 90–120 min of simulation per run and two
-runs per task that is tight; for larger campaigns or uncertain node placement set
+Walltime defaults to **`02:00:00`** — the value in `run_mirova.sbatch`, and the one §6 reasons about.
+It is a **per-run** budget rather than a sum, because the two runs of a task are **concurrent**: the
+second fills the second core the partition allocates anyway and does not extend the wall clock. Since the
+performance work a run is well inside an hour, so two hours leaves ample headroom while keeping the task
+small enough to backfill. For uncertain node placement, or to resubmit tasks that hit the limit, pass
 `--time=04:00:00` explicitly.
+
+(An earlier version of this paragraph said the default was `03:00:00` and reasoned from 90–120 min per
+run with the two runs treated as sequential. All three were stale: the script says `02:00:00`, §6 retires
+the 90–120 min figure as pre-performance-work, and the runs are concurrent.)
 
 ### After it finishes **[cluster]**
 
@@ -656,7 +740,15 @@ recurred since they were first written down.
 ## Studies
 
 A study is a `StudyDefinition`: it registers scenarios, parameter variations and a replication
-count into a `ScenarioManager`. Five are registered in `StudyRegistry`:
+count into a `ScenarioManager`.
+
+**For the current list, ask the code rather than this file** — run `RunMirovaClusterStudy` with a
+`--study` name that does not exist, and the error names every registered short name; or read
+`StudyRegistry`. A count written here goes stale the first time a study is added, and this one did: it
+said five for a long time while the registry grew past twenty.
+
+A study may also be selected by its **fully qualified class name**, so a new one can be run on the
+cluster without touching `StudyRegistry` at all. The ones documented in detail below are a subset:
 
 | Short name | Class | Shape |
 |:---|:---|:---|
@@ -1204,13 +1296,17 @@ The seed is derived from the scenario generator's own default parameters plus th
 index, never from a hardcoded constant:
 
 ```java
-seed = generator.getDefaultParameters().getSeed() + replicationIndex;
+seed = generatorDefaults.getSeed() + replicationIndex * ScenarioManager.REPLICATION_SEED_SPACING;
 ```
 
+**The spacing is `1_000_003`, and it is not decoration.** With consecutive seeds — the arrangement this
+file used to describe — replication *k*'s second random stream is bit-identical to replication *k+1*'s
+arrival stream, so the replications of a cell share sequences instead of being independent draws. That is
+precisely what the spacing prevents; see `REPLICATION_SEED_SPACING`'s own documentation.
+
 Both execution paths share one private `ScenarioManager.prepareRun(...)`, so this holds by
-construction. Verified for 3 dates × 6 replications: the pre-refactor loop arithmetic, the
-public `ScenarioManager.seedFor(...)`, and the seed actually attached to the prepared run all
-produce 42–47 identically.
+construction, and `ScenarioManager.seedFor(...)` is public so a cluster entry point can derive the same
+number without running anything.
 
 Note the seed depends only on the replication index, **not** on the date or variation — two
 variations at the same replication index share a seed. That is pre-existing behavior, preserved
@@ -1381,6 +1477,20 @@ workstation. These are not comparable — different hardware, possibly a differe
 window — and no conclusion is drawn from the difference here. **The cluster figure is the one to
 plan with** until a TaMA run has actually been timed on the cluster.
 
-**5. Nothing about TaMA has run on the cluster.** §3b is a local rehearsal throughout. The most
-likely first failure is the Maven coordinate collision (§3b): a node whose `~/.m2` already holds
-upstream `org.opentrafficsim:ots-road` may build the bundle against it without saying so.
+**5. The TaMA campaign's own numbers are written down nowhere.** The original entry here said nothing
+about TaMA had run on the cluster. That is superseded: a smoke run, a pilot and the full `tamascreen`
+array of 510 runs have been executed. **What is missing now is the record of them**, and each item below
+is something the next person would otherwise have to re-measure:
+
+- the **measured walltime and peak RSS per task** — which would settle item 4 above, and confirm or
+  correct the `MIROVA_JAVA_HEAP` / `--mem-per-cpu` sizing of §6;
+- whether any task **timed out or was OOM-killed**, and whether part of the array was resubmitted;
+- whether the workspace **quota held** the campaign's predicted footprint;
+- **which commit the array ran from** — the `build.txt` of any surviving run folder says, and it is the
+  one fact that decides whether the results are attributable at all;
+- whether the **Maven coordinate collision** (§3b) occurred. It was the predicted first failure; if it
+  did not happen, that is worth knowing too, and the warning stays as a hazard rather than becoming a
+  note on how it was avoided.
+
+A short checkpoint under `docs/checkpoints/` closes all five. Until then §3b's instructions are
+exercised but its *figures* are still the workstation's.
