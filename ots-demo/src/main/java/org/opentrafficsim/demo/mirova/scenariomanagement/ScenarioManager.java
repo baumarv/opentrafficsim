@@ -82,6 +82,34 @@ public class ScenarioManager {
      * @param value Object; the value every variation is given
      * @return int; how many variations were changed, so a caller can refuse a setting that reached nothing
      */
+    /**
+     * Collects the distinct values a parameter already carries across every registered variation.
+     * <p>
+     * Exists so {@link #setOnAllVariations} can refuse to flatten a distinction a study made deliberately. A study
+     * that varies the driver model itself -- a screening study carrying a reference arm on the other planner -- must
+     * not also be given a global planner: the override would silently turn the reference arm into a copy of every
+     * other cell, and the run would be labelled with a comparison it never made.
+     * </p>
+     * @param key String; the scenario parameter name
+     * @return Set&lt;Object&gt;; the distinct values present, empty when no variation carries the key
+     */
+    public Set<Object> distinctVariationValues(final String key)
+    {
+        Set<Object> values = new LinkedHashSet<>();
+        for (ScenarioEntry entry : this.scenarios.values())
+        {
+            for (ScenarioParameters params : entry.parameterVariations)
+            {
+                Object value = params.asUnmodifiableMap().get(key);
+                if (value != null)
+                {
+                    values.add(value);
+                }
+            }
+        }
+        return values;
+    }
+
     public int setOnAllVariations(final String key, final Object value)
     {
         int changed = 0;
