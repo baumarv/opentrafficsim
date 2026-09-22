@@ -1181,6 +1181,46 @@ public abstract class ScenarioGenerator
     private static TacticalPlannerFactoryHook tacticalPlannerFactoryHook = null;
 
     /**
+     * The planner that actually drove, and what it drove with, recorded where the planner is selected.
+     * <p>
+     * Static for the same reason the hook above is: a run is one JVM with one scenario, and the selection happens in a
+     * static method the scenario management has no reference into. {@link #resetAppliedPlanner()} is called before each
+     * run is built, so a value cannot leak from the previous run when several are executed in one process.
+     * </p>
+     */
+    private static volatile String appliedPlanner = MIROVA_PLANNER;
+
+    /** What the applied provider reported about itself; see {@link TacticalPlannerProvider#describe()}. */
+    private static volatile String appliedPlannerDescription = MIROVA_PLANNER;
+
+    /**
+     * Forgets the planner recorded for the previous run. Called before a run is built.
+     */
+    public static void resetAppliedPlanner()
+    {
+        appliedPlanner = MIROVA_PLANNER;
+        appliedPlannerDescription = MIROVA_PLANNER;
+    }
+
+    /**
+     * Returns the name of the planner that actually drove the scenario built last.
+     * @return String; the planner name, {@code "mirova"} when the scenario's own planner was used
+     */
+    public static String getAppliedPlanner()
+    {
+        return appliedPlanner;
+    }
+
+    /**
+     * Returns what the applied provider reported about itself, resolved rather than as requested.
+     * @return String; the description, one or more lines
+     */
+    public static String getAppliedPlannerDescription()
+    {
+        return appliedPlannerDescription;
+    }
+
+    /**
      * Installs a hook that wraps or replaces the tactical planner factory of every scenario built afterwards.
      * <p>
      * Static because a run is one JVM with one scenario and the injector -- a test, a recording harness, an external
@@ -1241,6 +1281,8 @@ public abstract class ScenarioGenerator
         String name = params.getOrDefault(KEY_TACTICAL_PLANNER, MIROVA_PLANNER, String.class);
         if (MIROVA_PLANNER.equals(name))
         {
+            appliedPlanner = MIROVA_PLANNER;
+            appliedPlannerDescription = MIROVA_PLANNER;
             return built;
         }
         List<TacticalPlannerProvider> matching = new ArrayList<>();
@@ -1259,7 +1301,12 @@ public abstract class ScenarioGenerator
                     + matching.size() + " tactical planner provider(s) on the classpath; available: " + available
                     + ". Put exactly one provider of that name on the classpath, or use " + MIROVA_PLANNER + ".");
         }
-        return matching.get(0).apply(vehicleClass, built);
+        TacticalPlannerProvider provider = matching.get(0);
+        LaneBasedTacticalPlannerFactory<? extends LaneBasedTacticalPlanner> factory = provider.apply(vehicleClass, built);
+        // After apply, so a provider that resolves what it drives with while building can report it.
+        appliedPlanner = provider.name();
+        appliedPlannerDescription = provider.describe();
+        return factory;
     }
 
     /**

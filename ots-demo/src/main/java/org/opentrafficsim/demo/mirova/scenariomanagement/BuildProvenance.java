@@ -131,8 +131,12 @@ public final class BuildProvenance
                         + "the TaMA repository, republish the bundle (./gradlew :tama-ots:publishToMavenLocal) and rebuild.");
             }
         }
-        String requested = composition == null || composition.isBlank() ? "(provider default)" : composition.trim();
-        return "# TaMA\n" + (tama.endsWith("\n") ? tama : tama + "\n") + "tama.composition=" + requested + "\n";
+        // Deliberately labelled "requested": this is the system property the run was started with, which says what was
+        // asked for and not what was resolved. "(provider default)" was a label, not an identity - it meant
+        // mirova-reference/1 on the day it was written and would mean something else the day the default changed,
+        // without this file saying so. What actually drove, with its fingerprint, is recorded under "# Drove".
+        String requested = composition == null || composition.isBlank() ? "(none given)" : composition.trim();
+        return "# TaMA\n" + (tama.endsWith("\n") ? tama : tama + "\n") + "tama.composition.requested=" + requested + "\n";
     }
 
     /**
@@ -163,7 +167,41 @@ public final class BuildProvenance
      */
     public static void recordInto(final File runFolder)
     {
+        recordInto(runFolder, null, null);
+    }
+
+    /**
+     * Writes the build record into a run folder, together with the planner that actually drove.
+     * <p>
+     * The planner is passed in rather than read from a system property, because a property says what was
+     * <i>requested</i>. {@code tama.composition=(provider default)} was a label of exactly that kind: it meant
+     * {@code mirova-reference/1} on the day it was written and would mean something else the day the default changed,
+     * without the file saying so.
+     * </p>
+     * @param runFolder File; the run's output folder
+     * @param planner String; the planner that drove, or {@code null} when it is not known here
+     * @param plannerDescription String; what the provider reported about itself, or {@code null}
+     * @throws IllegalStateException when there is no stamp and unstamped runs are not allowed, or the file cannot be written
+     */
+    public static void recordInto(final File runFolder, final String planner, final String plannerDescription)
+    {
         String record = require();
+        if (planner != null)
+        {
+            StringBuilder driven = new StringBuilder("# Drove\n");
+            driven.append("run.tacticalPlanner=").append(planner).append('\n');
+            if (plannerDescription != null)
+            {
+                for (String line : plannerDescription.split("\\R"))
+                {
+                    if (!line.isBlank() && !line.equals(planner))
+                    {
+                        driven.append("run.planner.").append(line.trim()).append('\n');
+                    }
+                }
+            }
+            record = record.endsWith("\n") ? record + driven : record + "\n" + driven;
+        }
         try
         {
             File temp = File.createTempFile("build", ".tmp", runFolder);
