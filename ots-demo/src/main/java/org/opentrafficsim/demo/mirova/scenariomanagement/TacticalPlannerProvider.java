@@ -41,4 +41,20 @@ public interface TacticalPlannerProvider
      */
     LaneBasedTacticalPlannerFactory<? extends LaneBasedTacticalPlanner> apply(String vehicleClass,
             LaneBasedTacticalPlannerFactory<? extends LaneBasedTacticalPlanner> built);
+
+    /**
+     * Returns what this provider actually drove with, for the run to record beside its results.
+     * <p>
+     * A planner name is a label: it says which provider was asked, not what that provider built. A provider whose
+     * behaviour depends on anything the name does not carry -- a composition, a parameter set, a model version -- is
+     * expected to return that here, resolved rather than as it was requested, so that "the default" cannot silently
+     * mean one thing today and another tomorrow. Called once per run, after the scenario is built, and written into
+     * the run folder; the result should therefore be stable for the run and cheap to produce.
+     * </p>
+     * @return String; one or more lines describing what drove; the plain name when there is nothing further to say
+     */
+    default String describe()
+    {
+        return name();
+    }
 }

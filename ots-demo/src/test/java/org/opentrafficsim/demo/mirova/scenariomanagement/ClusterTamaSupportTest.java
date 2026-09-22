@@ -69,6 +69,41 @@ public class ClusterTamaSupportTest
                 "a scenario without variations produces no runs, and the caller must be able to tell");
     }
 
+    /** Tests that a run whose planner matches what was requested is allowed to proceed. */
+    @Test
+    public void aRunWhosePlannerMatchesIsAllowed()
+    {
+        ScenarioManager.requirePlannerAsRequested("run_seed_42", "tama", "tama");
+        ScenarioManager.requirePlannerAsRequested("run_seed_42", "mirova", "mirova");
+    }
+
+    /**
+     * Tests that a run driven by another planner than the one requested is refused.
+     * <p>
+     * This is the case build.txt cannot catch: it proves which bundles were on the classpath, not which of them
+     * steered. A study whose parameters never carried the planner would otherwise produce output labelled with a
+     * model that did not produce it.
+     * </p>
+     */
+    @Test
+    public void aRunDrivenByAnotherPlannerIsRefused()
+    {
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> ScenarioManager.requirePlannerAsRequested("run_seed_42", "tama", "mirova"));
+        assertTrue(failure.getMessage().contains("requested tacticalPlanner=tama"), failure.getMessage());
+        assertTrue(failure.getMessage().contains("built with mirova"), failure.getMessage());
+        assertTrue(failure.getMessage().contains("did not produce it"), failure.getMessage());
+    }
+
+    /** Tests that the recorded planner is forgotten between runs, so a value cannot leak into the next one. */
+    @Test
+    public void theRecordedPlannerIsForgottenBetweenRuns()
+    {
+        ScenarioGenerator.resetAppliedPlanner();
+        assertEquals(ScenarioGenerator.MIROVA_PLANNER, ScenarioGenerator.getAppliedPlanner(),
+                "after a reset a run must not inherit the previous run's planner");
+    }
+
     /** Tests that a MiRoVA-only classpath adds nothing: the OTS stamp then describes the whole model. */
     @Test
     public void withoutTheBundleTheRecordIsUnchanged()
@@ -84,15 +119,40 @@ public class ClusterTamaSupportTest
 
         assertTrue(record.startsWith("# TaMA\n"), record);
         assertTrue(record.contains("tama.describe=1dda593"), record);
-        assertTrue(record.contains("tama.composition=mirova-reference/1"), record);
+        assertTrue(record.contains("tama.composition.requested=mirova-reference/1"), record);
     }
 
     /** Tests that a run which named no composition records that fact rather than leaving the line out. */
     @Test
     public void anUnnamedCompositionIsRecordedAsTheDefault()
     {
-        assertTrue(BuildProvenance.driverModelRecord(CLEAN_STAMP, null).contains("tama.composition=(provider default)"));
-        assertTrue(BuildProvenance.driverModelRecord(CLEAN_STAMP, "  ").contains("tama.composition=(provider default)"));
+        // "(none given)", not "(provider default)": the stamp records what the run ASKED for. What it resolved to is
+        // written by the run itself under "# Drove", with the composition's fingerprint - a name alone is a label that
+        // means one thing today and another the day the default changes.
+        assertTrue(BuildProvenance.driverModelRecord(CLEAN_STAMP, null).contains("tama.composition.requested=(none given)"));
+        assertTrue(BuildProvenance.driverModelRecord(CLEAN_STAMP, "  ").contains("tama.composition.requested=(none given)"));
+    }
+
+    /** Tests that what actually drove, with its fingerprint, is appended to the build record by the run. */
+    @Test
+    public void whatDroveIsRecordedWithItsFingerprint() throws Exception
+    {
+        File folder = java.nio.file.Files.createTempDirectory("runfolder").toFile();
+        folder.deleteOnExit();
+        // There is no build stamp on the test classpath, and refusing that is what BuildProvenance is for. This is the
+        // documented escape for a run that produces no result; the record then says recorded=false, which is exactly
+        // what a test wants and what an evaluation script would reject.
+        System.setProperty(BuildProvenance.ALLOW_PROPERTY, "true");
+        BuildProvenance.recordInto(folder, "tama",
+                "car composition=mirova-reference/1 fingerprint=a93e52a7\ntruck composition=mirova-reference/1 "
+                        + "fingerprint=a93e52a7");
+        String written = java.nio.file.Files.readString(new File(folder, "build.txt").toPath());
+
+        assertTrue(written.contains("# Drove"), written);
+        assertTrue(written.contains("run.tacticalPlanner=tama"), written);
+        assertTrue(written.contains("run.planner.car composition=mirova-reference/1 fingerprint=a93e52a7"), written);
+        assertTrue(written.contains("run.planner.truck composition=mirova-reference/1 fingerprint=a93e52a7"), written);
+        System.clearProperty(BuildProvenance.ALLOW_PROPERTY);
     }
 
     /** Tests that a bundle built from a dirty tree is refused, as a dirty OTS tree is refused by stamp_build.sh. */

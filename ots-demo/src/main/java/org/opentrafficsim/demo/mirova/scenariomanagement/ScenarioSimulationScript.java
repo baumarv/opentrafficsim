@@ -99,6 +99,10 @@ public class ScenarioSimulationScript extends AbstractSimulationScriptBase {
     {
         RoadNetwork network = this.scenario.setupSimulation(sim, this.parameters);
         this.outputConfig = this.scenario.getOutputConfiguration();
+        // The end of setup: the network and the vehicle templates exist, so every planner selection that is going to
+        // happen has happened - and nothing has been simulated yet. A run that asked for a planner this scenario never
+        // offered to select is refused here, where it costs seconds instead of a run.
+        ScenarioGenerator.requireSelectionHappened(this.scenario.getScenarioName());
         setupWatchdog(sim);
         return network;
     }
