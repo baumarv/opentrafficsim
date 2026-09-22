@@ -3,6 +3,9 @@ package org.opentrafficsim.demo.mirova.scenariomanagement;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.concurrent.*;
@@ -347,18 +350,97 @@ public class ScenarioManager {
         // build output folder
         File runFolder = new File(variationFolder, "run_seed_" + seed);
         runFolder.mkdirs();
-        // Before anything is simulated: the commit this run was built from, or no run at all.
-        BuildProvenance.recordInto(runFolder);
 
         generator.setOutputDirectory(runFolder);
 
         // Create SimulationScript
-        ScenarioSimulationScript script =
-                generator.buildSimulationScript(defaultParams.copy().applyOverridesFrom(runParams));
+        ScenarioParameters effective = defaultParams.copy().applyOverridesFrom(runParams);
+        ScenarioGenerator.resetAppliedPlanner();
+        ScenarioSimulationScript script = generator.buildSimulationScript(effective);
+
+        // The planner that actually drove has to be the one that was asked for. Building the scenario is the only
+        // moment both are known, and it is still before anything is simulated. Without this a run whose parameters
+        // never carried the planner would quietly use the scenario's own one and produce output that looks like the
+        // requested model: build.txt would prove the bundle was on the classpath, not that it steered.
+        String requestedPlanner =
+                effective.getOrDefault(ScenarioGenerator.KEY_TACTICAL_PLANNER, ScenarioGenerator.MIROVA_PLANNER, String.class);
+        String appliedPlanner = ScenarioGenerator.getAppliedPlanner();
+        requirePlannerAsRequested(runFolder.getName(), requestedPlanner, appliedPlanner);
+
+        // Written by the run, after the planner is resolved: the commit(s) this was built from, and what drove.
+        BuildProvenance.recordInto(runFolder, appliedPlanner, ScenarioGenerator.getAppliedPlannerDescription());
+        writeRunIdentity(runFolder, generator, seed, appliedPlanner, ScenarioGenerator.getAppliedPlannerDescription());
 
         script.setGuiEnabled(false);
 
         return new PreparedRun(script, seed, runFolder);
+    }
+
+    /**
+     * Refuses the run when the planner that drove is not the one that was requested.
+     * <p>
+     * Building the scenario is the only moment both are known, and it is still before anything is simulated. Without
+     * this, a run whose parameters never carried the planner would quietly use the scenario's own one and produce
+     * output that looks like the requested model: {@code build.txt} proves the bundle was on the classpath, not that
+     * it steered.
+     * </p>
+     * @param runName String; the run folder's name, for the message
+     * @param requested String; the planner the parameters asked for
+     * @param applied String; the planner the scenario was actually built with
+     * @throws IllegalStateException when the two differ
+     */
+    static void requirePlannerAsRequested(final String runName, final String requested, final String applied)
+    {
+        if (!requested.equals(applied))
+        {
+            throw new IllegalStateException("Run " + runName + " requested tacticalPlanner=" + requested
+                    + " but the scenario was built with " + applied + ". Refusing to run: its output would be "
+                    + "attributed to a model that did not produce it.");
+        }
+    }
+
+    /**
+     * Writes {@code run.properties} into a run folder: what drove this run, resolved.
+     * <p>
+     * Written by the run rather than by the build, because that is the only thing that can state what actually
+     * steered. {@code build.txt} says which commits were on the classpath; this says which of them was used, and with
+     * what. For a provider that resolves anything further -- a composition, a fingerprint -- those lines come from the
+     * provider itself and are already resolved, so "the default" cannot mean one thing today and another tomorrow
+     * without the file changing.
+     * </p>
+     * @param runFolder File; the run's folder
+     * @param generator ScenarioGenerator; the generator, for the scenario name
+     * @param seed long; the seed of this run
+     * @param planner String; the planner that drove
+     * @param plannerDescription String; what the provider reported about itself
+     */
+    private static void writeRunIdentity(final File runFolder, final ScenarioGenerator generator, final long seed,
+            final String planner, final String plannerDescription)
+    {
+        StringBuilder text = new StringBuilder();
+        text.append("# Written by ScenarioManager after the scenario was built, before anything was simulated.\n");
+        text.append("scenario=").append(generator.getScenarioName()).append('\n');
+        text.append("seed=").append(seed).append('\n');
+        text.append("tacticalPlanner=").append(planner).append('\n');
+        for (String line : plannerDescription.split("\\R"))
+        {
+            if (!line.isBlank() && !line.equals(planner))
+            {
+                text.append("planner.").append(line.trim()).append('\n');
+            }
+        }
+        try
+        {
+            File temp = File.createTempFile("run", ".tmp", runFolder);
+            Files.writeString(temp.toPath(), text.toString(), StandardCharsets.UTF_8);
+            Files.move(temp.toPath(), new File(runFolder, "run.properties").toPath(), StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE);
+        }
+        catch (IOException exception)
+        {
+            // Same rule as build.txt: a result that cannot say what produced it is the failure this prevents.
+            throw new IllegalStateException("Cannot write run.properties into " + runFolder, exception);
+        }
     }
 
     /**
