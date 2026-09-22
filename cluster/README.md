@@ -425,6 +425,52 @@ Without it `cp.txt` simply has no bundle in it, and the failure appears three st
 "no provider named tama". Timings from the local rehearsal, fresh clones into an empty Maven
 repository: fork ~90 s, bundle ~130 s, classpath ~10 s; repository 104 MB. **[local]**
 
+#### When a shared interface changes, it is four steps, not three **[cluster]**
+
+Measured on the cluster: `:tama-ots:publishToMavenLocal` failed with
+
+```
+'describe' overrides nothing
+```
+
+That reads like a defect in TaMA and is not one. `tama-ots` compiles against the OTS **in
+`~/.m2`**, and the `run-identity` change added `describe()` to `TacticalPlannerProvider`. Step 1
+above installs the new interface — but only if it runs, and step 1 carries `MIROVA_TAMA=1`, which
+makes that build want a TaMA bundle that step 2 has not produced yet. On a workspace where a
+*previous* bundle exists, step 1 succeeds against the old interface and nothing warns; where none
+exists, step 1 cannot complete at all. Either way TaMA then compiles against a stale OTS.
+
+So when the shared interface has changed, one plain install goes first:
+
+```bash
+# 0. the fork WITHOUT MIROVA_TAMA - installs the new interface, needs no bundle
+cd $WS/opentrafficsim
+mvn -DskipTests install
+# then steps 1-3 above, unchanged
+```
+
+**How to tell whether step 0 is needed.** Ask the installed jar, not your memory — the members
+`tama-ots` overrides are listed in `tama-ots/build.gradle.kts` (`requiredOtsMembers`):
+
+```bash
+guard "the installed OTS declares describe()" \
+  bash -c 'javap -cp ~/.m2/repository/org/opentrafficsim/ots-demo/1.7.6/ots-demo-1.7.6.jar \
+    org.opentrafficsim.demo.mirova.scenariomanagement.TacticalPlannerProvider | grep -q "describe("'
+```
+
+`javap` rather than `strings` on the extracted class: the JDK is already provisioned by
+`activate_toolchain`, whereas `strings` is not guaranteed — it is absent from Git Bash, where this
+was first written. Verified against the installed jar: the interface prints
+`public default java.lang.String describe();`. **[local]**
+
+Cheaper rule of thumb, when the answer is not obvious: **step 0 is harmless.** It is a plain
+install of a tree that is about to be installed anyway, so run it whenever the fork moved to a
+commit that touches an interface TaMA implements.
+
+TaMA also refuses this itself now, rather than letting the compiler report an override error:
+`:tama-ots:checkInstalledOtsInterface` runs before `compileKotlin`, reads the installed
+`ots-demo` jar and fails naming the missing member and the four-step order.
+
 Build the bundle from a **committed** TaMA tree. The jar stamps itself with
 `git describe`, and a dirty tree produces `…-dirty`, which the run then refuses.
 
