@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.opentrafficsim.demo.mirova.scenariomanagement.BuildProvenance;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioGenerator;
@@ -71,7 +72,7 @@ public final class RunMirovaClusterStudy
      * @param scenarioManager ScenarioManager; the manager the study has already registered into
      * @param study StudyDefinition; for the error message
      */
-    private static void applyTacticalPlanner(final String planner, final ScenarioManager scenarioManager,
+    static void applyTacticalPlanner(final String planner, final ScenarioManager scenarioManager,
             final StudyDefinition study)
     {
         if (planner == null)
@@ -84,6 +85,17 @@ public final class RunMirovaClusterStudy
             throw new IllegalArgumentException("--" + ScenarioGenerator.KEY_TACTICAL_PLANNER + " needs a value, e.g. '"
                     + ScenarioGenerator.MIROVA_PLANNER + "' or 'tama'.");
         }
+        // A study that varies the planner itself cannot also be given a global one: the override would flatten the
+        // distinction into a single model and the run would carry a comparison it never made. Refused rather than
+        // warned about, because the output of such a run is indistinguishable from a correct one.
+        Set<Object> already = scenarioManager.distinctVariationValues(ScenarioGenerator.KEY_TACTICAL_PLANNER);
+        if (already.size() > 1)
+        {
+            throw new IllegalStateException("--" + ScenarioGenerator.KEY_TACTICAL_PLANNER + "=" + requested
+                    + " would overwrite the planner that study '" + study.getName() + "' sets per cell (it registered "
+                    + already + "). A study that varies the driver model is run without this option.");
+        }
+
         int changed = scenarioManager.setOnAllVariations(ScenarioGenerator.KEY_TACTICAL_PLANNER, requested);
         if (changed == 0)
         {
