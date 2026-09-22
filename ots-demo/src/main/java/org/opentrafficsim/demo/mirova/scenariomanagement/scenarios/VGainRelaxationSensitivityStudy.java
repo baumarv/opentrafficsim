@@ -4,6 +4,7 @@ import org.djunits.unit.SpeedUnit;
 import org.djunits.value.vdouble.scalar.Speed;
 import org.djunits.value.vdouble.scalar.Duration;
 import java.io.File;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -134,6 +135,25 @@ public class VGainRelaxationSensitivityStudy implements StudyDefinition
                 params.set(KEY_TAU_RELAX, tau);
             });
         }
+    }
+
+    /**
+     * The cells of this study, by label, in registration order.
+     * <p>
+     * Exposed so a wider study can carry these eight cells without restating them. Restating them is how two study
+     * definitions that are meant to be identical drift apart, which has happened in this package before -- the
+     * production and final studies carried different {@code T} values for exactly that reason.
+     * </p>
+     * <p>
+     * Order-preserving on purpose: the global run index follows registration order, so a caller that received these
+     * cells in an arbitrary order would produce a different task-to-cell mapping on every JVM. {@code Map.copyOf} is
+     * wrong here for that reason.
+     * </p>
+     * @return Map&lt;String, Consumer&lt;ScenarioParameters&gt;&gt;; an unmodifiable, order-preserving view of the cells
+     */
+    public static Map<String, Consumer<ScenarioParameters>> cells()
+    {
+        return Collections.unmodifiableMap(new LinkedHashMap<>(CELLS));
     }
 
     /**
