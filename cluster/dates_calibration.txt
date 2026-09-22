@@ -10,6 +10,28 @@
 #   2025-09-22   3456 veh/h   14.9 %   middle
 #   2025-10-07   4044 veh/h   21.3 %   upper end, hardest case
 #
+# [2026-09-22] CORRECTION - the two lines above this block are wrong, and this set was
+# chosen on them. Against the empirical target table (docs/mirova/parameter_sensitivity.md
+# section 2), which is the authority here:
+#
+#   - The exclusion is inverted. 2025-09-22 is the ONE day of the nine with no identified
+#     breakdown; 2025-09-23 has one (q_pre 2988, discharge 3010, 110 min, 39.1 km/h), as
+#     does 2025-10-08. docs/mirova/calibration_status_briefing.md section 3 already noted
+#     that the exclusion predates the current detection and no longer holds; the text here
+#     was never updated.
+#   - The 3456 veh/h / 14.9 % attributed to 2025-09-22 is the MEAN ROW of that table over
+#     the eight breakdown days, not a value for that date. The table has no row for
+#     2025-09-22 because there is no breakdown to measure one from. The other two entries
+#     (2025-10-27 -> 3300, 2025-10-07 -> 4044) match the table exactly.
+#
+# What this does and does not invalidate: the SPREAD argument still holds, since 2025-10-27
+# and 2025-10-07 do span the observed capacity range low to high. What does not hold is
+# "each has an identified empirical breakdown" - 2025-09-22 does not, so on that date
+# capacity drop is not estimable from the field at all, and any mergegrid comparison
+# against it compares the model to a target that was never measured. The dates are left
+# unchanged so that already-published mergegrid results stay reproducible; a rerun should
+# reconsider the third date.
+#
 # The remaining six dates stay untouched as validation. Calibrating on the days a model
 # already reproduces improves the metric without improving the model.
 #
