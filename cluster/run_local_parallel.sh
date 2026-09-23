@@ -117,7 +117,12 @@ done
 STUBS=$(grep -rl "Unresolved compilation" "$SNAPSHOT" 2>/dev/null | wc -l)
 if [ "$STUBS" -gt 0 ]; then
   echo "[cp] REFUSING TO RUN: $STUBS class file(s) contain an Eclipse 'Unresolved compilation problem' stub." >&2
-  grep -rl "Unresolved compilation" "$SNAPSHOT" 2>/dev/null | sed "s|$SNAPSHOT/||" | head -10 >&2
+  # Shell parameter expansion, not sed: $SNAPSHOT is a Windows temp path and its backslashes
+  # are back references to sed, so the one line naming the offending class failed with
+  # "Invalid back reference" and the refusal named no file at all.
+  grep -rl "Unresolved compilation" "$SNAPSHOT" 2>/dev/null | head -10 | while IFS= read -r f; do
+    echo "  ${f#"$SNAPSHOT/"}" >&2
+  done
   echo "[cp] rebuild with the recipe in docs/mirova/troubleshooting_and_compilation.md:" >&2
   echo "[cp]   mvn clean install -pl ots-demo -am -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Djacoco.skip=true" >&2
   exit 1
