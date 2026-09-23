@@ -4,7 +4,7 @@ import org.djunits.value.vfloat.scalar.FloatDuration;
 import org.opentrafficsim.kpi.interfaces.GtuData;
 import org.opentrafficsim.kpi.sampling.data.ExtendedDataDuration;
 import org.opentrafficsim.road.gtu.lane.LaneBasedGtu;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
+import org.opentrafficsim.road.gtu.lane.tactical.DriverStateObservable;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.BeliefLayer.EgoContext;
 import org.opentrafficsim.road.network.sampling.GtuDataRoad;
 
@@ -47,14 +47,9 @@ public class ExtendedDataAccelerationDamping extends ExtendedDataDuration<GtuDat
         if (gtu instanceof GtuDataRoad road)
         {
             LaneBasedGtu lgtu = road.getGtu();
-            if (lgtu.getTacticalPlanner() instanceof MirovaTacticalPlanner p)
+            if (lgtu.getTacticalPlanner() instanceof DriverStateObservable p)
             {
-                EgoContext ego = p.getContext(EgoContext.class);
-                if (ego != null)
-                {
-                    double factor = ego.getPrimaryRelaxationAccelerationFactor();
-                    return FloatDuration.instantiateSI((float) factor);
-                }
+                return FloatDuration.instantiateSI((float) p.accelerationDampingFactor());
             }
         }
         return FloatDuration.instantiateSI(Float.NaN);
