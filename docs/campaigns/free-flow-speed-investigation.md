@@ -1,6 +1,7 @@
 # Why the free-flow speed differs from the field — what has been measured
 
-**Status: findings; every question raised here has been measured except one, named in §5.** Written
+**Status: findings. Everything raised here has been measured; the one remaining input is a
+question to the data provider, not to this code (§5).** Written
 on 2026-09-23 while Marvin was away, measured part separated from hypothesis throughout.
 
 ## The question as it was posed
@@ -108,17 +109,30 @@ OTS creates its loop detector with `LoopDetector.HARMONIC_MEAN_SPEED`. Computed 
 actually crossing that position in the probe, the arithmetic mean exceeds the harmonic one by
 **2.39 km/h** in uncongested intervals (Lane 1 3.47, Lane 2 1.88; 2.56 km/h over all intervals).
 
-So **if** the field's `v_kfz_gesamt` is an arithmetic mean of individual vehicle speeds — which is
-what German loop detectors usually report, and what the database's own definition has to confirm —
-then roughly 2 to 2.5 km/h of the 5–8 km/h median difference in §3 is a definition rather than a
-behaviour, and 3 to 6 km/h remain. That is the one input still unchecked; everything else in §3 was
-verified.
+The field side is now read too, in `scripts/evaluation/fielddata/detectors/io/fetch.py`. Its
+five-minute value is built from the per-minute records as
+
+```
+out[v] = Σ(q_i · v_i) / mean(q) / aggregation     which reduces to    Σ(q_i · v_i) / Σ(q_i)
+```
+
+— a **flow-weighted arithmetic mean** of the per-minute speeds. Whatever the detector reports within
+a single minute, combining the minutes arithmetically is not the same operation as the harmonic mean
+the model's detector applies over the same five minutes, so the two figures are not the same
+quantity and the difference has the sign measured above: the field value is the higher one.
+
+What is still not visible from this repository is the per-minute value itself, which is the roadside
+device's own aggregate (TLS/MARZ detectors normally report an arithmetic mean of individual vehicle
+speeds, which would make the field figure arithmetic throughout). Confirming that turns the 2.39
+km/h from a bound into a correction; it does not change the direction.
 
 ## What to do next, in order
 
-1. **Establish how the field aggregates its speeds.** It is one question to the database schema or
-   to whoever maintains `fetch_fielddata_detectors`, and it decides how much of §3 is left to
-   explain. Until it is answered, treat the median difference as 3–6 km/h, not 5–8.
+1. **Confirm the per-minute field speed.** The five-minute aggregation is already known to be a
+   flow-weighted arithmetic mean (§5); what remains is the device's own per-minute definition, which
+   is a question to the data provider and not to this code. Until then treat the median difference
+   as 3–6 km/h rather than 5–8, and compare like with like by reporting the model's arithmetic mean
+   alongside — `approach_profile.py` already computes it.
 2. **Then go at the desired-speed distribution**, which is what §3 points to once §4 and §5 are
    taken out: the median too low *and* the p95 too high is a distribution that is too wide and
    centred too low. `fSpeed` and its spread are the candidates, and they are cheap to screen.
