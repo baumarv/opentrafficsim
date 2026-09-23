@@ -1,7 +1,7 @@
 # Why the free-flow speed differs from the field — what has been measured
 
-**Status: findings, with one probe still running.** Written on 2026-09-23 while Marvin was away, so
-that the measured part is separated from the part that is still a hypothesis.
+**Status: findings; every question raised here has been measured except one, named in §5.** Written
+on 2026-09-23 while Marvin was away, measured part separated from hypothesis throughout.
 
 ## The question as it was posed
 
@@ -64,44 +64,67 @@ the desired-speed distribution, not about merging. That is the finding to act on
   Lane 2 carries 1200.
 * **Trucks are in both.** The field's `v_kmh` is `v_kfz_gesamt`, all motor vehicles.
 
-### What is not yet ruled out
+### The one input that was not checked here
 
 **The two speeds may not be the same kind of mean.** OTS creates its loop detector with
-`LoopDetector.HARMONIC_MEAN_SPEED`. A harmonic mean is at or below the arithmetic one and the gap
-grows with the spread of the speeds, so if the field figure is an arithmetic mean, part of the
-median difference is a definition rather than a behaviour. `approach_profile.py` computes both from
-the vehicles crossing the detector position, so the size of that part will be known rather than
-assumed.
+`LoopDetector.HARMONIC_MEAN_SPEED`, which is at or below the arithmetic mean by an amount that grows
+with the spread of the speeds. §5 measures how much that is worth here.
 
-## 4. The exit hypothesis — plausible, probe running
+## 4. The exit does not depress the mainline — measured, not inferred
 
-The off-ramp leaves from **L2a**, whose third lane `FORWARD3` is the exit zone, and L2a feeds **L3a**
-where the detector sits, at half that link's length. Vehicles braking for the exit would therefore
-depress the measured speed *upstream of any merging at all*.
+The off-ramp leaves from **L2a**, whose exit lane the sampler reports as `Ramp`, and L2a feeds
+**L3a**, where the detector sits at half that link's length. Braking for the exit would depress the
+measured speed *upstream of any merging at all*, which made this the better hypothesis.
 
-The field data says the perturbation is real: the **Ausfahrt** measurement position carries
-**336 veh/h at a median of 48.5 km/h**, about 19 % of the mainline's 1776 veh/h, decelerating from
-around 110 km/h.
+A 15-run probe settles it: five days with the validation parameters, trajectories on L2a, L3a and
+L4a, recorded with `--jvm-opt=-Dmirova.samplerLinks=L2a,L3a,L4a`. No campaign had ever recorded the
+approach; the switch existed on `FreiburgNord.SAMPLED_LINK_IDS` but the local runner could not pass
+it. 15 ok, 0 failed, 15 minutes, 660 MB.
 
-No campaign has ever recorded trajectories on the approach — the sampler has always been restricted
-to the merge section L4a. `--jvm-opt=-Dmirova.samplerLinks=L2a,L3a,L4a` now passes the switch that
-`FreiburgNord.SAMPLED_LINK_IDS` has always offered, and a 15-run probe is recording L2a, L3a and L4a
-on five days with the validation parameters: the four with the largest positive gap
-(2025-10-15, 2025-10-29, 2025-10-07, 2025-09-17) and 2025-09-22 as the control with the largest
-negative one.
+**Speed along L2a in uncongested periods [km/h]:**
 
-`approach_profile.py` reads them: mean speed by link, lane and position bin over uncongested periods
-only. If the exit is the cause, the exit lane is slower than the through lanes and the effect fades
-with distance from the gore.
+| from the link start | Lane1 | Lane2 | Ramp (exit) |
+|---|---|---|---|
+| 0 m | 101.9 | 110.8 | 101.3 |
+| 50 m | 101.6 | 110.7 | 82.2 |
+| 125 m | 102.8 | 110.5 | 98.7 |
+| 200 m | 103.5 | 110.3 | 98.4 |
+| 225 m | 106.8 | 111.9 | 100.6 |
+
+The through lanes are **flat**: Lane 2 holds 110.3–111.9 km/h across the whole 229 m and Lane 1
+101.6–106.8. There is no deceleration wave ahead of the gore, and the speeds continue at that level
+into L3a (Lane 1 ≈ 105, Lane 2 107–112). Only the exit lane itself is slow, and it carries 1.7 % of
+the samples.
+
+**The exit flow is right, so this is not a case of the model simply having no exit traffic.**
+Counted as vehicles that appear on L2a and never on L3a — the exit-lane sample count undercounts,
+because a vehicle is on that lane only briefly — the model exits **325 veh/h, 16.9 %** of the L2a
+traffic, against the field's **336 veh/h** at the *Ausfahrt* position, about 16 %. The manoeuvre
+happens, at the right volume, and it does not slow the through lanes down.
+
+## 5. Part of the remaining difference is a definition, and it is now measured
+
+OTS creates its loop detector with `LoopDetector.HARMONIC_MEAN_SPEED`. Computed from the vehicles
+actually crossing that position in the probe, the arithmetic mean exceeds the harmonic one by
+**2.39 km/h** in uncongested intervals (Lane 1 3.47, Lane 2 1.88; 2.56 km/h over all intervals).
+
+So **if** the field's `v_kfz_gesamt` is an arithmetic mean of individual vehicle speeds — which is
+what German loop detectors usually report, and what the database's own definition has to confirm —
+then roughly 2 to 2.5 km/h of the 5–8 km/h median difference in §3 is a definition rather than a
+behaviour, and 3 to 6 km/h remain. That is the one input still unchecked; everything else in §3 was
+verified.
 
 ## What to do next, in order
 
-1. **Read the probe.** It settles the exit question and the harmonic/arithmetic one at once.
-2. **Take the desired-speed distribution seriously as the lever**, since §3 points at it directly:
-   the median is too low and the tail too high, which is a distribution shape, not a merging
-   parameter. `fSpeed` and its spread are the candidates.
+1. **Establish how the field aggregates its speeds.** It is one question to the database schema or
+   to whoever maintains `fetch_fielddata_detectors`, and it decides how much of §3 is left to
+   explain. Until it is answered, treat the median difference as 3–6 km/h, not 5–8.
+2. **Then go at the desired-speed distribution**, which is what §3 points to once §4 and §5 are
+   taken out: the median too low *and* the p95 too high is a distribution that is too wide and
+   centred too low. `fSpeed` and its spread are the candidates, and they are cheap to screen.
 3. **Stop reading `v_f` as the target.** §2 shows it is not determined well enough on the field side
-   to calibrate against. The low-flow speed distribution of §3 is the quantity with an answer.
+   to calibrate against; §1 shows chasing it through merging parameters costs runs and moves
+   nothing. The low-flow speed distribution of §3 is the quantity with an answer.
 4. `pThreshold` stays at its default of 1.0, where it reproduces the published linear form exactly.
    Whether to keep the parameter at all is Marvin's call; nothing depends on it.
 
