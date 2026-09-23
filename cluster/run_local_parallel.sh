@@ -13,7 +13,12 @@
 #
 # Usage:
 #   cluster/run_local_parallel.sh --study=phase05 --output=<dir> [--slots=12] [--heap=6g]
-#                                 [--tama] [--diag] [--dry-run] [-- <study options>]
+#                                 [--tama] [--diag] [--jvm-opt=-Dx=y]... [--dry-run]
+#                                 [-- <study options>]
+#
+# --jvm-opt is passed to every run's JVM and may be repeated. A scenario switch read from a
+# system property - FreiburgNord's mirova.samplerLinks, for one - reaches the run no other way,
+# because the runs are separate JVMs this script starts itself.
 #
 # --tama resolves the classpath through ots-demo's 'tama' Maven profile, which is the only thing that
 # puts the TaMA driver model on it. Without it a study whose cells set tacticalPlanner=tama builds its
@@ -36,6 +41,7 @@ HEAP=6g
 DIAG=0
 DRY=0
 TAMA=0
+JVM_OPTS=()
 STUDY=""
 OUTPUT=""
 STUDY_ARGS=()
@@ -46,6 +52,7 @@ while [ $# -gt 0 ]; do
     --output=*) OUTPUT="${1#*=}" ;;
     --slots=*)  SLOTS="${1#*=}" ;;
     --heap=*)   HEAP="${1#*=}" ;;
+    --jvm-opt=*) JVM_OPTS+=("${1#*=}") ;;
     --tama)     TAMA=1 ;;
     --diag)     DIAG=1 ;;
     --dry-run)  DRY=1 ;;
@@ -56,7 +63,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$STUDY" ] || [ -z "$OUTPUT" ]; then
-  echo "usage: $0 --study=<name> --output=<dir> [--slots=N] [--heap=6g] [--tama] [--diag] [--dry-run] -- <study options>" >&2
+  echo "usage: $0 --study=<name> --output=<dir> [--slots=N] [--heap=6g] [--tama] [--diag] [--jvm-opt=-Dx=y]... [--dry-run] -- <study options>" >&2
   exit 2
 fi
 
@@ -150,6 +157,7 @@ java -cp "$CP" "$MAIN_CLASS" --study="$STUDY" --output="$OUTPUT" \
 
 echo "[plan] study=$STUDY runs=$TOTAL slots=$SLOTS heap=$HEAP diag=$DIAG"
 echo "[plan] output=$OUTPUT"
+[ ${#JVM_OPTS[@]} -gt 0 ] && echo "[plan] jvm: ${JVM_OPTS[*]}"
 [ "$DIAG" = 1 ] && echo "[plan] defect counters on; one CSV per run in $OUTPUT/defects/"
 if [ "$DRY" = 1 ]; then echo "[plan] dry run, nothing executed"; exit 0; fi
 [ "$DIAG" = 1 ] && mkdir -p "$OUTPUT/defects"
@@ -168,6 +176,7 @@ for i in $(seq 0 $((TOTAL - 1))); do
   # in a network XML would read as 23 mm. Same line as in cluster/run_mirova.sbatch; see there for why this
   # is the only place that can pin it for a run.
   OPTS=(-Xmx"$HEAP" -XX:ActiveProcessorCount=1 -Djava.awt.headless=true -Duser.language=en -Duser.country=US)
+  if [ ${#JVM_OPTS[@]} -gt 0 ]; then OPTS+=("${JVM_OPTS[@]}"); fi
   if [ "$DIAG" = 1 ]; then
     OPTS+=(-Dmirova.defectDiag=true -Dmirova.defectDiagFile="$OUTPUT/defects/run_${i}.csv")
   fi
