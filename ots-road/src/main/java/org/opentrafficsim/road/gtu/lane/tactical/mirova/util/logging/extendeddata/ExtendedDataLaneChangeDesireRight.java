@@ -3,7 +3,7 @@ package org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendedda
 import org.djunits.value.vfloat.scalar.FloatDuration;
 import org.opentrafficsim.kpi.interfaces.GtuData;
 import org.opentrafficsim.road.gtu.lane.LaneBasedGtu;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
+import org.opentrafficsim.road.gtu.lane.tactical.DriverStateObservable;
 import org.opentrafficsim.road.network.sampling.GtuDataRoad;
 
 /**
@@ -44,10 +44,9 @@ public class ExtendedDataLaneChangeDesireRight extends ExtendedDataDesire<GtuDat
         if (gtu instanceof GtuDataRoad road)
         {
             LaneBasedGtu lgtu = road.getGtu();
-            if (lgtu.getTacticalPlanner() instanceof MirovaTacticalPlanner p)
+            if (lgtu.getTacticalPlanner() instanceof DriverStateObservable p)
             {
-                double val = p.getLaneChangeDesire() != null ? p.getLaneChangeDesire().getRight() : Double.NaN;
-                return FloatDuration.instantiateSI((float) val);
+                return FloatDuration.instantiateSI((float) p.laneChangeDesireRight());
             }
         }
         return FloatDuration.instantiateSI(Float.NaN);

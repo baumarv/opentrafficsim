@@ -16,6 +16,7 @@ import org.opentrafficsim.road.gtu.lane.perception.categories.*;
 import org.opentrafficsim.road.gtu.lane.perception.headway.*;
 import org.opentrafficsim.road.gtu.lane.plan.operational.*;
 import org.opentrafficsim.road.gtu.lane.tactical.AbstractLaneBasedTacticalPlanner;
+import org.opentrafficsim.road.gtu.lane.tactical.DriverStateObservable;
 import org.opentrafficsim.road.gtu.lane.tactical.following.CarFollowingModel;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.*;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.ArbitrationLayer.HybridPlanArbitrator;
@@ -49,7 +50,7 @@ import java.util.*;
  * </p>
  * @author <a href="https://github.com/baumarv">Marvin Baumann</a>
  */
-public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
+public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner implements DriverStateObservable
 {
     // ----------------------------------------------------------------------
     // Tactical and Planning Components
@@ -577,6 +578,55 @@ public class MirovaTacticalPlanner extends AbstractLaneBasedTacticalPlanner
     public void setCurrentActionState(final ActionState currentActionState)
     {
         this.currentActionState = currentActionState;
+    }
+
+    // ----------------------------------------------------------------------
+    // DriverStateObservable - what the trajectory sampler reads
+    //
+    // These five methods are the whole of what the sampler's extended columns need. They existed
+    // before as `instanceof MirovaTacticalPlanner` branches inside the columns themselves, which
+    // made every column silently empty for any other driver model. Reporting only; nothing here
+    // computes, caches or schedules anything.
+    // ----------------------------------------------------------------------
+
+    /** {@inheritDoc} */
+    @Override
+    public String actionStateName()
+    {
+        return this.currentActionState == null ? DriverStateObservable.NO_ACTION_STATE
+                : this.currentActionState.toString();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public double laneChangeDesireLeft()
+    {
+        Desire desire = getLaneChangeDesire();
+        return desire == null ? Double.NaN : desire.getLeft();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public double laneChangeDesireRight()
+    {
+        Desire desire = getLaneChangeDesire();
+        return desire == null ? Double.NaN : desire.getRight();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public double accelerationDampingFactor()
+    {
+        EgoContext ego = getContext(EgoContext.class);
+        return ego == null ? Double.NaN : ego.getPrimaryRelaxationAccelerationFactor();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Acceleration carFollowingAcceleration()
+    {
+        EgoContext ego = getContext(EgoContext.class);
+        return ego == null ? null : ego.getCachedValue(EgoContext.CURRENT_CF_ACCELERATION, Acceleration.class);
     }
 
     /**
