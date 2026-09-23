@@ -13,7 +13,13 @@
 #
 # Usage:
 #   cluster/run_local_parallel.sh --study=phase05 --output=<dir> [--slots=12] [--heap=6g]
-#                                 [--diag] [--dry-run] [-- <study options>]
+#                                 [--tama] [--diag] [--dry-run] [-- <study options>]
+#
+# --tama resolves the classpath through ots-demo's 'tama' Maven profile, which is the only thing that
+# puts the TaMA driver model on it. Without it a study whose cells set tacticalPlanner=tama builds its
+# scenario, fails at t=0 with "matches 0 tactical planner provider(s) ... available: []", and reports
+# forty finished runs in under a minute. The two profiles get separate cache files, because a cache
+# resolved without the profile is indistinguishable from one resolved with it.
 #
 # Example -- the Phase 0.5 instrumentation run:
 #   cluster/run_local_parallel.sh --study=phase05 --output=out/phase05-instr --slots=12 --diag -- \
@@ -29,6 +35,7 @@ SLOTS=12
 HEAP=6g
 DIAG=0
 DRY=0
+TAMA=0
 STUDY=""
 OUTPUT=""
 STUDY_ARGS=()
@@ -39,6 +46,7 @@ while [ $# -gt 0 ]; do
     --output=*) OUTPUT="${1#*=}" ;;
     --slots=*)  SLOTS="${1#*=}" ;;
     --heap=*)   HEAP="${1#*=}" ;;
+    --tama)     TAMA=1 ;;
     --diag)     DIAG=1 ;;
     --dry-run)  DRY=1 ;;
     --)         shift; STUDY_ARGS=("$@"); break ;;
@@ -48,7 +56,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$STUDY" ] || [ -z "$OUTPUT" ]; then
-  echo "usage: $0 --study=<name> --output=<dir> [--slots=N] [--heap=6g] [--diag] [--dry-run] -- <study options>" >&2
+  echo "usage: $0 --study=<name> --output=<dir> [--slots=N] [--heap=6g] [--tama] [--diag] [--dry-run] -- <study options>" >&2
   exit 2
 fi
 
@@ -57,7 +65,13 @@ cd "$REPO" || exit 1
 mkdir -p "$OUTPUT/logs" || exit 1
 
 MAIN_CLASS="org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunMirovaClusterStudy"
-CP_CACHE="$REPO/cluster/.cp_local.txt"
+if [ "$TAMA" -eq 1 ]; then
+  CP_CACHE="$REPO/cluster/.cp_local-tama.txt"
+  MVN_PROFILE=(-Ptama)
+else
+  CP_CACHE="$REPO/cluster/.cp_local.txt"
+  MVN_PROFILE=()
+fi
 
 # --- classpath -------------------------------------------------------------
 # Module classes first, so a rebuilt class wins over anything in a jar, then the resolved runtime
