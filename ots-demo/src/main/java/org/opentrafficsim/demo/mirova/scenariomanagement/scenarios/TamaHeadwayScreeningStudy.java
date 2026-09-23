@@ -84,6 +84,9 @@ public class TamaHeadwayScreeningStudy implements StudyDefinition
     private static final List<FreiburgCombinationStudy.HeadwayCombination> HEADWAYS =
             FreiburgCombinationStudy.COMBINATIONS;
 
+    /** Label of the headway combination the validation parameter set was frozen at. */
+    public static final String STANDARD_HEADWAY_LABEL = "standard";
+
     /** Relaxation damping, held at 1.0: the damping axis is not screened here. */
     private static final double DAMPING = 1.00;
 
@@ -207,6 +210,55 @@ public class TamaHeadwayScreeningStudy implements StudyDefinition
     }
 
     /**
+     * The baseline one headway carries, before any cell moves a member of the triple.
+     *
+     * Extracted from {@code register} so that a study which needs the same starting point -- the validation set is
+     * this method at {@link #standardHeadway()} with the unchanged cell -- takes it from
+     * here instead of restating it. A restatement is what drifts; this cannot.
+     * @param facility TrafficFacility; the facility
+     * @param date String; the date
+     * @param demandCsvPath String; the demand file
+     * @param strict boolean; whether demand resolution is strict
+     * @param headway FreiburgCombinationStudy.HeadwayCombination; the headway combination
+     * @return ScenarioParameters; the baseline parameters
+     */
+    public static ScenarioParameters baseline(final TrafficFacility facility, final String date,
+            final String demandCsvPath, final boolean strict,
+            final FreiburgCombinationStudy.HeadwayCombination headway)
+    {
+        ScenarioParameters params =
+                FreiburgCombinationStudy.forCombination(facility, date, demandCsvPath, strict, headway, DAMPING, FGAP);
+        // The baseline of the triple, which each cell then moves one member of.
+        params.set("car." + ParameterTypes.B.getId(), Acceleration.instantiateSI(B_BASE));
+        params.set("truck." + ParameterTypes.B.getId(), Acceleration.instantiateSI(B_BASE));
+        params.set("car." + ParameterTypes.S0.getId(),
+                org.djunits.value.vdouble.scalar.Length.instantiateSI(S0_BASE));
+        params.set("truck." + ParameterTypes.S0.getId(),
+                org.djunits.value.vdouble.scalar.Length.instantiateSI(2.0 * S0_BASE));
+        params.set("car." + ParameterTypes.A.getId(), Acceleration.instantiateSI(A_BASE));
+        return params;
+    }
+
+    /**
+     * The headway combination the validation set was frozen at, found by name rather than by position.
+     * @return FreiburgCombinationStudy.HeadwayCombination; the standard combination
+     * @throws IllegalStateException when no combination carries that label, rather than silently taking another
+     */
+    public static FreiburgCombinationStudy.HeadwayCombination standardHeadway()
+    {
+        for (FreiburgCombinationStudy.HeadwayCombination headway : HEADWAYS)
+        {
+            if (STANDARD_HEADWAY_LABEL.equals(headway.label()))
+            {
+                return headway;
+            }
+        }
+        throw new IllegalStateException("no headway combination labelled '" + STANDARD_HEADWAY_LABEL
+                + "'; the validation set was frozen at it. Known: " + HEADWAYS.stream()
+                        .map(FreiburgCombinationStudy.HeadwayCombination::label).toList());
+    }
+
+    /**
      * The cells of this study, by qualified label, in registration order.
      * @return Map&lt;String, String&gt;; label to the axis it moves
      */
@@ -299,16 +351,8 @@ public class TamaHeadwayScreeningStudy implements StudyDefinition
                     String scenarioName = facility.scenarioName(date, label);
                     manager.addScenario(scenarioName, facility.getGeneratorClass());
 
-                    ScenarioParameters params = FreiburgCombinationStudy.forCombination(facility, date, demandCsvPath,
-                            strict, headway, DAMPING, FGAP);
-                    // The baseline of the triple, which each cell then moves one member of.
-                    params.set("car." + ParameterTypes.B.getId(), Acceleration.instantiateSI(B_BASE));
-                    params.set("truck." + ParameterTypes.B.getId(), Acceleration.instantiateSI(B_BASE));
-                    params.set("car." + ParameterTypes.S0.getId(),
-                            org.djunits.value.vdouble.scalar.Length.instantiateSI(S0_BASE));
-                    params.set("truck." + ParameterTypes.S0.getId(),
-                            org.djunits.value.vdouble.scalar.Length.instantiateSI(2.0 * S0_BASE));
-                    params.set("car." + ParameterTypes.A.getId(), Acceleration.instantiateSI(A_BASE));
+                    ScenarioParameters params =
+                            baseline(facility, date, demandCsvPath, strict, headway);
 
                     cell.body().accept(params);
                     params.set(KEY_CELL, label);
