@@ -79,8 +79,17 @@ fi
 # only when the poms do.
 if [ ! -s "$CP_CACHE" ] || [ "$REPO/pom.xml" -nt "$CP_CACHE" ]; then
   echo "[cp] resolving runtime dependencies (cached in ${CP_CACHE#$REPO/})"
-  mvn -o -q -pl ots-demo dependency:build-classpath \
+  mvn -o -q -pl ots-demo "${MVN_PROFILE[@]}" dependency:build-classpath \
       -Dmdep.outputFile="$CP_CACHE" -Dmdep.includeScope=runtime || exit 1
+fi
+# A condition, not a message: --tama without the bundle on the resolved classpath is the exact
+# failure this flag exists to prevent, and it is invisible until the first GTU is built - forty
+# runs then report "finished after 0 min", which reads like forty runs that worked.
+if [ "$TAMA" -eq 1 ] && ! grep -q "tama-ots-bundle" "$CP_CACHE"; then
+  echo "[cp] REFUSING TO RUN: --tama was given but ${CP_CACHE#$REPO/} holds no tama-ots-bundle." >&2
+  echo "[cp]   publish it first:  cd <tama>; ./gradlew :tama-ots:publishToMavenLocal" >&2
+  echo "[cp]   then delete ${CP_CACHE#$REPO/} so it is resolved again." >&2
+  exit 1
 fi
 # The IDE compiles into the same target/classes and, when it sees a transiently inconsistent tree,
 # writes classes whose method bodies are `throw new Error("Unresolved compilation problem")`. Those
