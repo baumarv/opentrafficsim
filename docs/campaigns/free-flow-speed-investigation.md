@@ -198,16 +198,72 @@ here looks like a cell buying the target metric with something else — **but fo
 per cell cannot show that it does not.** The jam speeds spread over 19 km/h on that sample, which is
 noise, not a finding. Read these as "no alarm raised", not as "checked".
 
+## 7. Three ways of reshaping the distribution, and what each does
+
+117 runs over three axes, all on the frozen validation set, three days, three seeds. `tamavdes` moves
+the whole car distribution, `tamavmin` removes its lower tail and renormalises, `tamavcomp` compresses
+it towards a pivot: `v -> pivot + factor * (v - pivot)`, which keeps every driver and their order.
+
+| cell | what it does | Δp50 | Δp85 | Δp95 | mean |Δ| | spread p95−p50 |
+|---|---|---|---|---|---|---|
+| `base` | as measured | −8.66 | −5.24 | −5.25 | 6.38 | 9.86 |
+| `plus5` | all +5 km/h | −5.03 | −2.09 | −1.72 | 2.95 | 9.76 |
+| `plus10` | all +10 km/h | −1.12 | +2.86 | +3.23 | 2.40 | 10.81 |
+| `min100` | no wish below 100 | −3.68 | −0.73 | +0.29 | 1.57 | 10.43 |
+| `min110` | no wish below 110 | +0.04 | +2.71 | +2.92 | 1.89 | 9.33 |
+| `c150k08` | pivot 150, factor 0.8 | −3.20 | −1.06 | +0.40 | 1.55 | 10.05 |
+| `c160k08` | pivot 160, factor 0.8 | −1.80 | +1.43 | +1.66 | 1.63 | 9.92 |
+| **`c150k07`** | **pivot 150, factor 0.7** | **−0.32** | +1.66 | +2.10 | **1.36** | **8.88** |
+
+The field's spread on these three days is **6.43 km/h**.
+
+**Only compression narrows.** Truncation and a uniform shift both widen the measured distribution
+against the baseline's 9.86; `c150k07` is the single cell that moves it towards the field. That was
+predicted from the desired distribution — truncation raises its p95 from 185.5 to 187.6 by
+renormalising, compression lowers it to 174.8 — and it carries through to the measurement.
+
+**The factor does the work, not the pivot.** `c150k07` and `c160k08` were chosen to separate them and
+have almost the same gain in the desired harmonic mean (+7.09 against +6.91). Measured, `c150k07`
+gives +8.35 km/h on the median at a spread of 8.88, `c160k08` only +6.86 at 9.92. What buys the
+measured speed is the narrowing, not where the distribution is pinned.
+
+**A reshaping confined to the lower branch cannot work**, and was ruled out before it was built:
+squeezing everything below 120 km/h into [105, 120] touches 29.4 % of the population for 4.3 km/h of
+desired harmonic mean, against 5.5 km/h for a truncation at 100 touching 8.3 %. The model is slower
+than the field across the whole distribution, so a fix confined to the bottom leaves the top exactly
+as short as it was.
+
+### The other metrics
+
+| cell | v_f | queue discharge | follower p25 | runs with a breakdown |
+|---|---|---|---|---|
+| `base` | 120.8 | 3269 | −2.90 | 4 of 36 |
+| `c150k08` | 124.9 | 3270 | −3.11 | 5 |
+| `c160k08` | 126.9 | 3306 | −3.12 | 6 |
+| `c150k07` | 128.9 | 3308 | −3.18 | 4 |
+
+Queue discharge moves by at most 1.2 % and the follower deceleration by at most 0.29 m/s². I
+predicted before running that narrowing would *support* capacity, because smaller speed differences
+mean less overtaking pressure; the discharge does rise slightly in that direction. **That is
+consistent, not established** — four to six breakdowns per cell cannot carry a capacity claim either
+way.
+
+### The candidate
+
+`c150k07` fits best on both counts: the median is on the field value and it is the only cell that
+narrows. `c150k08` and `min100` are the conservative alternatives, each about 3 km/h short at the
+median. The choice between them is Marvin's, and it needs the days and seeds of a campaign before
+anything is frozen — not because the level is in doubt, but because capacity is.
+
 ## What to do next, in order
 
 1. **Confirm the per-minute field speed.** The five-minute aggregation is known to be a
    flow-weighted arithmetic mean (§5); what remains is the device's own per-minute definition, which
    is a question to the data provider and not to this code. It decides whether 3.1 or 5.1 km/h is
    left to explain.
-2. **Screen `min105` and confirm `min100` on a proper sample.** §6 has the axis and the working
-   range; what it does not have is enough congested runs to see whether capacity pays for it. Three
-   days and three seeds gave four to eight breakdowns per cell. The decision needs the days and seeds
-   a campaign uses.
+2. **Confirm `c150k07` on a campaign's sample.** §7 has the axis, the working range and the reason
+   to prefer compression over the other two; what it does not have is enough congested runs to see
+   whether capacity pays for it. Three days and three seeds gave four to six breakdowns per cell.
 3. **Stop reading `v_f` as the target.** §2 shows it is not determined well enough on the field side
    to calibrate against; §1 shows chasing it through merging parameters costs runs and moves
    nothing. The low-flow speed distribution of §3 is the quantity with an answer.
