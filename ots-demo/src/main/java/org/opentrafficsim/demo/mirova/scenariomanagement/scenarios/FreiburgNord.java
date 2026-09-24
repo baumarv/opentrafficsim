@@ -219,9 +219,20 @@ public class FreiburgNord extends ScenarioGenerator
         // 0.0, which reproduces the measured distribution; a study that sets it says so in its manifest.
         double desiredSpeedShiftCar = params.getOrDefault(
                 ScenarioParameters.KEY_DESIRED_SPEED_SHIFT_CAR, 0.0, Double.class);
+        double desiredSpeedMinCar = params.getOrDefault(
+                ScenarioParameters.KEY_DESIRED_SPEED_MIN_CAR, 0.0, Double.class);
+        if (desiredSpeedShiftCar != 0.0 && desiredSpeedMinCar > 0.0)
+        {
+            throw new IllegalStateException("both " + ScenarioParameters.KEY_DESIRED_SPEED_SHIFT_CAR
+                    + "=" + desiredSpeedShiftCar + " and " + ScenarioParameters.KEY_DESIRED_SPEED_MIN_CAR
+                    + "=" + desiredSpeedMinCar + " are set. Each moves the car desired-speed distribution,"
+                    + " so a run with both moves it twice and no result could be attributed to either.");
+        }
+        var carSpeeds = desiredSpeedMinCar > 0.0
+                ? DesiredSpeedLibrary.carsLimit140_DensityLowAbove(this.stream, desiredSpeedMinCar)
+                : DesiredSpeedLibrary.carsLimit140_DensityLow(this.stream, desiredSpeedShiftCar);
         LaneBasedGtuTemplate car = new LaneBasedGtuTemplate(DefaultsNl.CAR, new ConstantSupplier<>(Length.instantiateSI(4.0)),
-                new ConstantSupplier<>(Length.instantiateSI(2.0)),
-                DesiredSpeedLibrary.carsLimit140_DensityLow(this.stream, desiredSpeedShiftCar),
+                new ConstantSupplier<>(Length.instantiateSI(2.0)), carSpeeds,
                 strategicalPlannerFactoryCars, routeGenerator);
         this.gtuTemplates.put(DefaultsNl.CAR, car);
 

@@ -124,6 +124,16 @@ public class ScenarioParameters {
      * </p>
      */
     public static final String KEY_DESIRED_SPEED_SHIFT_CAR = "desiredSpeedShiftCarKmh";
+
+    /**
+     * Lowest desired speed the car population may contain [km/h]; 0.0 leaves the distribution whole.
+     * <p>
+     * Truncation with renormalisation, not a floor: the population has fewer slow drivers rather than a
+     * spike of them at one speed. Exclusive of {@link #KEY_DESIRED_SPEED_SHIFT_CAR} in practice - a cell
+     * that set both would move the distribution twice.
+     * </p>
+     */
+    public static final String KEY_DESIRED_SPEED_MIN_CAR = "desiredSpeedMinCarKmh";
     public static final String KEY_NETWORK_NAME = "networkName";
     public static final String KEY_RANDOM_STREAM = "randomStream";
     public static final String KEY_MERGE_SHARE = "mergeShare";
