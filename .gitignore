@@ -42,6 +42,10 @@ cluster/cp_gui.txt
 
 # Local parallel-run scratch
 cluster/.cp_local.txt
+# The same cache resolved through ots-demo's 'tama' profile, and the classpath a local run
+# writes. Both hold absolute paths of the machine that generated them.
+cluster/.cp_local-tama.txt
+cluster/cp_run.txt
 
 # Local run output (trajectories, detector data, logs, defect counters).
 out/
