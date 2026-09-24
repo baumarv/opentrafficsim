@@ -215,9 +215,13 @@ public class FreiburgNord extends ScenarioGenerator
 
         Supplier<Route> routeGenerator = new ProbabilisticRouteGenerator(List.of(routeAE, routeFE), this.stream);
 
-        // Define Car Template: 4m length, max speed distribution limit 140km/h
+        // Define Car Template: 4m length, max speed distribution limit 140km/h. The shift defaults to
+        // 0.0, which reproduces the measured distribution; a study that sets it says so in its manifest.
+        double desiredSpeedShiftCar = params.getOrDefault(
+                ScenarioParameters.KEY_DESIRED_SPEED_SHIFT_CAR, 0.0, Double.class);
         LaneBasedGtuTemplate car = new LaneBasedGtuTemplate(DefaultsNl.CAR, new ConstantSupplier<>(Length.instantiateSI(4.0)),
-                new ConstantSupplier<>(Length.instantiateSI(2.0)), DesiredSpeedLibrary.carsLimit140_DensityLow(this.stream),
+                new ConstantSupplier<>(Length.instantiateSI(2.0)),
+                DesiredSpeedLibrary.carsLimit140_DensityLow(this.stream, desiredSpeedShiftCar),
                 strategicalPlannerFactoryCars, routeGenerator);
         this.gtuTemplates.put(DefaultsNl.CAR, car);
 

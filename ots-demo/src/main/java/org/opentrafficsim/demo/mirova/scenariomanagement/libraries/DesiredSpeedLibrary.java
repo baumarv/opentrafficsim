@@ -284,14 +284,44 @@ public class DesiredSpeedLibrary {
     public static ContinuousDistDoubleScalar.Rel<Speed, SpeedUnit>
             carsLimit140_DensityLow(final StreamInterface stream)
     {
+        return carsLimit140_DensityLow(stream, 0.0);
+    }
+
+    /** Support points of {@link #carsLimit140_DensityLow}, in km/h. */
+    private static final double[] CARS_LIMIT_140_LOW_SPEEDS =
+            {80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200};
+
+    /** Cumulative probabilities of {@link #carsLimit140_DensityLow}, at the support points. */
+    private static final double[] CARS_LIMIT_140_LOW_CDF =
+            {0.0, 0.036, 0.083, 0.156, 0.294, 0.448, 0.593, 0.721, 0.824, 0.893, 0.939, 0.959, 1.0};
+
+    /**
+     * Passenger cars, 140 km/h limit, low density, with the whole distribution shifted.
+     * <p>
+     * The shift moves every support point by the same amount and leaves the cumulative probabilities
+     * alone, so the shape of the distribution is untouched and only its location moves. A shift of
+     * <code>0.0</code> reproduces the unshifted distribution exactly -- the support points are the same
+     * numbers, not the same numbers plus zero in a different order -- so the default costs nothing.
+     * </p>
+     * <p>
+     * Why a shift rather than a new hand-built table: the table is empirical, from measured desired
+     * speeds, and a hand-edited variant of it would no longer be traceable to that measurement. A
+     * stated offset is, and it is one number in the run manifest.
+     * </p>
+     * @param stream StreamInterface; the random stream
+     * @param shiftKmh double; how far to move the whole distribution [km/h]; 0.0 is the original
+     * @return ContinuousDistDoubleScalar.Rel&lt;Speed, SpeedUnit&gt;; the distribution
+     */
+    public static ContinuousDistDoubleScalar.Rel<Speed, SpeedUnit>
+            carsLimit140_DensityLow(final StreamInterface stream, final double shiftKmh)
+    {
+        Number[] speeds = new Number[CARS_LIMIT_140_LOW_SPEEDS.length];
+        for (int i = 0; i < speeds.length; i++)
+        {
+            speeds[i] = CARS_LIMIT_140_LOW_SPEEDS[i] + shiftKmh;
+        }
         InterpolatedEmpiricalDistribution dist =
-            new InterpolatedEmpiricalDistribution(
-                new Number[] {80, 90, 100, 110, 120, 130, 140, 150,
-                              160, 170, 180, 190, 200},
-                new double[] {0.0, 0.036, 0.083, 0.156, 0.294,
-                              0.448, 0.593, 0.721, 0.824, 0.893,
-                              0.939, 0.959, 1.0}
-            );
+            new InterpolatedEmpiricalDistribution(speeds, CARS_LIMIT_140_LOW_CDF.clone());
         return new ContinuousDistDoubleScalar.Rel<>(
                 new DistEmpiricalInterpolated(stream, dist),
                 SpeedUnit.KM_PER_HOUR);

@@ -115,6 +115,15 @@ public class ScenarioParameters {
     public static final String KEY_TRUCK_SHARE = "truckShare";
     public static final String KEY_SEED = "seed";
     public static final String KEY_DESIRED_SPEED_DISTRIBUTION = "desiredSpeedDistribution";
+
+    /**
+     * Shift of the car desired-speed distribution [km/h]; 0.0 leaves it as measured.
+     * <p>
+     * A number rather than a replacement table, so that a run manifest states what was changed and by
+     * how much, and the empirical distribution stays traceable to its measurement.
+     * </p>
+     */
+    public static final String KEY_DESIRED_SPEED_SHIFT_CAR = "desiredSpeedShiftCarKmh";
     public static final String KEY_NETWORK_NAME = "networkName";
     public static final String KEY_RANDOM_STREAM = "randomStream";
     public static final String KEY_MERGE_SHARE = "mergeShare";
