@@ -412,6 +412,59 @@ public class DesiredSpeedLibrary {
         return y[y.length - 1];
     }
 
+    /**
+     * Passenger cars, 140 km/h limit, low density, compressed towards a pivot speed.
+     * <p>
+     * Every desired speed is mapped <code>v &rarr; pivot + factor &middot; (v &minus; pivot)</code>. The
+     * map is affine and increasing for a positive factor, so no driver overtakes another in the
+     * ordering and the population keeps exactly the members it had: this redistributes rather than
+     * removes. A factor of <code>1.0</code> is the identity and reproduces the measured distribution.
+     * </p>
+     * <p>
+     * What it is for: the model is slower than the field across the whole speed distribution and
+     * slightly too dispersed, and the lower tail carries disproportionate weight at a harmonic-mean
+     * detector. A compression towards a pivot above the median lifts the slow drivers a lot, the median
+     * a little and the fastest slightly downwards, which addresses both at once. At
+     * <code>pivot = 150, factor = 0.8</code> the harmonic mean of the desired speeds rises by 4.9 km/h
+     * while the p95 falls from 185.5 to 178.4 and the slowest driver's wish rises from 80 to 94 km/h.
+     * </p>
+     * <p>
+     * Contrast with {@link #carsLimit140_DensityLowAbove}: truncation removes the slow drivers and, by
+     * renormalising, raises everyone else as well, so its p95 goes <i>up</i>. Which of the two the site
+     * needs is a question for the data, not for the library.
+     * </p>
+     * @param stream StreamInterface; the random stream
+     * @param pivotKmh double; the speed the distribution is compressed towards [km/h]
+     * @param factor double; the compression factor; 1.0 is the identity, below 1.0 narrows
+     * @return ContinuousDistDoubleScalar.Rel&lt;Speed, SpeedUnit&gt;; the distribution
+     */
+    public static ContinuousDistDoubleScalar.Rel<Speed, SpeedUnit>
+            carsLimit140_DensityLowCompressed(final StreamInterface stream, final double pivotKmh,
+                    final double factor)
+    {
+        if (factor <= 0.0)
+        {
+            throw new IllegalArgumentException("a compression factor of " + factor
+                    + " would reverse or collapse the distribution; it must be positive");
+        }
+        Number[] speeds = new Number[CARS_LIMIT_140_LOW_SPEEDS.length];
+        for (int i = 0; i < speeds.length; i++)
+        {
+            speeds[i] = pivotKmh + factor * (CARS_LIMIT_140_LOW_SPEEDS[i] - pivotKmh);
+            if (((Number) speeds[i]).doubleValue() <= 0.0)
+            {
+                throw new IllegalArgumentException("pivot " + pivotKmh + " and factor " + factor
+                        + " map the support point " + CARS_LIMIT_140_LOW_SPEEDS[i]
+                        + " km/h to a non-positive speed");
+            }
+        }
+        InterpolatedEmpiricalDistribution dist =
+            new InterpolatedEmpiricalDistribution(speeds, CARS_LIMIT_140_LOW_CDF.clone());
+        return new ContinuousDistDoubleScalar.Rel<>(
+                new DistEmpiricalInterpolated(stream, dist),
+                SpeedUnit.KM_PER_HOUR);
+    }
+
     /** Passenger cars, 140 km/h limit, medium density. */
     public static ContinuousDistDoubleScalar.Rel<Speed, SpeedUnit>
             carsLimit140_DensityMedium(final StreamInterface stream)

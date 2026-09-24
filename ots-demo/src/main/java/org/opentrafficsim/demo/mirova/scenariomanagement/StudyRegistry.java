@@ -15,6 +15,7 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgFinal
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.TamaCurvatureStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.TamaDesiredSpeedStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.TamaSlowDriverStudy;
+import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.TamaSpeedSpreadStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.TamaHeadwayScreeningStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.TamaScreeningStudy;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.VGainRelaxationSensitivityStudy;
@@ -76,6 +77,7 @@ public final class StudyRegistry
         STUDIES.put(TamaCurvatureStudy.NAME, TamaCurvatureStudy.class);
         STUDIES.put(TamaDesiredSpeedStudy.NAME, TamaDesiredSpeedStudy.class);
         STUDIES.put(TamaSlowDriverStudy.NAME, TamaSlowDriverStudy.class);
+        STUDIES.put(TamaSpeedSpreadStudy.NAME, TamaSpeedSpreadStudy.class);
         STUDIES.put("final", FreiburgFinalStudy.class);
     }
 
