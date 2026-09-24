@@ -43,17 +43,31 @@ a site constant — and its extreme values sit on the worst fit residuals (RMSE 
 210–345 elsewhere). The gap to the model is not systematic: it runs from **+16.4 km/h**
 (2025-10-15) to **−24.0 km/h** (2025-09-22).
 
-## 3. Without the fit, the picture is sharper and different
+## 3. Without the fit: the model is slower across the whole distribution
 
 `free_flow_speed.py` compares the speeds actually measured in intervals below 1500 veh/h, per day,
-with no fit in between. Over all sixteen days:
+with no fit in between.
 
-* the model's **median is 5 to 8 km/h below** the field on 15 of 16 days,
-* its **p95 is above** the field on 15 of 16 days,
-* its p85 is within ±3 km/h of the field.
+**This section was wrong once and is corrected here.** The first version compared the simulation's
+**60-second** detector records against the field's **five-minute** ones — the OTS loop detector
+writes 60 s and the detector cache does not aggregate in time, while the field table arrives at
+`aggregation=5`. A one-minute sample is more dispersed than a five-minute one for no behavioural
+reason, and that alone produced the original reading of "median too low, p95 too high", i.e. a
+distribution that looked too wide. Both sides are now brought to five minutes before any percentile
+is taken.
 
-So the model's free-flow speed distribution is **too wide and centred too low** — a statement about
-the desired-speed distribution, not about merging. That is the finding to act on.
+With that corrected, over the sixteen validation days:
+
+| | mean difference | negative on |
+|---|---|---|
+| median | **−5.54 km/h** | 16 of 16 days |
+| p85 | **−4.48 km/h** | 15 of 16 days |
+| p95 | **−3.96 km/h** | 14 of 16 days |
+
+The model is slower **everywhere in the distribution**, not too dispersed: the spread `p95 − p50`
+is 9.9 km/h simulated against 8.3 km/h in the field, a difference of 1.6 km/h rather than the
+several the artefact suggested. This is a **level** shift, which points at the central value of the
+desired-speed distribution rather than at its shape.
 
 ### What was ruled out before concluding that
 
@@ -64,12 +78,7 @@ the desired-speed distribution, not about merging. That is the finding to act on
   would have depressed the model by roughly the observed amount, since Lane 1 carries 480 veh/h and
   Lane 2 carries 1200.
 * **Trucks are in both.** The field's `v_kmh` is `v_kfz_gesamt`, all motor vehicles.
-
-### The one input that was not checked here
-
-**The two speeds may not be the same kind of mean.** OTS creates its loop detector with
-`LoopDetector.HARMONIC_MEAN_SPEED`, which is at or below the arithmetic mean by an amount that grows
-with the spread of the speeds. §5 measures how much that is worth here.
+* **The interval length now matches**, and the type of mean is the same on both sides — see §5.
 
 ## 4. The exit does not depress the mainline — measured, not inferred
 
@@ -103,39 +112,53 @@ because a vehicle is on that lane only briefly — the model exits **325 veh/h, 
 traffic, against the field's **336 veh/h** at the *Ausfahrt* position, about 16 %. The manoeuvre
 happens, at the right volume, and it does not slow the through lanes down.
 
-## 5. Part of the remaining difference is a definition, and it is now measured
+## 5. How much of it is a definition: less than first measured
 
-OTS creates its loop detector with `LoopDetector.HARMONIC_MEAN_SPEED`. Computed from the vehicles
-actually crossing that position in the probe, the arithmetic mean exceeds the harmonic one by
-**2.39 km/h** in uncongested intervals (Lane 1 3.47, Lane 2 1.88; 2.56 km/h over all intervals).
+Two different questions were conflated in the first version of this section, and the numbers differ
+by a factor of five.
 
-The field side is now read too, in `scripts/evaluation/fielddata/detectors/io/fetch.py`. Its
-five-minute value is built from the per-minute records as
+**Aggregating individual vehicles** to an interval mean: the harmonic mean is the right estimator,
+because only the space-mean speed satisfies `q = k·v`. Measured from the vehicles crossing the L3a
+detector position in the probe, the arithmetic mean of individual speeds exceeds the harmonic one by
+**2.39 km/h** in uncongested intervals (Lane 1 3.47, Lane 2 1.88).
+
+**Aggregating interval means to longer intervals** is a different operation, and the correct rule
+*preserves the type*:
 
 ```
-out[v] = Σ(q_i · v_i) / mean(q) / aggregation     which reduces to    Σ(q_i · v_i) / Σ(q_i)
+five-minute space-mean:   v_s = Σ n_j / Σ (n_j / v_j)      harmonic, count-weighted
+five-minute time-mean:    v_t = Σ (n_j · v_j) / Σ n_j      arithmetic, count-weighted
 ```
 
-— a **flow-weighted arithmetic mean** of the per-minute speeds. Whatever the detector reports within
-a single minute, combining the minutes arithmetically is not the same operation as the harmonic mean
-the model's detector applies over the same five minutes, so the two figures are not the same
-quantity and the difference has the sign measured above: the field value is the higher one.
+An arithmetic combination of harmonic minute values is neither of the two and lies above the
+harmonic one — but only slightly, because the minute-to-minute variation of a mean speed is far
+smaller than the vehicle-to-vehicle variation within a minute. Measured on the validation study, the
+two rules applied to the same simulated minutes differ by **0.46 km/h**, not 2.39.
 
-What is still not visible from this repository is the per-minute value itself, which is the roadside
-device's own aggregate (TLS/MARZ detectors normally report an arithmetic mean of individual vehicle
-speeds, which would make the field figure arithmetic throughout). Confirming that turns the 2.39
-km/h from a bound into a correction; it does not change the direction.
+The field pipeline (`scripts/evaluation/fielddata/detectors/io/fetch.py`) builds its five-minute
+value as `Σ(q_i·v_i) / mean(q) / aggregation`, which reduces to `Σ(q_i·v_i)/Σ(q_i)` — the
+flow-weighted arithmetic rule. So:
+
+* if the field's **per-minute** value is a time-mean (arithmetic) speed of individual vehicles, which
+  is what TLS/MARZ detectors normally report, then the full **2.4 km/h** vehicle-level difference
+  applies and about **3.1 km/h** of the 5.5 remains behavioural;
+* if the per-minute value is already a harmonic mean, only **0.5 km/h** is definitional and about
+  **5.1 km/h** remains.
+
+Either way the model is genuinely 3 to 5 km/h slower, uniformly across the distribution. The
+per-minute definition is the one input this repository cannot answer, and it changes the size of the
+correction but not the conclusion.
 
 ## What to do next, in order
 
-1. **Confirm the per-minute field speed.** The five-minute aggregation is already known to be a
+1. **Confirm the per-minute field speed.** The five-minute aggregation is known to be a
    flow-weighted arithmetic mean (§5); what remains is the device's own per-minute definition, which
-   is a question to the data provider and not to this code. Until then treat the median difference
-   as 3–6 km/h rather than 5–8, and compare like with like by reporting the model's arithmetic mean
-   alongside — `approach_profile.py` already computes it.
-2. **Then go at the desired-speed distribution**, which is what §3 points to once §4 and §5 are
-   taken out: the median too low *and* the p95 too high is a distribution that is too wide and
-   centred too low. `fSpeed` and its spread are the candidates, and they are cheap to screen.
+   is a question to the data provider and not to this code. It decides whether 3.1 or 5.1 km/h is
+   left to explain.
+2. **Then go at the *level* of the desired-speed distribution.** §3, corrected, shows the model
+   slower across the whole distribution with almost the right spread, so this is `fSpeed`'s central
+   value (or the speed limit it multiplies), not its standard deviation. A shift of 3 to 5 km/h on a
+   120 km/h limit is a speed factor about 0.03 to 0.04 too low — one cheap screening axis.
 3. **Stop reading `v_f` as the target.** §2 shows it is not determined well enough on the field side
    to calibrate against; §1 shows chasing it through merging parameters costs runs and moves
    nothing. The low-flow speed distribution of §3 is the quantity with an answer.
