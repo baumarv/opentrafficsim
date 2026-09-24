@@ -115,6 +115,31 @@ public class ScenarioParameters {
     public static final String KEY_TRUCK_SHARE = "truckShare";
     public static final String KEY_SEED = "seed";
     public static final String KEY_DESIRED_SPEED_DISTRIBUTION = "desiredSpeedDistribution";
+
+    /**
+     * Shift of the car desired-speed distribution [km/h]; 0.0 leaves it as measured.
+     * <p>
+     * A number rather than a replacement table, so that a run manifest states what was changed and by
+     * how much, and the empirical distribution stays traceable to its measurement.
+     * </p>
+     */
+    public static final String KEY_DESIRED_SPEED_SHIFT_CAR = "desiredSpeedShiftCarKmh";
+
+    /**
+     * Lowest desired speed the car population may contain [km/h]; 0.0 leaves the distribution whole.
+     * <p>
+     * Truncation with renormalisation, not a floor: the population has fewer slow drivers rather than a
+     * spike of them at one speed. Exclusive of {@link #KEY_DESIRED_SPEED_SHIFT_CAR} in practice - a cell
+     * that set both would move the distribution twice.
+     * </p>
+     */
+    public static final String KEY_DESIRED_SPEED_MIN_CAR = "desiredSpeedMinCarKmh";
+
+    /** Speed the car desired-speed distribution is compressed towards [km/h]; needs the factor. */
+    public static final String KEY_DESIRED_SPEED_PIVOT_CAR = "desiredSpeedPivotCarKmh";
+
+    /** Compression factor of the car desired-speed distribution; 1.0 leaves it as measured. */
+    public static final String KEY_DESIRED_SPEED_COMPRESSION_CAR = "desiredSpeedCompressionCar";
     public static final String KEY_NETWORK_NAME = "networkName";
     public static final String KEY_RANDOM_STREAM = "randomStream";
     public static final String KEY_MERGE_SHARE = "mergeShare";
