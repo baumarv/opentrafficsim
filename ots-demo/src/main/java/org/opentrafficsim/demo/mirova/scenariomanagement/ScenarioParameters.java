@@ -134,6 +134,12 @@ public class ScenarioParameters {
      * </p>
      */
     public static final String KEY_DESIRED_SPEED_MIN_CAR = "desiredSpeedMinCarKmh";
+
+    /** Speed the car desired-speed distribution is compressed towards [km/h]; needs the factor. */
+    public static final String KEY_DESIRED_SPEED_PIVOT_CAR = "desiredSpeedPivotCarKmh";
+
+    /** Compression factor of the car desired-speed distribution; 1.0 leaves it as measured. */
+    public static final String KEY_DESIRED_SPEED_COMPRESSION_CAR = "desiredSpeedCompressionCar";
     public static final String KEY_NETWORK_NAME = "networkName";
     public static final String KEY_RANDOM_STREAM = "randomStream";
     public static final String KEY_MERGE_SHARE = "mergeShare";
