@@ -149,16 +149,65 @@ Either way the model is genuinely 3 to 5 km/h slower, uniformly across the distr
 per-minute definition is the one input this repository cannot answer, and it changes the size of the
 correction but not the conclusion.
 
+## 6. The desired-speed distribution is the lever, and it works
+
+Two axes, 27 runs each, three days with the largest median deficits, three seeds, on the frozen
+validation set. `tamavdes` moves the whole car distribution; `tamavmin` removes its lower tail and
+renormalises. Both sides of the comparison at five minutes and the same kind of mean.
+
+| cell | vehicles changed | Δp50 | Δp85 | Δp95 |
+|---|---|---|---|---|
+| `base` | — | **−8.66** | −5.24 | −5.25 |
+| `plus5` | 100 % | −5.03 | −2.09 | −1.72 |
+| `plus10` | 100 % | −1.12 | +2.86 | +3.23 |
+| `min100` | 8.3 % | **−3.68** | **−0.73** | **+0.29** |
+| `min110` | 15.6 % | +0.04 | +2.71 | +2.92 |
+
+**A prediction of mine was refuted.** §4's probe suggested desired speed rarely binds — the
+per-vehicle maximum over the approach has a median of 104 km/h against the distribution's 134 — and I
+predicted little effect. The transfer is about **75 %**: a shift of 5 km/h raises the measured median
+by 3.6, a shift of 10 by 7.6. The per-vehicle maximum over 460 m of approach was a bad estimator of
+desired speed, which was stated as a weakness and then relied on anyway.
+
+**A second claim of mine was also wrong.** Having seen the deficit grow towards the median
+(−8.66 against −5.25 at p95), I argued that truncation would lift the bottom more than the top.
+It does so in the *desired* distribution but not in the measurement: `min100` lifts p50 by +4.98,
+p85 by +4.51 and p95 by +5.54 — nearly uniformly. The percentiles here are over five-minute interval
+means, not over vehicles, and removing slow drivers raises every interval.
+
+**What remains true is the efficiency and the side effect.** `min100` buys +5.0 km/h by changing
+8.3 % of the population; `plus5` buys +3.6 by changing all of it. And truncation creates no fast
+drivers: the upper end of the desired distribution stays at 200 km/h, where `plus10` moves it to 210
+and widens the speed differences that lane changes are made of.
+
+**`min100` is the best fit across the distribution** — −3.7 / −0.7 / +0.3 — and something near
+`min105` would likely land all three.
+
+### What the other metrics say, and what they cannot say
+
+| cell | v_f | queue discharge | jam speed | follower p25 | runs with a breakdown |
+|---|---|---|---|---|---|
+| `base` | 120.8 | 3269 | 36.1 | −2.90 | 4 of 27 |
+| `min100` | 124.7 | 3282 | 47.5 | −3.13 | 5 |
+| `min110` | 127.6 | 3278 | 42.9 | −3.17 | 4 |
+| `plus5` | 124.4 | 3304 | 47.8 | −2.96 | 6 |
+| `plus10` | 132.9 | 3303 | 55.0 | −3.10 | 8 |
+
+Queue discharge moves by at most 1 %, and the follower deceleration by at most 0.3 m/s². Nothing
+here looks like a cell buying the target metric with something else — **but four to eight breakdowns
+per cell cannot show that it does not.** The jam speeds spread over 19 km/h on that sample, which is
+noise, not a finding. Read these as "no alarm raised", not as "checked".
+
 ## What to do next, in order
 
 1. **Confirm the per-minute field speed.** The five-minute aggregation is known to be a
    flow-weighted arithmetic mean (§5); what remains is the device's own per-minute definition, which
    is a question to the data provider and not to this code. It decides whether 3.1 or 5.1 km/h is
    left to explain.
-2. **Then go at the *level* of the desired-speed distribution.** §3, corrected, shows the model
-   slower across the whole distribution with almost the right spread, so this is `fSpeed`'s central
-   value (or the speed limit it multiplies), not its standard deviation. A shift of 3 to 5 km/h on a
-   120 km/h limit is a speed factor about 0.03 to 0.04 too low — one cheap screening axis.
+2. **Screen `min105` and confirm `min100` on a proper sample.** §6 has the axis and the working
+   range; what it does not have is enough congested runs to see whether capacity pays for it. Three
+   days and three seeds gave four to eight breakdowns per cell. The decision needs the days and seeds
+   a campaign uses.
 3. **Stop reading `v_f` as the target.** §2 shows it is not determined well enough on the field side
    to calibrate against; §1 shows chasing it through merging parameters costs runs and moves
    nothing. The low-flow speed distribution of §3 is the quantity with an answer.
