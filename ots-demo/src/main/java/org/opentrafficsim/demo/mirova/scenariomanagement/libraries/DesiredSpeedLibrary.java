@@ -327,6 +327,91 @@ public class DesiredSpeedLibrary {
                 SpeedUnit.KM_PER_HOUR);
     }
 
+    /**
+     * Passenger cars, 140 km/h limit, low density, with the slowest drivers removed.
+     * <p>
+     * The distribution is truncated below <code>minimumKmh</code> and renormalised, so the population no
+     * longer contains a driver who wants to go slower than that and the remaining shape is the original
+     * conditional on <code>v &ge; minimumKmh</code>. A minimum at or below the lowest support point
+     * returns the distribution unchanged.
+     * </p>
+     * <p>
+     * Why this rather than a floor: a floor keeps the slow drivers and puts every one of them at exactly
+     * the same speed, which is a spike the measured distribution has no reason to contain. Truncation
+     * says instead that the population has fewer slow drivers than the table does, which is the
+     * hypothesis being tested.
+     * </p>
+     * <p>
+     * The lower tail carries far more weight at the detector than its share of vehicles, because a loop
+     * detector reports a harmonic mean: a vehicle at 85 km/h contributes as much as two at 170. On this
+     * table, 15.6 % of cars want less than 110 km/h, and removing them raises the harmonic mean of the
+     * desired speeds by 9.0 km/h against 5.2 for a uniform shift of 5 km/h that touches every vehicle.
+     * </p>
+     * @param stream StreamInterface; the random stream
+     * @param minimumKmh double; the lowest desired speed the population may contain [km/h]
+     * @return ContinuousDistDoubleScalar.Rel&lt;Speed, SpeedUnit&gt;; the distribution
+     */
+    public static ContinuousDistDoubleScalar.Rel<Speed, SpeedUnit>
+            carsLimit140_DensityLowAbove(final StreamInterface stream, final double minimumKmh)
+    {
+        double[] speeds = CARS_LIMIT_140_LOW_SPEEDS;
+        double[] cdf = CARS_LIMIT_140_LOW_CDF;
+        if (minimumKmh <= speeds[0])
+        {
+            return carsLimit140_DensityLow(stream, 0.0);
+        }
+        if (minimumKmh >= speeds[speeds.length - 1])
+        {
+            throw new IllegalArgumentException("a minimum of " + minimumKmh
+                    + " km/h removes the whole distribution, whose highest support point is "
+                    + speeds[speeds.length - 1]);
+        }
+        double cut = interpolate(speeds, cdf, minimumKmh);
+        java.util.List<Number> keptSpeeds = new java.util.ArrayList<>();
+        java.util.List<Double> keptCdf = new java.util.ArrayList<>();
+        keptSpeeds.add(minimumKmh);
+        keptCdf.add(0.0);
+        for (int i = 0; i < speeds.length; i++)
+        {
+            if (speeds[i] > minimumKmh)
+            {
+                keptSpeeds.add(speeds[i]);
+                keptCdf.add((cdf[i] - cut) / (1.0 - cut));
+            }
+        }
+        double[] renormalised = new double[keptCdf.size()];
+        for (int i = 0; i < renormalised.length; i++)
+        {
+            renormalised[i] = keptCdf.get(i);
+        }
+        InterpolatedEmpiricalDistribution dist =
+            new InterpolatedEmpiricalDistribution(keptSpeeds.toArray(new Number[0]), renormalised);
+        return new ContinuousDistDoubleScalar.Rel<>(
+                new DistEmpiricalInterpolated(stream, dist),
+                SpeedUnit.KM_PER_HOUR);
+    }
+
+    /**
+     * Linear interpolation of a monotone table, used for the cumulative probability at a speed.
+     * @param x double[]; the strictly increasing abscissae
+     * @param y double[]; the ordinates
+     * @param at double; where to evaluate, within the range of x
+     * @return double; the interpolated value
+     */
+    private static double interpolate(final double[] x, final double[] y, final double at)
+    {
+        for (int i = 1; i < x.length; i++)
+        {
+            if (at <= x[i])
+            {
+                double span = x[i] - x[i - 1];
+                double fraction = span == 0.0 ? 0.0 : (at - x[i - 1]) / span;
+                return y[i - 1] + fraction * (y[i] - y[i - 1]);
+            }
+        }
+        return y[y.length - 1];
+    }
+
     /** Passenger cars, 140 km/h limit, medium density. */
     public static ContinuousDistDoubleScalar.Rel<Speed, SpeedUnit>
             carsLimit140_DensityMedium(final StreamInterface stream)
