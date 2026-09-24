@@ -256,6 +256,32 @@ if ! [[ "${TOTAL_RUNS}" =~ ^[0-9]+$ ]] || [ "${TOTAL_RUNS}" -lt 1 ]; then
     exit 2
 fi
 
+# Does this study ask for the TaMA planner, and is it on the classpath? Asked of the study's own
+# manifest rather than of its name, and of the classpath rather than of the environment, so that
+# neither a new study nor a forgotten MIROVA_TAMA can slip past. Without the bundle every run
+# builds its network and dies at the first GTU with "matches 0 tactical planner provider(s)";
+# on 2026-09-24 that burned an 800-run array before anyone saw the message.
+PLANNER_PROBE="${WORKSPACE}/logs/.planner-probe-${SLURM_ARRAY_JOB_ID:-$$}-${TASK_ID}.txt"
+java -cp "${CLASSPATH_VALUE}" "${MAIN_CLASS}" \
+    --study="${STUDY}" --output="${OUTPUT_ROOT}" "${STUDY_OPTS_ARR[@]}" "${PLANNER_OPT[@]}" \
+    --manifest="${PLANNER_PROBE}" --count >/dev/null 2>&1 || true
+if [ ! -s "${PLANNER_PROBE}" ]; then
+    echo "ERROR: could not write the study manifest to ${PLANNER_PROBE}, so whether this study needs" >&2
+    echo "       the TaMA bundle cannot be established. Refusing rather than starting ${TOTAL_RUNS} runs" >&2
+    echo "       that may all fail at their first GTU." >&2
+    exit 2
+fi
+if grep -q "tacticalPlanner=tama" "${PLANNER_PROBE}" && ! grep -q "tama-ots-bundle" "${CP_FILE}"; then
+    echo "ERROR: this study asks for tacticalPlanner=tama, but ${CP_FILE} holds no tama-ots-bundle." >&2
+    echo "       Every run would build its network and then fail at its first GTU." >&2
+    echo "       Rebuild the classpath with the bundle published and the profile active:" >&2
+    echo "         cd <tama>;  ./gradlew :tama-ots:publishToMavenLocal" >&2
+    echo "         cd <fork>;  MIROVA_TAMA=1 cluster/build_for_cluster.sh" >&2
+    rm -f "${PLANNER_PROBE}"
+    exit 2
+fi
+rm -f "${PLANNER_PROBE}"
+
 # Which physical CPUs this task actually holds, taken from the process affinity mask so the
 # pinning respects the cgroup SLURM put us in rather than guessing CPU 0 and 1.
 CPU_LIST=()
