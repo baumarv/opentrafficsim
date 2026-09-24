@@ -13,7 +13,18 @@
 #
 # Usage:
 #   cluster/run_local_parallel.sh --study=phase05 --output=<dir> [--slots=12] [--heap=6g]
-#                                 [--diag] [--dry-run] [-- <study options>]
+#                                 [--tama] [--diag] [--jvm-opt=-Dx=y]... [--dry-run]
+#                                 [-- <study options>]
+#
+# --jvm-opt is passed to every run's JVM and may be repeated. A scenario switch read from a
+# system property - FreiburgNord's mirova.samplerLinks, for one - reaches the run no other way,
+# because the runs are separate JVMs this script starts itself.
+#
+# --tama resolves the classpath through ots-demo's 'tama' Maven profile, which is the only thing that
+# puts the TaMA driver model on it. Without it a study whose cells set tacticalPlanner=tama builds its
+# scenario, fails at t=0 with "matches 0 tactical planner provider(s) ... available: []", and reports
+# forty finished runs in under a minute. The two profiles get separate cache files, because a cache
+# resolved without the profile is indistinguishable from one resolved with it.
 #
 # Example -- the Phase 0.5 instrumentation run:
 #   cluster/run_local_parallel.sh --study=phase05 --output=out/phase05-instr --slots=12 --diag -- \
@@ -29,6 +40,8 @@ SLOTS=12
 HEAP=6g
 DIAG=0
 DRY=0
+TAMA=0
+JVM_OPTS=()
 STUDY=""
 OUTPUT=""
 STUDY_ARGS=()
@@ -39,6 +52,8 @@ while [ $# -gt 0 ]; do
     --output=*) OUTPUT="${1#*=}" ;;
     --slots=*)  SLOTS="${1#*=}" ;;
     --heap=*)   HEAP="${1#*=}" ;;
+    --jvm-opt=*) JVM_OPTS+=("${1#*=}") ;;
+    --tama)     TAMA=1 ;;
     --diag)     DIAG=1 ;;
     --dry-run)  DRY=1 ;;
     --)         shift; STUDY_ARGS=("$@"); break ;;
@@ -48,7 +63,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$STUDY" ] || [ -z "$OUTPUT" ]; then
-  echo "usage: $0 --study=<name> --output=<dir> [--slots=N] [--heap=6g] [--diag] [--dry-run] -- <study options>" >&2
+  echo "usage: $0 --study=<name> --output=<dir> [--slots=N] [--heap=6g] [--tama] [--diag] [--jvm-opt=-Dx=y]... [--dry-run] -- <study options>" >&2
   exit 2
 fi
 
@@ -57,7 +72,13 @@ cd "$REPO" || exit 1
 mkdir -p "$OUTPUT/logs" || exit 1
 
 MAIN_CLASS="org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunMirovaClusterStudy"
-CP_CACHE="$REPO/cluster/.cp_local.txt"
+if [ "$TAMA" -eq 1 ]; then
+  CP_CACHE="$REPO/cluster/.cp_local-tama.txt"
+  MVN_PROFILE=(-Ptama)
+else
+  CP_CACHE="$REPO/cluster/.cp_local.txt"
+  MVN_PROFILE=()
+fi
 
 # --- classpath -------------------------------------------------------------
 # Module classes first, so a rebuilt class wins over anything in a jar, then the resolved runtime
@@ -65,8 +86,17 @@ CP_CACHE="$REPO/cluster/.cp_local.txt"
 # only when the poms do.
 if [ ! -s "$CP_CACHE" ] || [ "$REPO/pom.xml" -nt "$CP_CACHE" ]; then
   echo "[cp] resolving runtime dependencies (cached in ${CP_CACHE#$REPO/})"
-  mvn -o -q -pl ots-demo dependency:build-classpath \
+  mvn -o -q -pl ots-demo "${MVN_PROFILE[@]}" dependency:build-classpath \
       -Dmdep.outputFile="$CP_CACHE" -Dmdep.includeScope=runtime || exit 1
+fi
+# A condition, not a message: --tama without the bundle on the resolved classpath is the exact
+# failure this flag exists to prevent, and it is invisible until the first GTU is built - forty
+# runs then report "finished after 0 min", which reads like forty runs that worked.
+if [ "$TAMA" -eq 1 ] && ! grep -q "tama-ots-bundle" "$CP_CACHE"; then
+  echo "[cp] REFUSING TO RUN: --tama was given but ${CP_CACHE#$REPO/} holds no tama-ots-bundle." >&2
+  echo "[cp]   publish it first:  cd <tama>; ./gradlew :tama-ots:publishToMavenLocal" >&2
+  echo "[cp]   then delete ${CP_CACHE#$REPO/} so it is resolved again." >&2
+  exit 1
 fi
 # The IDE compiles into the same target/classes and, when it sees a transiently inconsistent tree,
 # writes classes whose method bodies are `throw new Error("Unresolved compilation problem")`. Those
@@ -87,7 +117,12 @@ done
 STUBS=$(grep -rl "Unresolved compilation" "$SNAPSHOT" 2>/dev/null | wc -l)
 if [ "$STUBS" -gt 0 ]; then
   echo "[cp] REFUSING TO RUN: $STUBS class file(s) contain an Eclipse 'Unresolved compilation problem' stub." >&2
-  grep -rl "Unresolved compilation" "$SNAPSHOT" 2>/dev/null | sed "s|$SNAPSHOT/||" | head -10 >&2
+  # Shell parameter expansion, not sed: $SNAPSHOT is a Windows temp path and its backslashes
+  # are back references to sed, so the one line naming the offending class failed with
+  # "Invalid back reference" and the refusal named no file at all.
+  grep -rl "Unresolved compilation" "$SNAPSHOT" 2>/dev/null | head -10 | while IFS= read -r f; do
+    echo "  ${f#"$SNAPSHOT/"}" >&2
+  done
   echo "[cp] rebuild with the recipe in docs/mirova/troubleshooting_and_compilation.md:" >&2
   echo "[cp]   mvn clean install -pl ots-demo -am -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Djacoco.skip=true" >&2
   exit 1
@@ -127,6 +162,7 @@ java -cp "$CP" "$MAIN_CLASS" --study="$STUDY" --output="$OUTPUT" \
 
 echo "[plan] study=$STUDY runs=$TOTAL slots=$SLOTS heap=$HEAP diag=$DIAG"
 echo "[plan] output=$OUTPUT"
+[ ${#JVM_OPTS[@]} -gt 0 ] && echo "[plan] jvm: ${JVM_OPTS[*]}"
 [ "$DIAG" = 1 ] && echo "[plan] defect counters on; one CSV per run in $OUTPUT/defects/"
 if [ "$DRY" = 1 ]; then echo "[plan] dry run, nothing executed"; exit 0; fi
 [ "$DIAG" = 1 ] && mkdir -p "$OUTPUT/defects"
@@ -145,6 +181,7 @@ for i in $(seq 0 $((TOTAL - 1))); do
   # in a network XML would read as 23 mm. Same line as in cluster/run_mirova.sbatch; see there for why this
   # is the only place that can pin it for a run.
   OPTS=(-Xmx"$HEAP" -XX:ActiveProcessorCount=1 -Djava.awt.headless=true -Duser.language=en -Duser.country=US)
+  if [ ${#JVM_OPTS[@]} -gt 0 ]; then OPTS+=("${JVM_OPTS[@]}"); fi
   if [ "$DIAG" = 1 ]; then
     OPTS+=(-Dmirova.defectDiag=true -Dmirova.defectDiagFile="$OUTPUT/defects/run_${i}.csv")
   fi

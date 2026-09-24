@@ -139,6 +139,19 @@ public final class MirovaParameters implements ConstraintInterface
                         new ParameterTypeDouble("SAFETY_DISTANCE_REDUCTION_FACTOR_LANE_CHANGE",
                                         "Factor to reduce safety distance during lane change", 0.5, POSITIVE);
 
+        /**
+         * Exponent on the deceleration-threshold interpolation; 1.0 is the published linear form.
+         * <p>
+         * Read by the TaMA driver only (<code>pThreshold</code>). The MiRoVA planner interpolates linearly and
+         * ignores this, so a scenario that sets it away from 1.0 and runs on MiRoVA gets no effect rather than a
+         * different one.
+         * </p>
+         */
+        public static final ParameterTypeDouble thresholdCurvature =
+                        new ParameterTypeDouble("THRESHOLD_CURVATURE",
+                                        "Exponent on the deceleration threshold interpolation; 1.0 is linear", 1.0,
+                                        POSITIVE);
+
         /** Minimum deceleration for follower vehicles in lane change maneuvers. */
         public static final ParameterTypeAcceleration minFollowerDecelerationThreshold = new ParameterTypeAcceleration(
                         "MIN_FOLLOWER_DECELERATION_THRESHOLD", "Minimum deceleration for follower vehicles in lc maneuvers",

@@ -284,14 +284,182 @@ public class DesiredSpeedLibrary {
     public static ContinuousDistDoubleScalar.Rel<Speed, SpeedUnit>
             carsLimit140_DensityLow(final StreamInterface stream)
     {
+        return carsLimit140_DensityLow(stream, 0.0);
+    }
+
+    /** Support points of {@link #carsLimit140_DensityLow}, in km/h. */
+    private static final double[] CARS_LIMIT_140_LOW_SPEEDS =
+            {80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200};
+
+    /** Cumulative probabilities of {@link #carsLimit140_DensityLow}, at the support points. */
+    private static final double[] CARS_LIMIT_140_LOW_CDF =
+            {0.0, 0.036, 0.083, 0.156, 0.294, 0.448, 0.593, 0.721, 0.824, 0.893, 0.939, 0.959, 1.0};
+
+    /**
+     * Passenger cars, 140 km/h limit, low density, with the whole distribution shifted.
+     * <p>
+     * The shift moves every support point by the same amount and leaves the cumulative probabilities
+     * alone, so the shape of the distribution is untouched and only its location moves. A shift of
+     * <code>0.0</code> reproduces the unshifted distribution exactly -- the support points are the same
+     * numbers, not the same numbers plus zero in a different order -- so the default costs nothing.
+     * </p>
+     * <p>
+     * Why a shift rather than a new hand-built table: the table is empirical, from measured desired
+     * speeds, and a hand-edited variant of it would no longer be traceable to that measurement. A
+     * stated offset is, and it is one number in the run manifest.
+     * </p>
+     * @param stream StreamInterface; the random stream
+     * @param shiftKmh double; how far to move the whole distribution [km/h]; 0.0 is the original
+     * @return ContinuousDistDoubleScalar.Rel&lt;Speed, SpeedUnit&gt;; the distribution
+     */
+    public static ContinuousDistDoubleScalar.Rel<Speed, SpeedUnit>
+            carsLimit140_DensityLow(final StreamInterface stream, final double shiftKmh)
+    {
+        Number[] speeds = new Number[CARS_LIMIT_140_LOW_SPEEDS.length];
+        for (int i = 0; i < speeds.length; i++)
+        {
+            speeds[i] = CARS_LIMIT_140_LOW_SPEEDS[i] + shiftKmh;
+        }
         InterpolatedEmpiricalDistribution dist =
-            new InterpolatedEmpiricalDistribution(
-                new Number[] {80, 90, 100, 110, 120, 130, 140, 150,
-                              160, 170, 180, 190, 200},
-                new double[] {0.0, 0.036, 0.083, 0.156, 0.294,
-                              0.448, 0.593, 0.721, 0.824, 0.893,
-                              0.939, 0.959, 1.0}
-            );
+            new InterpolatedEmpiricalDistribution(speeds, CARS_LIMIT_140_LOW_CDF.clone());
+        return new ContinuousDistDoubleScalar.Rel<>(
+                new DistEmpiricalInterpolated(stream, dist),
+                SpeedUnit.KM_PER_HOUR);
+    }
+
+    /**
+     * Passenger cars, 140 km/h limit, low density, with the slowest drivers removed.
+     * <p>
+     * The distribution is truncated below <code>minimumKmh</code> and renormalised, so the population no
+     * longer contains a driver who wants to go slower than that and the remaining shape is the original
+     * conditional on <code>v &ge; minimumKmh</code>. A minimum at or below the lowest support point
+     * returns the distribution unchanged.
+     * </p>
+     * <p>
+     * Why this rather than a floor: a floor keeps the slow drivers and puts every one of them at exactly
+     * the same speed, which is a spike the measured distribution has no reason to contain. Truncation
+     * says instead that the population has fewer slow drivers than the table does, which is the
+     * hypothesis being tested.
+     * </p>
+     * <p>
+     * The lower tail carries far more weight at the detector than its share of vehicles, because a loop
+     * detector reports a harmonic mean: a vehicle at 85 km/h contributes as much as two at 170. On this
+     * table, 15.6 % of cars want less than 110 km/h, and removing them raises the harmonic mean of the
+     * desired speeds by 9.0 km/h against 5.2 for a uniform shift of 5 km/h that touches every vehicle.
+     * </p>
+     * @param stream StreamInterface; the random stream
+     * @param minimumKmh double; the lowest desired speed the population may contain [km/h]
+     * @return ContinuousDistDoubleScalar.Rel&lt;Speed, SpeedUnit&gt;; the distribution
+     */
+    public static ContinuousDistDoubleScalar.Rel<Speed, SpeedUnit>
+            carsLimit140_DensityLowAbove(final StreamInterface stream, final double minimumKmh)
+    {
+        double[] speeds = CARS_LIMIT_140_LOW_SPEEDS;
+        double[] cdf = CARS_LIMIT_140_LOW_CDF;
+        if (minimumKmh <= speeds[0])
+        {
+            return carsLimit140_DensityLow(stream, 0.0);
+        }
+        if (minimumKmh >= speeds[speeds.length - 1])
+        {
+            throw new IllegalArgumentException("a minimum of " + minimumKmh
+                    + " km/h removes the whole distribution, whose highest support point is "
+                    + speeds[speeds.length - 1]);
+        }
+        double cut = interpolate(speeds, cdf, minimumKmh);
+        java.util.List<Number> keptSpeeds = new java.util.ArrayList<>();
+        java.util.List<Double> keptCdf = new java.util.ArrayList<>();
+        keptSpeeds.add(minimumKmh);
+        keptCdf.add(0.0);
+        for (int i = 0; i < speeds.length; i++)
+        {
+            if (speeds[i] > minimumKmh)
+            {
+                keptSpeeds.add(speeds[i]);
+                keptCdf.add((cdf[i] - cut) / (1.0 - cut));
+            }
+        }
+        double[] renormalised = new double[keptCdf.size()];
+        for (int i = 0; i < renormalised.length; i++)
+        {
+            renormalised[i] = keptCdf.get(i);
+        }
+        InterpolatedEmpiricalDistribution dist =
+            new InterpolatedEmpiricalDistribution(keptSpeeds.toArray(new Number[0]), renormalised);
+        return new ContinuousDistDoubleScalar.Rel<>(
+                new DistEmpiricalInterpolated(stream, dist),
+                SpeedUnit.KM_PER_HOUR);
+    }
+
+    /**
+     * Linear interpolation of a monotone table, used for the cumulative probability at a speed.
+     * @param x double[]; the strictly increasing abscissae
+     * @param y double[]; the ordinates
+     * @param at double; where to evaluate, within the range of x
+     * @return double; the interpolated value
+     */
+    private static double interpolate(final double[] x, final double[] y, final double at)
+    {
+        for (int i = 1; i < x.length; i++)
+        {
+            if (at <= x[i])
+            {
+                double span = x[i] - x[i - 1];
+                double fraction = span == 0.0 ? 0.0 : (at - x[i - 1]) / span;
+                return y[i - 1] + fraction * (y[i] - y[i - 1]);
+            }
+        }
+        return y[y.length - 1];
+    }
+
+    /**
+     * Passenger cars, 140 km/h limit, low density, compressed towards a pivot speed.
+     * <p>
+     * Every desired speed is mapped <code>v &rarr; pivot + factor &middot; (v &minus; pivot)</code>. The
+     * map is affine and increasing for a positive factor, so no driver overtakes another in the
+     * ordering and the population keeps exactly the members it had: this redistributes rather than
+     * removes. A factor of <code>1.0</code> is the identity and reproduces the measured distribution.
+     * </p>
+     * <p>
+     * What it is for: the model is slower than the field across the whole speed distribution and
+     * slightly too dispersed, and the lower tail carries disproportionate weight at a harmonic-mean
+     * detector. A compression towards a pivot above the median lifts the slow drivers a lot, the median
+     * a little and the fastest slightly downwards, which addresses both at once. At
+     * <code>pivot = 150, factor = 0.8</code> the harmonic mean of the desired speeds rises by 4.9 km/h
+     * while the p95 falls from 185.5 to 178.4 and the slowest driver's wish rises from 80 to 94 km/h.
+     * </p>
+     * <p>
+     * Contrast with {@link #carsLimit140_DensityLowAbove}: truncation removes the slow drivers and, by
+     * renormalising, raises everyone else as well, so its p95 goes <i>up</i>. Which of the two the site
+     * needs is a question for the data, not for the library.
+     * </p>
+     * @param stream StreamInterface; the random stream
+     * @param pivotKmh double; the speed the distribution is compressed towards [km/h]
+     * @param factor double; the compression factor; 1.0 is the identity, below 1.0 narrows
+     * @return ContinuousDistDoubleScalar.Rel&lt;Speed, SpeedUnit&gt;; the distribution
+     */
+    public static ContinuousDistDoubleScalar.Rel<Speed, SpeedUnit>
+            carsLimit140_DensityLowCompressed(final StreamInterface stream, final double pivotKmh,
+                    final double factor)
+    {
+        if (factor <= 0.0)
+        {
+            throw new IllegalArgumentException("a compression factor of " + factor
+                    + " would reverse or collapse the distribution; it must be positive");
+        }
+        Number[] speeds = new Number[CARS_LIMIT_140_LOW_SPEEDS.length];
+        for (int i = 0; i < speeds.length; i++)
+        {
+            speeds[i] = pivotKmh + factor * (CARS_LIMIT_140_LOW_SPEEDS[i] - pivotKmh);
+            if (((Number) speeds[i]).doubleValue() <= 0.0)
+            {
+                throw new IllegalArgumentException("pivot " + pivotKmh + " and factor " + factor
+                        + " map the support point " + CARS_LIMIT_140_LOW_SPEEDS[i]
+                        + " km/h to a non-positive speed");
+            }
+        }
+        InterpolatedEmpiricalDistribution dist =
+            new InterpolatedEmpiricalDistribution(speeds, CARS_LIMIT_140_LOW_CDF.clone());
         return new ContinuousDistDoubleScalar.Rel<>(
                 new DistEmpiricalInterpolated(stream, dist),
                 SpeedUnit.KM_PER_HOUR);

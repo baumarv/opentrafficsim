@@ -215,9 +215,45 @@ public class FreiburgNord extends ScenarioGenerator
 
         Supplier<Route> routeGenerator = new ProbabilisticRouteGenerator(List.of(routeAE, routeFE), this.stream);
 
-        // Define Car Template: 4m length, max speed distribution limit 140km/h
+        // Define Car Template: 4m length, max speed distribution limit 140km/h. The shift defaults to
+        // 0.0, which reproduces the measured distribution; a study that sets it says so in its manifest.
+        double desiredSpeedShiftCar = params.getOrDefault(
+                ScenarioParameters.KEY_DESIRED_SPEED_SHIFT_CAR, 0.0, Double.class);
+        double desiredSpeedMinCar = params.getOrDefault(
+                ScenarioParameters.KEY_DESIRED_SPEED_MIN_CAR, 0.0, Double.class);
+        double desiredSpeedCompression = params.getOrDefault(
+                ScenarioParameters.KEY_DESIRED_SPEED_COMPRESSION_CAR, 1.0, Double.class);
+        double desiredSpeedPivot = params.getOrDefault(
+                ScenarioParameters.KEY_DESIRED_SPEED_PIVOT_CAR, 0.0, Double.class);
+        // Each of the three reshapes the same distribution, so a run with more than one moves it
+        // several times and no result could be attributed to any of them. Counted rather than paired,
+        // so a fourth axis cannot be added without this refusing it too.
+        int active = (desiredSpeedShiftCar != 0.0 ? 1 : 0) + (desiredSpeedMinCar > 0.0 ? 1 : 0)
+                + (desiredSpeedCompression != 1.0 ? 1 : 0);
+        if (active > 1)
+        {
+            throw new IllegalStateException("more than one reshaping of the car desired-speed "
+                    + "distribution is set: " + ScenarioParameters.KEY_DESIRED_SPEED_SHIFT_CAR + "="
+                    + desiredSpeedShiftCar + ", " + ScenarioParameters.KEY_DESIRED_SPEED_MIN_CAR + "="
+                    + desiredSpeedMinCar + ", " + ScenarioParameters.KEY_DESIRED_SPEED_COMPRESSION_CAR
+                    + "=" + desiredSpeedCompression + ". Each moves the same distribution, so a run "
+                    + "with several moves it several times and no result could be attributed to any.");
+        }
+        if (desiredSpeedCompression != 1.0 && desiredSpeedPivot <= 0.0)
+        {
+            throw new IllegalStateException(ScenarioParameters.KEY_DESIRED_SPEED_COMPRESSION_CAR + "="
+                    + desiredSpeedCompression + " needs a positive "
+                    + ScenarioParameters.KEY_DESIRED_SPEED_PIVOT_CAR
+                    + "; a compression towards an unstated speed is not defined.");
+        }
+        var carSpeeds = desiredSpeedCompression != 1.0
+                ? DesiredSpeedLibrary.carsLimit140_DensityLowCompressed(this.stream, desiredSpeedPivot,
+                        desiredSpeedCompression)
+                : desiredSpeedMinCar > 0.0
+                        ? DesiredSpeedLibrary.carsLimit140_DensityLowAbove(this.stream, desiredSpeedMinCar)
+                        : DesiredSpeedLibrary.carsLimit140_DensityLow(this.stream, desiredSpeedShiftCar);
         LaneBasedGtuTemplate car = new LaneBasedGtuTemplate(DefaultsNl.CAR, new ConstantSupplier<>(Length.instantiateSI(4.0)),
-                new ConstantSupplier<>(Length.instantiateSI(2.0)), DesiredSpeedLibrary.carsLimit140_DensityLow(this.stream),
+                new ConstantSupplier<>(Length.instantiateSI(2.0)), carSpeeds,
                 strategicalPlannerFactoryCars, routeGenerator);
         this.gtuTemplates.put(DefaultsNl.CAR, car);
 
