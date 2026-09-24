@@ -82,6 +82,19 @@ mkdir -p "$(dirname "${CP_FILE}")"
 mvn "${TAMA_PROFILE[@]}" -pl ots-demo dependency:build-classpath -Dmdep.outputFile="${CP_FILE}" \
     -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Djacoco.skip=true
 
+# A condition, not a message. MIROVA_TAMA=1 without the bundle in the generated classpath is the
+# exact mistake this script's own header warns about, and it is invisible until a run builds its
+# network and dies at the first GTU with "matches 0 tactical planner provider(s) ... available: []".
+# It cost a 800-run array on 2026-09-24. The usual cause is that the bundle was published after this
+# script last ran, so the classpath predates it: run it again.
+if [ "${MIROVA_TAMA:-0}" = "1" ] && ! grep -q "tama-ots-bundle" "${CP_FILE}"; then
+    echo "ERROR: MIROVA_TAMA=1 but ${CP_FILE} holds no tama-ots-bundle." >&2
+    echo "       Publish it first, then run this script again:" >&2
+    echo "         cd <tama>; ./gradlew :tama-ots:publishToMavenLocal" >&2
+    echo "       The order is: install this fork, publish the bundle, run this script for the classpath." >&2
+    exit 1
+fi
+
 # Prepend the reactor module output directories. Running the simulation via a direct java
 # launch (rather than exec:java) avoids the GlassFish JAXB ClassLoader problems documented
 # in docs/mirova/troubleshooting_and_compilation.md.
