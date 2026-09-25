@@ -9,7 +9,9 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import org.djunits.value.vdouble.scalar.Acceleration;
+import org.djunits.value.vdouble.scalar.Duration;
 import org.djunits.value.vdouble.scalar.Length;
+import org.opentrafficsim.base.parameters.ParameterTypes;
 import org.opentrafficsim.demo.mirova.scenariomanagement.FacilityRegistry;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioGenerator;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioManager;
@@ -19,78 +21,66 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.TrafficFacility;
 import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 
 /**
- * Does the ramp-end behaviour move the calibration, and if so, which way?
+ * Recalibrating the driving parameters now that the ramp end no longer deadlocks.
  * <p>
- * Registered as {@code --study=tamarampcal}. A <b>2 x 4 design plus one sensitivity</b>: each of four
- * calibration points is run with the new ramp-end behaviour off and on, so the study measures not whether
- * each parameter matters - that is known - but whether the new behaviour <i>changes what its best value
- * is</i>. That question cannot be answered by a one-at-a-time sweep on top of the new behaviour, because a
- * single arm cannot distinguish "this axis moved" from "everything moved".
+ * Registered as {@code --study=tamarampcal}. Every cell runs the <b>new behaviour</b> - the parallel-vehicle
+ * anticipation, the last-resort merge with road declared behind the lane end, and the dominance fix - and
+ * differs from {@code base} in the driving parameters only. One arm, because the behaviour is no longer the
+ * question: the watched runs showed the deadlock gone, and what remains is whether the parameters fitted
+ * around the old behaviour are still the right ones.
  * </p>
- * <h3>Why the question arises</h3>
+ * <h3>The levels come from the last complete campaign, not from the defaults</h3>
  * <p>
- * Three of the parameters below were moved in order to chase one number: the Van Aerde free-flow speed,
- * which the 496-run validation put about 6 % below the field. The reason it was low is now understood
- * differently. A merger used to brake for the end of the acceleration lane in five different states,
- * including a congested speed cap that ramps it down to 5 km/h as it approaches a place it does not have to
- * stop at, and the follower thresholds were widened to absorb the consequences. If the behaviour no longer
- * produces those consequences, the widening is calibration against a defect, and it should come back.
+ * Read out of {@code final_v2}'s own {@code runParams.txt} rather than from {@link MirovaParameters}, because
+ * three of them differ and reasoning from the defaults would have varied the wrong way:
  * </p>
- * <h3>The cells</h3>
+ * <table>
+ * <caption>What the 496-run campaign actually ran</caption>
+ * <tr><th>parameter</th><th>campaign</th><th>class default</th></tr>
+ * <tr><td>{@code aRelaxDamping}</td><td><b>1.00</b></td><td>0.40</td></tr>
+ * <tr><td>{@code T} car / truck</td><td>1.00 s / 1.30 s</td><td>-</td></tr>
+ * <tr><td>follower thresholds, car</td><td>-2.0 / -4.0</td><td>same</td></tr>
+ * <tr><td>ego thresholds</td><td><b>not set</b>, so -2.0 / -4.0</td><td>same</td></tr>
+ * <tr><td>{@code COOPERATIVE_DECELERATION_THRESHOLD}</td><td>car -3.0, <b>truck -1.0</b></td><td>-3.0</td></tr>
+ * </table>
  * <p>
- * {@code _off} is the published behaviour, {@code _new} has both ramp-end switches on with
- * {@value TamaRampEndStudy#ROAD_BEHIND_LANE_END_M} m of road declared behind the lane end.
+ * The damping is the clearest case: the campaign runs it at 1.00, which is no damping at all, so trying it
+ * means going <i>below</i> that rather than towards the class default.
  * </p>
+ * <h3>The axes</h3>
  * <ul>
- * <li><b>{@code base_off}</b> / <b>{@code base_new}</b> -- the final validation set. {@code base_off} must
- * reproduce that campaign's numbers or nothing else here can be read against anything.</li>
- * <li><b>{@code vcomp_off}</b> / <b>{@code vcomp_new}</b> -- the desired-speed compression factor at
- * {@value #COMPRESSION_RELAXED} instead of {@value TamaFinalValidationStudy#COMPRESSION}, which is
- * <i>less</i> reshaping of the distribution. The prediction worth stating in advance: if the new behaviour
- * raises the free-flow speed on its own, then less compression is needed, and the relaxed factor should
- * cost less under {@code _new} than under {@code _off}.</li>
- * <li><b>{@code p2_off}</b> / <b>{@code p2_new}</b> -- the threshold-interpolation exponent at
- * {@value #THRESHOLD_EXPONENT}, which lowers the deceleration a merger accepts over most of a 200 m
- * ramp.</li>
- * <li><b>{@code bfmin_off}</b> / <b>{@code bfmin_new}</b> -- the follower threshold's lower endpoint at
- * {@value #B_FOLLOWER_MIN} m/s&sup2;, likewise.</li>
- * <li><b>{@code road200_new}</b> -- the declared road behind the lane end at
- * {@value #ROAD_BEHIND_LONG} m instead of {@value TamaRampEndStudy#ROAD_BEHIND_LANE_END_M}. Not a
- * calibration axis but a sensitivity: if the results depend strongly on it, the mechanism is being carried
- * by a number nobody measured, and that has to be known before any of the rest is trusted.</li>
+ * <li><b>{@code t110}, {@code t120}</b> -- a larger desired headway: car/truck at 1.10/1.40 and 1.20/1.50 s
+ * against 1.00/1.30.</li>
+ * <li><b>{@code dec15}, {@code dec10}</b> -- less aggressive deceleration thresholds, <b>follower and ego
+ * moved together</b>: (-1.5, -3.0) and (-1.0, -2.5) against (-2.0, -4.0).</li>
+ * <li><b>{@code coopSoft}, {@code coopHard}</b> -- the cooperative threshold at (car -2.0, truck -0.5) and
+ * (car -4.0, truck -1.5) against (-3.0, -1.0).</li>
+ * <li><b>{@code damp60}, {@code damp40}</b> -- relaxation damping at 0.60 and 0.40 against 1.00.</li>
+ * <li><b>{@code dec15t110} … {@code dec10t120}</b> -- the thresholds and the headway together, which is the
+ * combination worth having: a gentler threshold leaves a merger accepting less, and a larger headway gives
+ * it more room to do so. Either alone may cost capacity where the pair does not.</li>
  * </ul>
  * <p>
- * The car-following headway {@code T} is deliberately <b>not</b> an axis. It sets capacity rather than
- * free-flow speed and the ramp-end behaviour does not touch it; adding it would double the campaign for a
- * question this design cannot answer anyway.
+ * The <b>desired speeds are settled</b> and are not an axis: pivot 150 km/h, compression 0.7, in every cell.
+ * </p>
+ * <h3>Size</h3>
+ * <p>
+ * Thirteen cells, three days, ten seeds: <b>390 runs</b>. Days that differ in what they stress - one that
+ * breaks down, one that does not - because a design read only on congested days says nothing about the
+ * free-flow speed three of these axes exist to move.
  * </p>
  * <h3>What is watched, in order</h3>
  * <ol>
- * <li><b>{@code diffused_vehicles.csv}</b>. It is zero across the final validation and the emergency stop is
- * what keeps it there. A cell that improves every other number while losing vehicles has moved the failure
- * somewhere harder to see, not removed it.</li>
- * <li>The free-flow speed, which is what the three calibration axes exist for.</li>
+ * <li><b>{@code diffused_vehicles.csv}</b> and the completed-run count. The behaviour these parameters sit
+ * on top of lost 12 of 150 runs on the cluster before the deadlock was fixed; a cell that loses runs has not
+ * been calibrated, it has failed.</li>
+ * <li>The free-flow speed, about 6 % below the field in the last campaign.</li>
  * <li>Capacity, breakdown count and ramp standstills, none of which may get materially worse.</li>
- * <li>The merge positions and the deceleration a merge costs the follower - the mechanism itself.</li>
+ * <li>The merge positions and the deceleration a merge costs the follower.</li>
  * </ol>
- * <h3>Run it on a few days first</h3>
- * <p>
- * Nine cells over all sixteen days at ten seeds is 1440 runs, and this design's own weakness is that it
- * cannot tell a real interaction from day-to-day variation until it has enough days. So the first pass is
- * <b>two or three days</b> - about 270 runs - which is enough to see whether any pair separates at all and
- * whether the base arm still reproduces the validation. Only a pair that separates there is worth sixteen
- * days.
- * </p>
- * <p>
- * Pick days that differ in what they stress: one that breaks down and one that does not. A design read only
- * on congested days says nothing about the free-flow speed it was built to chase.
- * </p>
  *
  * <pre>
- *   # first pass, three days, about 270 runs
- *   --study=tamarampcal --output=&lt;dir&gt; --dates=2025-09-22,2025-10-07,2025-10-27  *   --demand=&lt;dir&gt; --replications=10
- *
- *   --study=tamarampcal --output=&lt;dir&gt; --dates=cluster/dates.txt \
+ *   --study=tamarampcal --output=&lt;dir&gt; --dates=2025-09-22,2025-10-07,2025-10-27 \
  *   --demand=&lt;dir&gt; --replications=10
  * </pre>
  * <p>
@@ -104,154 +94,179 @@ public class TamaRampEndCalibrationStudy implements StudyDefinition
     /** Registered study name. */
     public static final String NAME = "tamarampcal";
 
-    /** Label of the cell that is the final validation set with the published behaviour. */
-    public static final String BASE_LABEL = "base_off";
+    /** Label of the cell that moves no driving parameter. */
+    public static final String BASE_LABEL = "base";
 
-    /** Replications per cell per date. Nine cells over sixteen days, so this is 1440 runs. */
+    /** Replications per cell per date. Thirteen cells over three days is 390 runs. */
     public static final int DEFAULT_REPLICATIONS = 10;
 
     /** Parameter key naming the cell. */
     public static final String KEY_CELL = "rampcal.cell";
 
-    /** Parameter key naming the calibration axis a cell moves, independently of the behaviour arm. */
+    /** Parameter key naming the axis a cell moves, so the evaluation need not parse labels. */
     public static final String KEY_AXIS = "rampcal.axis";
 
-    /** Parameter key naming the behaviour arm, so the evaluation need not parse labels. */
-    public static final String KEY_ARM = "rampcal.arm";
+    /** Declared road behind the lane end [m], the same length {@link TamaRampEndStudy} uses. */
+    public static final double ROAD_BEHIND_LANE_END_M = TamaRampEndStudy.ROAD_BEHIND_LANE_END_M;
 
-    /** The relaxed desired-speed compression factor: less reshaping than the validation's. */
-    public static final double COMPRESSION_RELAXED = 0.85;
+    /** The campaign's desired headway for cars [s]; the level the headway axis moves away from. */
+    public static final double T_CAR_BASE = 1.00;
 
-    /** The threshold-interpolation exponent tried, against the published linear 1.0. */
-    public static final double THRESHOLD_EXPONENT = 2.0;
+    /** The campaign's desired headway for trucks [s]. */
+    public static final double T_TRUCK_BASE = 1.30;
 
-    /** The follower threshold's lower endpoint tried [m/s^2], against the frozen -2.0. */
-    public static final double B_FOLLOWER_MIN = -1.0;
+    /** The campaign's gentler deceleration threshold [m/s^2], follower and ego alike. */
+    public static final double THRESHOLD_MIN_BASE = -2.0;
 
-    /** The longer declared road behind the lane end [m], for the sensitivity cell. */
-    public static final double ROAD_BEHIND_LONG = 200.0;
+    /** The campaign's harder deceleration threshold [m/s^2]. */
+    public static final double THRESHOLD_MAX_BASE = -4.0;
+
+    /** The campaign's relaxation damping factor: 1.00, which is no damping. */
+    public static final double DAMPING_BASE = 1.00;
 
     /** The cells, by label, in registration order. */
     private static final Map<String, Cell> CELLS = buildCells();
 
     /**
-     * One cell: its behaviour arm, its calibration axis, and what it sets.
-     * @param arm String; "off" for the published behaviour, "new" for the ramp-end switches
-     * @param axis String; the calibration axis this cell moves, or "none"
-     * @param body Consumer&lt;ScenarioParameters&gt;; what it sets on top of the final validation set
+     * One cell: the axis it moves, and what it sets on top of the new behaviour.
+     * @param axis String; the axis this cell moves, or "none"
+     * @param body Consumer&lt;ScenarioParameters&gt;; what it sets
      */
-    private record Cell(String arm, String axis, Consumer<ScenarioParameters> body)
+    private record Cell(String axis, Consumer<ScenarioParameters> body)
     {
     }
 
     /**
      * Builds the cells in registration order; the global run index follows it.
      * <p>
-     * Axis-major within each arm, and both arms of an axis adjacent, so that a partial campaign - one that
-     * is cut short, or a subset selected with {@code --cells} - still holds complete pairs. A design whose
-     * first half is all one arm answers nothing until it finishes.
+     * Single axes first and the combinations last, so a campaign that is cut short still holds every
+     * one-at-a-time result. A combination is only readable once both of its singles are.
      * </p>
      * @return Map&lt;String, Cell&gt;; the cells
      */
     private static Map<String, Cell> buildCells()
     {
         Map<String, Cell> cells = new LinkedHashMap<>();
-        addPair(cells, "base", "none", params -> { });
-        addPair(cells, "vcomp", "compression", TamaRampEndCalibrationStudy::setRelaxedCompression);
-        addPair(cells, "p2", "curvature", TamaRampEndCalibrationStudy::setThresholdExponent);
-        addPair(cells, "bfmin", "bfollowermin", TamaRampEndCalibrationStudy::setFollowerMin);
-        cells.put("road200_new", new Cell("new", "roadlength", params ->
-        {
-            setNewBehaviour(params);
-            setRoadBehind(params, ROAD_BEHIND_LONG);
-        }));
+        cells.put(BASE_LABEL, new Cell("none", params -> { }));
+        cells.put("t110", new Cell("headway", params -> setHeadway(params, 1.10, 1.40)));
+        cells.put("t120", new Cell("headway", params -> setHeadway(params, 1.20, 1.50)));
+        cells.put("dec15", new Cell("thresholds", params -> setThresholds(params, -1.5, -3.0)));
+        cells.put("dec10", new Cell("thresholds", params -> setThresholds(params, -1.0, -2.5)));
+        cells.put("coopSoft", new Cell("cooperation", params -> setCooperation(params, -2.0, -0.5)));
+        cells.put("coopHard", new Cell("cooperation", params -> setCooperation(params, -4.0, -1.5)));
+        cells.put("damp60", new Cell("damping", params -> setDamping(params, 0.60)));
+        cells.put("damp40", new Cell("damping", params -> setDamping(params, 0.40)));
+        addPair(cells, "dec15t110", -1.5, -3.0, 1.10, 1.40);
+        addPair(cells, "dec15t120", -1.5, -3.0, 1.20, 1.50);
+        addPair(cells, "dec10t110", -1.0, -2.5, 1.10, 1.40);
+        addPair(cells, "dec10t120", -1.0, -2.5, 1.20, 1.50);
         return Collections.unmodifiableMap(cells);
     }
 
     /**
-     * Registers both arms of one calibration axis.
+     * Registers one cell that moves the thresholds and the headway together.
      * @param cells Map&lt;String, Cell&gt;; the cells being built
-     * @param label String; the axis label
-     * @param axis String; the axis name recorded in the run parameters
-     * @param body Consumer&lt;ScenarioParameters&gt;; what the axis sets, applied in both arms
+     * @param label String; the cell label
+     * @param min double; the gentler threshold [m/s^2]
+     * @param max double; the harder threshold [m/s^2]
+     * @param carT double; the car headway [s]
+     * @param truckT double; the truck headway [s]
      */
-    private static void addPair(final Map<String, Cell> cells, final String label, final String axis,
-            final Consumer<ScenarioParameters> body)
+    private static void addPair(final Map<String, Cell> cells, final String label, final double min,
+            final double max, final double carT, final double truckT)
     {
-        cells.put(label + "_off", new Cell("off", axis, body));
-        cells.put(label + "_new", new Cell("new", axis, params ->
+        cells.put(label, new Cell("thresholds+headway", params ->
         {
-            body.accept(params);
-            setNewBehaviour(params);
+            setThresholds(params, min, max);
+            setHeadway(params, carT, truckT);
         }));
     }
 
     /**
-     * Turns on both ramp-end switches and declares the road the last-resort merge needs.
+     * The behaviour every cell runs: both ramp-end switches, the road they need, and the dominance fix.
      * <p>
-     * Both switches together rather than one cell each: this study asks what the new behaviour does to the
-     * calibration, and the two switches are two halves of one behaviour - one acts before the conforming
-     * deadline and one after. {@code tamarampend} is the study that separates them.
+     * Not an axis and not optional. The deadlock that cost the previous campaign 12 of 150 runs was traced
+     * to the dominance defect and to road being granted where there is none; with those settled the
+     * parameters can be read, and without them the runs cannot.
      * </p>
      * @param params ScenarioParameters; the parameters to write
      */
     private static void setNewBehaviour(final ScenarioParameters params)
     {
-        params.set("car." + MirovaParameters.solveParallelAnticipation.getId(), Boolean.TRUE);
-        params.set("truck." + MirovaParameters.solveParallelAnticipation.getId(), Boolean.TRUE);
-        params.set("car." + MirovaParameters.lastResortMerge.getId(), Boolean.TRUE);
-        params.set("truck." + MirovaParameters.lastResortMerge.getId(), Boolean.TRUE);
-        setRoadBehind(params, TamaRampEndStudy.ROAD_BEHIND_LANE_END_M);
+        Length room = Length.instantiateSI(ROAD_BEHIND_LANE_END_M);
+        for (String who : new String[] {"car.", "truck."})
+        {
+            params.set(who + MirovaParameters.solveParallelAnticipation.getId(), Boolean.TRUE);
+            params.set(who + MirovaParameters.lastResortMerge.getId(), Boolean.TRUE);
+            params.set(who + MirovaParameters.roadBehindLaneEnd.getId(), room);
+            params.set(who + MirovaParameters.dominantSideMustBeWanted.getId(), Boolean.TRUE);
+        }
     }
 
     /**
-     * Declares the driveable road behind the end of a lane that ends.
+     * Sets the desired headway, against the campaign's 1.00 / 1.30 s.
      * @param params ScenarioParameters; the parameters to write
-     * @param metres double; the length [m]
+     * @param car double; the car headway [s]
+     * @param truck double; the truck headway [s]
      */
-    private static void setRoadBehind(final ScenarioParameters params, final double metres)
+    private static void setHeadway(final ScenarioParameters params, final double car, final double truck)
     {
-        Length road = Length.instantiateSI(metres);
-        params.set("car." + MirovaParameters.roadBehindLaneEnd.getId(), road);
-        params.set("truck." + MirovaParameters.roadBehindLaneEnd.getId(), road);
+        params.set("car." + ParameterTypes.T.getId(), Duration.instantiateSI(car));
+        params.set("truck." + ParameterTypes.T.getId(), Duration.instantiateSI(truck));
     }
 
     /**
-     * Relaxes the desired-speed compression, leaving the pivot where the validation set it.
-     * @param params ScenarioParameters; the parameters to write
-     */
-    private static void setRelaxedCompression(final ScenarioParameters params)
-    {
-        params.set(ScenarioParameters.KEY_DESIRED_SPEED_COMPRESSION_CAR, COMPRESSION_RELAXED);
-    }
-
-    /**
-     * Bends the deceleration-threshold interpolation, on cars and trucks alike.
-     * @param params ScenarioParameters; the parameters to write
-     */
-    private static void setThresholdExponent(final ScenarioParameters params)
-    {
-        params.set("car." + MirovaParameters.thresholdCurvature.getId(), THRESHOLD_EXPONENT);
-        params.set("truck." + MirovaParameters.thresholdCurvature.getId(), THRESHOLD_EXPONENT);
-    }
-
-    /**
-     * Lowers the follower threshold's lower endpoint on cars, as the frozen set does.
-     * @param params ScenarioParameters; the parameters to write
-     */
-    private static void setFollowerMin(final ScenarioParameters params)
-    {
-        params.set("car." + MirovaParameters.minFollowerDecelerationThreshold.getId(),
-                Acceleration.instantiateSI(B_FOLLOWER_MIN));
-    }
-
-    /**
-     * Applies one cell's settings to a parameter set built from the final validation baseline.
+     * Sets the deceleration thresholds, follower and ego together, on cars and trucks alike.
      * <p>
-     * Public for the same reason {@link TamaRampEndStudy#applyCell} is: the GUI runner has to be able to
-     * show <b>this</b> cell, above all a cell whose runs died on the cluster, rather than a hand-written
-     * approximation of it. A second spelling of a cell is a second thing to keep in step.
+     * All four, which is the point of this axis: the follower threshold is what a merger will impose on the
+     * vehicle behind it and the ego threshold what it will accept itself - one behaviour seen from two
+     * sides. The earlier screening moved only the follower's lower endpoint, which left the ego threshold
+     * capping the braking in {@code solveParallel} exactly where it had been.
      * </p>
+     * @param params ScenarioParameters; the parameters to write
+     * @param min double; the gentler endpoint [m/s^2], negative
+     * @param max double; the harder endpoint [m/s^2], negative
+     */
+    private static void setThresholds(final ScenarioParameters params, final double min, final double max)
+    {
+        Acceleration gentle = Acceleration.instantiateSI(min);
+        Acceleration hard = Acceleration.instantiateSI(max);
+        for (String who : new String[] {"car.", "truck."})
+        {
+            params.set(who + MirovaParameters.minFollowerDecelerationThreshold.getId(), gentle);
+            params.set(who + MirovaParameters.maxFollowerDecelerationThreshold.getId(), hard);
+            params.set(who + MirovaParameters.minEgoDecelerationThreshold.getId(), gentle);
+            params.set(who + MirovaParameters.maxEgoDecelerationThreshold.getId(), hard);
+        }
+    }
+
+    /**
+     * Sets the cooperative deceleration, against the campaign's car -3.0 / truck -1.0.
+     * @param params ScenarioParameters; the parameters to write
+     * @param car double; the car threshold [m/s^2], negative
+     * @param truck double; the truck threshold [m/s^2], negative
+     */
+    private static void setCooperation(final ScenarioParameters params, final double car, final double truck)
+    {
+        params.set("car." + MirovaParameters.cooperativeDecelerationThreshold.getId(),
+                Acceleration.instantiateSI(car));
+        params.set("truck." + MirovaParameters.cooperativeDecelerationThreshold.getId(),
+                Acceleration.instantiateSI(truck));
+    }
+
+    /**
+     * Sets the relaxation damping factor, against the campaign's 1.00 - which is no damping at all.
+     * @param params ScenarioParameters; the parameters to write
+     * @param factor double; the damping factor
+     */
+    private static void setDamping(final ScenarioParameters params, final double factor)
+    {
+        params.set("car." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), factor);
+        params.set("truck." + MirovaParameters.RELAXATION_ACC_DAMPING_FACTOR.getId(), factor);
+    }
+
+    /**
+     * Applies the new behaviour and one cell on top of it, for the campaign and for a watched run alike.
      * @param label String; the cell label
      * @param params ScenarioParameters; the parameters to write, already carrying the baseline
      * @throws IllegalArgumentException when no cell carries that label
@@ -264,20 +279,20 @@ public class TamaRampEndCalibrationStudy implements StudyDefinition
             throw new IllegalArgumentException(
                     "Study '" + NAME + "' has no cell '" + label + "'; known: " + CELLS.keySet());
         }
+        setNewBehaviour(params);
         cell.body().accept(params);
         params.set(KEY_CELL, label);
         params.set(KEY_AXIS, cell.axis());
-        params.set(KEY_ARM, cell.arm());
     }
 
     /**
      * The cells of this study, by label, in registration order.
-     * @return Map&lt;String, String&gt;; label to "arm/axis"
+     * @return Map&lt;String, String&gt;; label to the axis it moves
      */
     public static Map<String, String> cells()
     {
         Map<String, String> all = new LinkedHashMap<>();
-        CELLS.forEach((label, cell) -> all.put(label, cell.arm() + "/" + cell.axis()));
+        CELLS.forEach((label, cell) -> all.put(label, cell.axis()));
         return Collections.unmodifiableMap(all);
     }
 
@@ -290,8 +305,8 @@ public class TamaRampEndCalibrationStudy implements StudyDefinition
     @Override
     public String getDescription()
     {
-        return "Does the ramp-end behaviour move the calibration: " + CELLS.size()
-                + " cells per date, four axes in two behaviour arms plus a road-length sensitivity.";
+        return "Driving parameters on top of the fixed ramp-end behaviour: " + CELLS.size()
+                + " cells per date, four axes and the pairwise combination of two of them.";
     }
 
     /** {@inheritDoc} */
