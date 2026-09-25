@@ -36,12 +36,16 @@ declare -F guard > /dev/null || { echo "REFUSING TO START: no guard functions" >
 HEAP=4g
 DRY=0
 RUN_ARGS=()
+JVM_OPTS=()
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --heap=*)    HEAP="${1#*=}" ;;
+    # A scenario switch read from a system property reaches the run no other way: this script starts the
+    # JVM itself. FreiburgNord's mirova.samplerLinks is the case it exists for.
+    --jvm-opt=*) JVM_OPTS+=("${1#*=}") ;;
     --dry-run)   DRY=1 ;;
-    --cell=*|--date=*|--demand=*|--from=*|--to=*|--seed=*|--output=*|--gui=*) RUN_ARGS+=("$1") ;;
+    --cell=*|--date=*|--demand=*|--from=*|--to=*|--seed=*|--output=*|--gui=*|--study=*|--route-room=*|--wanted-only=*) RUN_ARGS+=("$1") ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift
@@ -72,9 +76,9 @@ CP="$CP$(cat "$CP_CACHE")"
 MAIN=org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunTamaRampEndGui
 
 if [ "$DRY" -eq 1 ]; then
-  echo "[gui] would run: java -Xmx$HEAP -cp <${#CP} chars> $MAIN ${RUN_ARGS[*]-}"
+  echo "[gui] would run: java -Xmx$HEAP ${JVM_OPTS[*]-} -cp <${#CP} chars> $MAIN ${RUN_ARGS[*]-}"
   exit 0
 fi
 
 echo "[gui] starting the animation; close the window to end the run"
-exec java -Xmx"$HEAP" -cp "$CP" "$MAIN" ${RUN_ARGS[@]+"${RUN_ARGS[@]}"}
+exec java -Xmx"$HEAP" ${JVM_OPTS[@]+"${JVM_OPTS[@]}"} -cp "$CP" "$MAIN" ${RUN_ARGS[@]+"${RUN_ARGS[@]}"}

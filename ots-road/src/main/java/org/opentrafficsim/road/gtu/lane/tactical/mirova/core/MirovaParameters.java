@@ -153,6 +153,41 @@ public final class MirovaParameters implements ConstraintInterface
                                         false);
 
         /**
+         * Whether a side must be wanted to be the dominant one, and not merely the less unwanted.
+         * <p>
+         * Read by the TaMA driver only (<code>dominantSideMustBeWanted</code>). False, the default, is the
+         * published behaviour: <code>dominantDirection</code> answers with the larger of the two sides
+         * whatever their sign, so where both are negative it names the less unwanted one and a pattern
+         * acting on it changes lane against its own desire. Measured: a vehicle crossed onto the exit lane
+         * at dLeft = -0.995, dRight = -0.958, then stood at the end of it for 1832 s with eleven vehicles
+         * behind it.
+         * </p>
+         */
+        public static final ParameterTypeBoolean dominantSideMustBeWanted =
+                        new ParameterTypeBoolean("DOMINANT_SIDE_MUST_BE_WANTED",
+                                        "A side is dominant only when the desire towards it is positive",
+                                        false);
+
+        /**
+         * Road a lane must still give the route before a discretionary change into it.
+         * <p>
+         * Read by the TaMA driver only (<code>minRouteRoomForLaneChange</code>). Zero, the default, is the
+         * published behaviour: no lane is refused. Set to 250 m, a driver will not take a lane on a
+         * keep-right or speed-gain desire that its own route makes it leave again within 250 m - which is
+         * how vehicles ended up on the exit lane with no business being there.
+         * </p>
+         * <p>
+         * The mandatory half is untouched: a route requirement is not a preference and is not vetoed by
+         * one. And it cannot catch a sideways move the host makes without asking, which OTS does when a
+         * lane's centre line does not continue ("is forced to change lane towards RIGHT").
+         * </p>
+         */
+        public static final ParameterTypeLength minRouteRoomForLaneChange = new ParameterTypeLength(
+                        "MIN_ROUTE_ROOM_FOR_LANE_CHANGE",
+                        "Road a lane must still give the route before a discretionary change into it",
+                        Length.ZERO, POSITIVEZERO);
+
+        /**
          * Whether a driver out of room merges into the smallest collision-free gap instead of stopping.
          * <p>
          * Read by the TaMA driver only (<code>lastResortMerge</code>), default false, which is the
