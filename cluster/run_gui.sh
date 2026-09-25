@@ -45,7 +45,7 @@ while [ $# -gt 0 ]; do
     # JVM itself. FreiburgNord's mirova.samplerLinks is the case it exists for.
     --jvm-opt=*) JVM_OPTS+=("${1#*=}") ;;
     --dry-run)   DRY=1 ;;
-    --cell=*|--date=*|--demand=*|--from=*|--to=*|--seed=*|--output=*|--gui=*|--study=*|--route-room=*) RUN_ARGS+=("$1") ;;
+    --cell=*|--date=*|--demand=*|--from=*|--to=*|--seed=*|--output=*|--gui=*|--study=*|--route-room=*|--wanted-only=*) RUN_ARGS+=("$1") ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift

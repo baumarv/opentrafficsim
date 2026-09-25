@@ -42,6 +42,7 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * warm-up and a different demand profile - so it is for looking, never for a number.</li>
  * <li>{@code --seed=} the replication seed, default {@value #DEFAULT_SEED}.</li>
  * <li>{@code --output=} where the run writes, default {@value #DEFAULT_OUTPUT}.</li>
+ * <li>{@code --wanted-only=true} sets {@code dominantSideMustBeWanted}.</li>
  * <li>{@code --route-room=250} sets {@code minRouteRoomForLaneChange} in metres, for trying the rule out
  * before it has a permanent home. Omitted, nothing is set and the behaviour is unchanged.</li>
  * <li>{@code --gui=false} runs the same configuration headless, so the sampler output belongs to the run that
@@ -133,6 +134,13 @@ public final class RunTamaRampEndGui
         params.set("demandEndDate", date + " " + to);
         // A knob for trying a rule out before it has a home, deliberately not a study axis: the route room
         // a lane must still give before a discretionary change into it. Zero, the default, changes nothing.
+        // The dominance fix, as a knob for the run that has to show whether it removes the deadlock.
+        if (Boolean.parseBoolean(options.getOrDefault("wanted-only", "false")))
+        {
+            params.set("car." + MirovaParameters.dominantSideMustBeWanted.getId(), Boolean.TRUE);
+            params.set("truck." + MirovaParameters.dominantSideMustBeWanted.getId(), Boolean.TRUE);
+            System.out.println("[gui] dominantSideMustBeWanted = true");
+        }
         String routeRoom = options.get("route-room");
         if (routeRoom != null)
         {
