@@ -153,6 +153,39 @@ public final class MirovaParameters implements ConstraintInterface
                                         false);
 
         /**
+         * Whether a driver out of room merges into the smallest collision-free gap instead of stopping.
+         * <p>
+         * Read by the TaMA driver only (<code>lastResortMerge</code>), default false, which is the
+         * published behaviour. It takes effect only where {@link #roadBehindLaneEnd} declares road
+         * behind the lane end: the switch cannot invent road, so setting it alone changes nothing.
+         * </p>
+         */
+        public static final ParameterTypeBoolean lastResortMerge =
+                        new ParameterTypeBoolean("LAST_RESORT_MERGE",
+                                        "Out of room, merge into the smallest collision-free gap instead of stopping",
+                                        false);
+
+        /**
+         * Driveable road behind the end of a lane that ends, which the network does not model as a lane.
+         * <p>
+         * A statement about the <b>network</b>, not about the driver, carried on a parameter because
+         * that is the channel a scenario has to the planner. It separates two places the model has so
+         * far conflated: the position by which a driver following the rules has merged - the end of the
+         * acceleration lane - and the last position at which merging is physically possible. On a German
+         * motorway those differ by the hard shoulder behind the acceleration lane; at an exit they
+         * coincide, and the adapter tells the two cases apart from the network's own geometry rather
+         * than from this number.
+         * </p>
+         * <p>
+         * Zero, the default, means the network does not model the distinction, and then nothing acts on
+         * it. Another host is free to answer it from its own network model instead.
+         * </p>
+         */
+        public static final ParameterTypeLength roadBehindLaneEnd = new ParameterTypeLength("ROAD_BEHIND_LANE_END",
+                        "Driveable road behind the end of a lane that ends, not modelled as a lane",
+                        Length.ZERO, POSITIVEZERO);
+
+        /**
          * Exponent on the deceleration-threshold interpolation; 1.0 is the published linear form.
          * <p>
          * Read by the TaMA driver only (<code>pThreshold</code>). The MiRoVA planner interpolates linearly and
