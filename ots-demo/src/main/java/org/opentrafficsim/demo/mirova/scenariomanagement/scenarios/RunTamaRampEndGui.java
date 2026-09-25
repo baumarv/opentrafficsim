@@ -5,11 +5,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.djunits.value.vdouble.scalar.Length;
 import org.opentrafficsim.demo.mirova.scenariomanagement.FacilityRegistry;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioGenerator;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioParameters;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioSimulationScript;
 import org.opentrafficsim.demo.mirova.scenariomanagement.TrafficFacility;
+import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
 
 /**
  * Watch one cell of {@link TamaRampEndStudy} in the animation, to see what the ramp end actually looks like.
@@ -40,6 +42,8 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.TrafficFacility;
  * warm-up and a different demand profile - so it is for looking, never for a number.</li>
  * <li>{@code --seed=} the replication seed, default {@value #DEFAULT_SEED}.</li>
  * <li>{@code --output=} where the run writes, default {@value #DEFAULT_OUTPUT}.</li>
+ * <li>{@code --route-room=250} sets {@code minRouteRoomForLaneChange} in metres, for trying the rule out
+ * before it has a permanent home. Omitted, nothing is set and the behaviour is unchanged.</li>
  * <li>{@code --gui=false} runs the same configuration headless, so the sampler output belongs to the run that
  * was watched rather than to a similar one.</li>
  * </ul>
@@ -127,6 +131,16 @@ public final class RunTamaRampEndGui
         // Narrowed after the cell, not before: the cell must see the set it was defined against.
         params.set("demandStartDate", date + " " + from);
         params.set("demandEndDate", date + " " + to);
+        // A knob for trying a rule out before it has a home, deliberately not a study axis: the route room
+        // a lane must still give before a discretionary change into it. Zero, the default, changes nothing.
+        String routeRoom = options.get("route-room");
+        if (routeRoom != null)
+        {
+            Length room = Length.instantiateSI(Double.parseDouble(routeRoom));
+            params.set("car." + MirovaParameters.minRouteRoomForLaneChange.getId(), room);
+            params.set("truck." + MirovaParameters.minRouteRoomForLaneChange.getId(), room);
+            System.out.println("[gui] minRouteRoomForLaneChange = " + room);
+        }
 
         System.out.println("[gui] study=" + study + " cell=" + cell + " date=" + date + " window=" + from
                 + ".." + to + " seed=" + seed);
