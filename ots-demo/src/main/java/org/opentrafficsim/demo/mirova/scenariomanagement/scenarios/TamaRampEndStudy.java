@@ -155,6 +155,30 @@ public class TamaRampEndStudy implements StudyDefinition
     }
 
     /**
+     * Applies one cell's switches to a parameter set built from the final validation baseline.
+     * <p>
+     * Public so that the GUI runner shows <b>this</b> cell rather than a hand-written imitation of it. A second
+     * spelling of a cell is a second thing to keep in step, and the one that gets looked at is the one nobody
+     * checks against the campaign.
+     * </p>
+     * @param label String; the cell label
+     * @param params ScenarioParameters; the parameters to write, already carrying the baseline
+     * @throws IllegalArgumentException when no cell carries that label
+     */
+    public static void applyCell(final String label, final ScenarioParameters params)
+    {
+        Cell cell = CELLS.get(label);
+        if (cell == null)
+        {
+            throw new IllegalArgumentException(
+                    "Study '" + NAME + "' has no cell '" + label + "'; known: " + CELLS.keySet());
+        }
+        cell.body().accept(params);
+        params.set(KEY_CELL, label);
+        params.set(KEY_AXIS, cell.axis());
+    }
+
+    /**
      * The cells of this study, by label, in registration order.
      * @return Map&lt;String, String&gt;; label to the axis it moves
      */
@@ -229,9 +253,7 @@ public class TamaRampEndStudy implements StudyDefinition
 
                 ScenarioParameters params =
                         TamaFinalValidationStudy.parameters(facility, date, demandCsvPath, strict);
-                entry.getValue().body().accept(params);
-                params.set(KEY_CELL, entry.getKey());
-                params.set(KEY_AXIS, entry.getValue().axis());
+                applyCell(entry.getKey(), params);
                 params.set(ScenarioGenerator.KEY_TACTICAL_PLANNER, "tama");
                 manager.addParameterVariation(scenarioName, params);
             }
