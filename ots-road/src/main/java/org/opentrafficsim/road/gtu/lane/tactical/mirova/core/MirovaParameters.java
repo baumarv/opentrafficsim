@@ -153,6 +153,25 @@ public final class MirovaParameters implements ConstraintInterface
                                         false);
 
         /**
+         * Road a lane must still give the route before a discretionary change into it.
+         * <p>
+         * Read by the TaMA driver only (<code>minRouteRoomForLaneChange</code>). Zero, the default, is the
+         * published behaviour: no lane is refused. Set to 250 m, a driver will not take a lane on a
+         * keep-right or speed-gain desire that its own route makes it leave again within 250 m - which is
+         * how vehicles ended up on the exit lane with no business being there.
+         * </p>
+         * <p>
+         * The mandatory half is untouched: a route requirement is not a preference and is not vetoed by
+         * one. And it cannot catch a sideways move the host makes without asking, which OTS does when a
+         * lane's centre line does not continue ("is forced to change lane towards RIGHT").
+         * </p>
+         */
+        public static final ParameterTypeLength minRouteRoomForLaneChange = new ParameterTypeLength(
+                        "MIN_ROUTE_ROOM_FOR_LANE_CHANGE",
+                        "Road a lane must still give the route before a discretionary change into it",
+                        Length.ZERO, POSITIVEZERO);
+
+        /**
          * Whether a driver out of room merges into the smallest collision-free gap instead of stopping.
          * <p>
          * Read by the TaMA driver only (<code>lastResortMerge</code>), default false, which is the
