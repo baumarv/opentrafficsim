@@ -3,7 +3,7 @@ package org.opentrafficsim.road.gtu.lane.tactical.mirova.util.logging.extendedda
 import org.opentrafficsim.kpi.interfaces.GtuData;
 import org.opentrafficsim.kpi.sampling.data.ExtendedDataString;
 import org.opentrafficsim.road.gtu.lane.LaneBasedGtu;
-import org.opentrafficsim.road.gtu.lane.tactical.mirova.MirovaTacticalPlanner;
+import org.opentrafficsim.road.gtu.lane.tactical.DriverStateObservable;
 import org.opentrafficsim.road.network.sampling.GtuDataRoad;
 
 /**
@@ -42,9 +42,9 @@ public class ExtendedDataActionState extends ExtendedDataString<GtuData>
         if (gtu instanceof GtuDataRoad road)
         {
             LaneBasedGtu lgtu = road.getGtu();
-            if (lgtu.getTacticalPlanner() instanceof MirovaTacticalPlanner p && p.getCurrentActionState() != null)
+            if (lgtu.getTacticalPlanner() instanceof DriverStateObservable p)
             {
-                return p.getCurrentActionState().toString();
+                return p.actionStateName();
             }
         }
         return "none";
