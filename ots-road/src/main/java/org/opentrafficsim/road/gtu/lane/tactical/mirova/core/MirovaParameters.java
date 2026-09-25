@@ -140,6 +140,19 @@ public final class MirovaParameters implements ConstraintInterface
                                         "Factor to reduce safety distance during lane change", 0.5, POSITIVE);
 
         /**
+         * Whether a driver alongside a blocker anticipates instead of braking for the lane end.
+         * <p>
+         * Read by the TaMA driver only (<code>solveParallelAnticipation</code>), default false, which is
+         * the published behaviour. The MiRoVA planner has its own SolveParallel and ignores this, so a
+         * scenario that sets it and runs on MiRoVA gets no effect rather than a different one.
+         * </p>
+         */
+        public static final ParameterTypeBoolean solveParallelAnticipation =
+                        new ParameterTypeBoolean("SOLVE_PARALLEL_ANTICIPATION",
+                                        "Anticipate whether a blocker clears instead of braking to a stop",
+                                        false);
+
+        /**
          * Exponent on the deceleration-threshold interpolation; 1.0 is the published linear form.
          * <p>
          * Read by the TaMA driver only (<code>pThreshold</code>). The MiRoVA planner interpolates linearly and
