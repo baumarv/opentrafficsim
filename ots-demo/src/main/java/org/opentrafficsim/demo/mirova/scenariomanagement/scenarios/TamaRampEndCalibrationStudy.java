@@ -246,6 +246,31 @@ public class TamaRampEndCalibrationStudy implements StudyDefinition
     }
 
     /**
+     * Applies one cell's settings to a parameter set built from the final validation baseline.
+     * <p>
+     * Public for the same reason {@link TamaRampEndStudy#applyCell} is: the GUI runner has to be able to
+     * show <b>this</b> cell, above all a cell whose runs died on the cluster, rather than a hand-written
+     * approximation of it. A second spelling of a cell is a second thing to keep in step.
+     * </p>
+     * @param label String; the cell label
+     * @param params ScenarioParameters; the parameters to write, already carrying the baseline
+     * @throws IllegalArgumentException when no cell carries that label
+     */
+    public static void applyCell(final String label, final ScenarioParameters params)
+    {
+        Cell cell = CELLS.get(label);
+        if (cell == null)
+        {
+            throw new IllegalArgumentException(
+                    "Study '" + NAME + "' has no cell '" + label + "'; known: " + CELLS.keySet());
+        }
+        cell.body().accept(params);
+        params.set(KEY_CELL, label);
+        params.set(KEY_AXIS, cell.axis());
+        params.set(KEY_ARM, cell.arm());
+    }
+
+    /**
      * The cells of this study, by label, in registration order.
      * @return Map&lt;String, String&gt;; label to "arm/axis"
      */
@@ -320,10 +345,7 @@ public class TamaRampEndCalibrationStudy implements StudyDefinition
 
                 ScenarioParameters params =
                         TamaFinalValidationStudy.parameters(facility, date, demandCsvPath, strict);
-                entry.getValue().body().accept(params);
-                params.set(KEY_CELL, entry.getKey());
-                params.set(KEY_AXIS, entry.getValue().axis());
-                params.set(KEY_ARM, entry.getValue().arm());
+                applyCell(entry.getKey(), params);
                 params.set(ScenarioGenerator.KEY_TACTICAL_PLANNER, "tama");
                 manager.addParameterVariation(scenarioName, params);
             }

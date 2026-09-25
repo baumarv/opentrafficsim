@@ -28,8 +28,10 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.TrafficFacility;
  * </p>
  * <h3>Arguments</h3>
  * <ul>
- * <li>{@code --cell=} one of {@code base}, {@code antic}, {@code lastresort}, {@code both}. Default
- * {@code lastresort}, because that is the one whose behaviour is new.</li>
+ * <li>{@code --study=} {@code tamarampend} (the default) or {@code tamarampcal}.</li>
+ * <li>{@code --cell=} a cell of that study. For {@code tamarampend}: {@code base}, {@code antic},
+ * {@code lastresort}, {@code both}; default {@code lastresort}, because that is the one whose behaviour is
+ * new. For {@code tamarampcal}: {@code base_off} ... {@code road200_new}.</li>
  * <li>{@code --date=} the demand date, default {@value #DEFAULT_DATE}.</li>
  * <li>{@code --demand=} the demand CSV or the directory holding one per date, default {@value #DEFAULT_DEMAND}.</li>
  * <li>{@code --from=}, {@code --to=} clock times on that date, default {@value #DEFAULT_FROM} to
@@ -85,6 +87,7 @@ public final class RunTamaRampEndGui
     {
         Map<String, String> options = parse(args);
         String cell = options.getOrDefault("cell", DEFAULT_CELL);
+        String study = options.getOrDefault("study", TamaRampEndStudy.NAME);
         String date = options.getOrDefault("date", DEFAULT_DATE);
         String demand = options.getOrDefault("demand", DEFAULT_DEMAND);
         String from = options.getOrDefault("from", DEFAULT_FROM);
@@ -104,13 +107,29 @@ public final class RunTamaRampEndGui
         scenario.setOutputDirectory(output);
 
         ScenarioParameters params = TamaFinalValidationStudy.parameters(facility, date, demandCsvPath, true);
-        TamaRampEndStudy.applyCell(cell, params);
+        // Either study's cell, because the cells worth watching are in both: the two switches on their own
+        // in `tamarampend`, and the calibration arms - including the ones whose cluster runs died - in
+        // `tamarampcal`. Routed through each study's own applyCell so there is no third spelling.
+        if (TamaRampEndCalibrationStudy.NAME.equals(study))
+        {
+            TamaRampEndCalibrationStudy.applyCell(cell, params);
+        }
+        else if (TamaRampEndStudy.NAME.equals(study))
+        {
+            TamaRampEndStudy.applyCell(cell, params);
+        }
+        else
+        {
+            throw new IllegalArgumentException("unknown --study=" + study + "; expected "
+                    + TamaRampEndStudy.NAME + " or " + TamaRampEndCalibrationStudy.NAME);
+        }
         params.setSeed(seed);
         // Narrowed after the cell, not before: the cell must see the set it was defined against.
         params.set("demandStartDate", date + " " + from);
         params.set("demandEndDate", date + " " + to);
 
-        System.out.println("[gui] cell=" + cell + " date=" + date + " window=" + from + ".." + to + " seed=" + seed);
+        System.out.println("[gui] study=" + study + " cell=" + cell + " date=" + date + " window=" + from
+                + ".." + to + " seed=" + seed);
         System.out.println("[gui] demand=" + demandCsvPath);
         System.out.println("[gui] a shortened window: for watching, not for a number.");
 

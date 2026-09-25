@@ -41,7 +41,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --heap=*)    HEAP="${1#*=}" ;;
     --dry-run)   DRY=1 ;;
-    --cell=*|--date=*|--demand=*|--from=*|--to=*|--seed=*|--output=*|--gui=*) RUN_ARGS+=("$1") ;;
+    --cell=*|--date=*|--demand=*|--from=*|--to=*|--seed=*|--output=*|--gui=*|--study=*) RUN_ARGS+=("$1") ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift
