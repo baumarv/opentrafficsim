@@ -31,8 +31,10 @@ import org.opentrafficsim.road.gtu.lane.tactical.mirova.core.MirovaParameters;
  * drift apart.</li>
  * <li><b>Two</b> on the lane-change safety distance {@code fGap}, at the values {@link VGainScreeningStudy} uses.
  * It is the parameter most likely to have compensated the too-large {@code vGain}.</li>
- * <li><b>Two</b> on {@code socioSpeedSensitivity}, halved and doubled. It is the second knob on the same saturation
- * term as {@code vGain} and was never fitted.</li>
+ * <li><b>Two</b> on {@code socioSpeedSensitivity}, halved and doubled. They were meant as the second knob on the
+ * same saturation term as {@code vGain}; <b>they move nothing</b>: no part of either model as run reads the parameter
+ * (the social-interaction incentive is registered by no planner factory, and TaMA has no such key), and both cells
+ * equal the baseline byte for byte. They are kept so that the campaign that ran them still resolves.</li>
  * <li><b>Four</b> on cooperation, led by the bounding cell that switches it off. If cooperation off moves nothing,
  * the three cells that modulate it are answered with it -- a parameter cannot contribute through a mechanism that
  * contributes nothing.</li>
