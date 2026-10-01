@@ -9,6 +9,11 @@
 # the nine were the set the headway pair, the comfortable deceleration and the relaxation
 # corrections were selected on. These seven are the first out-of-sample test.
 #
+# CORRECTED (G7a provenance): no longer true. All seven were later used to choose the
+# desired-speed compression final_v2 adopted (09-17 and 09-25 as fitting days), and 09-25
+# informed vGain in June. Out-of-sample only for parameter sets fixed before those choices;
+# see TaMA docs/manual-sources/04-scenarios-and-studies.md, "The reserved days".
+#
 2025-09-16
 2025-09-17
 2025-09-25
