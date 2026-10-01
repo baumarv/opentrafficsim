@@ -20,7 +20,6 @@
     $d_\mathrm{search}$ & Active gap-search threshold & 0.788\textsuperscript{d} & 0.788\textsuperscript{d} & -- & literature \\
     $v_\mathrm{gain}$ & Speed difference at full desire & 15 & 30 & km/h & intended value, not recalibrated \\
     $v_\mathrm{cong}$ & Congestion speed threshold & 60\textsuperscript{d} & 60\textsuperscript{d} & km/h & literature \\
-    $\sigma$ & Socio-speed sensitivity & 0.25\textsuperscript{d} & 0.25\textsuperscript{d} & -- & assumption \\
     $T$\textsuperscript{$\dagger$} & Desired time headway & 1 & 1.3 & s & calibration \\
     $s_0$ & Standstill gap & 3 & 6 & m & literature, calibrated \\
     $a$ & Desired acceleration & 1.4 & 1.25 & m/s\textsuperscript{2} & literature, calibrated \\
@@ -44,6 +43,8 @@
   \vspace{2pt}
   \footnotesize
   \textsuperscript{d} declared default: no scenario layer sets this parameter.\\
+  The socio-speed sensitivity $\sigma$ (\texttt{socioSpeedSensitivity}) is not listed: no part of the model as run
+  reads it, the social-interaction incentive being registered by no planner factory.\\
   \textsuperscript{$\dagger$} coupled: $T$ and the relaxation damping $\gamma_\mathrm{relax}$
   were calibrated against each other and act on the same quantity, the discharge rate; lengthening
   the headway was what made switching the damping off admissible, and neither may be quoted or
@@ -64,7 +65,6 @@
     $d_\mathrm{search}$ & Active gap-search threshold & 0.788\textsuperscript{d} & 0.788\textsuperscript{d} & -- & literature \\
     $v_\mathrm{gain}$ & Speed difference at full desire & 54 & 108 & km/h & intended value, not recalibrated \\
     $v_\mathrm{cong}$ & Congestion speed threshold & 60\textsuperscript{d} & 60\textsuperscript{d} & km/h & literature \\
-    $\sigma$ & Socio-speed sensitivity & 0.25\textsuperscript{d} & 0.25\textsuperscript{d} & -- & assumption \\
     $T$\textsuperscript{$\dagger$} & Desired time headway & 1 & 1.3 & s & calibration \\
     $s_0$ & Standstill gap & 3 & 6 & m & literature, calibrated \\
     $a$ & Desired acceleration & 1.4 & 1.25 & m/s\textsuperscript{2} & literature, calibrated \\
@@ -88,6 +88,8 @@
   \vspace{2pt}
   \footnotesize
   \textsuperscript{d} declared default: no scenario layer sets this parameter.\\
+  The socio-speed sensitivity $\sigma$ (\texttt{socioSpeedSensitivity}) is not listed: no part of the model as run
+  reads it, the social-interaction incentive being registered by no planner factory.\\
   \textsuperscript{$\dagger$} coupled: $T$ and the relaxation damping $\gamma_\mathrm{relax}$
   were calibrated against each other and act on the same quantity, the discharge rate; lengthening
   the headway was what made switching the damping off admissible, and neither may be quoted or
