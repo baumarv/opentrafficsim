@@ -145,7 +145,13 @@ either.
   **Commit `efaccb06b`** (inferred from timestamps; the model established by re-run, §E.2), which is Java-identical to `edefa9805` (`git diff` touches only
   `cluster/README.md` and `run_mirova.sbatch`). Its `runParams.txt` equals `final_v1`'s. So `final_v3` is
   `final_v1`'s parameters on the model *after* the eight changes. Re-run: §E.2.
-- **`final_v2`**: summary files only, no `runParams.txt`, no samplers; cannot be placed.
+- **`final_v2`**: **placed** (corrected in the G7c follow-up; this line said "summary files only, no
+  `runParams.txt`, no samplers; cannot be placed"). The copy under `mirova/output/ots/final_v2` holds, beside the
+  summary files, one `runParams.txt` per day - sixteen, identical but for the demand date (`final.cell=final_v2`,
+  `tacticalPlanner=tama`) - and 50 seed folders per day, 800 runs, each with `run.properties` (its seed) and
+  `build.txt`: **commit `92289b0f0`** (`vgain-grid-1-97-g92289b0f0`, `main`), TaMA `db7f7af`, composition
+  `mirova-reference/2`, fingerprint `245bd812...`, the same in all 800. Which copy the earlier line described is not
+  known; the samplers are there too.
 - **`vgain-grid-1`**: tagged at `abe0b4095`, pushed; consistent with `docs/cluster/vgain-grid-1.md`.
 - **TaMA recordings** replay-20/21/22: taken from OTS snapshots `2544c76ac` / `3502ca5d6`, both on
   `decoupling_phase05`; named in the TaMA checkpoint docs.
