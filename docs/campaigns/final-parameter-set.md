@@ -49,7 +49,10 @@ Identical for both vehicle classes unless stated.
 | Mandatory lane-change threshold | `DMAND` | 0.577 |
 | Extended look-ahead | `extendedLookAheadDistance` | 1000 m |
 
-`DSEARCH` (0.788) exists but has no reader anywhere and is inert. `extendedLookAheadDistance` is very likely
+`DSEARCH` (0.788) is inert in this set, but not for want of a reader: `MirovaTacticalPlanner:469` reads it
+when the switch `bcDesireInterpolation` (BC-9) is on, and this set leaves the switch off, so the threshold in
+effect is `DFREE`, 0.365 - and any value up to `DMAND` (0.577) gives the same model. (This sentence said "has no
+reader anywhere" until the G7c follow-up; TaMA's adapter makes the same choice, `OtsParameters.kt`.) `extendedLookAheadDistance` is very likely
 inert as well: the perception query it raises is memoised per vehicle per tick and the desires ask first. Both
 are listed so that a reader who finds them in the code knows they were considered.
 
