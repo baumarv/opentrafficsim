@@ -24,7 +24,7 @@ screen, and the second screen's difference stayed inside the resolution of ten s
 | | days | status |
 |---|---|---|
 | the original nine | 09-22, 09-23, 10-01, 10-07, 10-08, 10-13, 10-21, 10-27, 10-29 | the set every empirical target in `parameter_sensitivity.md` §2 is built from. **Not out-of-sample**: both screens ran on 09-22, 09-23 and 10-07, so the parameter set was chosen partly on them. |
-| the seven added later | 09-16, 09-17, 09-25, 09-26, 10-14, 10-15, 10-16 | reserved in the campaign design, touched by no study. **This run spends them.** |
+| the seven added later | 09-16, 09-17, 09-25, 09-26, 10-14, 10-15, 10-16 | reserved in the campaign design. ~~Touched by no study.~~ **Corrected: `final_v1` and `final_v3` ran on them before the reservation, and 09-25 informed `vGain` in June; for this run's frozen set six stay out-of-sample and 09-25 is qualified.** **This run spends them** - and they were then used to choose the compression `final_v2` adopted, so for `final_v2` none is out-of-sample (TaMA `docs/manual-sources/04-scenarios-and-studies.md`, "The reserved days"). |
 
 The nine carry the comparison against the field's discharge, jam duration, jam speed and onset. The seven
 carry the out-of-sample claim, and only they do. Reporting a single pooled error over all sixteen would mix

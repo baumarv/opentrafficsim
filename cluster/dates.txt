@@ -17,7 +17,9 @@
 2025-10-27
 2025-10-29
 
-# Added for the widened evaluation. None of these took part in choosing any parameter.
+# Added for the widened evaluation. None of these took part in choosing any parameter when they were added;
+# CORRECTED (G7a provenance): all seven were later used to choose the desired-speed compression final_v2 adopted,
+# and 09-25 informed vGain - see dates_extension.txt.
 2025-09-16
 2025-09-17
 2025-09-25
