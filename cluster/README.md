@@ -66,7 +66,7 @@ allocation stays correct if the rounding behavior ever changes.
 | `guard.sh` | The precondition idiom every script uses: a check ends the script or it is not a check. `test_guard.sh` pins it |
 | `dates.txt` | The **16** study dates at the A5 Freiburg-Nord on-ramp: the original nine, plus seven added later |
 | `dates_calibration.txt` | **3** of the nine, spanning the observed capacity range — for `mergegrid` |
-| `dates_extension.txt` | The **7** added after the final ensemble; **held out as validation days** |
+| `dates_extension.txt` | The **7** added after the final ensemble; reserved as validation days, **and since used to choose a parameter** (the desired-speed compression `final_v2` adopted; see the file's header) |
 | `demand/demand_<date>.csv` | Pre-generated demand, uploaded to `$WS/demand/` |
 | `run_mirova.sbatch` | The SLURM batch script |
 | `run_local_parallel.sh` | Local parallel runner; stamps the build as the cluster path does |

@@ -37,7 +37,7 @@ intent.
 | 12 | 2026-09-02 | Capacity-drop addon tested against the too-short queue | `capDrop*` | `FreiburgCapacityDropStudy` — **not adopted**, off in production |
 | 13 | 2026-09-03 | Shorter headways crossed with a longer-lived relaxation | `T` × relaxation lifetime | `FreiburgSusceptibilityStudy` |
 | 14 | 2026-09-04 | Final ensemble, fifty seeds, at `T` = 1.00 / 1.30 | `T` | `FreiburgFinalStudy` |
-| 15 | 2026-09-07 | Seven out-of-sample dates added | — | commit; `dates_calibration.txt` (3) and `dates_extension.txt` (7) |
+| 15 | 2026-09-07 | Seven out-of-sample dates added (since used to choose a parameter; see `cluster/dates_extension.txt`) | — | commit; `dates_calibration.txt` (3) and `dates_extension.txt` (7) |
 | 16 | 2026-09-09/10 | Merge mechanism: eleven changes measured, four kept | structural, not parameters | `parameter_sensitivity.md` §9 |
 
 **Two headways are in play, and the record explains why.** Step 14 settles on `T` = 1.00 / 1.30 s
@@ -214,7 +214,8 @@ inventing a new one.
    calibration survives and the published set stands with a corrected parameter — which is the
    outcome worth hoping for and the one nobody should assume.
 3. **Grid only what the screen moves**, as step 9 did.
-4. **Validate out of sample** on the seven extension dates, which were added for exactly this.
+4. **Validate out of sample** on the seven extension dates, which were added for exactly this. (Corrected: they were
+   since used to choose the desired-speed compression; for any set downstream of that choice they are in-sample.)
 5. **Regenerate `parametertable.tex`** and tag the recalibrated campaign. The `legacy` variant and the
    `campaign-final-v1` tag keep the old results reproducible throughout.
 
