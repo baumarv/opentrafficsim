@@ -42,12 +42,13 @@ Identical for both vehicle classes unless stated.
 | Relaxation lifetime cap | `relaxMaxLifetime` | 3.0 · τ |
 | Relaxation fade-out on abort | `tRelaxFade` | 1.0 s |
 | Relaxation abort deceleration | `aRelaxAbort` | −1.0 m/s² |
-| Social speed sensitivity | `socioSpeedSensitivity` | 0.25 |
 | Gap-opening look-ahead | `considerGapOpeningLookaheadDistance` | 100 m |
 | Undercutting time headway | `UNDERCUTTING_TIME_HEADWAY` | 5.0 s |
 | Free lane-change threshold | `DFREE` | 0.365 |
 | Mandatory lane-change threshold | `DMAND` | 0.577 |
 | Extended look-ahead | `extendedLookAheadDistance` | 1000 m |
+
+The social speed sensitivity (`socioSpeedSensitivity`, 0.25) was listed here and is removed, because no part of the model as run reads it: its one reader, `SocialInteractionsIncentives`, is registered by no planner factory, and TaMA has no such key. The screen's two cells that set it are byte-identical to its baseline (TaMA `docs/manual-sources/04-scenarios-and-studies.md`).
 
 `DSEARCH` (0.788) is inert in this set, but not for want of a reader: `MirovaTacticalPlanner:469` reads it
 when the switch `bcDesireInterpolation` (BC-9) is on, and this set leaves the switch off, so the threshold in
