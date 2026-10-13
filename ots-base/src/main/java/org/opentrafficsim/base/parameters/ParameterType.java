@@ -215,6 +215,13 @@ public class ParameterType<T> implements Identifiable, Type<ParameterType<T>>
             return false;
         }
         ParameterType<?> other = (ParameterType<?>) obj;
+        // Marvin Baumann (KIT): unequal hash codes imply unequal objects, since hashCode() is computed from exactly the fields
+        // compared below. Parameter types are map keys, so this is asked on every bucket collision of every parameter
+        // lookup, and the check saves the string comparisons for the common case of two different types. Result unchanged.
+        if (this.hashCode != other.hashCode)
+        {
+            return false;
+        }
         if (!this.id.equals(other.id))
         {
             return false;
