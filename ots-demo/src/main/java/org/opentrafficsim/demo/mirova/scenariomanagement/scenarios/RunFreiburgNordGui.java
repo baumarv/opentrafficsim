@@ -60,12 +60,6 @@ public final class RunFreiburgNordGui
     private static final String MODEL = DriverModels.LMRS;
 
     /**
-     * Whether the scenario-level parameter set is applied: T, a, b and s0 as the Freiburg studies set them, see
-     * {@link FreiburgStudyParameters#scenarioParameterOverrides()}. False = the model's own parameter values.
-     */
-    private static final boolean SCENARIO_PARAMETER_SET = false;
-
-    /**
      * How the LMRS is composed. Each line sets one {@link Setting} of upstream's LmrsFactory; the values below are the ones
      * upstream itself uses. Change a value to see another composition. A line that is removed leaves that setting to
      * upstream.
@@ -189,8 +183,6 @@ public final class RunFreiburgNordGui
             parameters.setSeed(SEED);
             SIMULATION_TIME.ifPresent(parameters::setSimulationTime);
             parameters.set(ScenarioGenerator.KEY_DRIVER_MODEL, MODEL);
-            parameters.set(ScenarioGenerator.KEY_LMRS_PARAMETERS, SCENARIO_PARAMETER_SET
-                    ? ScenarioGenerator.PARAMETER_SET_SCENARIO : ScenarioGenerator.PARAMETER_SET_DEFAULT);
             if (DriverModels.LMRS.equals(MODEL))
             {
                 parameters.set(LmrsDriverModelProvider.KEY + "." + LmrsDriverModelProvider.KEY_SETTINGS, lmrsSettings());

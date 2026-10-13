@@ -176,14 +176,26 @@ JAVA_OPTS="-XX:ActiveProcessorCount=1"
 # in the trajectory header, which a JVM with another default charset writes as a different byte.
 JAVA_OPTS="${JAVA_OPTS} -Duser.language=en -Duser.country=US -Dfile.encoding=UTF-8"
 
-# The driver model every vehicle drives, and the parameter set it runs on. Both are appended to the study options
-# below, so that the same study body, days and seeds run on another model with one variable changed.
-#   MIROVA_MODEL            key of a driver model; default lmrs. MIROVA_TACTICAL_PLANNER is accepted as its old name.
-#   MIROVA_LMRS_PARAMETERS  default  = the model's own defaults (the benchmark)
-#                           scenario = the scenario-level overrides of T, a, b and s0 as one set
+# -XX:-OmitStackTraceInFastThrow: HotSpot stops filling in the stack trace of an exception it has thrown often from
+# the same place. The exceptions that remove vehicles are exactly those, and without this option removed_vehicles.csv
+# names an exception with no trace to say where it came from.
+JAVA_OPTS="${JAVA_OPTS} -XX:-OmitStackTraceInFastThrow"
+
+# The driver model every vehicle drives, and optionally a preset that composes it differently. Both are appended to
+# the study options below, so that the same study body, days and seeds run on another model or composition with one
+# variable changed.
+#   MIROVA_MODEL   key of a driver model; default lmrs. MIROVA_TACTICAL_PLANNER is accepted as its old name.
+#   MIROVA_PRESET  name of a file in cluster/presets (without .preset), or a path; unset = the model as it is.
+#                  Single options (--lmrs.<setting>=..., --car.<parameter>=...) go into MIROVA_STUDY_OPTS.
 MODEL="${MIROVA_MODEL:-${MIROVA_TACTICAL_PLANNER:-lmrs}}"
-LMRS_PARAMETERS="${MIROVA_LMRS_PARAMETERS:-default}"
-MODEL_OPT=("--model=${MODEL}" "--lmrsParameters=${LMRS_PARAMETERS}")
+MODEL_OPT=("--model=${MODEL}")
+PRESET="${MIROVA_PRESET:-}"
+if [ -n "${PRESET}" ]; then
+    PRESET_FILE="${PRESET}"
+    if [ ! -f "${PRESET_FILE}" ]; then PRESET_FILE="${CLUSTER_DIR}/presets/${PRESET}.preset"; fi
+    guard "the preset '${PRESET}' exists as a file or as ${CLUSTER_DIR}/presets/${PRESET}.preset" test -f "${PRESET_FILE}"
+    MODEL_OPT+=("--preset=${PRESET_FILE}")
+fi
 
 # Number of runs bundled into one array task; see the header for why this is 2.
 RUNS_PER_TASK="${MIROVA_RUNS_PER_TASK:-2}"
@@ -282,7 +294,7 @@ echo "Cores:       ${SLURM_CPUS_PER_TASK:-?} (affinity: ${CPU_LIST[*]:-unknown})
 echo "Output:      ${OUTPUT_ROOT}"
 echo "=========================================================="
 
-echo "Model:       ${MODEL} (parameter set: ${LMRS_PARAMETERS})"
+echo "Model:       ${MODEL} (preset: ${PRESET:-none})"
 
 # Direct java launch, not exec:java.
 declare -a RUN_PIDS=() RUN_INDICES=() RUN_LOGS=()

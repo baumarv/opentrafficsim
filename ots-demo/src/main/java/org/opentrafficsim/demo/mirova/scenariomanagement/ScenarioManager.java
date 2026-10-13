@@ -45,6 +45,12 @@ import ch.qos.logback.classic.Level;
  */
 public class ScenarioManager {
 
+    /**
+     * Scenario parameter naming the preset a run was started with, for the run metadata. It is a label: what a preset
+     * contained reaches the run as the scenario parameters it set, and is recorded as what the driver model reports.
+     */
+    public static final String KEY_PRESET = "preset";
+
     /** Nanoseconds in a second. */
     private static final double NANOS_PER_SECOND = 1e9;
 
@@ -424,8 +430,7 @@ public class ScenarioManager {
         metadata.put("model", model);
         // The name this key had while the framework had one built-in model; kept so that readers of older runs find it.
         metadata.put("tacticalPlanner", model);
-        metadata.put(ScenarioGenerator.KEY_LMRS_PARAMETERS, effective.getOrDefault(ScenarioGenerator.KEY_LMRS_PARAMETERS,
-                ScenarioGenerator.PARAMETER_SET_DEFAULT, String.class));
+        metadata.put(KEY_PRESET, effective.getOrDefault(KEY_PRESET, "none", String.class));
         Object noLaneChangeDistance = effective.asUnmodifiableMap().get(ScenarioGenerator.KEY_NO_LC_DIST);
         metadata.put(ScenarioGenerator.KEY_NO_LC_DIST, noLaneChangeDistance == null ? "null (no restriction)"
                 : noLaneChangeDistance.toString());

@@ -67,7 +67,7 @@ done
 CP="$CP$SEP$(cat "$CP_CACHE")"
 
 # The same locale and encoding as the evaluated runs, so that what is watched is what is run.
-OPTS=(-Xmx"$HEAP" -Duser.language=en -Duser.country=US -Dfile.encoding=UTF-8)
+OPTS=(-Xmx"$HEAP" -XX:-OmitStackTraceInFastThrow -Duser.language=en -Duser.country=US -Dfile.encoding=UTF-8)
 MAIN_CLASS="org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunFreiburgNordGui"
 
 if [ "$DRY" = 1 ]; then

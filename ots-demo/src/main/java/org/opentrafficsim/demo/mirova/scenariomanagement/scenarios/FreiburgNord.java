@@ -703,12 +703,6 @@ public class FreiburgNord extends ScenarioGenerator
         return this.outputConfiguration;
     }
 
-    @Override
-    public ScenarioParameters scenarioParameterOverrides()
-    {
-        return FreiburgStudyParameters.scenarioParameterOverrides();
-    }
-
     /**
      * Wraps a value given in km/h, as the desired-speed scenario parameters are, into a speed.
      * @param value double; the value in km/h

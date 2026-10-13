@@ -15,8 +15,8 @@
 # system property - FreiburgNord's mirova.samplerLinks, for one - reaches the run no other way,
 # because the runs are separate JVMs this script starts itself.
 #
-# The driver model and its parameter set are study options, as on the cluster:
-#   --model=lmrs (default)   --lmrsParameters=default|scenario
+# The driver model and its composition are study options, as on the cluster:
+#   --model=lmrs (default)   --preset=<name in cluster/presets>   --lmrs.<setting>=<value>   --car.<parameter>=<value>
 #
 # Example - a 15-minute smoke test of one day on the upstream LMRS:
 #   cluster/run_local_parallel.sh --study=dates --output=out/smoke --slots=1 -- \
@@ -134,7 +134,10 @@ guard_nonempty "cluster/UPSTREAM_COMMIT names the upstream OTS commit this branc
 # so a local run reads its input and writes its output identically. DJUnits parses numbers through the
 # default FORMAT locale - on a German machine "2.3 mm" in a network XML would read as 23 mm - and the
 # platform charset decides how the one non-ASCII character of the trajectory header is written.
-OPTS=(-Xmx"$HEAP" -XX:ActiveProcessorCount=1 -Djava.awt.headless=true
+# -XX:-OmitStackTraceInFastThrow: HotSpot stops filling in the stack trace of an exception it has thrown often from
+# the same place. The exceptions that remove vehicles are exactly those, and without this option removed_vehicles.csv
+# names an exception with no trace to say where it came from.
+OPTS=(-Xmx"$HEAP" -XX:ActiveProcessorCount=1 -XX:-OmitStackTraceInFastThrow -Djava.awt.headless=true
       -Duser.language=en -Duser.country=US -Dfile.encoding=UTF-8
       -Dmirova.gitCommit="$BUILD_COMMIT" -Dmirova.upstreamCommit="$UPSTREAM_COMMIT")
 if [ ${#JVM_OPTS[@]} -gt 0 ]; then OPTS+=("${JVM_OPTS[@]}"); fi

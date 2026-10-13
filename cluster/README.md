@@ -11,7 +11,7 @@ branch is `dates`: one scenario per date, one variation each, `--replications` s
 | Option (command line) | Environment variable (sbatch) | Default | Meaning |
 |---|---|---|---|
 | `--model=<key>` | `MIROVA_MODEL` | `lmrs` | Driver model. `lmrs` is upstream's LMRS with upstream settings. `MIROVA_TACTICAL_PLANNER` and `--tacticalPlanner` are accepted as the old names. |
-| `--lmrsParameters=default\|scenario` | `MIROVA_LMRS_PARAMETERS` | `default` | `default`: the model's own parameter defaults. `scenario`: the eight scenario-level overrides of `T`, `a`, `b`, `s0` for cars and trucks (`FreiburgStudyParameters`), as one set. |
+| `--preset=<name\|file>` | `MIROVA_PRESET` | none | A named combination of driver model options from `cluster/presets/<name>.preset`. Options given explicitly win over it. |
 | `--replications=<n>` | `MIROVA_REPLICATIONS` | 20 (sbatch), 6 (study) | Seeds per date. |
 | `--dates=<file\|list>` | `MIROVA_DATES_FILE` | `cluster/dates.txt` | Dates to simulate. |
 | `--demand=<dir\|file>` | `MIROVA_DEMAND_DIR` | `<workspace>/demand` | Pre-generated demand CSVs, `demand_<date>.csv`. |
@@ -28,12 +28,13 @@ Into `<output>/<scenario>/variation_<i>/run_seed_<seed>/`:
 | `sampler_RoadSampler_[samplingInterval=null].csv.zip` | Trajectories on the merge section `L4a`, with the six extended columns. |
 | `detector_periodic.csv.zip`, `detector_positions.csv.zip` | Loop detectors on `L3a`, `L5a`, `L7a`: flow and harmonic mean speed per minute, and their positions. |
 | `diffused_vehicles.csv` | Header only. No driver model on this branch removes vehicles to dissolve a deadlock; the file is kept so that post-processing finds it. |
+| `removed_vehicles.csv`, `removed_vehicles_traces.txt` | One row per vehicle OTS removed after an exception (id, type, time, link, lane, position, speed, exception, trace hash), and the distinct stack traces by hash. Header only when none was removed. |
 | `errors.txt` | Only when the run failed. |
 
 `runParams.txt` lies one level up, in the variation folder.
 
 `run.properties` records: scenario and day (`scenario`, `demand.start`, `demand.end`, `demand.csv`), `seed`,
-`replication`, `model`, `lmrsParameters`, `noLaneChangeDistance`, `start.timestamp`, `end.timestamp`,
+`replication`, `model`, `preset`, `noLaneChangeDistance`, `start.timestamp`, `end.timestamp`,
 `ots.upstream.commit`, `git.commit`, `git.dirty`, `performance.switches`, `jvm.locale`, `jvm.version`, `status`,
 what the driver model reported about itself (`model.*`, including every applied parameter override), and
 `gtus.removed`.
@@ -115,6 +116,23 @@ every setting as `model.setting.<class>.<SETTING>`, the ones that differ from up
 `model.<class>.settings=changed: ...`, and parameter overrides as `model.override.*`. A name or value the provider
 does not know stops the run during setup. A run whose settings line does not say `upstream defaults` is not the
 upstream-default benchmark.
+
+## Presets
+
+A preset is a file in `cluster/presets/` with one driver model option per line, the same keys the command line
+takes (`lmrs.<setting>`, `car.<parameter>`, `truck.<parameter>`). It gives a combination a name, so that it is
+selected explicitly and recorded by that name (`preset=` in `run.properties`), beside the composition read back
+from the factory.
+
+| Preset | Content |
+|---|---|
+| `moving-ego-headway` | `synchronization=ALIGN_GAP_MOVING`, `cooperation=PASSIVE_MOVING`, `gapAcceptance=EGO_HEADWAY`; everything else as upstream. |
+
+```bash
+cluster/run_local_parallel.sh --study=dates --output=out/preset --slots=2 -- \
+    --dates=2025-09-22 --demand=cluster/demand --strict=true --replications=2 --preset=moving-ego-headway
+MIROVA_PRESET=moving-ego-headway sbatch --chdir="$(ws_find mirova)" cluster/run_mirova.sbatch
+```
 
 ## On bwUniCluster 3.0
 
