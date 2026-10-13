@@ -3,3 +3,6 @@
 
 # Local runner: cached runtime classpath
 /cluster/.cp_local.txt
+
+# Output of local and GUI runs
+out/
