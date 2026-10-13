@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.lang.management.ManagementFactory;
 import java.lang.reflect.InvocationTargetException;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
@@ -43,6 +44,9 @@ import ch.qos.logback.classic.Level;
  * @author <a href="https://github.com/baumarv">Marvin Baumann</a>
  */
 public class ScenarioManager {
+
+    /** Nanoseconds in a second. */
+    private static final double NANOS_PER_SECOND = 1e9;
 
     /** Path to the root output directory. */
     private final File outputRoot;
@@ -416,7 +420,10 @@ public class ScenarioManager {
         metadata.put("demand.csv", String.valueOf(effective.get("demandCsv", String.class)));
         metadata.put("seed", String.valueOf(seed));
         metadata.put("replication", String.valueOf(address.replicationIndex));
-        metadata.put("model", effective.getOrDefault(ScenarioGenerator.KEY_DRIVER_MODEL, DriverModels.LMRS, String.class));
+        String model = effective.getOrDefault(ScenarioGenerator.KEY_DRIVER_MODEL, DriverModels.LMRS, String.class);
+        metadata.put("model", model);
+        // The name this key had while the framework had one built-in model; kept so that readers of older runs find it.
+        metadata.put("tacticalPlanner", model);
         metadata.put(ScenarioGenerator.KEY_LMRS_PARAMETERS, effective.getOrDefault(ScenarioGenerator.KEY_LMRS_PARAMETERS,
                 ScenarioGenerator.PARAMETER_SET_DEFAULT, String.class));
         Object noLaneChangeDistance = effective.asUnmodifiableMap().get(ScenarioGenerator.KEY_NO_LC_DIST);
@@ -434,7 +441,7 @@ public class ScenarioManager {
         metadata.put("status", "started");
         RunMetadata.write(runFolder, metadata);
 
-        return new PreparedRun(script, seed, runFolder, metadata);
+        return new PreparedRun(script, seed, runFolder, metadata, System.nanoTime());
     }
 
     /**
@@ -452,6 +459,16 @@ public class ScenarioManager {
         Map<String, String> metadata = new LinkedHashMap<>(prepared.metadata);
         metadata.put("status", "finished");
         metadata.put("end.timestamp", OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
+        metadata.put("wall.seconds",
+                String.format(Locale.ROOT, "%.1f", (System.nanoTime() - prepared.startNanos) / NANOS_PER_SECOND));
+        // CPU time of the whole process since the JVM started: start-up, compilation and garbage collection included. It
+        // is the runtime of this run when the process executes one run, which is how the cluster and the local runner
+        // work, and it does not depend on what else the machine is doing, which the wall clock does.
+        if (ManagementFactory.getOperatingSystemMXBean() instanceof com.sun.management.OperatingSystemMXBean os)
+        {
+            metadata.put("process.cpu.seconds",
+                    String.format(Locale.ROOT, "%.1f", os.getProcessCpuTime() / NANOS_PER_SECOND));
+        }
         metadata.put("model.applied", String.valueOf(ScenarioGenerator.getAppliedModel()));
         for (String line : ScenarioGenerator.getAppliedModelDescription().split("\\R"))
         {
@@ -743,16 +760,21 @@ public class ScenarioManager {
         /** The metadata written when the run was prepared; completed when it has finished. */
         private final Map<String, String> metadata;
 
+        /** {@link System#nanoTime()} when the run was prepared. */
+        private final long startNanos;
+
         /**
          * Constructor.
          * @param script ScenarioSimulationScript; the configured simulation script
          * @param seed long; the seed of this run
          * @param runFolder File; the output folder of this run
          * @param metadata Map&lt;String, String&gt;; the metadata written when the run was prepared
+         * @param startNanos long; {@link System#nanoTime()} when the run was prepared
          */
         PreparedRun(final ScenarioSimulationScript script, final long seed, final File runFolder,
-                final Map<String, String> metadata)
+                final Map<String, String> metadata, final long startNanos)
         {
+            this.startNanos = startNanos;
             this.script = script;
             this.seed = seed;
             this.runFolder = runFolder;
