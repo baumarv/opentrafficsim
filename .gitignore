@@ -1,2 +1,5 @@
 **/target/
 /.flattened-pom.xml
+
+# Local runner: cached runtime classpath
+/cluster/.cp_local.txt

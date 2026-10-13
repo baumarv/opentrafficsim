@@ -1,0 +1,3 @@
+# Commit of upstream OpenTrafficSim (https://github.com/averbraeck/opentrafficsim, branch main) this branch is based on.
+# Update it whenever the branch is rebased or merged onto a newer upstream; RunMetadata writes it into every run.
+78f2601dd80aacdfd4950c6bfbe899ee904afee7

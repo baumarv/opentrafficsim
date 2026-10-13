@@ -1,0 +1,363 @@
+#!/usr/bin/env bash
+#
+# SLURM job array for the scenario studies (bwUniCluster 3.0).
+#
+# ONE ARRAY TASK = TWO SIMULATION RUNS, ONE PER CORE, RUN CONCURRENTLY.
+# Array task T executes the study's global run indices 2*T and 2*T+1.
+#
+# Why two, when a run is single-threaded and the design elsewhere favours one run per task:
+# on the cpu partition SLURM allocates two logical CPUs even for --cpus-per-task=1
+# (AllocTRES=cpu=2 observed on jobs 6366033, 6366103 and 6366286; the partition reports
+# MaxCPUsPerNode=192 over 80 nodes, i.e. 96 physical cores x 2 SMT threads, so a physical
+# core appears to be the smallest allocatable unit). The completed canary run 6366286 shows
+# the consequence: CPU Utilized 00:18:25 against a wall-clock of 00:18:29, i.e. 49.82% CPU
+# efficiency — one core busy, the second one allocated and idle for the whole run.
+# Since the allocation costs two cores either way, the second one carries a second run.
+# Each run still gets exactly one core's worth of JVM parallelism.
+#
+# MIROVA_CLUSTER_DIR must be exported before submitting: sbatch copies this script's
+# *content* into a spool file and runs that copy, so the script cannot locate its own
+# directory and therefore cannot find mirova_env.sh next to it.
+#
+# Submit from the workspace so that the relative log paths below land there:
+#     export MIROVA_WORKSPACE=<workspace name>
+#     export MIROVA_CLUSTER_DIR="$PWD/cluster"          # from the repository root
+#     sbatch --chdir="$(ws_find "$MIROVA_WORKSPACE")" cluster/run_mirova.sbatch
+#
+# ---------------------------------------------------------------------------------------
+# CALIBRATE BEFORE THE FIRST PRODUCTION SUBMISSION
+# ---------------------------------------------------------------------------------------
+# --array        must be 0-<ceil(N/2)-1>, because each task runs TWO runs. N comes from:
+#                    RunMirovaClusterStudy --study=<study> --output=<dir> ... --count
+#                16 dates x 20 replications = 320 runs -> 160 tasks -> --array=0-159 <- current
+#                16 dates x  6 replications =  96 runs ->  48 tasks -> --array=0-47
+#                16 dates x 50 replications = 800 runs -> 400 tasks -> --array=0-399
+#                 9 dates x  6 replications =  54 runs ->  27 tasks -> --array=0-26
+#                The replication count is not a default to rely on: DateStudy uses 6 unless
+#                --replications is passed, and a production campaign wants far more. It is set
+#                in MIROVA_STUDY_OPTS below so the array size and the run count cannot drift.
+#                An odd N is fine: the last task skips its second index (see below).
+# --mem-per-cpu  PLACEHOLDER, per core, so a task's memory limit is 2 x this value while
+#                TWO JVMs live inside it. MIROVA_JAVA_HEAP is likewise per run, so the
+#                constraint to satisfy when calibrating is
+#
+#                    2 x MIROVA_JAVA_HEAP  <  2 x --mem-per-cpu  -  (2 x off-heap per JVM)
+#
+#                i.e. per run: JAVA_HEAP < mem-per-cpu - off-heap. The headroom must cover
+#                TWO JVMs' non-heap footprint (metaspace, code cache, GC structures, thread
+#                stacks, direct buffers), not one's - roughly 0.5-1 GB each, so with
+#                mem-per-cpu=8G a JAVA_HEAP of 6g leaves ~2 GB per run for that.
+#                Measure the peak RSS of a single run first, then set both accordingly:
+#                exceeding the limit gets the whole task OOM-killed, taking down the healthy
+#                run alongside the greedy one.
+# --time         02:00:00 is the budget inherited from the MiRoVA campaigns. Measure a full LMRS day on this
+#                branch before a production submission and adjust. The two runs are concurrent, so this is a
+#                per-run budget, not a sum.
+# --partition    choose per bwUniCluster 3.0 queue documentation.
+# ---------------------------------------------------------------------------------------
+#
+#SBATCH --job-name=mirova-study
+#SBATCH --array=0-159
+#SBATCH --partition=cpu
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem-per-cpu=8G
+#SBATCH --time=02:00:00
+#SBATCH --output=logs/mirova_%A_%a.out
+#SBATCH --error=logs/mirova_%A_%a.err
+#
+# --cpus-per-task=2 is requested explicitly rather than relying on SLURM rounding 1 up to a
+# full physical core: it makes the two cores the task actually gets an intentional part of
+# the request, and it keeps the arithmetic honest if that rounding ever changes.
+#
+# Optional self-throttling during shared-cluster congestion: limit how many array tasks run
+# concurrently by appending %N to the range. Not needed by default — 96 two-core tasks stay
+# well under the 1920-core-per-user cap.
+# #SBATCH --array=0-95%25
+#
+# Copyright (c) 2026 Marvin Baumann / KIT.
+
+set -euo pipefail
+
+# --------------------------------------------------------------------------------------
+# Locate the cluster scripts
+# --------------------------------------------------------------------------------------
+# Deliberately no self-location from ${BASH_SOURCE[0]}: sbatch copies the submitted
+# script's content into /var/spool/slurmd/job<id>/slurm_script and executes that copy, so
+# BASH_SOURCE always points at the spool directory, never at the repository. Guessing here
+# would break only under sbatch while appearing to work when the script is run directly.
+if [ -z "${MIROVA_CLUSTER_DIR:-}" ]; then
+    echo "ERROR: MIROVA_CLUSTER_DIR is not set." >&2
+    echo "       sbatch runs a copy of this script from the job spool directory, so it" >&2
+    echo "       cannot find mirova_env.sh next to itself. Export the path of the" >&2
+    echo "       repository's cluster/ directory before submitting, e.g.:" >&2
+    echo "           export MIROVA_CLUSTER_DIR=\"\$PWD/cluster\"   # from the repository root" >&2
+    echo "           sbatch --chdir=\"\$(ws_find \"\$MIROVA_WORKSPACE\")\" cluster/run_mirova.sbatch" >&2
+    exit 2
+fi
+
+CLUSTER_DIR="${MIROVA_CLUSTER_DIR}"
+
+if [ ! -f "${CLUSTER_DIR}/mirova_env.sh" ]; then
+    echo "ERROR: no mirova_env.sh in MIROVA_CLUSTER_DIR (${CLUSTER_DIR})." >&2
+    echo "       It must point at the cluster/ directory of the repository checkout." >&2
+    exit 2
+fi
+
+# shellcheck source=cluster/mirova_env.sh
+source "${CLUSTER_DIR}/mirova_env.sh"
+# Every precondition below is stated with guard/guard_empty/guard_nonempty, which abort rather than report.
+# A failed 'source' does not stop a script, and every later guard would then be "command not found".
+# shellcheck source=cluster/guard.sh
+source "${CLUSTER_DIR}/guard.sh" || { echo "REFUSING TO CONTINUE: cannot source ${CLUSTER_DIR}/guard.sh" >&2; exit 2; }
+
+# MIROVA_DRY_RUN=1 prints the commands this task would run and starts no simulation. Every check below still
+# applies, so a dry run that passes has seen the same classpath, build record and study options as a real one.
+DRY_RUN="${MIROVA_DRY_RUN:-0}"
+
+WORKSPACE="$(resolve_workspace)"
+
+# Java/Maven come from the workspace toolchain provisioned by build_for_cluster.sh.
+# There is no 'module load' here: bwUniCluster 3.0 provides no Java or Maven modules.
+activate_toolchain "${WORKSPACE}"
+
+# --------------------------------------------------------------------------------------
+# Study selection and configuration
+# --------------------------------------------------------------------------------------
+# Which study to run: a short name known to StudyRegistry ('dates') or the
+# fully qualified class name of any StudyDefinition. Adding a study needs no change here.
+STUDY="${MIROVA_STUDY:-dates}"
+
+# Directory holding the pre-generated per-date demand CSVs (one file per simulated date).
+DEMAND_DIR="${MIROVA_DEMAND_DIR:-${WORKSPACE}/demand}"
+
+# Root output directory of this study.
+OUTPUT_ROOT="${MIROVA_OUTPUT_ROOT:-${WORKSPACE}/output/${STUDY}}"
+
+# Study-specific options passed straight through, e.g. --replications=6 or --start=...
+# The date study reads its date list from this file; every array task must see the same one.
+DATES_FILE="${MIROVA_DATES_FILE:-${CLUSTER_DIR}/dates.txt}"
+REPLICATIONS="${MIROVA_REPLICATIONS:-20}"
+STUDY_OPTS="${MIROVA_STUDY_OPTS:---dates=${DATES_FILE} --demand=${DEMAND_DIR} --strict=true --replications=${REPLICATIONS}}"
+
+# Split into an array honouring quotes, so that options whose value contains a space work -
+# '--start="2025-09-22 13:00:00"' would otherwise be split into two broken arguments. eval is
+# safe enough here: MIROVA_STUDY_OPTS is set by the submitter for their own job.
+declare -a STUDY_OPTS_ARR
+eval "STUDY_OPTS_ARR=(${STUDY_OPTS})"
+
+# Heap for a single run. Keep below --mem-per-cpu to leave room for JVM off-heap memory.
+JAVA_HEAP="${MIROVA_JAVA_HEAP:-6g}"
+
+MAIN_CLASS="org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunMirovaClusterStudy"
+CP_FILE="${MIROVA_CP_FILE:-${WORKSPACE}/cp.txt}"
+
+# --------------------------------------------------------------------------------------
+# Environment
+# --------------------------------------------------------------------------------------
+# No Python virtual environment or evaluation scripts exist on the cluster: skip both the
+# Python demand preparation and the post-run plotting step. The studies also set this
+# themselves, so this is a belt-and-braces safeguard for manual invocations.
+export MIROVA_SKIP_POSTPROCESSING=1
+export MIROVA_SKIP_DEMAND_PREP=1
+
+# Each run is single-threaded (AbstractSimulationScriptBase.runHeadless steps the simulator
+# on the calling thread), and two of them share the task's two cores. Pin each JVM's own
+# parallel machinery - GC and JIT compiler threads - to one core's worth, so the two
+# processes do not oversubscribe the allocation. Deliberately 1, not SLURM_CPUS_PER_TASK.
+JAVA_OPTS="-XX:ActiveProcessorCount=1"
+
+# The locale and the encoding a run reads its input and writes its output under. A run starts here with `java -cp`,
+# so this is the only place that can pin them for a simulation. The locale matters in both directions: DJUnits parses
+# numbers through the default FORMAT locale, so on a machine whose locale uses ',' as the decimal separator "2.3 mm"
+# in a network XML reads as 23 mm; and anything formatted with the default locale would be written with a decimal
+# comma. The encoding matters for the one non-ASCII character in the output, the unit "m/s2" with a superscript two
+# in the trajectory header, which a JVM with another default charset writes as a different byte.
+JAVA_OPTS="${JAVA_OPTS} -Duser.language=en -Duser.country=US -Dfile.encoding=UTF-8"
+
+# The driver model every vehicle drives, and the parameter set it runs on. Both are appended to the study options
+# below, so that the same study body, days and seeds run on another model with one variable changed.
+#   MIROVA_MODEL            key of a driver model; default lmrs. MIROVA_TACTICAL_PLANNER is accepted as its old name.
+#   MIROVA_LMRS_PARAMETERS  default  = the model's own defaults (the benchmark)
+#                           scenario = the scenario-level overrides of T, a, b and s0 as one set
+MODEL="${MIROVA_MODEL:-${MIROVA_TACTICAL_PLANNER:-lmrs}}"
+LMRS_PARAMETERS="${MIROVA_LMRS_PARAMETERS:-default}"
+MODEL_OPT=("--model=${MODEL}" "--lmrsParameters=${LMRS_PARAMETERS}")
+
+# Number of runs bundled into one array task; see the header for why this is 2.
+RUNS_PER_TASK="${MIROVA_RUNS_PER_TASK:-2}"
+
+# --------------------------------------------------------------------------------------
+# Resolve this array task's runs
+# --------------------------------------------------------------------------------------
+if [ ! -f "${CP_FILE}" ]; then
+    echo "Classpath file not found: ${CP_FILE} - run cluster/build_for_cluster.sh first." >&2
+    exit 2
+fi
+
+# Refuse to start on a class tree carrying an Eclipse compilation stub. An IDE compiling into
+# target/classes writes, for a source it cannot compile, a class whose method bodies are
+# 'throw new Error("Unresolved compilation problem")'. Such a class loads and links, so the build
+# is green and the JVM starts; it fails only when a run first calls into it, which can be minutes
+# into every task of an array. Only the module output directories on the classpath can carry one -
+# the jars come from Maven - so those are what is searched. run_local_parallel.sh makes the same
+# check locally.
+CLASS_DIRS=()
+IFS=':' read -ra CP_ENTRIES <<< "$(cat "${CP_FILE}")"
+for entry in "${CP_ENTRIES[@]}"; do
+    if [ -d "${entry}" ]; then
+        CLASS_DIRS+=("${entry}")
+    fi
+done
+if [ "${#CLASS_DIRS[@]}" -eq 0 ]; then
+    echo "ERROR: no class directory on the classpath in ${CP_FILE}, so nothing could be verified." >&2
+    echo "       Run cluster/build_for_cluster.sh first." >&2
+    exit 2
+fi
+# '|| true': grep exits 1 when it finds nothing, which under pipefail would end the task right here.
+STUB_COUNT="$(grep -rl "Unresolved compilation" "${CLASS_DIRS[@]}" 2>/dev/null | wc -l || true)"
+if [ "${STUB_COUNT}" -gt 0 ]; then
+    echo "ERROR: ${STUB_COUNT} class file(s) contain an Eclipse 'Unresolved compilation problem' stub:" >&2
+    grep -rl "Unresolved compilation" "${CLASS_DIRS[@]}" 2>/dev/null | head -10 >&2 || true
+    echo "       Refusing to start. Rebuild from clean with cluster/build_for_cluster.sh." >&2
+    exit 2
+fi
+echo "Compilation stub check: ${#CLASS_DIRS[@]} class directories on the classpath, none carries a stub."
+
+# The commit the classes were built from, as build_for_cluster.sh recorded it beside the classpath, handed to every
+# run for its run.properties. Without the record a run asks git in the checkout instead, which names the commit that
+# is checked out now and not necessarily the one that was built.
+BUILD_INFO_FILE="${MIROVA_BUILD_INFO_FILE:-${CP_FILE%.txt}_build.env}"
+guard "the build record ${BUILD_INFO_FILE} exists; run cluster/build_for_cluster.sh" test -f "${BUILD_INFO_FILE}"
+BUILD_COMMIT="$(grep '^MIROVA_BUILD_COMMIT=' "${BUILD_INFO_FILE}" | head -1 | cut -d= -f2-)"
+UPSTREAM_COMMIT="$(grep '^MIROVA_UPSTREAM_COMMIT=' "${BUILD_INFO_FILE}" | head -1 | cut -d= -f2-)"
+guard_nonempty "the build record names the commit that was built" "${BUILD_COMMIT}"
+guard_nonempty "the build record names the upstream OTS commit" "${UPSTREAM_COMMIT}"
+JAVA_OPTS="${JAVA_OPTS} -Dmirova.gitCommit=${BUILD_COMMIT} -Dmirova.upstreamCommit=${UPSTREAM_COMMIT}"
+echo "Build: ${BUILD_COMMIT} on upstream OTS ${UPSTREAM_COMMIT}"
+
+TASK_ID="${SLURM_ARRAY_TASK_ID:-0}"
+CLASSPATH_VALUE="$(cat "${CP_FILE}")"
+
+mkdir -p "${OUTPUT_ROOT}" "${WORKSPACE}/logs"
+
+# Total number of runs in this study, asked of the study itself rather than assumed, so that
+# an odd total does not make the last task launch a nonexistent index. Costs one JVM start
+# (seconds) against a task of tens of minutes. Set MIROVA_TOTAL_RUNS to skip it.
+TOTAL_RUNS="${MIROVA_TOTAL_RUNS:-}"
+if [ -z "${TOTAL_RUNS}" ]; then
+    # shellcheck disable=SC2086  # JAVA_OPTS is intentionally word-split
+    TOTAL_RUNS="$(java ${JAVA_OPTS} -cp "${CLASSPATH_VALUE}" "${MAIN_CLASS}" \
+        --study="${STUDY}" --output="${OUTPUT_ROOT}" "${STUDY_OPTS_ARR[@]}" "${MODEL_OPT[@]}" --count 2>/dev/null \
+        | tail -1 | tr -d '[:space:]')"
+fi
+if ! [[ "${TOTAL_RUNS}" =~ ^[0-9]+$ ]] || [ "${TOTAL_RUNS}" -lt 1 ]; then
+    echo "ERROR: could not determine the study's total run count (got '${TOTAL_RUNS}')." >&2
+    echo "       Run RunMirovaClusterStudy --count by hand to see why, or set MIROVA_TOTAL_RUNS." >&2
+    exit 2
+fi
+
+# Which physical CPUs this task actually holds, taken from the process affinity mask so the
+# pinning respects the cgroup SLURM put us in rather than guessing CPU 0 and 1.
+CPU_LIST=()
+if command -v taskset >/dev/null 2>&1; then
+    affinity="$(taskset -cp $$ 2>/dev/null | awk -F': ' '{print $2}')"
+    IFS=',' read -ra affinity_parts <<< "${affinity}"
+    for part in "${affinity_parts[@]}"; do
+        if [[ "${part}" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+            for ((c = BASH_REMATCH[1]; c <= BASH_REMATCH[2]; c++)); do CPU_LIST+=("${c}"); done
+        elif [[ "${part}" =~ ^[0-9]+$ ]]; then
+            CPU_LIST+=("${part}")
+        fi
+    done
+fi
+
+echo "=========================================================="
+echo "Array task ${TASK_ID} on $(hostname)"
+echo "Workspace:   ${WORKSPACE}"
+echo "Study:       ${STUDY} (${TOTAL_RUNS} runs total)"
+echo "Study opts:  ${STUDY_OPTS}"
+echo "Cores:       ${SLURM_CPUS_PER_TASK:-?} (affinity: ${CPU_LIST[*]:-unknown})"
+echo "Output:      ${OUTPUT_ROOT}"
+echo "=========================================================="
+
+echo "Model:       ${MODEL} (parameter set: ${LMRS_PARAMETERS})"
+
+# Direct java launch, not exec:java.
+declare -a RUN_PIDS=() RUN_INDICES=() RUN_LOGS=()
+
+for (( slot = 0; slot < RUNS_PER_TASK; slot++ )); do
+    index=$(( TASK_ID * RUNS_PER_TASK + slot ))
+
+    if [ "${index}" -ge "${TOTAL_RUNS}" ]; then
+        echo "[slot ${slot}] no run at global index ${index} (study has ${TOTAL_RUNS}); nothing to launch."
+        continue
+    fi
+
+    log="${WORKSPACE}/logs/mirova_${SLURM_ARRAY_JOB_ID:-local}_${TASK_ID}_run${index}.log"
+
+    if [ "${DRY_RUN}" = "1" ]; then
+        echo "[dry run] slot ${slot}, run ${index}, log ${log}:"
+        # shellcheck disable=SC2086  # JAVA_OPTS is intentionally word-split
+        printf '  %q' java -Xmx"${JAVA_HEAP}" ${JAVA_OPTS} -cp "<contents of ${CP_FILE}>" "${MAIN_CLASS}" \
+            --study="${STUDY}" --output="${OUTPUT_ROOT}" --index="${index}" "${STUDY_OPTS_ARR[@]}" "${MODEL_OPT[@]}"
+        printf '\n'
+        continue
+    fi
+
+    RUN_LOGS+=("${log}")
+    RUN_INDICES+=("${index}")
+
+    # Own log per run: two concurrent JVMs writing to one stream interleave unreadably.
+    if [ "${#CPU_LIST[@]}" -gt "${slot}" ]; then
+        cpu="${CPU_LIST[${slot}]}"
+        echo "[slot ${slot}] run ${index} pinned to CPU ${cpu} -> ${log}"
+        # shellcheck disable=SC2086  # JAVA_OPTS is intentionally word-split
+        taskset -c "${cpu}" java -Xmx"${JAVA_HEAP}" ${JAVA_OPTS} -cp "${CLASSPATH_VALUE}" "${MAIN_CLASS}" \
+            --study="${STUDY}" --output="${OUTPUT_ROOT}" --index="${index}" "${STUDY_OPTS_ARR[@]}" \
+            "${MODEL_OPT[@]}" > "${log}" 2>&1 &
+    else
+        # No taskset, or fewer CPUs in the mask than slots: leave placement to the OS
+        # scheduler, which spreads two runnable single-threaded processes across the
+        # allocated cores by itself.
+        echo "[slot ${slot}] run ${index} unpinned (OS scheduler) -> ${log}"
+        # shellcheck disable=SC2086  # JAVA_OPTS is intentionally word-split
+        java -Xmx"${JAVA_HEAP}" ${JAVA_OPTS} -cp "${CLASSPATH_VALUE}" "${MAIN_CLASS}" \
+            --study="${STUDY}" --output="${OUTPUT_ROOT}" --index="${index}" "${STUDY_OPTS_ARR[@]}" \
+            "${MODEL_OPT[@]}" > "${log}" 2>&1 &
+    fi
+    RUN_PIDS+=("$!")
+done
+
+if [ "${DRY_RUN}" = "1" ]; then
+    echo "Dry run of array task ${TASK_ID}: nothing was started."
+    exit 0
+fi
+
+if [ "${#RUN_PIDS[@]}" -eq 0 ]; then
+    echo "ERROR: array task ${TASK_ID} has no runs to execute; the --array range is larger than" >&2
+    echo "       ceil(${TOTAL_RUNS}/${RUNS_PER_TASK}) - 1. Shrink it to avoid empty tasks." >&2
+    exit 2
+fi
+
+# Wait for every run and keep the worst outcome: one run failing must not be masked by the
+# other succeeding, or a failed simulation would show up as a successful task in sacct.
+EXIT_CODE=0
+for i in "${!RUN_PIDS[@]}"; do
+    run_status=0
+    wait "${RUN_PIDS[$i]}" || run_status=$?
+    if [ "${run_status}" -ne 0 ]; then
+        echo "Run ${RUN_INDICES[$i]} FAILED with exit code ${run_status} (log: ${RUN_LOGS[$i]})." >&2
+        # Plain 'if', not '[ ] && ...': under set -e a false test in a standalone AND-list
+        # would terminate the task before the remaining runs are reaped.
+        if [ "${run_status}" -gt "${EXIT_CODE}" ]; then
+            EXIT_CODE="${run_status}"
+        fi
+    else
+        echo "Run ${RUN_INDICES[$i]} finished successfully (log: ${RUN_LOGS[$i]})."
+    fi
+done
+
+echo "Array task ${TASK_ID} finished with exit code ${EXIT_CODE} (runs: ${RUN_INDICES[*]})."
+exit "${EXIT_CODE}"
