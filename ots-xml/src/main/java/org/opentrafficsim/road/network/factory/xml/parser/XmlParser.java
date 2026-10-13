@@ -79,6 +79,9 @@ public final class XmlParser
     /** Built-in recognition tag. */
     public static final String BUILTIN = "builtin:";
 
+    /** JAXB context shared by all parses of this JVM, created on first use; see {@link #getJaxbContext()}. */
+    private static volatile JAXBContext jaxbContext = null;
+
     /** Road network. */
     private final RoadNetwork network;
 
@@ -274,6 +277,35 @@ public final class XmlParser
     }
 
     /**
+     * Returns the JAXB context for {@link Ots}, creating it on first use. Added by Marvin Baumann (KIT).
+     * <p>
+     * Creating the context reflects over the roughly 120 generated classes and takes far longer than parsing a network. It
+     * was created anew for every parse, although a {@code JAXBContext} is immutable and thread-safe once built and the
+     * classes it describes cannot change within a JVM. One context is now shared by all parses of a process. A context that
+     * failed to build is not kept: the exception is thrown to the caller as before, and the next parse tries again.
+     * </p>
+     * @return the shared JAXB context
+     * @throws JAXBException when the context cannot be created
+     */
+    private static JAXBContext getJaxbContext() throws JAXBException
+    {
+        JAXBContext context = jaxbContext;
+        if (context == null)
+        {
+            synchronized (XmlParser.class)
+            {
+                context = jaxbContext;
+                if (context == null)
+                {
+                    context = JAXBContext.newInstance(Ots.class);
+                    jaxbContext = context;
+                }
+            }
+        }
+        return context;
+    }
+
+    /**
      * Parse an OTS XML input stream and build an OTS object.
      * @param xmlStream the xml stream
      * @return the constructed OTS object
@@ -285,7 +317,9 @@ public final class XmlParser
     {
         Locale locale = Locale.getDefault();
         Locale.setDefault(Locale.US);
-        JAXBContext jc = JAXBContext.newInstance(Ots.class);
+        // Marvin Baumann (KIT): the context is shared; see getJaxbContext(). The unmarshaller is not thread-safe and is still
+        // created per parse.
+        JAXBContext jc = getJaxbContext();
         Unmarshaller unmarshaller = jc.createUnmarshaller();
         SAXParserFactory spf = SAXParserFactory.newInstance();
         spf.setXIncludeAware(true);
