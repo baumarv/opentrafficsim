@@ -33,6 +33,9 @@
 set -u
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Under Git Bash the JVM is a Windows program: it needs "D:/..." paths, and a class path joined with ';' is not
+# translated for it the way a single "/d/..." argument is.
+if command -v cygpath >/dev/null 2>&1; then REPO="$(cygpath -m "$REPO")"; fi
 # A failed 'source' does not stop a script, and every later guard would then be "command not found".
 # shellcheck source=cluster/guard.sh
 source "$REPO/cluster/guard.sh" || { echo "REFUSING TO CONTINUE: cannot source $REPO/cluster/guard.sh" >&2; exit 2; }
