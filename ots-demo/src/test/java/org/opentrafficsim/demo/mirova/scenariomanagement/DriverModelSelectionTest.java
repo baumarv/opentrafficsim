@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.djunits.value.vdouble.scalar.Duration;
@@ -65,7 +66,7 @@ public class DriverModelSelectionTest
     {
         LmrsDriverModelProvider provider = new LmrsDriverModelProvider();
         assertNotNull(provider.createStrategicalPlannerFactory(
-                new DriverModelProvider.Request("car", DefaultsNl.CAR, new MersenneTwister(SEED), Map.of())));
+                new DriverModelProvider.Request("car", DefaultsNl.CAR, new MersenneTwister(SEED), Map.of(), Map.of())));
         assertTrue(provider.describe().contains("car.parameterOverrides=none"), provider.describe());
         assertFalse(provider.describe().contains("override."), provider.describe());
     }
@@ -82,16 +83,16 @@ public class DriverModelSelectionTest
         headway.put("t", Duration.ofSI(1.1));
         LmrsDriverModelProvider provider = new LmrsDriverModelProvider();
         provider.createStrategicalPlannerFactory(
-                new DriverModelProvider.Request("car", DefaultsNl.CAR, new MersenneTwister(SEED), headway));
+                new DriverModelProvider.Request("car", DefaultsNl.CAR, new MersenneTwister(SEED), headway, Map.of()));
         assertTrue(provider.describe().contains("override.car." + ParameterTypes.T.getId() + "="), provider.describe());
 
         Map<String, Object> unknown = Map.of("nosuchparameter", 1.0);
         assertThrows(IllegalArgumentException.class, () -> new LmrsDriverModelProvider().createStrategicalPlannerFactory(
-                new DriverModelProvider.Request("car", DefaultsNl.CAR, new MersenneTwister(SEED), unknown)));
+                new DriverModelProvider.Request("car", DefaultsNl.CAR, new MersenneTwister(SEED), unknown, Map.of())));
 
         Map<String, Object> bare = Map.of("t", 1.1);
         assertThrows(IllegalArgumentException.class, () -> new LmrsDriverModelProvider().createStrategicalPlannerFactory(
-                new DriverModelProvider.Request("car", DefaultsNl.CAR, new MersenneTwister(SEED), bare)));
+                new DriverModelProvider.Request("car", DefaultsNl.CAR, new MersenneTwister(SEED), bare, Map.of())));
     }
 
     /**
@@ -120,5 +121,37 @@ public class DriverModelSelectionTest
 
         run.set(ScenarioGenerator.KEY_LMRS_PARAMETERS, "something-else");
         assertThrows(IllegalArgumentException.class, () -> scenario.driverModelParameters(run));
+    }
+
+    /**
+     * A model setting is applied and reported, for every strategy the provider names; an unknown setting, an unknown
+     * strategy and a switch that is neither true nor false are refused; a parameter given as text with its unit is read.
+     * @throws Exception when the factory cannot be built
+     */
+    @Test
+    public void modelSettingsAreAppliedReportedOrRefused() throws Exception
+    {
+        Map<String, String> settings = new LinkedHashMap<>();
+        settings.put(LmrsDriverModelProvider.SYNCHRONIZATION, "ALIGN_GAP");
+        settings.put(LmrsDriverModelProvider.COOPERATION, "PASSIVE_MOVING");
+        settings.put(LmrsDriverModelProvider.GAP_ACCEPTANCE, "EGO_HEADWAY");
+        settings.put("incentiveKeep", "false");
+        settings.put("socialPressure", "true");
+        LmrsDriverModelProvider provider = new LmrsDriverModelProvider();
+        assertNotNull(provider.createStrategicalPlannerFactory(new DriverModelProvider.Request("car", DefaultsNl.CAR,
+                new MersenneTwister(SEED), Map.of("t", "1.1 s"), settings)));
+        String description = provider.describe();
+        assertTrue(description.contains("setting.car.synchronization=ALIGN_GAP"), description);
+        assertTrue(description.contains("setting.car.incentiveKeep=false"), description);
+        assertTrue(description.contains("car.settings=changed"), description);
+        assertTrue(description.contains("override.car.T=1.1"), description);
+
+        for (Map<String, String> refused : List.of(Map.of("noSuchSetting", "true"),
+                Map.of(LmrsDriverModelProvider.SYNCHRONIZATION, "NO_SUCH_STRATEGY"), Map.of("incentiveKeep", "maybe")))
+        {
+            assertThrows(Exception.class, () -> new LmrsDriverModelProvider().createStrategicalPlannerFactory(
+                    new DriverModelProvider.Request("car", DefaultsNl.CAR, new MersenneTwister(SEED), Map.of(), refused)),
+                    "accepted: " + refused);
+        }
     }
 }
