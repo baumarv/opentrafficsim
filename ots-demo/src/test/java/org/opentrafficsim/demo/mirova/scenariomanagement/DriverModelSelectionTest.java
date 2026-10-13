@@ -15,8 +15,13 @@ import org.junit.jupiter.api.Test;
 import org.opentrafficsim.base.parameters.ParameterTypes;
 import org.opentrafficsim.core.definitions.DefaultsNl;
 import org.opentrafficsim.demo.mirova.scenariomanagement.models.LmrsDriverModelProvider;
+import org.opentrafficsim.demo.mirova.scenariomanagement.models.LmrsSettings;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgNord;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgStudyParameters;
+import org.opentrafficsim.road.gtu.tactical.lmrs.LmrsFactory.Setting;
+import org.opentrafficsim.road.gtu.tactical.util.lmrs.Cooperation;
+import org.opentrafficsim.road.gtu.tactical.util.lmrs.GapAcceptance;
+import org.opentrafficsim.road.gtu.tactical.util.lmrs.Synchronization;
 
 import nl.tudelft.simulation.jstats.streams.MersenneTwister;
 
@@ -68,6 +73,8 @@ public class DriverModelSelectionTest
         assertNotNull(provider.createStrategicalPlannerFactory(
                 new DriverModelProvider.Request("car", DefaultsNl.CAR, new MersenneTwister(SEED), Map.of(), Map.of())));
         assertTrue(provider.describe().contains("car.parameterOverrides=none"), provider.describe());
+        assertTrue(provider.describe().contains("car.settings=upstream defaults"), provider.describe());
+        assertTrue(provider.describe().contains("setting.car.SYNCHRONIZATION=PASSIVE"), provider.describe());
         assertFalse(provider.describe().contains("override."), provider.describe());
     }
 
@@ -131,7 +138,7 @@ public class DriverModelSelectionTest
     @Test
     public void modelSettingsAreAppliedReportedOrRefused() throws Exception
     {
-        Map<String, String> settings = new LinkedHashMap<>();
+        Map<String, Object> settings = new LinkedHashMap<>();
         settings.put(LmrsDriverModelProvider.SYNCHRONIZATION, "ALIGN_GAP");
         settings.put(LmrsDriverModelProvider.COOPERATION, "PASSIVE_MOVING");
         settings.put(LmrsDriverModelProvider.GAP_ACCEPTANCE, "EGO_HEADWAY");
@@ -141,17 +148,57 @@ public class DriverModelSelectionTest
         assertNotNull(provider.createStrategicalPlannerFactory(new DriverModelProvider.Request("car", DefaultsNl.CAR,
                 new MersenneTwister(SEED), Map.of("t", "1.1 s"), settings)));
         String description = provider.describe();
-        assertTrue(description.contains("setting.car.synchronization=ALIGN_GAP"), description);
-        assertTrue(description.contains("setting.car.incentiveKeep=false"), description);
-        assertTrue(description.contains("car.settings=changed"), description);
+        assertTrue(description.contains("setting.car.SYNCHRONIZATION=ALIGN_GAP"), description);
+        assertTrue(description.contains("setting.car.INCENTIVE_KEEP=false"), description);
+        assertTrue(description.contains("car.settings=changed: "), description);
+        for (String changed : List.of("SYNCHRONIZATION", "COOPERATION", "GAP_ACCEPTANCE", "INCENTIVE_KEEP", "SOCIO_PRESSURE"))
+        {
+            assertTrue(description.split("car.settings=changed: ")[1].split("\\R")[0].contains(changed), description);
+        }
         assertTrue(description.contains("override.car.T=1.1"), description);
 
-        for (Map<String, String> refused : List.of(Map.of("noSuchSetting", "true"),
-                Map.of(LmrsDriverModelProvider.SYNCHRONIZATION, "NO_SUCH_STRATEGY"), Map.of("incentiveKeep", "maybe")))
+        for (Map<String, Object> refused : List.<Map<String, Object>>of(Map.of("noSuchSetting", "true"),
+                Map.of(LmrsDriverModelProvider.SYNCHRONIZATION, "NO_SUCH_STRATEGY"), Map.of("incentiveKeep", "maybe"),
+                Map.of(LmrsDriverModelProvider.KEY_SETTINGS, "not a settings object")))
         {
             assertThrows(Exception.class, () -> new LmrsDriverModelProvider().createStrategicalPlannerFactory(
                     new DriverModelProvider.Request("car", DefaultsNl.CAR, new MersenneTwister(SEED), Map.of(), refused)),
                     "accepted: " + refused);
+        }
+    }
+
+    /**
+     * Settings stated with the types of the LMRS give the same factory as the same settings given as text; settings equal to
+     * the values of upstream are reported as upstream defaults; an empty settings object changes nothing.
+     * @throws Exception when the factory cannot be built
+     */
+    @Test
+    public void typedSettingsEqualTextSettings() throws Exception
+    {
+        LmrsSettings typed = new LmrsSettings().set(Setting.SYNCHRONIZATION, Synchronization.ALIGN_GAP)
+                .set(Setting.COOPERATION, Cooperation.NONE).set(Setting.INCENTIVE_KEEP, false);
+        LmrsDriverModelProvider fromObject = new LmrsDriverModelProvider();
+        fromObject.createStrategicalPlannerFactory(new DriverModelProvider.Request("car", DefaultsNl.CAR,
+                new MersenneTwister(SEED), Map.of(), Map.of(LmrsDriverModelProvider.KEY_SETTINGS, typed)));
+        Map<String, Object> text = new LinkedHashMap<>();
+        text.put(LmrsDriverModelProvider.SYNCHRONIZATION, "ALIGN_GAP");
+        text.put(LmrsDriverModelProvider.COOPERATION, "NONE");
+        text.put("incentiveKeep", "false");
+        LmrsDriverModelProvider fromText = new LmrsDriverModelProvider();
+        fromText.createStrategicalPlannerFactory(
+                new DriverModelProvider.Request("car", DefaultsNl.CAR, new MersenneTwister(SEED), Map.of(), text));
+        assertEquals(fromText.describe(), fromObject.describe());
+        assertTrue(fromObject.describe().contains("car.settings=changed: SYNCHRONIZATION, COOPERATION, INCENTIVE_KEEP"),
+                fromObject.describe());
+
+        LmrsSettings asUpstream = new LmrsSettings().set(Setting.SYNCHRONIZATION, Synchronization.PASSIVE)
+                .set(Setting.GAP_ACCEPTANCE, GapAcceptance.INFORMED).set(Setting.INCENTIVE_KEEP, true);
+        for (LmrsSettings unchanged : List.of(asUpstream, new LmrsSettings()))
+        {
+            LmrsDriverModelProvider provider = new LmrsDriverModelProvider();
+            provider.createStrategicalPlannerFactory(new DriverModelProvider.Request("car", DefaultsNl.CAR,
+                    new MersenneTwister(SEED), Map.of(), Map.of(LmrsDriverModelProvider.KEY_SETTINGS, unchanged)));
+            assertTrue(provider.describe().contains("car.settings=upstream defaults"), provider.describe());
         }
     }
 }

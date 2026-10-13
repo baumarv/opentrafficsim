@@ -2,15 +2,13 @@
 #
 # Open one day of the Freiburg-Nord scenario in the OTS GUI from a shell.
 #
-# The settings - day, seed, driver model, how the LMRS is composed, single driver parameters - are the
-# block of constants at the top of
+# There is nothing to set here. The settings - day, seed, driver model, how the LMRS is composed, single
+# driver parameters - are code at the top of
 #   ots-demo/src/main/java/org/opentrafficsim/demo/mirova/scenariomanagement/scenarios/RunFreiburgNordGui.java
-# which can equally be run from an IDE. This script only spares building the class path by hand.
+# which is normally run from an IDE. This script only spares building the class path by hand.
 #
-#   cluster/run_gui.sh                                            # the settings block of the class
-#   cluster/run_gui.sh --date=2025-10-07 --lmrs.cooperation=NONE  # arguments win over the block
-#   cluster/run_gui.sh --dry-run                                  # print the java command and start nothing
-#   cluster/run_gui.sh --help                                     # every option, with the values it takes
+#   cluster/run_gui.sh             # start the GUI
+#   cluster/run_gui.sh --dry-run   # print the java command and start nothing
 #
 # Build first, after every change to the class (the classes are taken from ots-*/target/classes):
 #   MAVEN_OPTS="-Duser.language=en -Duser.country=US" #       mvn install -pl ots-demo -am -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Djacoco.skip=true
@@ -35,8 +33,7 @@ EXTRA_ARGS=()
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY=1 ;;
-    --*)       EXTRA_ARGS+=("$arg") ;;
-    *) echo "unknown argument: $arg (expected --key=value, --dry-run or --help)" >&2; exit 2 ;;
+    *) echo "unknown argument: $arg (the only option is --dry-run; the settings are in RunFreiburgNordGui.java)" >&2; exit 2 ;;
   esac
 done
 

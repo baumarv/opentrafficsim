@@ -68,20 +68,30 @@ unit of one trajectory column is written in another byte encoding.
 
 ## Watching a run in the GUI
 
-Run the class `org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunFreiburgNordGui` from the IDE. The
-block of constants at its top holds every setting - day, seed, model, parameter set, the LMRS strategies and
-switches, single driver parameters - each with its values and upstream's default. A constant left empty is not
-applied, so the model keeps what upstream sets; with the block as committed the GUI shows the benchmark.
+Run the class `org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunFreiburgNordGui` from the IDE; it
+takes no arguments. Its settings are code at the top of the class, written with OpenTrafficSim's own types:
 
-From a shell, `cluster/run_gui.sh` starts the same class and builds the class path; arguments win over the block:
+```java
+private static final LocalDate DATE = LocalDate.of(2025, 9, 22);
+private static final long SEED = 42L;
 
-```bash
-cluster/run_gui.sh
-cluster/run_gui.sh --date=2025-10-07 --seed=1000045 --lmrs.synchronization=ALIGN_GAP --car.T=1.1s
-cluster/run_gui.sh --dry-run
+private static LmrsSettings lmrsSettings()
+{
+    return new LmrsSettings()
+            .set(Setting.SYNCHRONIZATION, Synchronization.PASSIVE)
+            .set(Setting.COOPERATION, Cooperation.PASSIVE)
+            .set(Setting.GAP_ACCEPTANCE, GapAcceptance.INFORMED)
+            .set(Setting.INCENTIVE_KEEP, true)
+            // ...
+}
 ```
 
-A GUI run is for looking: it writes its output only when the simulation reaches its end, and no `run.properties`.
+As committed every setting has upstream's value, so the GUI shows the benchmark. On start the class prints the
+composition read back from the factory that was built, and which settings differ from upstream
+(`car.settings=upstream defaults` or `car.settings=changed: SYNCHRONIZATION, ...`).
+
+`cluster/run_gui.sh` starts the same class from a shell and builds the class path. A GUI run is for looking: it
+writes its output only when the simulation reaches its end, and no `run.properties`.
 
 ## Composing the LMRS differently
 
@@ -100,9 +110,11 @@ cluster:
 | `--lmrs.socialPressure`, `--lmrs.tailgating`, `--lmrs.socioLaneChange`, `--lmrs.socioSpeed` | `false`, `true` |
 | `--car.<parameter>=<value>`, `--truck.<parameter>=<value>` | any parameter of `ParameterTypes` or `LmrsParameters`, with its unit: `--car.T=1.1s`, `--car.vGain=50km/h`, `--car.dCoop=0.8` |
 
-Only what is named is set. Everything that was set is written into `run.properties` as `model.setting.*` and
-`model.override.*`; a name or value the provider does not know stops the run during setup. A run with any of these
-is no longer the upstream-default benchmark, and its metadata says so (`model.car.settings=changed`).
+Only what is named is set. `run.properties` records the composition read back from the factory that was built:
+every setting as `model.setting.<class>.<SETTING>`, the ones that differ from upstream in
+`model.<class>.settings=changed: ...`, and parameter overrides as `model.override.*`. A name or value the provider
+does not know stops the run during setup. A run whose settings line does not say `upstream defaults` is not the
+upstream-default benchmark.
 
 ## On bwUniCluster 3.0
 

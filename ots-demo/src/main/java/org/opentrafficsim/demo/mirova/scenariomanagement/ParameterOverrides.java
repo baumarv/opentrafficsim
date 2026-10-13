@@ -108,17 +108,17 @@ public final class ParameterOverrides
      * with the model key and a dot.
      * @param parameters ScenarioParameters; the parameters of the run
      * @param modelKey String; the key of the driver model
-     * @return Map&lt;String, String&gt;; setting name, without the model prefix, to the value as text
+     * @return Map&lt;String, Object&gt;; setting name, without the model prefix, to the value as it was set
      */
-    public static Map<String, String> forModel(final ScenarioParameters parameters, final String modelKey)
+    public static Map<String, Object> forModel(final ScenarioParameters parameters, final String modelKey)
     {
         String prefix = modelKey + ".";
-        Map<String, String> settings = new LinkedHashMap<>();
+        Map<String, Object> settings = new LinkedHashMap<>();
         for (Map.Entry<String, Object> entry : parameters.asUnmodifiableMap().entrySet())
         {
             if (entry.getKey().startsWith(prefix))
             {
-                settings.put(entry.getKey().substring(prefix.length()), String.valueOf(entry.getValue()));
+                settings.put(entry.getKey().substring(prefix.length()), entry.getValue());
             }
         }
         return settings;
