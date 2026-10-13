@@ -1103,7 +1103,8 @@ public abstract class ScenarioGenerator
         try
         {
             factory = provider.createStrategicalPlannerFactory(new DriverModelProvider.Request(vehicleClass, gtuType,
-                    this.stream, ParameterOverrides.forVehicleClass(driverModelParameters(params), vehicleClass)));
+                    this.stream, ParameterOverrides.forVehicleClass(driverModelParameters(params), vehicleClass),
+                    ParameterOverrides.forModel(params, provider.key())));
         }
         catch (Exception exception)
         {

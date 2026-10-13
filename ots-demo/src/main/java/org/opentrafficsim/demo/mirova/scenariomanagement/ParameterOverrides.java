@@ -104,10 +104,33 @@ public final class ParameterOverrides
     }
 
     /**
+     * Extracts the settings addressed to one driver model from the parameters of a scenario: the entries whose key starts
+     * with the model key and a dot.
+     * @param parameters ScenarioParameters; the parameters of the run
+     * @param modelKey String; the key of the driver model
+     * @return Map&lt;String, String&gt;; setting name, without the model prefix, to the value as text
+     */
+    public static Map<String, String> forModel(final ScenarioParameters parameters, final String modelKey)
+    {
+        String prefix = modelKey + ".";
+        Map<String, String> settings = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : parameters.asUnmodifiableMap().entrySet())
+        {
+            if (entry.getKey().startsWith(prefix))
+            {
+                settings.put(entry.getKey().substring(prefix.length()), String.valueOf(entry.getValue()));
+            }
+        }
+        return settings;
+    }
+
+    /**
      * Converts a value given for a parameter into the value class of that parameter.
      * <p>
      * A value of the parameter's own class is taken as it is. A bare number is accepted for dimensionless parameters only: a
-     * number cannot carry a unit, and reading it as SI is how a gain meant as 15 km/h once ran at 15 m/s.
+     * number cannot carry a unit, and reading it as SI is how a gain meant as 15 km/h once ran at 15 m/s. Text is accepted
+     * for every parameter, as it comes from a command line: for a quantity it must carry its unit, for example
+     * {@code "1.1 s"} or {@code "15 km/h"}.
      * </p>
      * @param parameterType ParameterType&lt;?&gt;; the parameter being set
      * @param value Object; the value given: the parameter's own type, a Number, a Boolean or a String
@@ -142,6 +165,28 @@ public final class ParameterOverrides
             if (valueClass == String.class)
             {
                 return string;
+            }
+            if (valueClass == Double.class)
+            {
+                return Double.valueOf(string.trim());
+            }
+            if (valueClass == Integer.class)
+            {
+                return Integer.valueOf(string.trim());
+            }
+            if (SI_UNIT_OF.containsKey(valueClass))
+            {
+                // Every DJUnits scalar has a static valueOf(String) that reads a number with its unit.
+                try
+                {
+                    return valueClass.getMethod("valueOf", String.class).invoke(null, string.trim());
+                }
+                catch (ReflectiveOperationException exception)
+                {
+                    throw new IllegalArgumentException("Cannot read '" + string + "' as the " + valueClass.getSimpleName()
+                            + " of parameter '" + parameterType.getId() + "'. Give a number with its unit, for example "
+                            + "\"1.1 s\".", exception);
+                }
             }
         }
         throw new IllegalArgumentException("Cannot convert a value of type " + value.getClass().getSimpleName()

@@ -16,6 +16,7 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioManager;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioParameters;
 import org.opentrafficsim.demo.mirova.scenariomanagement.StudyDefinition;
 import org.opentrafficsim.demo.mirova.scenariomanagement.StudyRegistry;
+import org.opentrafficsim.demo.mirova.scenariomanagement.models.LmrsDriverModelProvider;
 
 /**
  * Generic single-run cluster entry point: one process executes exactly one run of a selected study.
@@ -116,6 +117,31 @@ public final class RunMirovaClusterStudy
     }
 
     /**
+     * Selects, from the command-line options, those addressed to the driver model: the settings of a model
+     * ({@code <model key>.<setting>}) and the parameters of a vehicle class ({@code car.<parameter>},
+     * {@code truck.<parameter>}). They become scenario parameters of the same name.
+     * @param options Map&lt;String, String&gt;; the command-line options, key to value
+     * @return Map&lt;String, String&gt;; the options addressed to the driver model, in the order given
+     */
+    static Map<String, String> driverModelOptions(final Map<String, String> options)
+    {
+        Map<String, String> selected = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : options.entrySet())
+        {
+            int dot = entry.getKey().indexOf('.');
+            if (dot > 0)
+            {
+                String prefix = entry.getKey().substring(0, dot);
+                if ("car".equals(prefix) || "truck".equals(prefix) || DriverModels.availableKeys().contains(prefix))
+                {
+                    selected.put(entry.getKey(), entry.getValue());
+                }
+            }
+        }
+        return selected;
+    }
+
+    /**
      * Sets the simulated duration on every parameter variation, for smoke tests that must not simulate a whole day.
      * @param simulationTime String; the duration with unit, for example {@code 900s} or {@code 15min}
      * @param scenarioManager ScenarioManager; the manager the study registered its runs with
@@ -162,6 +188,11 @@ public final class RunMirovaClusterStudy
             if (options.containsKey(ScenarioParameters.KEY_SIMULATION_TIME))
             {
                 applySimulationTime(options.get(ScenarioParameters.KEY_SIMULATION_TIME), scenarioManager);
+            }
+            for (Map.Entry<String, String> entry : driverModelOptions(options).entrySet())
+            {
+                scenarioManager.setOnAllVariations(entry.getKey(), entry.getValue());
+                System.out.println("Changed:          " + entry.getKey() + "=" + entry.getValue());
             }
             int totalRuns = scenarioManager.countRuns();
 
@@ -293,6 +324,10 @@ public final class RunMirovaClusterStudy
         System.err.println("  --lmrsParameters  '" + ScenarioGenerator.PARAMETER_SET_DEFAULT + "' (default): the driver model's "
                 + "own defaults; '" + ScenarioGenerator.PARAMETER_SET_SCENARIO + "': the scenario-level overrides as a set");
         System.err.println("  --simulationTime  simulated duration with unit, e.g. 900s; for smoke tests only");
+        System.err.println("  --lmrs.<setting>=<value>  compose the LMRS differently from upstream: "
+                + LmrsDriverModelProvider.SETTINGS_HELP);
+        System.err.println("  --car.<parameter>=<value>, --truck.<parameter>=<value>  a driver parameter with its unit, "
+                + "e.g. --car.T=1.1s");
         System.err.println("  Study options, e.g.: --demand=<file|dir> --dates=<list|file> --replications=<n> --strict=true");
     }
 }

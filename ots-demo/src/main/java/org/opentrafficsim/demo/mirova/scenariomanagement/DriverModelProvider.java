@@ -69,8 +69,12 @@ public interface DriverModelProvider
      * @param stream StreamInterface; the random stream for driver population draws of this run
      * @param parameterOverrides Map&lt;String, Object&gt;; parameter id (lower case, without the vehicle class prefix) to value,
      *            for this vehicle class only; empty when the model is to run on its own defaults
+     * @param modelSettings Map&lt;String, String&gt;; settings addressed to this model, name to value as text: the scenario
+     *            parameters whose key starts with the model key and a dot, without that prefix; empty when the model is to be
+     *            composed as it is by default. What the names mean is the model's own business
      */
-    record Request(String vehicleClass, GtuType gtuType, StreamInterface stream, Map<String, Object> parameterOverrides)
+    record Request(String vehicleClass, GtuType gtuType, StreamInterface stream, Map<String, Object> parameterOverrides,
+            Map<String, String> modelSettings)
     {
     }
 }
