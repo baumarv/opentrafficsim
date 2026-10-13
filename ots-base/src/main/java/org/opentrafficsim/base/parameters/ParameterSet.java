@@ -173,8 +173,15 @@ public class ParameterSet implements Parameters
         @SuppressWarnings("unchecked")
         // set methods guarantee matching of parameter type and value
         T result = (T) this.parameters.get(parameterType);
-        Throw.when(result == null, ParameterException.class, "Could not get parameter of type '%s' as it was not set.",
-                parameterType.getId());
+        // Marvin Baumann (KIT): the check is made here, and Throw.when(...) is called only when it fails. Throw.when takes
+        // the message arguments as varargs, so calling it unconditionally allocated an array and called getId() on every
+        // call - including every successful one - for a message that is not built. This is one of the most frequently
+        // called methods of a simulation. The check, the exception type and the message are unchanged.
+        if (result == null)
+        {
+            Throw.when(true, ParameterException.class, "Could not get parameter of type '%s' as it was not set.",
+                    parameterType.getId());
+        }
         return result;
     }
 
