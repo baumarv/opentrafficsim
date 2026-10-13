@@ -2,7 +2,8 @@
 
 Branch `ots-upstream-benchmark`, based on upstream OpenTrafficSim `78f2601dd` (1.8.1). Source of the port:
 `origin/main` @ `f41175d53` (fork, based on OTS 1.7.6). The classification behind these notes is in
-`PORTING_INVENTORY.md`; the performance work is in `PERFORMANCE_NOTES.md`; how to run is in `cluster/README.md`.
+`PORTING_INVENTORY.md`; the performance work is in `PERFORMANCE_NOTES.md`; how to run is in `cluster/README.md`; what
+was checked before a cluster run is in `CLUSTER_READINESS.md`; why vehicles are removed is in `DELETION_DIAGNOSIS.md`.
 
 ## 1. What is on the branch
 
@@ -14,6 +15,9 @@ Branch `ots-upstream-benchmark`, based on upstream OpenTrafficSim `78f2601dd` (1
 | `build: store the generated JAXB sources with LF …` | Line endings of 248 generated files, no content change. See 6.1. |
 | three `perf(...)` commits | See `PERFORMANCE_NOTES.md`. |
 | `test(demo)` | Three ported library tests and one new test of the model selection. |
+| `feat(demo): the LMRS can be composed per run …` and three follow-ups | LMRS settings, `LmrsSettings`, `RunFreiburgNordGui`, `cluster/run_gui.sh`. See 2.1 and 2.2. |
+| `feat(demo): one row per removed vehicle …` | `removed_vehicles.csv` and its traces. See 6.3. |
+| `feat(demo): presets replace the scenario parameter set …` | Presets; the scenario parameter set is removed. See 3. |
 
 No class of the MiRoVA driver model is on the branch. No LMRS logic and no LMRS default parameter is changed.
 
@@ -28,6 +32,10 @@ No class of the MiRoVA driver model is on the branch. No LMRS logic and no LMRS 
 | `models.LmrsDriverModelProvider` | Key `lmrs`. `new LmrsFactory<>(List.of(gtuType), Lmrs::new).setStream(stream)`, no setting changed, used as its own parameter factory. |
 | `ParameterOverrides` | Turns `car.<id>` / `truck.<id>` entries into parameter types and typed values. Knows no model. |
 
+A request to a provider carries the vehicle class, the GTU type, the random stream, the parameter overrides of that
+vehicle class, and the **model settings**: every scenario parameter whose key starts with the model key and a dot
+(`lmrs.<name>`), without the prefix. What the names mean is the model's business.
+
 A scenario calls `buildStrategicalPlannerFactory("car", DefaultsNl.CAR)` and never names a model. To add TaMA: a jar
 with a `DriverModelProvider` of key `tama` and a `META-INF/services` entry on the classpath. No scenario class changes.
 
@@ -37,13 +45,57 @@ parameter is `model` (was `tacticalPlanner`).
 Checks kept from the fork, in simpler form: a scenario that builds its vehicles without selecting a model, or with
 another model than the run asked for, is refused at the end of setup, before the first simulation step.
 
+### 2.1 Composing the LMRS
+
+Upstream's `LmrsFactory` has settings beyond parameters: the synchronization, cooperation and gap-acceptance
+strategies, the lane-change and acceleration incentives, social interactions, the perception model. They can be
+set per run in two ways, both ending in `LmrsFactory.set(Setting, value)` and both setting only what is named:
+
+| Way | Form | Used by |
+|---|---|---|
+| Typed | an `LmrsSettings` object under the scenario parameter `lmrs.settings`: `new LmrsSettings().set(Setting.SYNCHRONIZATION, Synchronization.ALIGN_GAP)`. Setting and value are upstream's own constants and objects, checked by the compiler. | programs, `RunFreiburgNordGui` |
+| Text | scenario parameters `lmrs.<name>=<value>`, from `--lmrs.<name>=<value>` or a preset. Names: `synchronization`, `cooperation`, `gapAcceptance`, `fullerImplementation`, and the switches `incentiveRoute`, `incentiveGetInLane`, `incentiveSpeedWithCourtesy`, `incentiveCourtesy`, `incentiveQueue`, `incentiveStayRight`, `incentiveKeep`, `accelerationSpeedLimitTransition`, `accelerationNoSlowLaneOvertake`, `socialPressure`, `tailgating`, `socioLaneChange`, `socioSpeed`. Strategy names are parsed by upstream's own converters. | cluster and local runs |
+
+A name or value the provider does not know stops the run during setup.
+
+**The command-line options `LmrsFactory` itself defines are not used.** Their defaults differ from the defaults of a
+factory built in code: the perception model is `ATTENTION_MATRIX` on the command line and `NONE` in code. Parsing
+through them would therefore change the model of a run that sets nothing.
+
+Without any setting the factory is exactly `new LmrsFactory<>(List.of(gtuType), Lmrs::new).setStream(stream)`; a
+one-hour run gives the same detector and trajectory output as before these options existed.
+
+**Metadata.** The provider does not report what it was asked to set. It reads the factory it built back
+(`LmrsSettings.read`) and compares it with a factory built the way upstream builds one. `run.properties` holds:
+
+| Key | Content |
+|---|---|
+| `model.<class>.factory` | the factory class |
+| `model.<class>.settings` | `upstream defaults`, or `changed: SYNCHRONIZATION, COOPERATION, …` |
+| `model.setting.<class>.<SETTING>` | every setting whose value can be named, 37 per vehicle class, by the name of its constant in `LmrsFactory.Setting`: `model.setting.car.SYNCHRONIZATION=PASSIVE` |
+| `model.<class>.parameterOverrides` | `none (upstream defaults)`, or `applied, see override.*` |
+| `model.override.<class>.<parameter>` | each applied parameter override with its value |
+
+`<class>` is `car` or `truck`. Because the settings are read back, the record states the composition that ran and
+stays right if upstream changes a default. Settings that hold functions or collections (the car-following model,
+custom incentives) cannot be named and are not listed.
+
+### 2.2 The GUI runner
+
+`RunFreiburgNordGui` opens one day in the OTS GUI. It takes no arguments; its settings are code at the top of the
+class: `LocalDate DATE`, `long SEED`, `Optional<Duration> SIMULATION_TIME`, an `LmrsSettings` with every setting
+written out on upstream's value, and a method for typed driver parameters. On start it prints the composition read
+back from the factory, so a changed line shows as `settings=changed: …`. It sets `Locale.US` itself, because an IDE
+passes no JVM options, and finds `cluster/demand` from the working directory upwards. `cluster/run_gui.sh` starts
+the class from a shell. A GUI run writes output only when the simulation reaches its end, and no `run.properties`.
+
 ## 3. LMRS parameters: what the benchmark runs on
 
 By default **nothing** is overridden: every parameter is what upstream's `LmrsFactory` sets, including the values it
 draws per vehicle (`FSPEED`, `FSPEED_GTU`).
 
 The fork's Freiburg studies set 27 `car.`/`truck.` overrides. Of these, 19 were MiRoVA parameters and are gone.
-The remaining eight address **standard OTS parameters** and would move the LMRS off its upstream defaults:
+The remaining eight addressed **standard OTS parameters**. They are listed here **for reference only**:
 
 | Override | Fork value | Upstream LMRS value |
 |---|---|---|
@@ -60,21 +112,27 @@ The upstream values were printed from `LmrsFactory.getParameters` for `NL.CAR` a
 factory gives cars and trucks the same parameter values; they differ by GTU type, dimensions and maximum speed.
 The fork values are from `FreiburgStudyParameters` on `origin/main`.
 
-**None of the eight is active.** They are in `FreiburgStudyParameters.scenarioParameterOverrides()` and are applied
-only with `--lmrsParameters=scenario` (`MIROVA_LMRS_PARAMETERS=scenario`), as one set. The default is `default`. The
-choice and every applied override are written into `run.properties` (`lmrsParameters`, `model.override.*`).
-`DriverModelSelectionTest` pins that the set is off by default and complete when on.
+**None of the eight exists in the code.** The switch `--lmrsParameters=default|scenario` that applied them as a
+set was removed, with its metadata key and its tests; `--lmrsParameters` is now refused with a message. A driver
+model runs on its own parameters unless a run changes them explicitly:
 
-This is the item of decision 10 that still needs your approval: the mechanism is there and tested, the values are
-the fork's, and whether `scenario` is a configuration you want to run is yours to decide. One point to weigh: `T` is
-not a constant in the LMRS. It is relaxed between `TMIN` and `TMAX` during lane changes, so setting `T` alone does
-not mean what it meant in MiRoVA.
+- single parameters with `--car.<parameter>=<value>` and `--truck.<parameter>=<value>`, the value with its unit
+  (`--car.T=1.1s`, `--car.vGain=50km/h`); any parameter of `ParameterTypes` or `LmrsParameters`;
+- a **preset**: a file in `cluster/presets/` with driver model options, one `key=value` per line, selected with
+  `--preset=<name|file>` (`MIROVA_PRESET` on the cluster) and recorded by name as `preset=` in `run.properties`.
+  Options given explicitly win over the preset; a key that is not a driver model option is refused.
 
-A run may also set single `car.<id>` / `truck.<id>` keys in its own parameters. Those are applied and recorded in
-either mode; a key the run sets itself is never replaced by the scenario set.
+One preset exists: `moving-ego-headway` — `lmrs.synchronization=ALIGN_GAP_MOVING`, `lmrs.cooperation=PASSIVE_MOVING`,
+`lmrs.gapAcceptance=EGO_HEADWAY`, everything else as upstream.
+
+Should the eight values be wanted again, they are a preset of eight lines (`car.T=1.1s` and so on); nothing in the
+code has to change.
+
+One point about `T` in the LMRS: it is not a constant. It is relaxed down to `TMIN` around lane changes and back up
+to `TMAX`, so setting `T` alone does not mean what it meant in MiRoVA.
 
 **Stricter than the fork:** an override that names no parameter, or cannot be converted to the parameter's type,
-now stops the run. The fork ignored the first silently and printed a warning for the second.
+stops the run. The fork ignored the first silently and printed a warning for the second.
 
 ## 4. Scenario-level settings that carry over unchanged
 
@@ -159,6 +217,7 @@ Same files, same names, same columns. Compared against a fork run
 | File | Result |
 |---|---|
 | `sampler_RoadSampler_[samplingInterval=null].csv.zip` | Header identical: `traj#,linkId,laneId,gtuId,t,x,v,a,ActionState,LaneChangeDesireLeft,LaneChangeDesireRight,AccelerationDamping,GtuType,CurrentCFAcceleration`. Under LMRS: `ActionState` is `none`; the two desires, the damping and the car-following acceleration are `NaN`; `GtuType` is filled. |
+| Sampling step of the trajectories | **0.5 s instead of 0.2 s.** The sampler records a row per plan step, and the step is the driver model's time step. See `CLUSTER_READINESS.md`, section 2. |
 | `…csv.header` | Identical, provided the run uses `-Dfile.encoding=UTF-8` (the runners set it). Without it a Windows JVM writes the `²` of `m/s²` in another encoding. |
 | `detector_periodic.csv` | Header identical: `id,GTU type,t,q,vHarm`. |
 | `detector_periodic.csvm`, `detector_positions.csvm` | One difference each: the class name in the first data row is `…road.network.object.detector.LoopDetector$6` instead of `…road.network.lane.object.detector.LoopDetector$6`. Unavoidable, the class moved upstream. |
@@ -166,7 +225,8 @@ Same files, same names, same columns. Compared against a fork run
 | `diffused_vehicles.csv` | Header identical, no rows. |
 | `run.properties` | New content, see `cluster/README.md`. |
 | `build.txt` | No longer written. |
-| `runParams.txt` | Same format; carries `model` and `lmrsParameters` instead of `tacticalPlanner` and the `car.`/`truck.` keys. |
+| `runParams.txt` | Same format; carries `model` instead of `tacticalPlanner`, and no `car.`/`truck.` keys unless a run sets some. |
+| `removed_vehicles.csv`, `removed_vehicles_traces.txt` | New. One row per vehicle OTS removed after an exception, and the distinct stack traces. Header only when none was removed. |
 
 ### 6.4 Code
 
@@ -221,7 +281,7 @@ defaults behind environment variables, are skipped on the cluster and in `DateSt
 | 2 | 15-minute headless run, `--model=lmrs`, through `cluster/run_local_parallel.sh` | Completes in about 12 s and writes the trajectory file, both detector files, `diffused_vehicles.csv` and `run.properties`. |
 | 3 | Determinism | Full day (2025-09-22, seed 42): baseline five times, and each performance commit at least twice. The content of all seven output files is identical in every run. Runtimes are in `PERFORMANCE_NOTES.md`. |
 | 4 | Output format | Same files and columns as a fork run; the differences are listed in 6.3. |
-| 5 | SLURM dry run | `MIROVA_DRY_RUN=1 SLURM_ARRAY_TASK_ID=3 bash cluster/run_mirova.sbatch` prints the two `java` commands of the task (indices 6 and 7) with the workspace paths, `--model=lmrs --lmrsParameters=default`, the locale and encoding options and both commit properties, and starts nothing. An odd run count leaves the last slot empty; a missing `MIROVA_CLUSTER_DIR` stops the script. Run under Git Bash on Windows with a mock workspace, not on the cluster. |
+| 5 | SLURM dry run | `MIROVA_DRY_RUN=1 SLURM_ARRAY_TASK_ID=3 bash cluster/run_mirova.sbatch` prints the two `java` commands of the task (indices 6 and 7) with the workspace paths, `--model=lmrs`, the locale and encoding options and both commit properties, and starts nothing. An odd run count leaves the last slot empty; a missing `MIROVA_CLUSTER_DIR` stops the script. Run under Git Bash on Windows with a mock workspace, not on the cluster. |
 | — | Unit tests | `ots-demo`: 15 run, 0 failed (three ported, one new). `ots-base`: 58 run, 0 failed. `cluster/test_guard.sh`: 16 passed. |
 | — | Class header, Javadoc, imports | A script over all ported main classes finds no class without the header, no public or protected member without Javadoc, no missing `@param`/`@return`, no empty tag, no unescaped generic, no wildcard import. |
 
@@ -243,14 +303,9 @@ Three checks you asked for specifically:
 These are not consequences of the port; they are what upstream 1.8.1 does on this network. I did not investigate
 or change any of them.
 
-- **55 vehicles are removed during the day 2025-09-22** (of roughly 36 000 generated; `gtus.removed` in
-  `run.properties`, causes at the end of each run log).
-  - 46 by a `NullPointerException` without message or stack trace, so their origin is not known.
-  - 3 by `NullPointerException: … "position" is null` at `LaneStructure.update:475`, called from
-    `DirectNeighborsPerception.computeLeaders`.
-  - 6 by `IllegalArgumentException: PolyLine2d.extract … Bad interval (744.5..742.4)` on `L5a/Lane1`: a vehicle about
-    two metres past the end of the last lane. The sinks are at `END-50m`, so these vehicles passed a sink without
-    being removed by it.
+- **55 vehicles are removed during the day 2025-09-22**, all in the last 50 m of the network, after missing the
+  sink. Diagnosed in `DELETION_DIAGNOSIS.md`: one root cause, no effect on detectors or trajectories, and the old
+  fork had the same defect with the LMRS, more often and without reporting it.
 - **Lane lengths differ from 1.7.6 by up to 0.39 m** (6.3).
 - **Cars and trucks get the same LMRS parameter values** from upstream's factory (section 3).
 - **A full LMRS day costs about 5 to 8 minutes of CPU time** on the workstation, depending on its load. The
