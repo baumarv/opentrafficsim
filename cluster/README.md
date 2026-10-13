@@ -28,7 +28,7 @@ Into `<output>/<scenario>/variation_<i>/run_seed_<seed>/`:
 | `sampler_RoadSampler_[samplingInterval=null].csv.zip` | Trajectories on the merge section `L4a`, with the six extended columns. |
 | `detector_periodic.csv.zip`, `detector_positions.csv.zip` | Loop detectors on `L3a`, `L5a`, `L7a`: flow and harmonic mean speed per minute, and their positions. |
 | `diffused_vehicles.csv` | Header only. No driver model on this branch removes vehicles to dissolve a deadlock; the file is kept so that post-processing finds it. |
-| `removed_vehicles.csv`, `removed_vehicles_traces.txt` | One row per vehicle OTS removed after an exception (id, type, time, link, lane, position, speed, exception, trace hash), and the distinct stack traces by hash. Header only when none was removed. |
+| `removed_vehicles.csv`, `removed_vehicles_traces.txt` | One row per vehicle OTS removed after an exception (id, type, time, route destination, link, lane, position, speed, exception, trace hash), and the distinct stack traces by hash. Header only when none was removed. |
 | `errors.txt` | Only when the run failed. |
 
 `runParams.txt` lies one level up, in the variation folder.

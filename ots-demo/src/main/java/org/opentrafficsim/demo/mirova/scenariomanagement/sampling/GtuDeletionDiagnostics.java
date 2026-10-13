@@ -57,8 +57,8 @@ public final class GtuDeletionDiagnostics implements GtuErrorHandler
     public static final String TRACES_FILE = "removed_vehicles_traces.txt";
 
     /** Header of {@link #CSV_FILE}. */
-    public static final String CSV_HEADER = "gtu_id,gtu_type,sim_time_s,roaming,link_id,lane_id,position_m,x_m,y_m,speed_mps,"
-            + "exception,message,thrown_at,trace_hash";
+    public static final String CSV_HEADER = "gtu_id,gtu_type,sim_time_s,route_destination,roaming,link_id,lane_id,position_m,"
+            + "x_m,y_m,speed_mps,exception,message,thrown_at,trace_hash";
 
     /** Number of stack frames that identify a cause in the tally. */
     private static final int TALLY_FRAMES = 3;
@@ -135,6 +135,7 @@ public final class GtuDeletionDiagnostics implements GtuErrorHandler
         String lane = "unknown";
         String position = "";
         boolean roaming = false;
+        String destination = "";
         long positionM = -1;
         String x = "";
         String y = "";
@@ -154,6 +155,25 @@ public final class GtuDeletionDiagnostics implements GtuErrorHandler
         }
         if (gtu instanceof LaneBasedGtu laneBasedGtu)
         {
+            try
+            {
+                // Where the vehicle was going says whether it is somewhere its route does not lead.
+                destination = laneBasedGtu.getStrategicalPlanner().getRoute().map((route) ->
+                {
+                    try
+                    {
+                        return route.destinationNode().getId();
+                    }
+                    catch (Exception exception)
+                    {
+                        return "";
+                    }
+                }).orElse("");
+            }
+            catch (Exception suppressed)
+            {
+                destination = "";
+            }
             try
             {
                 // A GTU that is on no lane is "roaming" in OTS; it then has no lane position, only a nearest one.
@@ -187,7 +207,7 @@ public final class GtuDeletionDiagnostics implements GtuErrorHandler
                 Long::sum);
 
         ROWS.add(String.join(",", csv(gtu.getId()), csv(gtu.getType().getId()), String.format(Locale.ROOT, "%.3f", time),
-                String.valueOf(roaming), csv(link), csv(lane), position, x, y, speed, csv(root.getClass().getName()),
+                csv(destination), String.valueOf(roaming), csv(link), csv(lane), position, x, y, speed, csv(root.getClass().getName()),
                 csv(message), csv(frames.length == 0 ? "" : shortFrame(frames[0])), hash));
     }
 
