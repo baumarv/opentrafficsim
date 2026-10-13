@@ -66,6 +66,40 @@ The runner pins `-Duser.language=en -Duser.country=US -Dfile.encoding=UTF-8` for
 run configuration: without it the same network XML can parse differently on a machine with a decimal comma, and the
 unit of one trajectory column is written in another byte encoding.
 
+## Watching a run in the GUI
+
+```bash
+cluster/run_gui.sh                                      # the settings block at the top of the script
+cluster/run_gui.sh --date=2025-10-07 --seed=1000045     # command-line options win over the block
+cluster/run_gui.sh --lmrs.synchronization=ALIGN_GAP --car.T=1.1s
+cluster/run_gui.sh --dry-run                            # print the java command, start nothing
+```
+
+The block at the top of `run_gui.sh` lists every setting with its values and upstream's default. A setting left
+empty is not passed, so the model keeps what upstream sets; with the block untouched the GUI shows the benchmark.
+A GUI run is for looking: it writes its output only when the simulation reaches its end, and no `run.properties`.
+
+## Composing the LMRS differently
+
+The same options work for evaluated runs, after `--` in `run_local_parallel.sh` and in `MIROVA_STUDY_OPTS` on the
+cluster:
+
+| Option | Values (upstream default first) |
+|---|---|
+| `--lmrs.synchronization` | `PASSIVE`, `PASSIVE_MOVING`, `ALIGN_GAP`, `ALIGN_GAP_MOVING` |
+| `--lmrs.cooperation` | `PASSIVE`, `NONE`, `PASSIVE_MOVING` |
+| `--lmrs.gapAcceptance` | `INFORMED`, `EGO_HEADWAY` |
+| `--lmrs.fullerImplementation` | `NONE`, `SUMMATIVE`, `ANTICIPATION_RELIANCE`, `ATTENTION_MATRIX` |
+| `--lmrs.incentiveRoute`, `…SpeedWithCourtesy`, `…Keep` | `true`, `false` |
+| `--lmrs.incentiveGetInLane`, `…Courtesy`, `…Queue`, `…StayRight` | `false`, `true` |
+| `--lmrs.accelerationNoSlowLaneOvertake`, `--lmrs.accelerationSpeedLimitTransition` | `false`, `true` |
+| `--lmrs.socialPressure`, `--lmrs.tailgating`, `--lmrs.socioLaneChange`, `--lmrs.socioSpeed` | `false`, `true` |
+| `--car.<parameter>=<value>`, `--truck.<parameter>=<value>` | any parameter of `ParameterTypes` or `LmrsParameters`, with its unit: `--car.T=1.1s`, `--car.vGain=50km/h`, `--car.dCoop=0.8` |
+
+Only what is named is set. Everything that was set is written into `run.properties` as `model.setting.*` and
+`model.override.*`; a name or value the provider does not know stops the run during setup. A run with any of these
+is no longer the upstream-default benchmark, and its metadata says so (`model.car.settings=changed`).
+
 ## On bwUniCluster 3.0
 
 The cluster has no Java or Maven modules. `build_for_cluster.sh` provisions JDK 17 (Adoptium) and Maven 3.9.9 as
@@ -111,6 +145,7 @@ branch is moved onto a newer upstream; every run copies it into its metadata.
 | `build_for_cluster.sh` | Toolchain, build, classpath, build record, demand. |
 | `mirova_env.sh` | Workspace resolution and toolchain provisioning, shared by the two above. |
 | `run_local_parallel.sh` | The same runs on a workstation, N JVMs at a time. |
+| `run_gui.sh` | One day in the OTS GUI, with a settings block for the model. |
 | `guard.sh`, `test_guard.sh` | Preconditions that end a script instead of printing a value, and their test. |
 | `UPSTREAM_COMMIT` | The upstream commit the branch is based on. |
 | `dates.txt`, `dates_calibration.txt`, `dates_extension.txt` | Date lists. |
