@@ -1,6 +1,8 @@
 # Porting inventory — Freiburg scenario, cluster runs and performance work onto current upstream OTS
 
-Status: **Phase 1 complete, waiting for approval.** Nothing has been ported yet.
+Status: **approved on 2026-10-13**, with the decisions recorded in section 8. The port has been carried out; what was
+done and where it deviates is in `PORTING_NOTES.md` and `PERFORMANCE_NOTES.md`. Sections 0 to 7 are the inventory as
+it was approved and are not updated to the state after the port.
 
 ## 0. Git setup (Phase 0)
 
@@ -340,3 +342,19 @@ would change LMRS away from its upstream defaults. I will list each and port non
    scenario?
 8. **Naming:** keep `MIROVA_*` environment variables, `mirova_env.sh`, `run_mirova.sbatch` and
    `RunMirovaClusterStudy` unchanged, so your submit habits and scripts keep working (recommended), or rename?
+
+## 8. Decisions taken on this inventory
+
+| # | Decision |
+|---|---|
+| 1 | Port D2b, D2c and D3, re-implemented against current upstream, each in its own commit. No runtime switches: they are pure refactorings, and the determinism check is "before the commit against after the commit". `ParameterSet.getParameter` keeps its check, exception type and message. Measure an LMRS baseline first. |
+| 2 | Keep the six sampler columns, empty under LMRS, so the trajectory header is unchanged. The column classes go into `ots-demo`. `DriverStateObservable` is replaced by a model-neutral interface. |
+| 3 | No getter on `LaneBasedGtuTemplate`; the scenario is restructured instead. |
+| 4 | The `.gitattributes` LF rules are approved. `ots-xml/pom.xml`, the root `pom.xml` and `.mvn/jvm.config` are not changed. No build stamp. The locale is pinned at run time, in `run_mirova.sbatch` and the local runner. |
+| 5 | Scope: the Freiburg scenario, `DateStudy` and the framework. The simple-highway scenario only if it ports trivially. No Bodegraven. |
+| 6 | `GtuDeletionDiagnostics` is ported into `ots-demo`; the deletion behaviour must match. |
+| 7 | `NO_LC_DIST` is set explicitly to `null`, as an explicit scenario parameter recorded in the run metadata. |
+| 8 | `MIROVA_*` variables, `run_mirova.sbatch` and `RunMirovaClusterStudy` keep their names. |
+| 9 | Node `N2_3` gets an explicit direction equal to the value the old parser derived. |
+| 10 | Every `car.`/`truck.` override of a standard OTS parameter is listed, none is active without approval, and they can be switched as a set with `--lmrsParameters=default|scenario`, default `default`, recorded in the metadata. |
+| 11 | `TacticalPlannerProvider` becomes a real factory behind `--model`, default `lmrs`, without any MiRoVA factory being built. |
