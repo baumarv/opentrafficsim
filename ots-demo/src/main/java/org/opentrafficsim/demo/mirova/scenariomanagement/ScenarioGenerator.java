@@ -962,19 +962,6 @@ public abstract class ScenarioGenerator
     public static final String KEY_DRIVER_MODEL = "model";
 
     /**
-     * Scenario parameter selecting the parameter set the driver model runs on: {@value #PARAMETER_SET_DEFAULT} leaves every
-     * parameter at the model's own default, {@value #PARAMETER_SET_SCENARIO} applies the overrides the scenario declares in
-     * {@link #scenarioParameterOverrides()} as one set. Set from the command line with {@code --lmrsParameters}.
-     */
-    public static final String KEY_LMRS_PARAMETERS = "lmrsParameters";
-
-    /** Value of {@link #KEY_LMRS_PARAMETERS} that keeps the driver model on its own defaults. */
-    public static final String PARAMETER_SET_DEFAULT = "default";
-
-    /** Value of {@link #KEY_LMRS_PARAMETERS} that applies the scenario-level overrides as a set. */
-    public static final String PARAMETER_SET_SCENARIO = "scenario";
-
-    /**
      * Scenario parameter holding the distance after its origin within which a generated vehicle may not change lane, as a
      * {@link Length}; absent means no such restriction.
      */
@@ -1050,42 +1037,6 @@ public abstract class ScenarioGenerator
     }
 
     /**
-     * Returns the overrides of standard driver parameters that belong to this scenario, keyed {@code "car.<id>"} and
-     * {@code "truck.<id>"}.
-     * <p>
-     * They are applied only when a run selects {@link #PARAMETER_SET_SCENARIO}; by default a driver model runs on its own
-     * defaults. The default implementation declares none.
-     * </p>
-     * @return ScenarioParameters; the scenario-level overrides, empty when the scenario declares none
-     */
-    public ScenarioParameters scenarioParameterOverrides()
-    {
-        return new ScenarioParameters();
-    }
-
-    /**
-     * Returns the parameters the driver model is built from: the parameters of the run, plus the scenario-level overrides
-     * when the run selects them. A key the run sets itself is never replaced by a scenario-level override.
-     * @param params ScenarioParameters; the parameters of the run
-     * @return ScenarioParameters; the parameters the driver model is built from
-     * @throws IllegalArgumentException when {@link #KEY_LMRS_PARAMETERS} holds an unknown value
-     */
-    public ScenarioParameters driverModelParameters(final ScenarioParameters params)
-    {
-        String parameterSet = params.getOrDefault(KEY_LMRS_PARAMETERS, PARAMETER_SET_DEFAULT, String.class);
-        if (PARAMETER_SET_DEFAULT.equals(parameterSet))
-        {
-            return params;
-        }
-        if (!PARAMETER_SET_SCENARIO.equals(parameterSet))
-        {
-            throw new IllegalArgumentException(KEY_LMRS_PARAMETERS + "=" + parameterSet + " is not a parameter set; use "
-                    + PARAMETER_SET_DEFAULT + " or " + PARAMETER_SET_SCENARIO + ".");
-        }
-        return scenarioParameterOverrides().copy().applyOverridesFrom(params);
-    }
-
-    /**
      * Builds the strategical planner factory of one vehicle class with the driver model the run selected, and remembers it
      * for {@link #buildOdsCharacteristicsGenerator(OtsSimulatorInterface)}.
      * @param vehicleClass String; {@code "car"} or {@code "truck"}, the prefix parameter overrides are addressed with
@@ -1103,7 +1054,7 @@ public abstract class ScenarioGenerator
         try
         {
             factory = provider.createStrategicalPlannerFactory(new DriverModelProvider.Request(vehicleClass, gtuType,
-                    this.stream, ParameterOverrides.forVehicleClass(driverModelParameters(params), vehicleClass),
+                    this.stream, ParameterOverrides.forVehicleClass(params, vehicleClass),
                     ParameterOverrides.forModel(params, provider.key())));
         }
         catch (Exception exception)

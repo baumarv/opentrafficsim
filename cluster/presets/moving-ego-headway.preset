@@ -1,0 +1,12 @@
+# LMRS with the three lane-change strategies changed from upstream:
+#   synchronization  ALIGN_GAP_MOVING  (upstream: PASSIVE)  follow the target-lane leader or align with the middle of the
+#                                      gap, whichever allows the larger acceleration; disabled below the creep speed
+#   cooperation      PASSIVE_MOVING    (upstream: PASSIVE)  cooperate with a leader whose desire is at least dCoop;
+#                                      disabled below the creep speed
+#   gap acceptance   EGO_HEADWAY       (upstream: INFORMED) apply the own headway value instead of the other driver's
+#
+# Everything else, and every driver parameter, stays as upstream sets it.
+# Select with --preset=moving-ego-headway (MIROVA_PRESET=moving-ego-headway on the cluster).
+lmrs.synchronization=ALIGN_GAP_MOVING
+lmrs.cooperation=PASSIVE_MOVING
+lmrs.gapAcceptance=EGO_HEADWAY

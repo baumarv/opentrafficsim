@@ -16,7 +16,6 @@ import org.opentrafficsim.base.parameters.ParameterTypes;
 import org.opentrafficsim.core.definitions.DefaultsNl;
 import org.opentrafficsim.demo.mirova.scenariomanagement.models.LmrsDriverModelProvider;
 import org.opentrafficsim.demo.mirova.scenariomanagement.models.LmrsSettings;
-import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgNord;
 import org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.FreiburgStudyParameters;
 import org.opentrafficsim.road.gtu.tactical.lmrs.LmrsFactory.Setting;
 import org.opentrafficsim.road.gtu.tactical.util.lmrs.Cooperation;
@@ -27,8 +26,8 @@ import nl.tudelft.simulation.jstats.streams.MersenneTwister;
 
 /**
  * Pins what the driver model selection promises: a key selects exactly one model, the default configuration applies no
- * parameter override, the scenario-level overrides come as one set and only on request, and an override that cannot be
- * applied stops the run instead of being ignored.
+ * parameter override and no setting, and an override or setting that cannot be applied stops the run instead of being
+ * ignored.
  * <p>
  * Copyright (c) 2026 Marvin Baumann / KIT. All rights reserved. <br>
  * BSD-style license. See <a href="https://opentrafficsim.org/docs/license.html">OpenTrafficSim License</a>.
@@ -103,31 +102,16 @@ public class DriverModelSelectionTest
     }
 
     /**
-     * The parameters of a date carry no driver parameter override; the scenario set adds its eight as one set; a key the run
-     * sets itself is not replaced by the set; any other value of the switch is refused.
+     * The parameters of a date carry no driver parameter override and no model setting: a date study runs every driver model
+     * as it is.
      */
     @Test
-    public void scenarioOverridesAreASetAndOffByDefault()
+    public void dateParametersLeaveTheDriverModelAlone()
     {
-        FreiburgNord scenario = new FreiburgNord();
         ScenarioParameters run = FreiburgStudyParameters.forDate("2025-09-22", "demand.csv", true);
         assertTrue(ParameterOverrides.forVehicleClass(run, "car").isEmpty());
         assertTrue(ParameterOverrides.forVehicleClass(run, "truck").isEmpty());
-        assertTrue(ParameterOverrides.forVehicleClass(scenario.driverModelParameters(run), "car").isEmpty());
-
-        run.set(ScenarioGenerator.KEY_LMRS_PARAMETERS, ScenarioGenerator.PARAMETER_SET_SCENARIO);
-        ScenarioParameters withSet = scenario.driverModelParameters(run);
-        assertEquals(4, ParameterOverrides.forVehicleClass(withSet, "car").size());
-        assertEquals(4, ParameterOverrides.forVehicleClass(withSet, "truck").size());
-        assertEquals(FreiburgStudyParameters.CAR_T, ParameterOverrides.forVehicleClass(withSet, "car").get("t"));
-        assertTrue(ParameterOverrides.forVehicleClass(run, "car").isEmpty(), "the parameters of the run were modified");
-
-        Duration own = Duration.ofSI(0.9);
-        run.set("car." + ParameterTypes.T.getId(), own);
-        assertEquals(own, ParameterOverrides.forVehicleClass(scenario.driverModelParameters(run), "car").get("t"));
-
-        run.set(ScenarioGenerator.KEY_LMRS_PARAMETERS, "something-else");
-        assertThrows(IllegalArgumentException.class, () -> scenario.driverModelParameters(run));
+        assertTrue(ParameterOverrides.forModel(run, DriverModels.LMRS).isEmpty());
     }
 
     /**

@@ -1,8 +1,10 @@
 package org.opentrafficsim.demo.mirova.scenariomanagement.scenarios;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +34,7 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.models.LmrsDriverModelP
  * </p>
  * <p>
  * Usage: {@code RunMirovaClusterStudy --study=<name|class> --output=<dir> (--count | --manifest=<file> | --index=<n>)
- * [--model=<key>] [--lmrsParameters=default|scenario] [--key=value ...]}
+ * [--model=<key>] [--preset=<name|file>] [--key=value ...]}
  * </p>
  * <p>
  * Any further {@code --key=value} arguments are passed to the study definition, which documents the keys it honours (e.g.
@@ -96,24 +98,73 @@ public final class RunMirovaClusterStudy
         System.out.println("Driver model:     " + requested + " (set on " + changed + " parameter variation(s))");
     }
 
+    /** Command-line option naming a preset: a file of driver model options, or the name of one in cluster/presets. */
+    public static final String OPTION_PRESET = ScenarioManager.KEY_PRESET;
+
+    /** Directory of the presets, relative to the repository root. */
+    public static final String PRESET_DIRECTORY = "cluster/presets";
+
+    /** File name extension of a preset. */
+    public static final String PRESET_EXTENSION = ".preset";
+
     /**
-     * Puts the parameter set the command line asked for on every parameter variation of the study.
-     * @param parameterSet String; {@code default} or {@code scenario}
-     * @param scenarioManager ScenarioManager; the manager the study registered its runs with
-     * @throws IllegalArgumentException when the value is neither of the two
+     * Reads a preset: a named combination of driver model options, kept in a file so that it can be selected explicitly and
+     * recorded by name.
+     * <p>
+     * A preset holds one {@code key=value} per line, with the same keys the command line takes for the driver model:
+     * {@code <model key>.<setting>}, {@code car.<parameter>} and {@code truck.<parameter>}. Empty lines and lines starting
+     * with {@code #} are ignored. Any other key is refused: a preset changes the driver model and nothing else.
+     * </p>
+     * @param selector String; the path of a preset file, or the name of a preset in {@value #PRESET_DIRECTORY} (found from the
+     *            working directory upwards), without its extension
+     * @return Map&lt;String, String&gt;; the options of the preset, in file order
+     * @throws IOException when the file cannot be read
+     * @throws IllegalArgumentException when no such preset exists, or a line is not a driver model option
      */
-    static void applyParameterSet(final String parameterSet, final ScenarioManager scenarioManager)
+    static Map<String, String> readPreset(final String selector) throws IOException
     {
-        String requested = parameterSet.trim();
-        if (!ScenarioGenerator.PARAMETER_SET_DEFAULT.equals(requested)
-                && !ScenarioGenerator.PARAMETER_SET_SCENARIO.equals(requested))
+        File file = new File(selector.trim());
+        if (!file.isFile())
         {
-            throw new IllegalArgumentException("--" + ScenarioGenerator.KEY_LMRS_PARAMETERS + "=" + requested
-                    + " is not a parameter set; use " + ScenarioGenerator.PARAMETER_SET_DEFAULT + " or "
-                    + ScenarioGenerator.PARAMETER_SET_SCENARIO + ".");
+            file = null;
+            for (File directory = new File("").getAbsoluteFile(); directory != null && file == null; directory =
+                    directory.getParentFile())
+            {
+                File candidate = new File(new File(directory, PRESET_DIRECTORY), selector.trim() + PRESET_EXTENSION);
+                if (candidate.isFile())
+                {
+                    file = candidate;
+                }
+            }
         }
-        scenarioManager.setOnAllVariations(ScenarioGenerator.KEY_LMRS_PARAMETERS, requested);
-        System.out.println("Parameter set:    " + requested);
+        if (file == null)
+        {
+            throw new IllegalArgumentException("No preset '" + selector + "': it is neither a file nor the name of a file in "
+                    + PRESET_DIRECTORY + " (" + selector.trim() + PRESET_EXTENSION + ") above the working directory.");
+        }
+        Map<String, String> lines = new LinkedHashMap<>();
+        for (String line : Files.readAllLines(file.toPath(), StandardCharsets.UTF_8))
+        {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty() || trimmed.startsWith("#"))
+            {
+                continue;
+            }
+            int separator = trimmed.indexOf('=');
+            if (separator <= 0)
+            {
+                throw new IllegalArgumentException("Preset " + file + ": line '" + trimmed + "' is not key=value.");
+            }
+            lines.put(trimmed.substring(0, separator).trim(), trimmed.substring(separator + 1).trim());
+        }
+        Map<String, String> options = driverModelOptions(lines);
+        if (options.size() != lines.size())
+        {
+            lines.keySet().removeAll(options.keySet());
+            throw new IllegalArgumentException("Preset " + file + " holds keys that are not driver model options: "
+                    + lines.keySet() + ". A preset takes <model key>.<setting>, car.<parameter> and truck.<parameter>.");
+        }
+        return options;
     }
 
     /**
@@ -183,13 +234,28 @@ public final class RunMirovaClusterStudy
             study.register(scenarioManager, options);
             String model = options.getOrDefault(OPTION_MODEL, options.getOrDefault(OPTION_MODEL_LEGACY, DriverModels.LMRS));
             applyDriverModel(model, scenarioManager, study);
-            applyParameterSet(options.getOrDefault(ScenarioGenerator.KEY_LMRS_PARAMETERS,
-                    ScenarioGenerator.PARAMETER_SET_DEFAULT), scenarioManager);
+            if (options.containsKey("lmrsParameters"))
+            {
+                throw new IllegalArgumentException("--lmrsParameters no longer exists. The driver model runs on its own "
+                        + "parameters; change them with --car.<parameter>=<value>, --truck.<parameter>=<value> or a preset.");
+            }
             if (options.containsKey(ScenarioParameters.KEY_SIMULATION_TIME))
             {
                 applySimulationTime(options.get(ScenarioParameters.KEY_SIMULATION_TIME), scenarioManager);
             }
-            for (Map.Entry<String, String> entry : driverModelOptions(options).entrySet())
+            // A preset first, explicit options after it, so that an option given on the command line wins.
+            Map<String, String> driverModel = new LinkedHashMap<>();
+            if (options.containsKey(OPTION_PRESET))
+            {
+                String preset = options.get(OPTION_PRESET);
+                driverModel.putAll(readPreset(preset));
+                String presetName = new File(preset.trim()).getName();
+                scenarioManager.setOnAllVariations(ScenarioManager.KEY_PRESET, presetName.endsWith(PRESET_EXTENSION)
+                        ? presetName.substring(0, presetName.length() - PRESET_EXTENSION.length()) : presetName);
+                System.out.println("Preset:           " + preset);
+            }
+            driverModel.putAll(driverModelOptions(options));
+            for (Map.Entry<String, String> entry : driverModel.entrySet())
             {
                 scenarioManager.setOnAllVariations(entry.getKey(), entry.getValue());
                 System.out.println("Changed:          " + entry.getKey() + "=" + entry.getValue());
@@ -321,8 +387,8 @@ public final class RunMirovaClusterStudy
         System.err.println("  --index      the 0-based global index of the single run to execute");
         System.err.println("  --model      driver model every vehicle drives; default '" + DriverModels.LMRS + "'; available: "
                 + DriverModels.availableKeys() + " (--" + OPTION_MODEL_LEGACY + " is accepted as an alias)");
-        System.err.println("  --lmrsParameters  '" + ScenarioGenerator.PARAMETER_SET_DEFAULT + "' (default): the driver model's "
-                + "own defaults; '" + ScenarioGenerator.PARAMETER_SET_SCENARIO + "': the scenario-level overrides as a set");
+        System.err.println("  --preset     a named combination of the driver model options below: a file, or the name of "
+                + "one in " + PRESET_DIRECTORY + "; options given explicitly win over it");
         System.err.println("  --simulationTime  simulated duration with unit, e.g. 900s; for smoke tests only");
         System.err.println("  --lmrs.<setting>=<value>  compose the LMRS differently from upstream: "
                 + LmrsDriverModelProvider.SETTINGS_HELP);
