@@ -68,15 +68,19 @@ unit of one trajectory column is written in another byte encoding.
 
 ## Watching a run in the GUI
 
+Run the class `org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunFreiburgNordGui` from the IDE. The
+block of constants at its top holds every setting - day, seed, model, parameter set, the LMRS strategies and
+switches, single driver parameters - each with its values and upstream's default. A constant left empty is not
+applied, so the model keeps what upstream sets; with the block as committed the GUI shows the benchmark.
+
+From a shell, `cluster/run_gui.sh` starts the same class and builds the class path; arguments win over the block:
+
 ```bash
-cluster/run_gui.sh                                      # the settings block at the top of the script
-cluster/run_gui.sh --date=2025-10-07 --seed=1000045     # command-line options win over the block
-cluster/run_gui.sh --lmrs.synchronization=ALIGN_GAP --car.T=1.1s
-cluster/run_gui.sh --dry-run                            # print the java command, start nothing
+cluster/run_gui.sh
+cluster/run_gui.sh --date=2025-10-07 --seed=1000045 --lmrs.synchronization=ALIGN_GAP --car.T=1.1s
+cluster/run_gui.sh --dry-run
 ```
 
-The block at the top of `run_gui.sh` lists every setting with its values and upstream's default. A setting left
-empty is not passed, so the model keeps what upstream sets; with the block untouched the GUI shows the benchmark.
 A GUI run is for looking: it writes its output only when the simulation reaches its end, and no `run.properties`.
 
 ## Composing the LMRS differently
@@ -145,7 +149,7 @@ branch is moved onto a newer upstream; every run copies it into its metadata.
 | `build_for_cluster.sh` | Toolchain, build, classpath, build record, demand. |
 | `mirova_env.sh` | Workspace resolution and toolchain provisioning, shared by the two above. |
 | `run_local_parallel.sh` | The same runs on a workstation, N JVMs at a time. |
-| `run_gui.sh` | One day in the OTS GUI, with a settings block for the model. |
+| `run_gui.sh` | Starts `RunFreiburgNordGui` from a shell. |
 | `guard.sh`, `test_guard.sh` | Preconditions that end a script instead of printing a value, and their test. |
 | `UPSTREAM_COMMIT` | The upstream commit the branch is based on. |
 | `dates.txt`, `dates_calibration.txt`, `dates_extension.txt` | Date lists. |
