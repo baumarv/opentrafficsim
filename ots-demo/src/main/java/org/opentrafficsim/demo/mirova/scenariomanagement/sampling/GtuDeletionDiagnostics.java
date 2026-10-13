@@ -1,8 +1,18 @@
 package org.opentrafficsim.demo.mirova.scenariomanagement.sampling;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
+import org.djutils.draw.point.Point2d;
 import org.opentrafficsim.core.gtu.Gtu;
 import org.opentrafficsim.core.gtu.GtuErrorHandler;
 import org.opentrafficsim.road.gtu.LaneBasedGtu;
@@ -11,19 +21,23 @@ import org.opentrafficsim.road.network.LanePosition;
 /**
  * Reports why a GTU is removed, instead of removing it silently.
  * <p>
- * {@code GtuErrorHandler.DELETE} logs the identifier and destroys the vehicle, discarding the exception. The
- * cause of these removals has therefore never been established: they are attributed to lane changes that began
- * too late to finish before the ramp ends, but that reading rests on the position they happen at rather than on
- * anything the model said. This handler keeps the behaviour - the vehicle is still destroyed, so a run is
- * comparable to one without it - and records the exception, the place and the state it happened in.
+ * {@code GtuErrorHandler.DELETE} logs the identifier and destroys the vehicle, discarding the exception. This handler keeps
+ * that behaviour - the vehicle is still destroyed, so a run is comparable to one without it - and records the exception, the
+ * place and the state it happened in.
  * </p>
  * <p>
- * Grouped by exception type and message rather than logged per vehicle: the same few causes repeat hundreds of
- * times in a run, and the interesting quantity is which of them dominates and where on the road it strikes.
+ * Two records are kept. A tally by cause, printed at the end of a run: the same few causes repeat many times, and the first
+ * question is which of them dominates and where on the road it strikes. And one row per removed vehicle, written to
+ * {@value #CSV_FILE} with the full stack traces beside it in {@value #TRACES_FILE}, for looking at single cases.
  * </p>
  * <p>
- * The tally is static and is never reset, so it describes one replication and assumes one replication per process,
- * which is how the campaigns and the local harness run; nothing here is synchronised either.
+ * A stack trace is only as complete as the JVM makes it. HotSpot stops filling in the trace of an exception it has thrown
+ * often from the same place, so a run that is to be diagnosed needs {@code -XX:-OmitStackTraceInFastThrow}; the runners in
+ * {@code cluster/} set it.
+ * </p>
+ * <p>
+ * The records are static and never reset, so they describe one replication and assume one replication per process, which is
+ * how the campaigns and the local runner work; nothing here is synchronised either.
  * </p>
  * <p>
  * Copyright (c) 2026 Marvin Baumann / KIT. All rights reserved. <br>
@@ -36,13 +50,37 @@ public final class GtuDeletionDiagnostics implements GtuErrorHandler
     /** The handler, which reports and then does what {@code DELETE} does. */
     public static final GtuDeletionDiagnostics INSTANCE = new GtuDeletionDiagnostics();
 
-    /** Per cause: count, and the positions it struck at, to a metre. */
+    /** Name of the file with one row per removed vehicle. */
+    public static final String CSV_FILE = "removed_vehicles.csv";
+
+    /** Name of the file with the distinct stack traces, by their hash. */
+    public static final String TRACES_FILE = "removed_vehicles_traces.txt";
+
+    /** Header of {@link #CSV_FILE}. */
+    public static final String CSV_HEADER = "gtu_id,gtu_type,sim_time_s,roaming,link_id,lane_id,position_m,x_m,y_m,speed_mps,"
+            + "exception,message,thrown_at,trace_hash";
+
+    /** Number of stack frames that identify a cause in the tally. */
+    private static final int TALLY_FRAMES = 3;
+
+    /** Longest message kept. */
+    private static final int MAX_MESSAGE_LENGTH = 160;
+
+    /** Per cause: count, sum of positions, lowest and highest position, to a metre. */
     private static final Map<String, long[]> CAUSES = new LinkedHashMap<>();
 
     /** Per cause, the lanes it struck on. */
     private static final Map<String, Map<String, Long>> LANES = new LinkedHashMap<>();
 
-    /** Utility instance. */
+    /** One CSV row per removed vehicle, in the order of removal. */
+    private static final List<String> ROWS = new ArrayList<>();
+
+    /** The distinct stack traces, by hash, in order of first occurrence. */
+    private static final Map<String, String> TRACES = new LinkedHashMap<>();
+
+    /**
+     * Singleton.
+     */
     private GtuDeletionDiagnostics()
     {
         // singleton
@@ -56,7 +94,7 @@ public final class GtuDeletionDiagnostics implements GtuErrorHandler
     }
 
     /**
-     * Adds one removal to the tally.
+     * Adds one removal to the records.
      * @param gtu Gtu; the vehicle being removed
      * @param ex Exception; why it is being removed
      */
@@ -67,39 +105,72 @@ public final class GtuDeletionDiagnostics implements GtuErrorHandler
         {
             root = root.getCause();
         }
-        String message = root.getMessage();
-        if (message != null && message.length() > 120)
+        String message = root.getMessage() == null ? "" : root.getMessage();
+        if (message.length() > MAX_MESSAGE_LENGTH)
         {
-            message = message.substring(0, 120);
+            message = message.substring(0, MAX_MESSAGE_LENGTH);
         }
-        // The message alone does not identify a NullPointerException, so the throwing frame is part of the key.
-        StringBuilder where = new StringBuilder();
         StackTraceElement[] frames = root.getStackTrace();
-        for (int i = 0; i < Math.min(3, frames.length); i++)
+        // The message alone does not identify a NullPointerException, so the throwing frames are part of the cause.
+        StringBuilder where = new StringBuilder();
+        for (int i = 0; i < Math.min(TALLY_FRAMES, frames.length); i++)
         {
-            where.append(i == 0 ? " at " : " <- ").append(frames[i].getClassName()
-                    .substring(frames[i].getClassName().lastIndexOf('.') + 1)).append('.')
-                    .append(frames[i].getMethodName()).append(':').append(frames[i].getLineNumber());
+            where.append(i == 0 ? " at " : " <- ").append(shortFrame(frames[i]));
         }
         String cause = root.getClass().getSimpleName() + ": " + message + where;
 
+        // The whole chain, so that the wrapper exceptions between the model and the handler are visible as well.
+        StringWriter trace = new StringWriter();
+        ex.printStackTrace(new PrintWriter(trace));
+        // The hash is over the frames of the root cause only: the message carries positions and differs per vehicle.
+        StringBuilder frameText = new StringBuilder(root.getClass().getName());
+        for (StackTraceElement frame : frames)
+        {
+            frameText.append('|').append(frame);
+        }
+        String hash = String.format(Locale.ROOT, "%08x", frameText.toString().hashCode());
+        TRACES.putIfAbsent(hash, trace.toString());
+
+        String link = "";
         String lane = "unknown";
+        String position = "";
+        boolean roaming = false;
         long positionM = -1;
-        if (gtu instanceof LaneBasedGtu)
+        String x = "";
+        String y = "";
+        String speed = "";
+        double time = Double.NaN;
+        try
+        {
+            time = gtu.getSimulator().getSimulatorTime().si;
+            speed = String.format(Locale.ROOT, "%.3f", gtu.getSpeed().si);
+            Point2d location = gtu.getLocation();
+            x = String.format(Locale.ROOT, "%.3f", location.x);
+            y = String.format(Locale.ROOT, "%.3f", location.y);
+        }
+        catch (Exception suppressed)
+        {
+            // What cannot be read stays empty; reading the state of a vehicle that just failed may fail as well.
+        }
+        if (gtu instanceof LaneBasedGtu laneBasedGtu)
         {
             try
             {
-                LanePosition ref = ((LaneBasedGtu) gtu).getPosition();
+                // A GTU that is on no lane is "roaming" in OTS; it then has no lane position, only a nearest one.
+                roaming = laneBasedGtu.getLane() == null;
+                LanePosition ref = roaming ? laneBasedGtu.getRoamingPosition() : laneBasedGtu.getPosition();
                 if (ref != null && ref.lane() != null)
                 {
-                    lane = ref.lane().getLink().getId() + "/" + ref.lane().getId();
+                    link = ref.lane().getLink().getId();
+                    lane = ref.lane().getId();
+                    position = String.format(Locale.ROOT, "%.3f", ref.position().si);
                     positionM = Math.round(ref.position().si);
                 }
             }
             catch (Exception suppressed)
             {
-                // The reference position is what the removal is often about, so failing to read it is expected
-                // and must not replace the cause being recorded.
+                // The position is what the removal is often about, so failing to read it is expected and must not
+                // replace the cause being recorded.
                 lane = "unreadable";
             }
         }
@@ -112,7 +183,34 @@ public final class GtuDeletionDiagnostics implements GtuErrorHandler
             c[2] = Math.min(c[2], positionM);
             c[3] = Math.max(c[3], positionM);
         }
-        LANES.computeIfAbsent(cause, k -> new LinkedHashMap<>()).merge(lane, 1L, Long::sum);
+        LANES.computeIfAbsent(cause, k -> new LinkedHashMap<>()).merge((roaming ? "roaming near " : "") + link + "/" + lane, 1L,
+                Long::sum);
+
+        ROWS.add(String.join(",", csv(gtu.getId()), csv(gtu.getType().getId()), String.format(Locale.ROOT, "%.3f", time),
+                String.valueOf(roaming), csv(link), csv(lane), position, x, y, speed, csv(root.getClass().getName()),
+                csv(message), csv(frames.length == 0 ? "" : shortFrame(frames[0])), hash));
+    }
+
+    /**
+     * Renders a stack frame as {@code Class.method:line}, without the package.
+     * @param frame StackTraceElement; the frame
+     * @return String; the short form
+     */
+    private static String shortFrame(final StackTraceElement frame)
+    {
+        String className = frame.getClassName();
+        return className.substring(className.lastIndexOf('.') + 1) + "." + frame.getMethodName() + ":" + frame.getLineNumber();
+    }
+
+    /**
+     * Quotes a text field for a CSV file when it needs it.
+     * @param text String; the text
+     * @return String; the field, quoted when it contains a comma, a quote or a line break
+     */
+    private static String csv(final String text)
+    {
+        String value = text == null ? "" : text.replace("\r", " ").replace("\n", " ");
+        return value.contains(",") || value.contains("\"") ? "\"" + value.replace("\"", "\"\"") + "\"" : value;
     }
 
     /**
@@ -121,7 +219,29 @@ public final class GtuDeletionDiagnostics implements GtuErrorHandler
      */
     public static long total()
     {
-        return CAUSES.values().stream().mapToLong(c -> c[0]).sum();
+        return ROWS.size();
+    }
+
+    /**
+     * Writes {@value #CSV_FILE} and {@value #TRACES_FILE} into a directory. The CSV file is written also when no vehicle was
+     * removed, with its header only, so that its absence never has to be interpreted.
+     * @param directory File; the output directory of the run
+     * @throws IOException when a file cannot be written
+     */
+    public static void write(final File directory) throws IOException
+    {
+        StringBuilder csv = new StringBuilder(CSV_HEADER).append('\n');
+        for (String row : ROWS)
+        {
+            csv.append(row).append('\n');
+        }
+        Files.writeString(new File(directory, CSV_FILE).toPath(), csv.toString(), StandardCharsets.UTF_8);
+        StringBuilder traces = new StringBuilder();
+        for (Map.Entry<String, String> trace : TRACES.entrySet())
+        {
+            traces.append("=== trace_hash ").append(trace.getKey()).append(" ===\n").append(trace.getValue()).append('\n');
+        }
+        Files.writeString(new File(directory, TRACES_FILE).toPath(), traces.toString(), StandardCharsets.UTF_8);
     }
 
     /**
@@ -136,14 +256,13 @@ public final class GtuDeletionDiagnostics implements GtuErrorHandler
         }
         long total = CAUSES.values().stream().mapToLong(c -> c[0]).sum();
         System.out.println("[DELETED] " + total + " vehicles removed, by cause:");
-        CAUSES.entrySet().stream().sorted((a, b) -> Long.compare(b.getValue()[0], a.getValue()[0]))
-                .forEach(e ->
-                {
-                    long[] c = e.getValue();
-                    String where = c[2] == Long.MAX_VALUE ? "position unknown"
-                            : String.format("x mean %d m, %d..%d", c[1] / Math.max(1, c[0]), c[2], c[3]);
-                    System.out.println("[DELETED]   " + c[0] + "x (" + (100 * c[0] / total) + " %) " + e.getKey());
-                    System.out.println("[DELETED]      " + where + " | lanes " + LANES.get(e.getKey()));
-                });
+        CAUSES.entrySet().stream().sorted((a, b) -> Long.compare(b.getValue()[0], a.getValue()[0])).forEach(e ->
+        {
+            long[] c = e.getValue();
+            String where = c[2] == Long.MAX_VALUE ? "position unknown"
+                    : String.format(Locale.ROOT, "x mean %d m, %d..%d", c[1] / Math.max(1, c[0]), c[2], c[3]);
+            System.out.println("[DELETED]   " + c[0] + "x (" + (100 * c[0] / total) + " %) " + e.getKey());
+            System.out.println("[DELETED]      " + where + " | lanes " + LANES.get(e.getKey()));
+        });
     }
 }

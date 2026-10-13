@@ -1,5 +1,7 @@
 package org.opentrafficsim.demo.mirova.scenariomanagement;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 
@@ -123,6 +125,17 @@ public class ScenarioSimulationScript extends AbstractSimulationScriptBase
         if (this.outputConfig != null)
         {
             this.outputConfig.writeAllOutputs();
+            if (this.outputConfig.getOutputDirectory() != null)
+            {
+                try
+                {
+                    GtuDeletionDiagnostics.write(new File(this.outputConfig.getOutputDirectory()));
+                }
+                catch (IOException exception)
+                {
+                    System.err.println("[ERROR] Failed to write the removed-vehicle records: " + exception.getMessage());
+                }
+            }
         }
         // The vehicles are gone by now and nothing else says why any of them was removed.
         GtuDeletionDiagnostics.report();
