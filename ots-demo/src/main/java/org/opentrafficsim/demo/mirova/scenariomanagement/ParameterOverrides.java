@@ -5,6 +5,8 @@ import java.lang.reflect.Modifier;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.djunits.value.vdouble.scalar.Acceleration;
 import org.djunits.value.vdouble.scalar.Duration;
@@ -29,6 +31,10 @@ import org.opentrafficsim.base.parameters.ParameterType;
  */
 public final class ParameterOverrides
 {
+    /** A number with a decimal point, optionally an exponent, then a unit: group 1 the number, group 2 the unit. */
+    private static final Pattern NUMBER_WITH_UNIT =
+            Pattern.compile("([-+]?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)(?:[eE][-+]?[0-9]+)?)[ ]*([^ ].*)");
+
     /** The SI unit of each unit-typed parameter class, for the message of {@link #rejectBareNumber}. */
     private static final Map<Class<?>, String> SI_UNIT_OF = new LinkedHashMap<>();
 
@@ -176,16 +182,24 @@ public final class ParameterOverrides
             }
             if (SI_UNIT_OF.containsKey(valueClass))
             {
-                // Every DJUnits scalar has a static valueOf(String) that reads a number with its unit.
+                // DJUnits' valueOf(String) reads the number in the default locale, so a German JVM reads "1.1 s" as 11 s.
+                // The number is therefore read here, always with a decimal point, and valueOf only reads the unit of "1 <unit>",
+                // which has no separator to misread; the result is that scalar times the number.
+                Matcher matcher = NUMBER_WITH_UNIT.matcher(string.trim());
                 try
                 {
-                    return valueClass.getMethod("valueOf", String.class).invoke(null, string.trim());
+                    if (!matcher.matches())
+                    {
+                        throw new IllegalArgumentException("not a number with a decimal point followed by a unit");
+                    }
+                    Object one = valueClass.getMethod("valueOf", String.class).invoke(null, "1 " + matcher.group(2));
+                    return valueClass.getMethod("times", double.class).invoke(one, Double.parseDouble(matcher.group(1)));
                 }
-                catch (ReflectiveOperationException exception)
+                catch (ReflectiveOperationException | IllegalArgumentException exception)
                 {
                     throw new IllegalArgumentException("Cannot read '" + string + "' as the " + valueClass.getSimpleName()
-                            + " of parameter '" + parameterType.getId() + "'. Give a number with its unit, for example "
-                            + "\"1.1 s\".", exception);
+                            + " of parameter '" + parameterType.getId() + "'. Give a number with a decimal point and its "
+                            + "unit, for example \"1.1 s\".", exception);
                 }
             }
         }
