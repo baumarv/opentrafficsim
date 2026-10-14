@@ -24,8 +24,10 @@ import org.opentrafficsim.road.gtu.tactical.util.lmrs.Synchronization;
  * {@link #FINAL_V2} is the default of the benchmark. It composes the LMRS as upstream's {@code ShortMerge} demo does since
  * upstream commit {@code d921ef913} (synchronization and cooperation that stop below the creep speed, so that a merger
  * creeps into a gap instead of synchronizing with a standing queue), and gives cars and trucks the driver parameters of the
- * MiRoVA campaign {@code final_v2} wherever the LMRS has a parameter of the same meaning. {@link #UPSTREAM} touches nothing
- * and is exactly what {@code new LmrsFactory<>(Lmrs::new)} gives.
+ * MiRoVA campaign {@code final_v2} wherever the LMRS has a parameter of the same meaning. {@link #SHORTMERGE} is the same
+ * composition on upstream's parameter values, with courtesy for cars and trucks as in ShortMerge; the preset
+ * {@code shortmerge} gives the same factory. {@link #UPSTREAM} touches nothing and is exactly what
+ * {@code new LmrsFactory<>(Lmrs::new)} gives.
  * </p>
  * <p>
  * Gap acceptance stays {@code INFORMED}, as in {@code ShortMerge}. Since {@code d921ef913} both gap-acceptance variants judge a
@@ -74,6 +76,31 @@ public enum LmrsDefaults
         public LmrsSettings settings(final String vehicleClass)
         {
             return new LmrsSettings();
+        }
+
+        @Override
+        public Map<ParameterType<?>, Object> parameters(final String vehicleClass)
+        {
+            return Collections.emptyMap();
+        }
+    },
+
+    /**
+     * The composition of upstream's ShortMerge demo on upstream's parameter values: synchronization and cooperation that stop
+     * below the creep speed, gap acceptance INFORMED, courtesy for cars and trucks. Not carried from ShortMerge: its socio
+     * distribution, its truck acceleration and its room checker; see the preset {@code cluster/presets/shortmerge.preset}.
+     */
+    SHORTMERGE("shortmerge")
+    {
+        @Override
+        public LmrsSettings settings(final String vehicleClass)
+        {
+            isCar(vehicleClass); // refuses an unknown vehicle class, as the other defaults do
+            return new LmrsSettings()
+                    .set(Setting.SYNCHRONIZATION, Synchronization.ALIGN_GAP_MOVING)
+                    .set(Setting.COOPERATION, Cooperation.PASSIVE_MOVING)
+                    .set(Setting.GAP_ACCEPTANCE, GapAcceptance.INFORMED)
+                    .set(Setting.INCENTIVE_COURTESY, true);
         }
 
         @Override
@@ -196,7 +223,7 @@ public enum LmrsDefaults
                 return defaults;
             }
         }
-        throw new IllegalArgumentException("No LMRS defaults '" + id + "'; known: upstream, final-v2.");
+        throw new IllegalArgumentException("No LMRS defaults '" + id + "'; known: upstream, shortmerge, final-v2.");
     }
 
     /**
