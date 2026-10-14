@@ -163,6 +163,7 @@ from the factory.
 | Preset | Content |
 |---|---|
 | `upstream` | `lmrs.defaults=upstream`: the LMRS exactly as upstream's factory builds it. |
+| `shortmerge` | upstream's parameter values with the composition of upstream's `ShortMerge` demo: `ALIGN_GAP_MOVING`, `PASSIVE_MOVING`, `INFORMED`, courtesy on. The second variant of the benchmark campaign. |
 | `moving-ego-headway` | `synchronization=ALIGN_GAP_MOVING`, `cooperation=PASSIVE_MOVING`, `gapAcceptance=EGO_HEADWAY`, on top of `final-v2`; against the default it changes the gap acceptance only. |
 
 ```bash
@@ -192,6 +193,22 @@ array tasks** (`--array=0-14`), on the LMRS with its default configuration `fina
 | 2025-10-21 | breakdown, 3564 veh/h | medium capacity; `final_v2` broke down there in 0.68–0.92 of its runs; not held out of the evaluation |
 
 All sixteen days: `MIROVA_DATES_FILE=$MIROVA_CLUSTER_DIR/dates.txt`, with `--array` from the run count.
+
+**Two variants, same days and seeds, separate output folders**, submitted as two jobs that run side by side:
+
+| Variant | Preset | LMRS |
+|---|---|---|
+| `final-v2` | none (the default) | ShortMerge composition, courtesy for cars only, final-v2 driver parameters |
+| `shortmerge` | `shortmerge` | ShortMerge composition, courtesy for all, upstream's standard parameter values |
+
+```bash
+export MIROVA_OUTPUT_ROOT="$WS/output/benchmark/final-v2"
+sbatch --chdir="$WS" cluster/run_mirova.sbatch
+export MIROVA_OUTPUT_ROOT="$WS/output/benchmark/shortmerge"
+MIROVA_PRESET=shortmerge sbatch --chdir="$WS" cluster/run_mirova.sbatch
+```
+
+The seeds of a day are the same in both, because they follow from the replication index alone.
 
 ### Sharing the workspace with the MiRoVA checkout
 
