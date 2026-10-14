@@ -184,18 +184,57 @@ So the defect behind RC1 is older than 1.8.1 and was 13 times as frequent in 1.7
 `L5a` against 0.29 %). What changed is that 1.8.1 no longer has the silent `destroy()` and the failure reaches the
 error handler. The fork's MiRoVA runs were not examined for this; the count above is for the LMRS on the fork.
 
-## The second seed
+## The second seed, and the one removal at the exit
 
-Seed 1000045 of the same day: 78 removals. 73 are RC2 near the end of `L5a`, 4 are RC3 on `L5a`, and **one is RC2
-near `L_exit`** (nearest lane `LeftShoulder`), i.e. on the exit ramp and not at a sink. That one is not explained
-by RC1 and was not investigated; the per-vehicle record is in that run's `removed_vehicles.csv`.
+Seed 1000045 of the same day: 78 removals. 73 are RC2 at the end of `L5a` and 4 are RC3 on `L5a`, the same
+pattern as seed 42. **One is different**: GTU 21722, near `L_exit`. It was traced in a rerun with the sampler on
+`L2a`, `L3a` and `L_exit` (`-Dmirova.samplerLinks=L2a,L3a,L_exit`); the rerun has the same 78 removals.
+
+| | GTU 21722 |
+|---|---|
+| Type, route | car, from `N1_1` to **`R6_8`, the exit** |
+| Removed at | t = 30 227.26 s (21:23:47), speed 36.8 m/s (133 km/h) |
+| Cause | RC2, `NullPointerException` at `LaneStructure.update:475`, trace `d3ab7379`, the same trace as the 49 of seed 42 |
+| Where | x = 752.7, y = 2.0, i.e. 4.2 m past node `N2_3` (748.55, 0.00), where `L2a` divides into the mainline `L3a` and the exit `L_exit`. Roaming; the nearest lane position OTS finds is `L_exit/LeftShoulder` at 4.28 m, which is only the nearest geometry, not a lane it was on. |
+| Trajectory | enters `L2a` on `Lane1` at 47.4 m/s (171 km/h), brakes at a constant −2.09 m/s², which is `b` of the LMRS, stays on `Lane1` for the whole link, and is last sampled at 226.94 m, about 1 m past the end of `L2a` (the largest position any other vehicle reaches on its lanes is 225.94 m) |
+
+`L2a` is the weaving section: `Lane2`, `Lane1`, and `Ramp`, the lane that continues into `L_exit`. The vehicle had
+to change from `Lane1` to `Ramp` within the 226 m of `L2a` and did not. At the end of `L2a` its lane continues
+only into `L3a`, which is not on its route, so it has no lane ahead on its route, leaves the lane, roams, and its
+perception throws. **It is not RC1**: no sink is involved. It is the case of upstream issue 02 — a GTU with no lane
+ahead on its route — reached by a missed mandatory lane change instead of a missed sink. Version 1.7.6 handled the
+same situation with "GTU … is forced to change lane towards …" (an instantaneous lane change) or "has nowhere to go".
+Why the LMRS did not change lane in 226 m at 171 km/h, braking at only `b`, was not investigated.
+
+**Position relative to the detectors and the sampler.** Upstream of all of them on the vehicle's own path:
+
+| Object | Position | Relation to the removal |
+|---|---|---|
+| `det_L3a.Lane1/2` | `L3a`, 113.8 / 113.6 m, downstream of `N2_3` on the mainline | not on the vehicle's route; an exiting vehicle never passes it |
+| `det_L5a.Lane1/2` | `L5a`, 371 m | not on the route |
+| `det_L7a.Lane1` | `L7a`, on-ramp | not on the route |
+| Sampler | `L4a` | not on the route |
+| Exit (`L_exit`, `L6_ramp`) | no detector (`det_L6a` does not exist) | the vehicle never reached it |
+
+So this removal is not visible in any output either, except as a vehicle missing from the exit, which is not
+measured. While it drove, it was a normal vehicle on `L2a`; its braking from 171 to 133 km/h on `Lane1` is the
+LMRS's own behaviour before the diverge and not an artefact of the removal.
 
 ## What this means for the runs
 
-- Removals at the end of `L5a` do not touch the detectors (the last one is at 371 m) or the sampler (`L4a`).
+- Removals at the end of `L5a` do not touch the detectors (the last one is at 371 m) or the sampler (`L4a`). Neither
+  does the removal at the diverge (above).
   `gtus.removed` in `run.properties` will be in the tens per run and is expected until RC1 is fixed upstream.
 - A removal anywhere else is a different matter. `removed_vehicles.csv` has the link and lane of each one, so a
   check "all removals are on `L5a` beyond 742 m" is one line in post-processing.
-- If the removals at the network end are to disappear without touching OTS: moving the sinks to the very end of
-  `L5a` does not help (the vehicle would still miss it), but a second sink a few metres behind the first on each
-  lane very likely would. That is a change to the scenario and was not made.
+- They are left as they are, by decision; no second sink.
+
+## Upstream issues
+
+Ready to submit, in `diagnosis/upstream_issues/`:
+
+| File | Issue | Reproduction |
+|---|---|---|
+| `01-sink-not-triggered-after-lane-change.md` | RC1 | this scenario on this branch; not reduced to a minimal model |
+| `02-gtu-at-end-of-network-without-sink.md` | RC2, and an `IndexOutOfBoundsException` in `LaneOperationalPlanBuilder.getCenterLinePath:268` with the same trigger | **minimal**: upstream's `StraightModel` with its sink removed; 101 failures in 600 s (85 RC2, 16 index errors). Runner in `repro/` |
+| `03-bad-interval-in-getTargetLanePosition.md` | RC3 | this scenario; the minimal model does not produce it |
