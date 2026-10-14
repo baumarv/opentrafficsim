@@ -19,7 +19,7 @@ java -Xmx6g -XX:ActiveProcessorCount=1 -XX:-OmitStackTraceInFastThrow -Duser.lan
 |---|---|---|
 | Status | finished | finished |
 | Wall clock / process CPU | 224.5 s / 240.0 s | 143.7 s / 159.4 s |
-| Trajectory rows (link `L4a`) | 685 042, 19 095 vehicles | 346 898, 19 275 vehicles |
+| Trajectory rows (link `L4a`), sampled per plan step at the time | 685 042, 19 095 vehicles | 346 898, 19 275 vehicles |
 | of these on lane `Ramp` | 156 690 | 21 030 |
 | Detector rows | 8 103 | 8 103 |
 | Vehicles removed (`gtus.removed`) | 55 | 78 |
@@ -47,7 +47,7 @@ Compared with `mirova/output/ots/final_v3/FreiburgNord_2025-09-22_13-00_to_22-00
 
 | File | Old | New | Difference |
 |---|---|---|---|
-| `sampler_RoadSampler_[samplingInterval=null].csv.zip` | yes | yes | same name, same two members (`.csv`, `.csv.header`) |
+| `sampler_RoadSampler_[…].csv.zip` | `[samplingInterval=null]` | `[samplingInterval=0.20000000_s]` | **renamed**; same two members (`.csv`, `.csv.header`), renamed the same way |
 | `detector_periodic.csv.zip` | yes | yes | same name, same two members (`.csv`, `.csvm`) |
 | `detector_positions.csv.zip` | yes | yes | same |
 | `diffused_vehicles.csv` | yes | yes | same header; never has rows now |
@@ -63,17 +63,16 @@ Compared with `mirova/output/ots/final_v3/FreiburgNord_2025-09-22_13-00_to_22-00
 | Lanes | `Lane1`, `Lane2`, `Ramp` | same |
 | Columns | `traj#,linkId,laneId,gtuId,t,x,v,a,ActionState,LaneChangeDesireLeft,LaneChangeDesireRight,AccelerationDamping,GtuType,CurrentCFAcceleration` | identical |
 | Units in the header file | s, m, m/s, m/s2; desires and damping as `FloatDuration` | identical |
-| **Sampling step** | **0.2 s** (62 % exactly 0.200, the rest within 2 ms) | **0.5 s** (93 % exactly 0.500) |
+| Sampling step | 0.2 s (MiRoVA plan step) | **0.2 s, fixed interval** (96.8 % exactly 0.200; the rest are rows at lane entry and exit) |
 | `ActionState` | MiRoVA state names, `none` | always `none` |
 | `LaneChangeDesireLeft/Right`, `AccelerationDamping`, `CurrentCFAcceleration` | numbers | always `NaN` |
 | `GtuType` | `NL.CAR`, `NL.TRUCK` | same |
 
-**The sampling step is the one substantive difference.** The sampler has no interval of its own
-(`samplingInterval=null`): it records a row whenever a vehicle executes a plan step. The step is the driver model's
-time step, 0.2 s in MiRoVA and 0.5 s in the LMRS (`DT`, an LMRS parameter; the old fork's own LMRS also gives
-0.5 s). So "same sampling frequency as the old branch" is **not** met, and cannot be met without either changing an
-LMRS parameter or giving the sampler a fixed interval, which would also change the file name. I changed neither.
-It needs your decision; see section 4.
+**Sampling.** The first local run of this check sampled per plan step and gave 0.5 s, the LMRS time step. The
+sampler now has a fixed 0.2 s interval; each sample is evaluated on the vehicle's operational plan at the sample time,
+not interpolated. The simulation is unchanged by it (detector files and removed vehicles identical). The file name
+contains the interval and changes accordingly. Seed 42: 1 651 672 rows instead of 685 042, 24.7 MB zipped. Details
+in `PORTING_NOTES.md`, "Trajectory sampling".
 
 ### Detectors
 
@@ -102,7 +101,7 @@ the pipeline.
 
 | # | Point | Effect |
 |---|---|---|
-| 1 | **Sampling step 0.5 s instead of 0.2 s.** | The code I read uses `np.diff(t)` and one-minute bins, not a fixed step, so nothing breaks. Anything that counts samples, or resolves events shorter than 0.5 s (standstill duration, the instant of a lane change), has 2.5 times coarser data. |
+| 1 | **File name `sampler_RoadSampler_[samplingInterval=0.20000000_s].csv.zip`.** | The globs I found (`*sampler_RoadSampler*`) still match. A hard-coded `[samplingInterval=null]`, also as the name of the member inside the zip, does not. About 3 % of the rows lie off the 0.2 s grid (lane entry and exit); code that assumes an exact grid should not. |
 | 2 | **`ActionState` is always `none`.** | `analytics/ramp_strategies.py` classifies merges by state name; it will find no strategy. `cli/compare_cells.py` already has a branch for runs without state names (written for TaMA). `dashboards/apps/trajectories.py` shows one state. |
 | 3 | **Desire and damping columns are `NaN`.** | Plots of desire and of car-following acceleration are empty; means over these columns are `NaN`. |
 | 4 | **No `car.T`, `truck.T`, `car.aRelaxDamping`, … in `runParams.txt`.** | `io/params_parser.py` builds the variation label from them; with none present it falls back to the folder name. No error. |
@@ -115,9 +114,7 @@ the pipeline.
 
 ## 4. Open before a production run
 
-1. **Sampling step** (above). Options: accept 0.5 s; or give the sampler a fixed interval, which changes the file
-   name `sampler_RoadSampler_[samplingInterval=…]` and makes rows interpolated instead of plan steps; or run the LMRS
-   with a time step of 0.2 s (its parameter `DT`), which is a model change and not the upstream default.
+1. **Sampling** is settled: fixed 0.2 s interval; the file name change has to reach the pipeline.
 2. **Removed vehicles**: tens per run, all at the end of the network, see `DELETION_DIAGNOSIS.md`. No effect on
    detectors or trajectories.
 3. **Memory and time** are still the fork's values (`--mem-per-cpu=8G`, heap 6 g, `--time=02:00:00`). A full LMRS
@@ -131,9 +128,9 @@ commands (indices 0 and 1); the commands below themselves have not been run on t
 
 ```bash
 # --- once: workspace and checkout (skip what exists) ---------------------------------------------
-ws_allocate mirova 30
-export MIROVA_WORKSPACE=mirova
-cd "$(ws_find mirova)"
+ws_allocate mirova-ots 30
+export MIROVA_WORKSPACE=mirova-ots
+cd "$(ws_find mirova-ots)"
 git clone -b ots-upstream-benchmark https://github.com/baumarv/opentrafficsim.git opentrafficsim
 cd opentrafficsim
 
@@ -143,25 +140,25 @@ cluster/build_for_cluster.sh
 
 # --- configure the test: one day, two seeds --------------------------------------------------------
 export MIROVA_CLUSTER_DIR="$PWD/cluster"
-export MIROVA_OUTPUT_ROOT="$(ws_find mirova)/output/test_lmrs"
-export MIROVA_STUDY_OPTS="--dates=2025-09-22 --demand=$(ws_find mirova)/demand --strict=true --replications=2"
+export MIROVA_OUTPUT_ROOT="$(ws_find mirova-ots)/output/test_lmrs"
+export MIROVA_STUDY_OPTS="--dates=2025-09-22 --demand=$(ws_find mirova-ots)/demand --strict=true --replications=2"
 
 # --- look before submitting: prints the two java commands of task 0, starts nothing ---------------
 MIROVA_DRY_RUN=1 SLURM_ARRAY_TASK_ID=0 bash cluster/run_mirova.sbatch
 
 # --- submit: one task = two runs, 30 minutes ------------------------------------------------------
-JOBID=$(sbatch --parsable --array=0-0 --time=00:30:00 --chdir="$(ws_find mirova)" cluster/run_mirova.sbatch)
+JOBID=$(sbatch --parsable --array=0-0 --time=00:30:00 --chdir="$(ws_find mirova-ots)" cluster/run_mirova.sbatch)
 echo "$JOBID"
 squeue -j "$JOBID"
 
 # --- check -----------------------------------------------------------------------------------------
 sacct -j "$JOBID" --format=JobID%20,JobName%14,State,ExitCode,Elapsed,TotalCPU,MaxRSS,ReqMem,AllocTRES%32
 seff "${JOBID}_0"
-cat "$(ws_find mirova)/logs/mirova_${JOBID}_0.out"
-tail -n 5 "$(ws_find mirova)"/logs/mirova_${JOBID}_0_run*.log
-ls "$(ws_find mirova)"/output/test_lmrs/FreiburgNord_2025-09-22_13-00_to_22-00/variation_0/run_seed_*/
+cat "$(ws_find mirova-ots)/logs/mirova_${JOBID}_0.out"
+tail -n 5 "$(ws_find mirova-ots)"/logs/mirova_${JOBID}_0_run*.log
+ls "$(ws_find mirova-ots)"/output/test_lmrs/FreiburgNord_2025-09-22_13-00_to_22-00/variation_0/run_seed_*/
 grep -E '^(status|seed|model|preset|git|ots|wall|process|gtus)' \
-    "$(ws_find mirova)"/output/test_lmrs/FreiburgNord_2025-09-22_13-00_to_22-00/variation_0/run_seed_*/run.properties
+    "$(ws_find mirova-ots)"/output/test_lmrs/FreiburgNord_2025-09-22_13-00_to_22-00/variation_0/run_seed_*/run.properties
 ```
 
 What to expect: `State=COMPLETED`, `ExitCode=0:0`; two run folders (`run_seed_42`, `run_seed_1000045`), each with
