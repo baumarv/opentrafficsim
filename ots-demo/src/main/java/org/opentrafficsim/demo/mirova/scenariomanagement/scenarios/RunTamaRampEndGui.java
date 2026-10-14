@@ -141,6 +141,38 @@ public final class RunTamaRampEndGui
             params.set("truck." + MirovaParameters.dominantSideMustBeWanted.getId(), Boolean.TRUE);
             System.out.println("[gui] dominantSideMustBeWanted = true");
         }
+        // The anticipation in SolvingParallel, as a knob rather than a study axis: the descending branch at
+        // the end of the acceleration lane carries this state's signature, and the only way to tell whether
+        // the anticipation draws it is to run the same cell, seed and window without it.
+        String anticipation = options.get("anticipation");
+        if (anticipation != null)
+        {
+            Boolean on = Boolean.valueOf(Boolean.parseBoolean(anticipation));
+            params.set("car." + MirovaParameters.solveParallelAnticipation.getId(), on);
+            params.set("truck." + MirovaParameters.solveParallelAnticipation.getId(), on);
+            System.out.println("[gui] solveParallelAnticipation = " + on);
+        }
+
+        // The two switches of the front investigation, as knobs rather than study axes: whether the
+        // out-of-room states are entered by position, and whether an anticipation that demands nothing
+        // also releases the throttle. Both default to the published behaviour when not given.
+        String byPosition = options.get("out-of-room-by-position");
+        if (byPosition != null)
+        {
+            Boolean on = Boolean.valueOf(Boolean.parseBoolean(byPosition));
+            params.set("car." + MirovaParameters.outOfRoomByPosition.getId(), on);
+            params.set("truck." + MirovaParameters.outOfRoomByPosition.getId(), on);
+            System.out.println("[gui] outOfRoomByPosition = " + on);
+        }
+        String freeWhenClearing = options.get("free-when-clearing");
+        if (freeWhenClearing != null)
+        {
+            Boolean on = Boolean.valueOf(Boolean.parseBoolean(freeWhenClearing));
+            params.set("car." + MirovaParameters.solveParallelFreeWhenClearing.getId(), on);
+            params.set("truck." + MirovaParameters.solveParallelFreeWhenClearing.getId(), on);
+            System.out.println("[gui] solveParallelFreeWhenClearing = " + on);
+        }
+
         String routeRoom = options.get("route-room");
         if (routeRoom != null)
         {
