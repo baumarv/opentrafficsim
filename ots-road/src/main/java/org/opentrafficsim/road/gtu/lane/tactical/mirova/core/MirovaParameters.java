@@ -153,6 +153,40 @@ public final class MirovaParameters implements ConstraintInterface
                                         false);
 
         /**
+         * Whether the out-of-room states are entered by position rather than by a stopping deceleration.
+         * <p>
+         * Read by the TaMA driver only (<code>outOfRoomByPosition</code>), default false, which is the
+         * published behaviour. The published rule enters <code>EmergencyStopping</code> and
+         * <code>LastResortMerging</code> where stopping before the conforming deadline would take more
+         * than 5 m/s&sup2;. That test carries <code>v&sup2;</code>, so it fires at a speed-dependent
+         * position: measured over 74 182 merges of the calibration campaign, a driver at 80-120 km/h
+         * leaves the ordinary states 48.7 m before the lane end and one below 20 km/h 16.8 m before it.
+         * The descending front in the merge scatter is that level set and nothing else - the vehicles on
+         * it cross it at constant speed and do not brake.
+         * </p>
+         */
+        public static final ParameterTypeBoolean outOfRoomByPosition =
+                        new ParameterTypeBoolean("OUT_OF_ROOM_BY_POSITION",
+                                        "Enter the out-of-room states by position, not by a deceleration",
+                                        false);
+
+        /**
+         * Whether an anticipated conflict that resolves itself also releases the throttle.
+         * <p>
+         * Read by the TaMA driver only (<code>solveParallelFreeWhenClearing</code>), default false, which
+         * is the published behaviour, and inert unless {@link #solveParallelAnticipation} is on. The
+         * anticipation answers zero when the blocker is drawing ahead by itself, and that zero is
+         * commanded as <code>min(carFollowing, 0)</code> - so the driver may not accelerate beside a
+         * vehicle that is leaving anyway. It is visible in the data as a merge acceleration of exactly
+         * 0.00 m/s&sup2;.
+         * </p>
+         */
+        public static final ParameterTypeBoolean solveParallelFreeWhenClearing =
+                        new ParameterTypeBoolean("SOLVE_PARALLEL_FREE_WHEN_CLEARING",
+                                        "An anticipated conflict that resolves itself does not cap acceleration",
+                                        false);
+
+        /**
          * Whether a side must be wanted to be the dominant one, and not merely the less unwanted.
          * <p>
          * Read by the TaMA driver only (<code>dominantSideMustBeWanted</code>). False, the default, is the
