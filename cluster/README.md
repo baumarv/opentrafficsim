@@ -111,7 +111,7 @@ takes no arguments. Its settings are code at the top of the class, written with 
 private static final LocalDate DATE = LocalDate.of(2025, 9, 22);
 private static final long SEED = 42L;
 
-private static final LmrsDefaults DEFAULTS = LmrsDefaults.FINAL_V2;   // or LmrsDefaults.UPSTREAM
+private static final LmrsDefaults DEFAULTS = LmrsDefaults.FINAL_V2;   // the switch: FINAL_V2, SHORTMERGE or UPSTREAM
 
 private static LmrsSettings lmrsSettings()                          // changes for cars and trucks, on top
 {
@@ -135,7 +135,7 @@ cluster:
 
 | Option | Values (upstream default first) |
 |---|---|
-| `--lmrs.defaults` | `final-v2` (the default of this branch), `upstream` |
+| `--lmrs.defaults` | `final-v2` (the default of this branch), `shortmerge` (the same factory as the preset `shortmerge`), `upstream` |
 | `--lmrs.synchronization` | `PASSIVE`, `PASSIVE_MOVING`, `ALIGN_GAP`, `ALIGN_GAP_MOVING` |
 | `--lmrs.cooperation` | `PASSIVE`, `NONE`, `PASSIVE_MOVING` |
 | `--lmrs.gapAcceptance` | `INFORMED`, `EGO_HEADWAY` |

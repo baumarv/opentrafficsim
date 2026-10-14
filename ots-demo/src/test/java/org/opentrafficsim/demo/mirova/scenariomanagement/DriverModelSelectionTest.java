@@ -130,6 +130,34 @@ public class DriverModelSelectionTest
     }
 
     /**
+     * The defaults shortmerge build the same factory as the preset shortmerge (upstream's defaults and four settings), for
+     * cars and trucks, and set no parameter.
+     * @throws Exception when the factory cannot be built
+     */
+    @Test
+    public void shortmergeDefaultsEqualThePreset() throws Exception
+    {
+        Map<String, Object> preset = new LinkedHashMap<>(UPSTREAM);
+        preset.put(LmrsDriverModelProvider.SYNCHRONIZATION, "ALIGN_GAP_MOVING");
+        preset.put(LmrsDriverModelProvider.COOPERATION, "PASSIVE_MOVING");
+        preset.put(LmrsDriverModelProvider.GAP_ACCEPTANCE, "INFORMED");
+        preset.put("incentiveCourtesy", "true");
+        for (String vehicleClass : List.of("car", "truck"))
+        {
+            GtuType gtuType = "car".equals(vehicleClass) ? DefaultsNl.CAR : DefaultsNl.TRUCK;
+            LmrsDriverModelProvider fromPreset = new LmrsDriverModelProvider();
+            fromPreset.createStrategicalPlannerFactory(
+                    new DriverModelProvider.Request(vehicleClass, gtuType, new MersenneTwister(SEED), Map.of(), preset));
+            LmrsDriverModelProvider fromDefaults = new LmrsDriverModelProvider();
+            fromDefaults.createStrategicalPlannerFactory(new DriverModelProvider.Request(vehicleClass, gtuType,
+                    new MersenneTwister(SEED), Map.of(),
+                    Map.of(LmrsDriverModelProvider.KEY_DEFAULTS, LmrsDefaults.SHORTMERGE.id())));
+            assertEquals(fromPreset.describe().replace(".defaults=upstream", ".defaults=shortmerge"), fromDefaults.describe());
+            assertTrue(fromDefaults.describe().contains(vehicleClass + ".parameterOverrides=none"), fromDefaults.describe());
+        }
+    }
+
+    /**
      * A setting addressed to one vehicle class applies to that class only, after the settings for all classes; a prefix that
      * is no vehicle class is refused.
      * @throws Exception when the factory cannot be built

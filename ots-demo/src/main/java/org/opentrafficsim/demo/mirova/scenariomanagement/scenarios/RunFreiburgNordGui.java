@@ -57,8 +57,14 @@ public final class RunFreiburgNordGui
     private static final String MODEL = DriverModels.LMRS;
 
     /**
-     * The configuration the LMRS starts from: {@link LmrsDefaults#FINAL_V2} (ShortMerge composition, driver parameters of
-     * final_v2, the benchmark default) or {@link LmrsDefaults#UPSTREAM} (upstream's factory as it is).
+     * The parameter set, the switch between the configurations of the benchmark:
+     * <ul>
+     * <li>{@link LmrsDefaults#FINAL_V2}: ShortMerge composition, courtesy for cars, driver parameters of final_v2. The
+     * benchmark default, the cluster variant {@code final-v2}.</li>
+     * <li>{@link LmrsDefaults#SHORTMERGE}: ShortMerge composition, courtesy for all, upstream's parameter values. The cluster
+     * variant {@code shortmerge}.</li>
+     * <li>{@link LmrsDefaults#UPSTREAM}: upstream's factory as it is.</li>
+     * </ul>
      */
     private static final LmrsDefaults DEFAULTS = LmrsDefaults.FINAL_V2;
 

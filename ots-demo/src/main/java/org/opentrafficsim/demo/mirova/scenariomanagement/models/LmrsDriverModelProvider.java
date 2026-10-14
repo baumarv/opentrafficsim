@@ -97,7 +97,7 @@ public class LmrsDriverModelProvider implements DriverModelProvider
     }
 
     /** The settings this provider understands, with their values and the defaults of upstream's factory. */
-    public static final String SETTINGS_HELP = KEY_DEFAULTS + "=final-v2|upstream (default: final-v2), " + SYNCHRONIZATION
+    public static final String SETTINGS_HELP = KEY_DEFAULTS + "=final-v2|shortmerge|upstream (default: final-v2), " + SYNCHRONIZATION
             + "=PASSIVE|PASSIVE_MOVING|ALIGN_GAP|ALIGN_GAP_MOVING (upstream: PASSIVE), " + COOPERATION + "=NONE|PASSIVE|PASSIVE_MOVING (upstream: PASSIVE), " + GAP_ACCEPTANCE
             + "=INFORMED|EGO_HEADWAY (upstream: INFORMED), " + FULLER_IMPLEMENTATION + "=" + fullerNames()
             + " (upstream: NONE), and true|false for " + String.join(", ", BOOLEAN_SETTINGS.keySet())
