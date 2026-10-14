@@ -28,8 +28,21 @@
         </executions>
         <configuration>
           <schemaDirectory>src/main/resources/xsd</schemaDirectory>
+          <!-- Changed for ots-upstream-benchmark (Marvin Baumann / KIT): one include per schema, sorted, instead of
+               *.xsd. The plugin orders the schemas by include pattern and, within a pattern, in the order the
+               file system lists them, which differs between file systems; ObjectFactory then comes out in another
+               method order on Linux than on Windows. A schema added to src/main/resources/xsd must be added here. -->
           <schemaIncludes>
-            <include>*.xsd</include>
+            <include>ots-animation.xsd</include>
+            <include>ots-control.xsd</include>
+            <include>ots-definitions.xsd</include>
+            <include>ots-demand.xsd</include>
+            <include>ots-model.xsd</include>
+            <include>ots-network.xsd</include>
+            <include>ots-run.xsd</include>
+            <include>ots-scenario.xsd</include>
+            <include>ots-types.xsd</include>
+            <include>ots.xsd</include>
           </schemaIncludes>
           <bindingIncludes>
             <bindingInclude>bindings.xml</bindingInclude>
