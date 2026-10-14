@@ -323,23 +323,30 @@ for (( slot = 0; slot < RUNS_PER_TASK; slot++ )); do
     RUN_INDICES+=("${index}")
 
     # Own log per run: two concurrent JVMs writing to one stream interleave unreadably.
+    declare -a PIN=()
     if [ "${#CPU_LIST[@]}" -gt "${slot}" ]; then
         cpu="${CPU_LIST[${slot}]}"
+        PIN=(taskset -c "${cpu}")
         echo "[slot ${slot}] run ${index} pinned to CPU ${cpu} -> ${log}"
-        # shellcheck disable=SC2086  # JAVA_OPTS is intentionally word-split
-        taskset -c "${cpu}" java -Xmx"${JAVA_HEAP}" ${JAVA_OPTS} -cp "${CLASSPATH_VALUE}" "${MAIN_CLASS}" \
-            --study="${STUDY}" --output="${OUTPUT_ROOT}" --index="${index}" "${STUDY_OPTS_ARR[@]}" \
-            "${PLANNER_OPT[@]}" > "${log}" 2>&1 &
     else
         # No taskset, or fewer CPUs in the mask than slots: leave placement to the OS
         # scheduler, which spreads two runnable single-threaded processes across the
         # allocated cores by itself.
         echo "[slot ${slot}] run ${index} unpinned (OS scheduler) -> ${log}"
-        # shellcheck disable=SC2086  # JAVA_OPTS is intentionally word-split
-        java -Xmx"${JAVA_HEAP}" ${JAVA_OPTS} -cp "${CLASSPATH_VALUE}" "${MAIN_CLASS}" \
-            --study="${STUDY}" --output="${OUTPUT_ROOT}" --index="${index}" "${STUDY_OPTS_ARR[@]}" \
-            "${PLANNER_OPT[@]}" > "${log}" 2>&1 &
     fi
+    # The run's own wall clock, as the last line of its log. sacct only knows the task, whose
+    # elapsed time is the slower of its two runs; cluster/walltime_report.sh reads these lines.
+    # The subshell exits with java's status, so the wait below sees the run's outcome unchanged.
+    (
+        run_start=$(date +%s)
+        run_status=0
+        # shellcheck disable=SC2086  # JAVA_OPTS is intentionally word-split
+        "${PIN[@]}" java -Xmx"${JAVA_HEAP}" ${JAVA_OPTS} -cp "${CLASSPATH_VALUE}" "${MAIN_CLASS}" \
+            --study="${STUDY}" --output="${OUTPUT_ROOT}" --index="${index}" "${STUDY_OPTS_ARR[@]}" \
+            "${PLANNER_OPT[@]}" > "${log}" 2>&1 || run_status=$?
+        echo "[timing] run ${index} wall_s=$(( $(date +%s) - run_start )) exit=${run_status}" >> "${log}"
+        exit "${run_status}"
+    ) &
     RUN_PIDS+=("$!")
 done
 

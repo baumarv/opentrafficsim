@@ -1529,7 +1529,9 @@ array of 510 runs have been executed. **What is missing now is the record of the
 is something the next person would otherwise have to re-measure:
 
 - the **measured walltime and peak RSS per task** — which would settle item 4 above, and confirm or
-  correct the `MIROVA_JAVA_HEAP` / `--mem-per-cpu` sizing of §6;
+  correct the `MIROVA_JAVA_HEAP` / `--mem-per-cpu` sizing of §6. `cluster/walltime_report.sh <job-id>`
+  reads both out of `sacct` for any job it still remembers, and for jobs submitted since
+  `run_mirova.sbatch` writes a `[timing]` line per run, the duration of each run as well;
 - whether any task **timed out or was OOM-killed**, and whether part of the array was resubmitted;
 - whether the workspace **quota held** the campaign's predicted footprint;
 - **which commit the array ran from** — the `build.txt` of any surviving run folder says, and it is the
