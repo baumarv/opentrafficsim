@@ -12,8 +12,8 @@ branch is `dates`: one scenario per date, one variation each, `--replications` s
 |---|---|---|---|
 | `--model=<key>` | `MIROVA_MODEL` | `lmrs` | Driver model. `lmrs` is upstream's LMRS, started from the configuration `final-v2` (below). `MIROVA_TACTICAL_PLANNER` and `--tacticalPlanner` are accepted as the old names. |
 | `--preset=<name\|file>` | `MIROVA_PRESET` | none | A named combination of driver model options from `cluster/presets/<name>.preset`. Options given explicitly win over it. |
-| `--replications=<n>` | `MIROVA_REPLICATIONS` | 20 (sbatch), 6 (study) | Seeds per date. |
-| `--dates=<file\|list>` | `MIROVA_DATES_FILE` | `cluster/dates.txt` | Dates to simulate. |
+| `--replications=<n>` | `MIROVA_REPLICATIONS` | 10 (sbatch), 6 (study) | Seeds per date. |
+| `--dates=<file\|list>` | `MIROVA_DATES_FILE` | `cluster/dates_benchmark.txt` (sbatch) | Dates to simulate. The sbatch default is the benchmark campaign: 2025-09-22, 2025-10-07, 2025-10-21, see below. |
 | `--demand=<dir\|file>` | `MIROVA_DEMAND_DIR` | `<workspace>/demand` | Pre-generated demand CSVs, `demand_<date>.csv`. |
 | `--strict=true` | (set by sbatch) | `false` | A missing or empty demand CSV is fatal instead of falling back to synthetic demand. |
 | `--simulationTime=<duration>` | — | whole demand window (13:00–22:00) | For smoke tests only, e.g. `900s`. |
@@ -179,6 +179,20 @@ tarballs into `<workspace>/tools`, builds, writes the classpath to `$MIROVA_CP_F
 records the commit it built beside it (`cp_benchmark_build.env` for `cp_benchmark.txt`), and copies the demand CSVs
 into `<workspace>/demand`.
 
+### The benchmark campaign
+
+`sbatch cluster/run_mirova.sbatch` without further variables runs **three days with ten seeds each, 30 runs in 15
+array tasks** (`--array=0-14`), on the LMRS with its default configuration `final-v2`. The days are in
+`cluster/dates_benchmark.txt`, chosen against the documented results of the MiRoVA campaign `final_v2`:
+
+| Day | Field | Why |
+|---|---|---|
+| 2025-09-22 | no breakdown | the specificity test: a breakdown in the simulation is a false one |
+| 2025-10-07 | breakdown, pre-breakdown flow 4044 veh/h, the highest of the calibration days | capacity at the top of the range |
+| 2025-10-21 | breakdown, 3564 veh/h | medium capacity; `final_v2` broke down there in 0.68–0.92 of its runs; not held out of the evaluation |
+
+All sixteen days: `MIROVA_DATES_FILE=$MIROVA_CLUSTER_DIR/dates.txt`, with `--array` from the run count.
+
 ### Sharing the workspace with the MiRoVA checkout
 
 The benchmark shares the workspace `mirova-ots` (`$WS` below) with the old MiRoVA checkout in `$WS/opentrafficsim`.
@@ -208,7 +222,7 @@ cluster/build_for_cluster.sh
 java -cp "$(cat "$MIROVA_CP_FILE")" \
     org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunMirovaClusterStudy \
     --study=dates --output="$MIROVA_OUTPUT_ROOT" \
-    --dates=cluster/dates.txt --demand="$WS/demand" --replications=20 --count
+    --dates=cluster/dates_benchmark.txt --demand="$WS/demand" --replications=10 --count     # 30
 
 export MIROVA_CLUSTER_DIR="$PWD/cluster"     # required, see below
 MIROVA_DRY_RUN=1 SLURM_ARRAY_TASK_ID=0 bash cluster/run_mirova.sbatch      # prints the commands of task 0
@@ -239,5 +253,6 @@ branch is moved onto a newer upstream; every run copies it into its metadata.
 | `run_gui.sh` | Starts `RunFreiburgNordGui` from a shell. |
 | `guard.sh`, `test_guard.sh` | Preconditions that end a script instead of printing a value, and their test. |
 | `UPSTREAM_COMMIT` | The upstream commit the branch is based on. |
-| `dates.txt`, `dates_calibration.txt`, `dates_extension.txt` | Date lists. |
+| `dates_benchmark.txt` | The three days of the benchmark campaign, the sbatch default, with the reasons they were chosen. |
+| `dates.txt`, `dates_calibration.txt`, `dates_extension.txt` | Date lists of the MiRoVA campaigns: all sixteen days, and subsets. |
 | `demand/`, `generate_demand_csvs.py`, `generate_demand_csvs.ps1` | Demand per date, and how it was generated. |

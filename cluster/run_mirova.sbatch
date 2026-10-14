@@ -29,7 +29,9 @@
 # ---------------------------------------------------------------------------------------
 # --array        must be 0-<ceil(N/2)-1>, because each task runs TWO runs. N comes from:
 #                    RunMirovaClusterStudy --study=<study> --output=<dir> ... --count
-#                16 dates x 20 replications = 320 runs -> 160 tasks -> --array=0-159 <- current
+#                 3 dates x 10 replications =  30 runs ->  15 tasks -> --array=0-14  <- current
+#                                                          (cluster/dates_benchmark.txt, the default)
+#                16 dates x 20 replications = 320 runs -> 160 tasks -> --array=0-159 (cluster/dates.txt)
 #                16 dates x  6 replications =  96 runs ->  48 tasks -> --array=0-47
 #                16 dates x 50 replications = 800 runs -> 400 tasks -> --array=0-399
 #                 9 dates x  6 replications =  54 runs ->  27 tasks -> --array=0-26
@@ -57,7 +59,7 @@
 # ---------------------------------------------------------------------------------------
 #
 #SBATCH --job-name=mirova-study
-#SBATCH --array=0-159
+#SBATCH --array=0-14
 #SBATCH --partition=cpu
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -137,8 +139,8 @@ OUTPUT_ROOT="${MIROVA_OUTPUT_ROOT:-${WORKSPACE}/output/${STUDY}}"
 
 # Study-specific options passed straight through, e.g. --replications=6 or --start=...
 # The date study reads its date list from this file; every array task must see the same one.
-DATES_FILE="${MIROVA_DATES_FILE:-${CLUSTER_DIR}/dates.txt}"
-REPLICATIONS="${MIROVA_REPLICATIONS:-20}"
+DATES_FILE="${MIROVA_DATES_FILE:-${CLUSTER_DIR}/dates_benchmark.txt}"
+REPLICATIONS="${MIROVA_REPLICATIONS:-10}"
 STUDY_OPTS="${MIROVA_STUDY_OPTS:---dates=${DATES_FILE} --demand=${DEMAND_DIR} --strict=true --replications=${REPLICATIONS}}"
 
 # Split into an array honouring quotes, so that options whose value contains a space work -

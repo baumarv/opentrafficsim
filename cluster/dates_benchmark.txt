@@ -1,0 +1,15 @@
+# Dates of the benchmark campaign, one per line (yyyy-MM-dd). Lines starting with '#' and blank lines are ignored.
+# The default of run_mirova.sbatch, with 10 replications each: 30 runs, array 0-14 at two runs per task.
+#
+# Three days that stress different things, chosen against the documented results of the MiRoVA campaign final_v2
+# (TamaHeadwayDampingStudy on the MiRoVA checkout, docs/mirova/calibration_status_briefing.md):
+#
+#   2025-09-22  the field does not break down (one congestion episode of two intervals, below the 15-minute rule):
+#               the specificity test, where a breakdown in the simulation is a false one
+#   2025-10-07  the field breaks down, at the highest pre-breakdown flow of the calibration days (4044 veh/h)
+#   2025-10-21  the field breaks down at a medium pre-breakdown flow (3564 veh/h); final_v2 broke down there in
+#               0.68 to 0.92 of its runs, it is not held out of the evaluation (2025-10-14 and 2025-09-26 are), and it
+#               is one of the original nine calibration and reporting days
+2025-09-22
+2025-10-07
+2025-10-21
