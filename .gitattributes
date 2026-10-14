@@ -10,3 +10,8 @@ text=auto
 # removes a merge burden rather than creating one.
 ots-xml/src/main/java/org/opentrafficsim/xml/generated/** text eol=lf
 ots-opendrive/src/main/java/org/opentrafficsim/opendrive/generated/** text eol=lf
+
+# Maven reads .mvn/jvm.config line by line and keeps a trailing CR: with core.autocrlf=true a Windows checkout
+# turned "-Duser.language=en" into "en\r", the locale pin silently failed, and XJC regenerated 250 sources with
+# German Javadoc on every build. LF on every platform.
+.mvn/jvm.config text eol=lf
