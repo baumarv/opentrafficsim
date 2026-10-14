@@ -7,10 +7,14 @@ import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import org.djutils.draw.point.Point2d;
 import org.opentrafficsim.core.gtu.Gtu;
@@ -29,6 +33,12 @@ import org.opentrafficsim.road.network.LanePosition;
  * Two records are kept. A tally by cause, printed at the end of a run: the same few causes repeat many times, and the first
  * question is which of them dominates and where on the road it strikes. And one row per removed vehicle, written to
  * {@value #CSV_FILE} with the full stack traces beside it in {@value #TRACES_FILE}, for looking at single cases.
+ * </p>
+ * <p>
+ * It also counts missed exits. A scenario names the destinations that are exits ({@link #setExitDestinations}); a removed
+ * vehicle whose route ends at one of them has missed its exit. That is the only way an exit-bound vehicle fails: a vehicle
+ * that does not reach the exit lane before the split has no lane ahead on its route, and OTS then removes it through this
+ * handler. A vehicle that reaches the exit is not removed and not counted.
  * </p>
  * <p>
  * A stack trace is only as complete as the JVM makes it. HotSpot stops filling in the trace of an exception it has thrown
@@ -77,6 +87,12 @@ public final class GtuDeletionDiagnostics implements GtuErrorHandler
 
     /** The distinct stack traces, by hash, in order of first occurrence. */
     private static final Map<String, String> TRACES = new LinkedHashMap<>();
+
+    /** Identifiers of the destination nodes that are exits, as named by the scenario. */
+    private static final Set<String> EXIT_DESTINATIONS = new LinkedHashSet<>();
+
+    /** Identifiers of the removed vehicles whose route ended at an exit, in the order of removal. */
+    private static final List<String> MISSED_EXITS = new ArrayList<>();
 
     /**
      * Singleton.
@@ -206,6 +222,10 @@ public final class GtuDeletionDiagnostics implements GtuErrorHandler
         LANES.computeIfAbsent(cause, k -> new LinkedHashMap<>()).merge((roaming ? "roaming near " : "") + link + "/" + lane, 1L,
                 Long::sum);
 
+        if (EXIT_DESTINATIONS.contains(destination))
+        {
+            MISSED_EXITS.add(gtu.getId());
+        }
         ROWS.add(String.join(",", csv(gtu.getId()), csv(gtu.getType().getId()), String.format(Locale.ROOT, "%.3f", time),
                 csv(destination), String.valueOf(roaming), csv(link), csv(lane), position, x, y, speed, csv(root.getClass().getName()),
                 csv(message), csv(frames.length == 0 ? "" : shortFrame(frames[0])), hash));
@@ -240,6 +260,36 @@ public final class GtuDeletionDiagnostics implements GtuErrorHandler
     public static long total()
     {
         return ROWS.size();
+    }
+
+    /**
+     * Names the destination nodes that are exits. A removed vehicle bound for one of them counts as a missed exit. Called
+     * by the scenario while it builds the demand, before any vehicle exists; replaces what was named before.
+     * @param nodeIds Collection&lt;String&gt;; identifiers of the exit destination nodes, empty for a scenario without exits
+     */
+    public static void setExitDestinations(final Collection<String> nodeIds)
+    {
+        EXIT_DESTINATIONS.clear();
+        EXIT_DESTINATIONS.addAll(nodeIds);
+    }
+
+    /**
+     * Returns the destination nodes that are exits, as named by the scenario.
+     * @return Set&lt;String&gt;; identifiers of the exit destination nodes in the order named, empty when the scenario named
+     *         none
+     */
+    public static Set<String> exitDestinations()
+    {
+        return Collections.unmodifiableSet(new LinkedHashSet<>(EXIT_DESTINATIONS));
+    }
+
+    /**
+     * Returns the exit-bound vehicles removed so far in this process: the missed exits.
+     * @return List&lt;String&gt;; identifiers of the removed vehicles whose route ended at an exit, in the order of removal
+     */
+    public static List<String> missedExits()
+    {
+        return List.copyOf(MISSED_EXITS);
     }
 
     /**

@@ -110,6 +110,9 @@ public class FreiburgNord extends ScenarioGenerator
     /** Resource path of the network file. */
     private static final String NETWORK_RESOURCE = "/resources/mirova/FreiburgNord.xml";
 
+    /** Destination node of the exit traffic, at the end of the exit ramp. */
+    public static final String EXIT_DESTINATION = "R6_8";
+
     /** Position on their lane at which vehicles are generated. */
     private static final Length GENERATION_POSITION = Length.ofSI(2.0);
 
@@ -471,6 +474,8 @@ public class FreiburgNord extends ScenarioGenerator
         // is recorded instead of discarded, so that the removals can be attributed to a cause rather than to the
         // position they happen to occur at.
         odOptions.set(OdOptions.ERROR_HANDLER, GtuDeletionDiagnostics.INSTANCE);
+        // An exit-bound vehicle that is removed has missed the exit; run.properties reports them as exits.missed.
+        GtuDeletionDiagnostics.setExitDestinations(List.of(EXIT_DESTINATION));
         odOptions.set(OdOptions.LANE_BIAS, getLaneBiases());
         // Set explicitly, also when it is null: OTS 1.8 changed the default of this option from "no restriction" to 50 m.
         // The scenario was built and calibrated without the restriction, so it states its value instead of inheriting one.
@@ -590,7 +595,7 @@ public class FreiburgNord extends ScenarioGenerator
     {
         List<Node> destinations = new ArrayList<>();
         destinations.add(network.getNode("N5_3").orElseThrow());
-        destinations.add(network.getNode("R6_8").orElseThrow());
+        destinations.add(network.getNode(EXIT_DESTINATION).orElseThrow());
         return destinations;
     }
 

@@ -484,6 +484,12 @@ public class ScenarioManager {
             }
         }
         metadata.put("gtus.removed", String.valueOf(GtuDeletionDiagnostics.total()));
+        // A scenario without exits gets "n/a" rather than 0: no exit can be missed where there is none to take.
+        Set<String> exits = GtuDeletionDiagnostics.exitDestinations();
+        List<String> missed = GtuDeletionDiagnostics.missedExits();
+        metadata.put("exits.destinations", exits.isEmpty() ? "none" : String.join(" ", exits));
+        metadata.put("exits.missed", exits.isEmpty() ? "n/a" : String.valueOf(missed.size()));
+        metadata.put("exits.missed.gtus", String.join(" ", missed));
         RunMetadata.write(prepared.runFolder, metadata);
     }
 
