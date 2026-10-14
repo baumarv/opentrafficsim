@@ -1,7 +1,9 @@
 # MiRoVA Performance Investigation — Synthesis and Decision
 
 One-page summary of the performance investigation of 2026-08-20/21, the decision it led to, and
-what remains open. The four detailed reports behind it:
+what remains open. For every measure and its speed-up side by side, including those before and after
+this investigation, see [`performance_improvements.md`](performance_improvements.md). The four
+detailed reports behind it:
 
 | Document | What it establishes |
 |---|---|
@@ -96,7 +98,8 @@ byte-identical detector and trajectory output.
 - ~~**`ParameterSet.getParameter` is the obvious next target**~~ — **done**, see
   [`parameter_access_and_units.md`](parameter_access_and_units.md). Two things were wrong with it:
   `ParameterType.hashCode()` was recomputed per lookup and reached the DJUnits chain above through
-  its default value, and the success path allocated a varargs array via `Throw.when`. Both are fixed
+  its default value, and the success path called `getId()` eagerly via `Throw.when` (an earlier version
+  of this line said it allocated a varargs array; it did not, see `performance_call_paths.md` §8). Both are fixed
   in `ots-base`, so unlike the rejected DJUnits patch this ships through the normal build. On top of
   that, MiRoVA now reads constant parameters from a per-vehicle snapshot rather than looking them up
   at all: 171 call sites in active code became 74. Verified byte-identical on a 60-minute
