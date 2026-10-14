@@ -62,8 +62,9 @@ A name or value the provider does not know stops the run during setup.
 factory built in code: the perception model is `ATTENTION_MATRIX` on the command line and `NONE` in code. Parsing
 through them would therefore change the model of a run that sets nothing.
 
-Without any setting the factory is exactly `new LmrsFactory<>(List.of(gtuType), Lmrs::new).setStream(stream)`; a
-one-hour run gives the same detector and trajectory output as before these options existed.
+With `lmrs.defaults=upstream` and no other setting the factory is exactly
+`new LmrsFactory<>(List.of(gtuType), Lmrs::new).setStream(stream)`; a one-hour run gave the same detector and trajectory
+output as before these options existed. The default is `final-v2`, see section 3.
 
 **Metadata.** The provider does not report what it was asked to set. It reads the factory it built back
 (`LmrsSettings.read`) and compares it with a factory built the way upstream builds one. `run.properties` holds:
@@ -71,10 +72,12 @@ one-hour run gives the same detector and trajectory output as before these optio
 | Key | Content |
 |---|---|
 | `model.<class>.factory` | the factory class |
+| `model.<class>.defaults` | the configuration the factory started from: `final-v2` or `upstream` |
 | `model.<class>.settings` | `upstream defaults`, or `changed: SYNCHRONIZATION, COOPERATION, …` |
 | `model.setting.<class>.<SETTING>` | every setting whose value can be named, 37 per vehicle class, by the name of its constant in `LmrsFactory.Setting`: `model.setting.car.SYNCHRONIZATION=PASSIVE` |
-| `model.<class>.parameterOverrides` | `none (upstream defaults)`, or `applied, see override.*` |
-| `model.override.<class>.<parameter>` | each applied parameter override with its value |
+| `model.<class>.parameterOverrides` | `none (upstream defaults)`, or `applied, see default.* and override.*` |
+| `model.default.<class>.<parameter>` | each parameter the defaults set, with its value |
+| `model.override.<class>.<parameter>` | each parameter the run set on top, with its value |
 
 `<class>` is `car` or `truck`. Because the settings are read back, the record states the composition that ran and
 stays right if upstream changes a default. Settings that hold functions or collections (the car-following model,
@@ -91,8 +94,48 @@ the class from a shell. A GUI run writes output only when the simulation reaches
 
 ## 3. LMRS parameters: what the benchmark runs on
 
-By default **nothing** is overridden: every parameter is what upstream's `LmrsFactory` sets, including the values it
-draws per vehicle (`FSPEED`, `FSPEED_GTU`).
+**Default since 2026-10-14: the configuration `final-v2`** (`models/LmrsDefaults.java`), by decision: the composition
+of upstream's `ShortMerge` demo with the driver parameters of the MiRoVA campaign `final_v2`, car and truck
+separately. Before, the default was upstream's factory as it is, which is now `--lmrs.defaults=upstream` or
+`--preset=upstream`.
+
+**Composition, as in `ShortMerge`** (`ots-demo/.../ShortMerge.java` at `78f2601dd`, set there by upstream commit
+`d921ef913`, "Improve synchronization and gap-acceptance", issue #335):
+
+| Setting | `final-v2` | upstream | What it does |
+|---|---|---|---|
+| synchronization | `ALIGN_GAP_MOVING` | `PASSIVE` | align with the middle of the target gap or follow the target-lane leader, whichever allows the larger acceleration; switched off below `vCreep` (9 km/h) unless the target-lane leader creeps too, so a merger creeps into a gap |
+| cooperation | `PASSIVE_MOVING` | `PASSIVE` | decelerate for a merger with desire ≥ `dCoop`; switched off below `vCreep` |
+| gap acceptance | `INFORMED` | `INFORMED` | unchanged; since `d921ef913` a gap is judged with `T = (1 − desire) · Tmax`, down to 0 at full desire, for the ego vehicle and the target-lane follower: the acceptance of very small gaps under urgency |
+| courtesy incentive | car on, truck off | off | change lane to make room for a merger; `ShortMerge` has it on for all. Here as `final_v2`'s cooperative lane changes (car on, truck off). It is weighted by `socio`, which stays at upstream's 1.0 (`ShortMerge`: N(0.5, 0.1)) |
+
+**Driver parameters, from `final_v2`.** Read out of the MiRoVA checkout by its own code
+(`TamaFinalValidationStudy.parameters`, commit `e045b306f`), which matches the table in
+`TamaRampEndCalibrationStudy` (T 1.00 / 1.30 s, cooperative thresholds −3 / −1 m/s²). Carried over is what has the
+same meaning in the LMRS:
+
+| Parameter | car | truck | upstream | Note |
+|---|---|---|---|---|
+| `a` | 1.40 m/s² | 1.25 m/s² | 1.25 m/s² | |
+| `b` | 1.75 m/s² | 1.75 m/s² | 2.09 m/s² | |
+| `s0` | 3.0 m | 6.0 m | 3.0 m | |
+| `T`, `Tmax` | 1.00 s | 1.30 s | 1.2 s | `T` is the LMRS's current headway, lowered to `Tmin` after a lane change and relaxed back to `Tmax`; the desired headway is therefore set on both. `Tmin` stays 0.56 s |
+| `vGain` | 15 km/h | 30 km/h | 69.6 km/h | MiRoVA's `VGAIN` enters its speed incentive in the same formula as the LMRS's, d = aGain · Δv / vGain |
+
+Checked on the built factories: the desired headway at 30 m/s is 33 m for cars and 45 m for trucks (upstream: 39 m
+for both).
+
+**Not carried over**, because the LMRS has nothing of the same meaning: the follower and ego deceleration thresholds
+of the merge (−2 / −4 m/s²), the cooperative deceleration threshold (car −3, truck −1 m/s²), the safety-distance
+reduction (0.4) and the damping of the headway relaxation, `aMaxMirova`, far anticipation, the capacity drop
+switch. The LMRS has its own headway relaxation (`Tmin`, `tau` = 25 s) in their place.
+
+**Desired speeds.** The facility gives every driver model `final_v2`'s car distribution: `carsLimit140_DensityLow`
+compressed towards 150 km/h by a factor of 0.7 (`FreiburgStudyParameters`), 80–200 km/h becoming 101–185 km/h.
+This revises the decision of the speed check (section 10), which kept the uncompressed distribution; the check
+itself stands for the configuration it measured. Trucks are unchanged (79–100 km/h).
+
+### 3.1 History: the fork's eight overrides
 
 The fork's Freiburg studies set 27 `car.`/`truck.` overrides. Of these, 19 were MiRoVA parameters and are gone.
 The remaining eight addressed **standard OTS parameters**. They are listed here **for reference only**:
@@ -112,7 +155,7 @@ The upstream values were printed from `LmrsFactory.getParameters` for `NL.CAR` a
 factory gives cars and trucks the same parameter values; they differ by GTU type, dimensions and maximum speed.
 The fork values are from `FreiburgStudyParameters` on `origin/main`.
 
-**None of the eight exists in the code.** The switch `--lmrsParameters=default|scenario` that applied them as a
+**None of the eight exists in the code** (the `final-v2` values above are a different, later set). The switch `--lmrsParameters=default|scenario` that applied them as a
 set was removed, with its metadata key and its tests; `--lmrsParameters` is now refused with a message. A driver
 model runs on its own parameters unless a run changes them explicitly:
 
@@ -122,8 +165,8 @@ model runs on its own parameters unless a run changes them explicitly:
   `--preset=<name|file>` (`MIROVA_PRESET` on the cluster) and recorded by name as `preset=` in `run.properties`.
   Options given explicitly win over the preset; a key that is not a driver model option is refused.
 
-One preset exists: `moving-ego-headway` — `lmrs.synchronization=ALIGN_GAP_MOVING`, `lmrs.cooperation=PASSIVE_MOVING`,
-`lmrs.gapAcceptance=EGO_HEADWAY`, everything else as upstream.
+Two presets exist: `upstream` (`lmrs.defaults=upstream`) and `moving-ego-headway` (`lmrs.synchronization=ALIGN_GAP_MOVING`,
+`lmrs.cooperation=PASSIVE_MOVING`, `lmrs.gapAcceptance=EGO_HEADWAY`, on top of the defaults).
 
 Should the eight values be wanted again, they are a preset of eight lines (`car.T=1.1s` and so on); nothing in the
 code has to change.

@@ -10,26 +10,23 @@ import org.opentrafficsim.base.parameters.ParameterType;
 import org.opentrafficsim.demo.mirova.scenariomanagement.DriverModels;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioGenerator;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioParameters;
+import org.opentrafficsim.demo.mirova.scenariomanagement.models.LmrsDefaults;
 import org.opentrafficsim.demo.mirova.scenariomanagement.models.LmrsDriverModelProvider;
 import org.opentrafficsim.demo.mirova.scenariomanagement.models.LmrsSettings;
-import org.opentrafficsim.road.gtu.tactical.lmrs.LmrsFactory.FullerImplementation;
 import org.opentrafficsim.road.gtu.tactical.lmrs.LmrsFactory.Setting;
-import org.opentrafficsim.road.gtu.tactical.util.lmrs.Cooperation;
-import org.opentrafficsim.road.gtu.tactical.util.lmrs.GapAcceptance;
-import org.opentrafficsim.road.gtu.tactical.util.lmrs.Synchronization;
 
 /**
  * Opens one day of the Freiburg-Nord scenario in the OTS GUI, to watch it. Run this class; it takes no arguments.
  * <p>
  * What is shown is set in the code at the top of the class, with the types of OpenTrafficSim itself: the day and the seed as
- * constants, the composition of the LMRS in {@link #lmrsSettings()} as {@link Setting}s of upstream's factory with the
- * strategy objects and switches the LMRS uses, and single driver parameters in {@link #driverParameters(ScenarioParameters)}
- * as {@link ParameterType}s with DJUnits values.
+ * constants, the configuration the LMRS starts from as {@link #DEFAULTS}, changes to its composition in
+ * {@link #lmrsSettings()} as {@link Setting}s of upstream's factory with the strategy objects and switches the LMRS uses, and
+ * single driver parameters in {@link #driverParameters(ScenarioParameters)} as {@link ParameterType}s with DJUnits values.
  * </p>
  * <p>
- * As committed, every setting in {@link #lmrsSettings()} has the value upstream gives it, and no driver parameter is set, so
- * the GUI shows what the benchmark runs. Whether that is still so is not left to this text: on start the class prints which
- * settings differ from a factory built the way upstream builds it, read back from the factory that was built.
+ * As committed, the LMRS starts from {@link LmrsDefaults#FINAL_V2} and nothing is changed on top, so the GUI shows what the
+ * benchmark runs; the values of that configuration are listed in {@link LmrsDefaults}. On start the class prints the
+ * composition and the parameters read back from the factories that were built.
  * </p>
  * <p>
  * This is for looking, not for results: a GUI run writes its output only when the simulation reaches its end, and it writes no
@@ -60,48 +57,42 @@ public final class RunFreiburgNordGui
     private static final String MODEL = DriverModels.LMRS;
 
     /**
-     * How the LMRS is composed. Each line sets one {@link Setting} of upstream's LmrsFactory; the values below are the ones
-     * upstream itself uses. Change a value to see another composition. A line that is removed leaves that setting to
-     * upstream.
-     * @return LmrsSettings; the composition
+     * The configuration the LMRS starts from: {@link LmrsDefaults#FINAL_V2} (ShortMerge composition, driver parameters of
+     * final_v2, the benchmark default) or {@link LmrsDefaults#UPSTREAM} (upstream's factory as it is).
+     */
+    private static final LmrsDefaults DEFAULTS = LmrsDefaults.FINAL_V2;
+
+    /**
+     * Changes to the composition of the LMRS, for cars and trucks alike, on top of {@link #DEFAULTS}. Empty as committed. Each
+     * line sets one {@link Setting} of upstream's LmrsFactory, for example:
+     * <pre>
+     * .set(Setting.SYNCHRONIZATION, Synchronization.PASSIVE)       // PASSIVE, PASSIVE_MOVING, ALIGN_GAP, ALIGN_GAP_MOVING
+     * .set(Setting.COOPERATION, Cooperation.PASSIVE)               // NONE, PASSIVE, PASSIVE_MOVING
+     * .set(Setting.GAP_ACCEPTANCE, GapAcceptance.EGO_HEADWAY)      // INFORMED, EGO_HEADWAY
+     * .set(Setting.INCENTIVE_COURTESY, true)                       // and the other INCENTIVE_* switches
+     * .set(Setting.FULLER_IMPLEMENTATION, FullerImplementation.NONE)
+     * </pre>
+     * @return LmrsSettings; the changes
      */
     private static LmrsSettings lmrsSettings()
     {
-        return new LmrsSettings()
-                // Lane-change synchronization: PASSIVE, PASSIVE_MOVING, ALIGN_GAP, ALIGN_GAP_MOVING
-                .set(Setting.SYNCHRONIZATION, Synchronization.PASSIVE)
-                // Lane-change cooperation: NONE, PASSIVE, PASSIVE_MOVING
-                .set(Setting.COOPERATION, Cooperation.PASSIVE)
-                // Gap acceptance: INFORMED, EGO_HEADWAY
-                .set(Setting.GAP_ACCEPTANCE, GapAcceptance.INFORMED)
-
-                // Mandatory lane-change incentives
-                .set(Setting.INCENTIVE_ROUTE, true)
-                .set(Setting.INCENTIVE_GET_IN_LANE, false)
-                // Voluntary lane-change incentives
-                .set(Setting.INCENTIVE_SPEED_WITH_COURTESY, true)
-                .set(Setting.INCENTIVE_COURTESY, false)
-                .set(Setting.INCENTIVE_QUEUE, false)
-                .set(Setting.INCENTIVE_STAY_ON_SLOW_LANES, false)
-                .set(Setting.INCENTIVE_KEEP, true)
-
-                // Acceleration incentives
-                .set(Setting.ACCELERATION_SPEED_LIMIT_TRANSITION, false)
-                .set(Setting.ACCELERATION_NO_SLOW_LANE_OVERTAKE, false)
-
-                // Social interactions
-                .set(Setting.SOCIO_PRESSURE, false)
-                .set(Setting.SOCIO_TAILGATING, false)
-                .set(Setting.SOCIO_LANE_CHANGE, false)
-                .set(Setting.SOCIO_SPEED, false)
-
-                // Perception, Fuller's task-capability model: NONE, SUMMATIVE, ANTICIPATION_RELIANCE, ATTENTION_MATRIX
-                .set(Setting.FULLER_IMPLEMENTATION, FullerImplementation.NONE);
+        return new LmrsSettings();
     }
 
     /**
-     * Single driver parameters. Empty as committed: every parameter keeps the value upstream's LmrsFactory gives it. Add
-     * lines with {@link #set(ScenarioParameters, String, ParameterType, Object)}, for example
+     * Changes to the composition of the LMRS for one vehicle class only, applied after {@link #lmrsSettings()}. Empty as
+     * committed; for example {@code CAR.equals(vehicleClass) ? new LmrsSettings().set(Setting.INCENTIVE_QUEUE, true) : ...}.
+     * @param vehicleClass String; {@link #CAR} or {@link #TRUCK}
+     * @return LmrsSettings; the changes for that class
+     */
+    private static LmrsSettings lmrsSettings(final String vehicleClass)
+    {
+        return new LmrsSettings();
+    }
+
+    /**
+     * Single driver parameters, on top of {@link #DEFAULTS}. Empty as committed. Add lines with
+     * {@link #set(ScenarioParameters, String, ParameterType, Object)}, for example
      * {@code set(parameters, CAR, ParameterTypes.T, Duration.ofSI(1.1));} or
      * {@code set(parameters, TRUCK, LmrsParameters.VGAIN, new Speed(50.0, SpeedUnit.KM_PER_HOUR));}. Any parameter of
      * {@code ParameterTypes} or {@code LmrsParameters} can be set.
@@ -109,7 +100,7 @@ public final class RunFreiburgNordGui
      */
     private static void driverParameters(final ScenarioParameters parameters)
     {
-        // no driver parameter is changed
+        // no driver parameter is changed beyond the defaults
     }
 
     // =====================================================================================================================
@@ -185,7 +176,14 @@ public final class RunFreiburgNordGui
             parameters.set(ScenarioGenerator.KEY_DRIVER_MODEL, MODEL);
             if (DriverModels.LMRS.equals(MODEL))
             {
-                parameters.set(LmrsDriverModelProvider.KEY + "." + LmrsDriverModelProvider.KEY_SETTINGS, lmrsSettings());
+                String prefix = LmrsDriverModelProvider.KEY + ".";
+                parameters.set(prefix + LmrsDriverModelProvider.KEY_DEFAULTS, DEFAULTS.id());
+                parameters.set(prefix + LmrsDriverModelProvider.KEY_SETTINGS, lmrsSettings());
+                for (String vehicleClass : LmrsDriverModelProvider.VEHICLE_CLASSES)
+                {
+                    parameters.set(prefix + vehicleClass + "." + LmrsDriverModelProvider.KEY_SETTINGS,
+                            lmrsSettings(vehicleClass));
+                }
             }
             driverParameters(parameters);
 

@@ -18,7 +18,7 @@
 # The driver model and its composition are study options, as on the cluster:
 #   --model=lmrs (default)   --preset=<name in cluster/presets>   --lmrs.<setting>=<value>   --car.<parameter>=<value>
 #
-# Example - a 15-minute smoke test of one day on the upstream LMRS:
+# Example - a 15-minute smoke test of one day on the LMRS (default configuration final-v2):
 #   cluster/run_local_parallel.sh --study=dates --output=out/smoke --slots=1 -- \
 #       --dates=2025-09-16 --demand=cluster/demand --strict=true --replications=1 \
 #       --model=lmrs --simulationTime=900s

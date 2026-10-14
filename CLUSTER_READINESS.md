@@ -179,5 +179,6 @@ the number to size `--mem-per-cpu` and `MIROVA_JAVA_HEAP` from; it covers both J
 `--array` and `--time` on the command line override the `#SBATCH` lines of the script. The `MIROVA_*`
 exports, `MIROVA_CP_FILE` included, reach the job because `sbatch` exports the submitting environment by default.
 
-For the preset instead of the upstream default, add `export MIROVA_PRESET=moving-ego-headway` and use another
+The run uses the default configuration `final-v2` (`cluster/README.md`). For upstream's LMRS as it is, add
+`export MIROVA_PRESET=upstream`; for another preset, its name. Either way use another
 `MIROVA_OUTPUT_ROOT`.

@@ -10,7 +10,7 @@ branch is `dates`: one scenario per date, one variation each, `--replications` s
 
 | Option (command line) | Environment variable (sbatch) | Default | Meaning |
 |---|---|---|---|
-| `--model=<key>` | `MIROVA_MODEL` | `lmrs` | Driver model. `lmrs` is upstream's LMRS with upstream settings. `MIROVA_TACTICAL_PLANNER` and `--tacticalPlanner` are accepted as the old names. |
+| `--model=<key>` | `MIROVA_MODEL` | `lmrs` | Driver model. `lmrs` is upstream's LMRS, started from the configuration `final-v2` (below). `MIROVA_TACTICAL_PLANNER` and `--tacticalPlanner` are accepted as the old names. |
 | `--preset=<name\|file>` | `MIROVA_PRESET` | none | A named combination of driver model options from `cluster/presets/<name>.preset`. Options given explicitly win over it. |
 | `--replications=<n>` | `MIROVA_REPLICATIONS` | 20 (sbatch), 6 (study) | Seeds per date. |
 | `--dates=<file\|list>` | `MIROVA_DATES_FILE` | `cluster/dates.txt` | Dates to simulate. |
@@ -71,6 +71,37 @@ The runner pins `-Duser.language=en -Duser.country=US -Dfile.encoding=UTF-8` for
 run configuration: without it the same network XML can parse differently on a machine with a decimal comma, and the
 unit of one trajectory column is written in another byte encoding.
 
+## The default configuration of the LMRS: `final-v2`
+
+Without options the LMRS runs on the configuration `final-v2` (`models/LmrsDefaults.java`): the composition of
+upstream's `ShortMerge` demo since upstream commit `d921ef913`, with the driver parameters of the MiRoVA campaign
+`final_v2` wherever the LMRS has a parameter of the same meaning.
+
+| | car | truck | upstream |
+|---|---|---|---|
+| synchronization | `ALIGN_GAP_MOVING` | `ALIGN_GAP_MOVING` | `PASSIVE` |
+| cooperation | `PASSIVE_MOVING` | `PASSIVE_MOVING` | `PASSIVE` |
+| gap acceptance | `INFORMED` | `INFORMED` | `INFORMED` |
+| courtesy incentive | on | off | off |
+| `a` | 1.40 m/s² | 1.25 m/s² | 1.25 m/s² |
+| `b` | 1.75 m/s² | 1.75 m/s² | 2.09 m/s² |
+| `s0` | 3.0 m | 6.0 m | 3.0 m |
+| `T`, `Tmax` | 1.00 s | 1.30 s | 1.2 s |
+| `vGain` | 15 km/h | 30 km/h | 69.6 km/h |
+
+The `*_MOVING` variants stop synchronizing and cooperating below the creep speed `vCreep` (9 km/h), so that a
+merger in a standing queue creeps into a gap instead of matching the speed of the queue. Both gap-acceptance
+variants judge a gap with the headway relaxed by the lane-change desire, down to zero at full desire, which is how
+the LMRS accepts very small gaps under urgency. Everything not in the table is upstream's.
+
+The facility also gives every driver model the car desired-speed distribution of `final_v2`: compressed towards
+150 km/h by a factor of 0.7 (80–200 km/h becomes 101–185 km/h). It is a property of the drivers, not of the model,
+and stays with `--preset=upstream`.
+
+`--lmrs.defaults=upstream` or `--preset=upstream` starts from upstream's factory as it is. `run.properties` records
+which: `model.car.defaults=final-v2`, the values as `model.default.<class>.<parameter>`, and what a run changes on
+top as `model.override.<class>.<parameter>`.
+
 ## Watching a run in the GUI
 
 Run the class `org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunFreiburgNordGui` from the IDE; it
@@ -80,20 +111,19 @@ takes no arguments. Its settings are code at the top of the class, written with 
 private static final LocalDate DATE = LocalDate.of(2025, 9, 22);
 private static final long SEED = 42L;
 
-private static LmrsSettings lmrsSettings()
+private static final LmrsDefaults DEFAULTS = LmrsDefaults.FINAL_V2;   // or LmrsDefaults.UPSTREAM
+
+private static LmrsSettings lmrsSettings()                          // changes for cars and trucks, on top
 {
-    return new LmrsSettings()
-            .set(Setting.SYNCHRONIZATION, Synchronization.PASSIVE)
-            .set(Setting.COOPERATION, Cooperation.PASSIVE)
-            .set(Setting.GAP_ACCEPTANCE, GapAcceptance.INFORMED)
-            .set(Setting.INCENTIVE_KEEP, true)
-            // ...
+    return new LmrsSettings();                                      // e.g. .set(Setting.SYNCHRONIZATION, Synchronization.PASSIVE)
 }
+
+private static LmrsSettings lmrsSettings(final String vehicleClass) // changes for one class, after those above
 ```
 
-As committed every setting has upstream's value, so the GUI shows the benchmark. On start the class prints the
-composition read back from the factory that was built, and which settings differ from upstream
-(`car.settings=upstream defaults` or `car.settings=changed: SYNCHRONIZATION, ...`).
+As committed the GUI starts from `final-v2` and changes nothing, so it shows what the benchmark runs. On start the
+class prints the composition and the parameters read back from the factories that were built, and which settings
+differ from upstream (`car.settings=changed: SYNCHRONIZATION, COOPERATION, INCENTIVE_COURTESY`).
 
 `cluster/run_gui.sh` starts the same class from a shell and builds the class path. A GUI run is for looking: it
 writes its output only when the simulation reaches its end, and no `run.properties`.
@@ -105,6 +135,7 @@ cluster:
 
 | Option | Values (upstream default first) |
 |---|---|
+| `--lmrs.defaults` | `final-v2` (the default of this branch), `upstream` |
 | `--lmrs.synchronization` | `PASSIVE`, `PASSIVE_MOVING`, `ALIGN_GAP`, `ALIGN_GAP_MOVING` |
 | `--lmrs.cooperation` | `PASSIVE`, `NONE`, `PASSIVE_MOVING` |
 | `--lmrs.gapAcceptance` | `INFORMED`, `EGO_HEADWAY` |
@@ -113,13 +144,14 @@ cluster:
 | `--lmrs.incentiveGetInLane`, `…Courtesy`, `…Queue`, `…StayRight` | `false`, `true` |
 | `--lmrs.accelerationNoSlowLaneOvertake`, `--lmrs.accelerationSpeedLimitTransition` | `false`, `true` |
 | `--lmrs.socialPressure`, `--lmrs.tailgating`, `--lmrs.socioLaneChange`, `--lmrs.socioSpeed` | `false`, `true` |
+| `--lmrs.car.<setting>`, `--lmrs.truck.<setting>` | any of the settings above, for one vehicle class only: `--lmrs.truck.incentiveCourtesy=true` |
 | `--car.<parameter>=<value>`, `--truck.<parameter>=<value>` | any parameter of `ParameterTypes` or `LmrsParameters`, with its unit: `--car.T=1.1s`, `--car.vGain=50km/h`, `--car.dCoop=0.8` |
 
-Only what is named is set. `run.properties` records the composition read back from the factory that was built:
-every setting as `model.setting.<class>.<SETTING>`, the ones that differ from upstream in
-`model.<class>.settings=changed: ...`, and parameter overrides as `model.override.*`. A name or value the provider
-does not know stops the run during setup. A run whose settings line does not say `upstream defaults` is not the
-upstream-default benchmark.
+They apply on top of the defaults, in this order: defaults, settings for all classes, settings for one class.
+`run.properties` records the composition read back from the factory that was built: every setting as
+`model.setting.<class>.<SETTING>`, the ones that differ from upstream in `model.<class>.settings=changed: ...`, the
+parameters of the defaults as `model.default.*` and those a run sets as `model.override.*`. A name or value the
+provider does not know stops the run during setup.
 
 ## Presets
 
@@ -130,7 +162,8 @@ from the factory.
 
 | Preset | Content |
 |---|---|
-| `moving-ego-headway` | `synchronization=ALIGN_GAP_MOVING`, `cooperation=PASSIVE_MOVING`, `gapAcceptance=EGO_HEADWAY`; everything else as upstream. |
+| `upstream` | `lmrs.defaults=upstream`: the LMRS exactly as upstream's factory builds it. |
+| `moving-ego-headway` | `synchronization=ALIGN_GAP_MOVING`, `cooperation=PASSIVE_MOVING`, `gapAcceptance=EGO_HEADWAY`, on top of `final-v2`; against the default it changes the gap acceptance only. |
 
 ```bash
 cluster/run_local_parallel.sh --study=dates --output=out/preset --slots=2 -- \
