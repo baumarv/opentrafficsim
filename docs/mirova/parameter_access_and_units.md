@@ -47,10 +47,14 @@ each key set. So a single parameter lookup cost **O(number of units registered f
 and it did so on every access. That is profiling candidate 2 from the 2026-08-20/21 investigation —
 about 15 % of CPU, and explicitly untouched by the `LaneBasedGtu.CACHING=false` decision.
 
-On top of that, the success path of `getParameter` allocated a varargs `Object[]` and called
-`getId()` on every single call, because the null check went through
-`Throw.when(cond, Class, "…%s…", parameterType.getId())` — arguments are evaluated whether or not
-the condition holds.
+On top of that, the success path of `getParameter` called `getId()` on every single call, because
+the null check went through `Throw.when(cond, Class, "…%s…", parameterType.getId())` and arguments
+are evaluated whether or not the condition holds. **Correction (2026-09-28):** an earlier version of
+this paragraph said it also allocated a varargs `Object[]`. It did not: djutils 2.3.1 has fixed-arity
+`Throw.when` overloads for up to three arguments, the call bound to `when(boolean, Class, String,
+Object)`, and the bytecode of the old `ParameterSet` contains no `anewarray`. The eager `getId()` is
+a final-field getter the JIT inlines, so this part of the fix is cosmetic; the gain is the cached
+hash. See [`performance_call_paths.md`](performance_call_paths.md) §8.
 
 **This is a different fix from the rejected DJUnits patch.** That patch was declined for a good
 operational reason: it required a hand-built jar installed into every environment's `.m2`, invisible
@@ -69,7 +73,7 @@ without taking on the dependency risk. `djunits.version` remains stock `5.2.1`.
   contributing to the hash is `final`, so the value is invariant. `hashCode()` returns it;
   `equals()` short-circuits on it before the string comparisons.
 - `ParameterSet.getParameter` throws an explicit `ParameterException` instead of using `Throw.when`,
-  removing the per-call varargs allocation and `getId()`.
+  removing the eager per-call `getId()` (a cosmetic change; no varargs array was allocated, see above).
 
 This one change benefits **all** parameter reads in OTS, including the `old/` packages and code
 outside MiRoVA that was never migrated.
