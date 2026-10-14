@@ -36,8 +36,12 @@ Into `<output>/<scenario>/variation_<i>/run_seed_<seed>/`:
 `run.properties` records: scenario and day (`scenario`, `demand.start`, `demand.end`, `demand.csv`), `seed`,
 `replication`, `model`, `preset`, `noLaneChangeDistance`, `start.timestamp`, `end.timestamp`,
 `ots.upstream.commit`, `git.commit`, `git.dirty`, `performance.switches`, `jvm.locale`, `jvm.version`, `status`,
-what the driver model reported about itself (`model.*`, including every applied parameter override), and
-`gtus.removed`.
+what the driver model reported about itself (`model.*`, including every applied parameter override),
+`gtus.removed`, and the missed exits: `exits.destinations` (the exit destination nodes, `R6_8` here),
+`exits.missed` (how many exit-bound vehicles were removed, i.e. did not reach the exit) and `exits.missed.gtus`
+(their identifiers). An exit-bound vehicle that does not get into the exit lane before the split has no lane on its
+route there and is removed, so every missed exit is also counted in `gtus.removed` and listed in
+`removed_vehicles.csv` with `route_destination=R6_8`.
 
 `performance.switches=none` is literal: the performance changes on this branch are unconditional and have no
 runtime switch. Whether a run has them is decided by `git.commit` alone.
