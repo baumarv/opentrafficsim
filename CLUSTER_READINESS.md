@@ -122,51 +122,62 @@ the pipeline.
 
 ## 5. Test submission on bwUniCluster 3.0
 
+**The workspace `mirova-ots` is shared with the old MiRoVA checkout** (`$WS/opentrafficsim`); the benchmark
+checkout lives in `$WS/ots-benchmark`. Every benchmark build and submission must export `MIROVA_CP_FILE` (here
+`$WS/cp_benchmark.txt`): the default `$WS/cp.txt` is the MiRoVA checkout's classpath, a benchmark build without the
+export overwrites it, and the next MiRoVA job would then run the benchmark build. The build record follows the name
+(`cp_benchmark_build.env`). `MIROVA_OUTPUT_ROOT` must not be left at its default `$WS/output/dates` either, which
+both checkouts use with the same folder names. Details in `cluster/README.md`, "Sharing the workspace".
+
 One day (2025-09-22), two seeds, one array task with two runs, 30 minutes. Not submitted. The dry run of exactly
 this configuration was done locally under Git Bash with a mock workspace and prints the two expected `java`
 commands (indices 0 and 1); the commands below themselves have not been run on the cluster.
 
 ```bash
-# --- once: workspace and checkout (skip what exists) ---------------------------------------------
-ws_allocate mirova-ots 30
+# --- every session: workspace, and the export that keeps the MiRoVA checkout's classpath intact ---
 export MIROVA_WORKSPACE=mirova-ots
-cd "$(ws_find mirova-ots)"
-git clone -b ots-upstream-benchmark https://github.com/baumarv/opentrafficsim.git opentrafficsim
-cd opentrafficsim
+WS="$(ws_find mirova-ots)"
+export MIROVA_CP_FILE="$WS/cp_benchmark.txt"
+
+# --- once: checkout (skip if it exists) -------------------------------------------------------------
+cd "$WS"
+git clone -b ots-upstream-benchmark https://github.com/baumarv/opentrafficsim.git ots-benchmark
 
 # --- build: toolchain, clean install, classpath, build record, demand ---------------------------
+cd "$WS/ots-benchmark"
 git pull --ff-only
 cluster/build_for_cluster.sh
+ls -l "$WS/cp_benchmark.txt" "$WS/cp_benchmark_build.env"     # the benchmark's own files; cp.txt untouched
 
 # --- configure the test: one day, two seeds --------------------------------------------------------
 export MIROVA_CLUSTER_DIR="$PWD/cluster"
-export MIROVA_OUTPUT_ROOT="$(ws_find mirova-ots)/output/test_lmrs"
-export MIROVA_STUDY_OPTS="--dates=2025-09-22 --demand=$(ws_find mirova-ots)/demand --strict=true --replications=2"
+export MIROVA_OUTPUT_ROOT="$WS/output/benchmark/test_lmrs"
+export MIROVA_STUDY_OPTS="--dates=2025-09-22 --demand=$WS/demand --strict=true --replications=2"
 
 # --- look before submitting: prints the two java commands of task 0, starts nothing ---------------
 MIROVA_DRY_RUN=1 SLURM_ARRAY_TASK_ID=0 bash cluster/run_mirova.sbatch
 
 # --- submit: one task = two runs, 30 minutes ------------------------------------------------------
-JOBID=$(sbatch --parsable --array=0-0 --time=00:30:00 --chdir="$(ws_find mirova-ots)" cluster/run_mirova.sbatch)
+JOBID=$(sbatch --parsable --array=0-0 --time=00:30:00 --chdir="$WS" cluster/run_mirova.sbatch)
 echo "$JOBID"
 squeue -j "$JOBID"
 
 # --- check -----------------------------------------------------------------------------------------
 sacct -j "$JOBID" --format=JobID%20,JobName%14,State,ExitCode,Elapsed,TotalCPU,MaxRSS,ReqMem,AllocTRES%32
 seff "${JOBID}_0"
-cat "$(ws_find mirova-ots)/logs/mirova_${JOBID}_0.out"
-tail -n 5 "$(ws_find mirova-ots)"/logs/mirova_${JOBID}_0_run*.log
-ls "$(ws_find mirova-ots)"/output/test_lmrs/FreiburgNord_2025-09-22_13-00_to_22-00/variation_0/run_seed_*/
-grep -E '^(status|seed|model|preset|git|ots|wall|process|gtus)' \
-    "$(ws_find mirova-ots)"/output/test_lmrs/FreiburgNord_2025-09-22_13-00_to_22-00/variation_0/run_seed_*/run.properties
+cat "$WS/logs/mirova_${JOBID}_0.out"
+tail -n 5 "$WS"/logs/mirova_${JOBID}_0_run*.log
+ls "$MIROVA_OUTPUT_ROOT"/FreiburgNord_2025-09-22_13-00_to_22-00/variation_0/run_seed_*/
+grep -E '^(status|seed|model|preset|git|ots|wall|process|gtus|exits)' \
+    "$MIROVA_OUTPUT_ROOT"/FreiburgNord_2025-09-22_13-00_to_22-00/variation_0/run_seed_*/run.properties
 ```
 
 What to expect: `State=COMPLETED`, `ExitCode=0:0`; two run folders (`run_seed_42`, `run_seed_1000045`), each with
 seven files; `status=finished`, `git.dirty=false`, `gtus.removed` in the tens. `MaxRSS` of the `.batch` step is
 the number to size `--mem-per-cpu` and `MIROVA_JAVA_HEAP` from; it covers both JVMs.
 
-`--array` and `--time` on the command line override the `#SBATCH` lines of the script. The three `MIROVA_*`
-exports reach the job because `sbatch` exports the submitting environment by default.
+`--array` and `--time` on the command line override the `#SBATCH` lines of the script. The `MIROVA_*`
+exports, `MIROVA_CP_FILE` included, reach the job because `sbatch` exports the submitting environment by default.
 
 For the preset instead of the upstream default, add `export MIROVA_PRESET=moving-ego-headway` and use another
 `MIROVA_OUTPUT_ROOT`.
