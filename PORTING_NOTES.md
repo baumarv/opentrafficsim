@@ -346,3 +346,125 @@ or change any of them.
 - **Cars and trucks get the same LMRS parameter values** from upstream's factory (section 3).
 - **A full LMRS day costs about 5 to 8 minutes of CPU time** on the workstation, depending on its load. The
   `--time=02:00:00` and `--mem-per-cpu=8G` of `run_mirova.sbatch` are inherited and generous.
+
+## 10. Speed check after the port
+
+Question: are the speed limits the same after the port, and does the port change the speeds the vehicles drive?
+Answer: the limits are the same, the speeds are the same at the top of the distribution, and no vehicle exceeds its
+posted limit by more than 30 km/h. Nothing was changed. Speed limits and the car speed distribution stay as they
+are, by decision.
+
+### 10.1 Speed-limit definitions
+
+| Link type | Links | Old branch (1.7.6 format) | This branch (1.8.1 format) |
+|---|---|---|---|
+| `HIGHWAY` | `L1a`–`L5a` | `LegalSpeedLimit` car 200, truck 120 km/h | `SpeedLimit` 200 km/h, `GtuTypeSpeedLimit NL.TRUCK` 120 km/h |
+| `LOCAL` | `L_exit`, `L6_ramp`, `L7a` | car 65, truck 65 km/h | `SpeedLimit` 65 km/h |
+| `RAMP80` | `L7b` | car 80, truck 80 km/h | `SpeedLimit` 80 km/h |
+
+The only difference is the format: 1.8.1 has a lane limit plus optional limits per GTU type instead of one limit per
+GTU type, and on `LOCAL` and `RAMP80` the truck limit equalled the lane limit and was dropped. The link-to-type
+assignment and the layout are identical; neither file has lane-level, position-dependent or time-dependent limits,
+and the Java code sets none.
+
+How the limits become a desired speed differs between the versions, without effect here:
+
+| | 1.7.6 | 1.8.1 |
+|---|---|---|
+| Desired speed (IDM) | min(`fSpeed` × limit of the GTU type, maximum vehicle speed) | min(`fSpeed` × lane limit, `fSpeedGtu` × GTU-type limit, maximum vehicle speed) |
+| Cars on `HIGHWAY` | min(≈ 1.03 × 200, max. speed) = max. speed | the same |
+| Trucks on `HIGHWAY` | min(≈ 1.03 × 120, max. speed) = max. speed | should be min(≈ 1.03 × 200, ≈ 1.06 × 120, max. speed); is min(`fSpeed` × 130, max. speed) because of an upstream defect (below); = max. speed either way |
+
+The defect: `AbstractIdm.IdmDesiredSpeedModel.desiredSpeed` discards its computed value whenever a GTU-type limit
+exists and returns the no-limit fallback `fSpeed` × 130 km/h. Draft issue with a minimal example:
+`diagnosis/upstream_issues/04-idm-desired-speed-ignores-gtu-type-speed-limit.md`. **It has no effect in this
+scenario**: trucks draw a maximum speed of 79–100 km/h and the fallback is at least 0.8 × 130 = 104 km/h, so the
+maximum speed binds either way.
+
+### 10.2 Speeds, old fork vs this branch
+
+Day 2025-09-22, seeds 42 and 1000045, LMRS in both. The old fork is `origin/main` at `f41175d53` with a temporary,
+uncommitted LMRS provider; this branch at `eab9ba315`. Both with the sampler on `L1a`–`L5a`, `L7a`, `L7b`
+(`-Dmirova.samplerLinks`). The detector files hold one-minute harmonic means only, so the speed of each vehicle at a
+detector is interpolated linearly between its two trajectory samples around the detector position (old fork: one
+sample per 0.5 s plan step; this branch: 0.2 s). For `L4a`: the highest speed of each vehicle on the link.
+
+Cars, km/h, mean / median / 85th percentile / max:
+
+| Location | Seed 42, old | Seed 42, new | Seed 1000045, old | Seed 1000045, new |
+|---|---|---|---|---|
+| `det_L3a.Lane1` | 102 / 100 / 125 / 190 | 96 / 96 / 125 / 196 | 101 / 98 / 124 / 200 | 106 / 102 / 127 / 190 |
+| `det_L3a.Lane2` | 118 / 119 / 137 / 195 | 107 / 114 / 136 / 194 | 117 / 117 / 137 / 196 | 124 / 123 / 140 / 192 |
+| `det_L5a.Lane1` | 101 / 98 / 116 / 193 | 100 / 97 / 116 / 185 | 101 / 99 / 116 / 196 | 99 / 93 / 118 / 186 |
+| `det_L5a.Lane2` | 116 / 116 / 133 / 193 | 117 / 115 / 134 / 189 | 115 / 114 / 132 / 197 | 120 / 120 / 135 / 197 |
+| `det_L7a.Lane1` | 50 / 58 / 68 / 85 | 51 / 60 / 69 / 85 | 47 / 54 / 67 / 87 | 64 / 64 / 70 / 86 |
+| `L4a`, per vehicle | 98 / 97 / 126 / 195 | 92 / 93 / 124 / 196 | 96 / 95 / 125 / 197 | 106 / 103 / 127 / 195 |
+
+Trucks, km/h, same order:
+
+| Location | Seed 42, old | Seed 42, new | Seed 1000045, old | Seed 1000045, new |
+|---|---|---|---|---|
+| `det_L3a.Lane1` | 85 / 85 / 93 / 100 | 78 / 84 / 92 / 100 | 84 / 85 / 93 / 100 | 87 / 86 / 94 / 100 |
+| `det_L3a.Lane2` (n = 77 / 91 / 60 / 4) | 80 / 83 / 88 / 95 | 55 / 53 / 83 / 92 | 75 / 80 / 89 / 93 | 95 / 95 / 97 / 97 |
+| `det_L5a.Lane1` | 86 / 86 / 92 / 100 | 86 / 85 / 92 / 100 | 86 / 85 / 92 / 100 | 86 / 85 / 92 / 100 |
+| `det_L5a.Lane2` | 89 / 89 / 95 / 100 | 90 / 90 / 95 / 99 | 89 / 89 / 95 / 100 | 94 / 95 / 99 / 99 |
+| `det_L7a.Lane1` | 55 / 62 / 69 / 80 | 56 / 63 / 70 / 78 | 54 / 60 / 69 / 79 | 65 / 65 / 70 / 81 |
+| `L4a`, per vehicle | 81 / 82 / 90 / 100 | 77 / 82 / 90 / 100 | 80 / 81 / 90 / 100 | 85 / 84 / 92 / 100 |
+
+Cars by their highest speed on any sampled link:
+
+| | Seed 42, old | Seed 42, new | Seed 1000045, old | Seed 1000045, new |
+|---|---|---|---|---|
+| above 160 km/h | 483 | 504 | 537 | 573 |
+| above 190 km/h | 45 | 35 | 47 | 37 |
+| fastest | 199.8 | 199.2 | 199.9 | 199.7 |
+
+**Above the posted limit + 30 km/h: none**, in all four runs (cars 230 km/h on `HIGHWAY`, trucks 150; 95 on `LOCAL`,
+110 on `RAMP80`). On the on-ramp `L7a` (65 km/h) cars reach 85–87 km/h in both versions, which is `fSpeed` up to
+about 1.3.
+
+The upper tails agree. The differences in the means and medians are differences in congestion, which differs
+between the versions per seed in both directions (seed 42 more congested on this branch, seed 1000045 less); they
+are not a speed-limit effect.
+
+### 10.3 Where the speeds come from
+
+- **The car speed distribution reaches 200 km/h.** The maximum vehicle speed of a car is drawn from
+  `DesiredSpeedLibrary.carsLimit140_DensityLow`, support 80–200 km/h: 17.6 % above 160, 10.7 % above 170, 4.1 %
+  above 190 km/h. With `fSpeed` ≈ 1.03 the 200 km/h limit gives about 206 km/h and does not cap it, so the desired
+  speed of a car is its maximum vehicle speed. Trucks draw 79–100 km/h (`trucksLimit100_DensityClass1_Modified`).
+  Same in both versions.
+- **A vehicle is generated at its desired speed.** The room checker (`CfBaRoomChecker`, the default of `OdOptions`
+  in both versions) places a vehicle without a leader at the desired speed that the planner factory peeks, and one
+  behind a leader at no more than that leader's speed. Same logic in both versions.
+
+### 10.4 GTU 21722 (seed 1000045, this branch)
+
+| t (s) | Where | Speed |
+|---|---|---|
+| 30 201.76 | generated on `L1a/Lane2` at its desired speed (acceleration 0) | **192.1 km/h**, its maximum speed |
+| 30 215.76 | lane change to `L1a/Lane1` at 732 m, behind slower traffic | 171.6 km/h |
+| 30 221.84 | enters `L2a/Lane1` | **170.8 km/h**, below the 200 km/h limit |
+| 30 221.84 – 30 227.17 | stays on `Lane1`, brakes at −2.09 m/s² (`b`) over the 226.9 m of `L2a` | 170.8 → 133.3 km/h |
+| 30 227.26 | removed 4.2 m past the split `N2_3`, route destination `R6_8` (the exit) | 132.6 km/h |
+
+So the 171 km/h is a car that drew a maximum speed of 192 km/h, and it did not enter `L2a` above the limit. Its
+route leads to the exit; it did not get into the `Ramp` lane of the 226 m weaving section `L2a`, had no lane on its
+route at the split and was removed (RC2 in `DELETION_DIAGNOSIS.md`).
+
+**The same GTU id in the old fork is a different vehicle**: generated at the same time, but at 103.9 km/h, and it
+reaches the exit lane. The LMRS factory of 1.8.1 draws more random numbers per vehicle than the one of 1.7.6, so the
+draws no longer line up by GTU id. Single vehicles cannot be compared between the
+versions by id, only distributions.
+
+Braking at exactly `b` above 150 km/h occurs in both versions: in seed 1000045 on 1.0 % of the car samples above
+150 km/h on this branch and 0.7 % in the old fork.
+
+### 10.5 Missed exits in `run.properties`
+
+Each run now reports the exit-bound vehicles that did not reach the exit: `exits.destinations` (`R6_8`),
+`exits.missed` (the number) and `exits.missed.gtus` (their ids). An exit-bound vehicle that does not get into the
+exit lane before the split has no lane on its route there and OTS removes it through the scenario's error handler,
+so a missed exit is always a removal; the count is the removals whose route ends at an exit. A scenario that names no
+exit writes `exits.destinations=none` and `exits.missed=n/a`. Day 2025-09-22: seed 42 `exits.missed=0`, seed
+1000045 `exits.missed=1` (`21722`); the removals are unchanged (55 and 78).
