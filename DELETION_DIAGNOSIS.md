@@ -216,8 +216,8 @@ Why the LMRS did not change lane in 226 m at 171 km/h, braking at only `b`, was 
 | Sampler | `L4a` | not on the route |
 | Exit (`L_exit`, `L6_ramp`) | no detector (`det_L6a` does not exist) | the vehicle never reached it |
 
-So this removal is not visible in any output either, except as a vehicle missing from the exit, which is not
-measured. While it drove, it was a normal vehicle on `L2a`; its braking from 171 to 133 km/h on `Lane1` is the
+So this removal is not visible in the detector or trajectory output either. It is counted as a missed exit in
+`run.properties` (`exits.missed`, `exits.missed.gtus`; `PORTING_NOTES.md` 10.5). While it drove, it was a normal vehicle on `L2a`; its braking from 171 to 133 km/h on `Lane1` is the
 LMRS's own behaviour before the diverge and not an artefact of the removal.
 
 ## What this means for the runs
@@ -238,3 +238,7 @@ Ready to submit, in `diagnosis/upstream_issues/`:
 | `01-sink-not-triggered-after-lane-change.md` | RC1 | this scenario on this branch; not reduced to a minimal model |
 | `02-gtu-at-end-of-network-without-sink.md` | RC2, and an `IndexOutOfBoundsException` in `LaneOperationalPlanBuilder.getCenterLinePath:268` with the same trigger | **minimal**: upstream's `StraightModel` with its sink removed; 101 failures in 600 s (85 RC2, 16 index errors). Runner in `repro/` |
 | `03-bad-interval-in-getTargetLanePosition.md` | RC3 | this scenario; the minimal model does not produce it |
+
+Not a removal, found in the speed check (`PORTING_NOTES.md` section 10): `04-idm-desired-speed-ignores-gtu-type-speed-limit.md`,
+the IDM desired speed ignoring a GTU-type speed limit; minimal example `repro/DesiredSpeedRepro.java`; no effect in this
+scenario.
