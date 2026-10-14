@@ -47,8 +47,8 @@ resolve_workspace() {
     if [ -z "${MIROVA_WORKSPACE:-}" ]; then
         echo "ERROR: MIROVA_WORKSPACE is not set." >&2
         echo "       Allocate a workspace and export its name, e.g.:" >&2
-        echo "           ws_allocate mirova <days>" >&2
-        echo "           export MIROVA_WORKSPACE=mirova" >&2
+        echo "           ws_allocate mirova-ots <days>" >&2
+        echo "           export MIROVA_WORKSPACE=mirova-ots" >&2
         echo "       (choose the lifetime yourself; see 'ws_allocate --help')" >&2
         return 1
     fi
