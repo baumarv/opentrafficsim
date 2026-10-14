@@ -1,0 +1,18 @@
+# The LMRS composed as upstream's ShortMerge demo (ots-demo/.../ShortMerge.java, since upstream d921ef913), with
+# upstream's standard parameter values: the second variant of the benchmark campaign, beside the default final-v2.
+#
+#   from upstream's factory as it is (no final_v2 driver parameter)
+#   synchronization  ALIGN_GAP_MOVING  stop synchronizing below the creep speed, so a merger creeps into a gap
+#   cooperation      PASSIVE_MOVING    stop cooperating below the creep speed
+#   gap acceptance   INFORMED          upstream's default, stated
+#   courtesy         on                ShortMerge's ADDITIONAL_INCENTIVES, for cars and trucks
+#
+# Not taken from ShortMerge, because they are distributions or demo-specific values a preset cannot or should not
+# carry: socio ~ N(0.5, 0.1) (stays 1.0 here), truck a = 0.8 m/s^2 (stays 1.25), fSpeed sigma 12/120 (upstream 0.1,
+# almost the same), and its TTC room checker. The car desired-speed distribution is the scenario's, as for final-v2.
+# Select with --preset=shortmerge (MIROVA_PRESET=shortmerge on the cluster).
+lmrs.defaults=upstream
+lmrs.synchronization=ALIGN_GAP_MOVING
+lmrs.cooperation=PASSIVE_MOVING
+lmrs.gapAcceptance=INFORMED
+lmrs.incentiveCourtesy=true
