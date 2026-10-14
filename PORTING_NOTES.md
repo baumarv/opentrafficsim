@@ -216,8 +216,8 @@ Same files, same names, same columns. Compared against a fork run
 
 | File | Result |
 |---|---|
-| `sampler_RoadSampler_[samplingInterval=null].csv.zip` | Header identical: `traj#,linkId,laneId,gtuId,t,x,v,a,ActionState,LaneChangeDesireLeft,LaneChangeDesireRight,AccelerationDamping,GtuType,CurrentCFAcceleration`. Under LMRS: `ActionState` is `none`; the two desires, the damping and the car-following acceleration are `NaN`; `GtuType` is filled. |
-| Sampling step of the trajectories | **0.5 s instead of 0.2 s.** The sampler records a row per plan step, and the step is the driver model's time step. See `CLUSTER_READINESS.md`, section 2. |
+| `sampler_RoadSampler_[…].csv.zip` (now `[samplingInterval=0.20000000_s]`, see below) | Header identical: `traj#,linkId,laneId,gtuId,t,x,v,a,ActionState,LaneChangeDesireLeft,LaneChangeDesireRight,AccelerationDamping,GtuType,CurrentCFAcceleration`. Under LMRS: `ActionState` is `none`; the two desires, the damping and the car-following acceleration are `NaN`; `GtuType` is filled. |
+| `sampler_RoadSampler_[…].csv.zip` | **Renamed** to `sampler_RoadSampler_[samplingInterval=0.20000000_s].csv.zip`, because the sampler now has a fixed 0.2 s interval. Columns unchanged. See "Trajectory sampling" below. |
 | `…csv.header` | Identical, provided the run uses `-Dfile.encoding=UTF-8` (the runners set it). Without it a Windows JVM writes the `²` of `m/s²` in another encoding. |
 | `detector_periodic.csv` | Header identical: `id,GTU type,t,q,vHarm`. |
 | `detector_periodic.csvm`, `detector_positions.csvm` | One difference each: the class name in the first data row is `…road.network.object.detector.LoopDetector$6` instead of `…road.network.lane.object.detector.LoopDetector$6`. Unavoidable, the class moved upstream. |
@@ -227,6 +227,42 @@ Same files, same names, same columns. Compared against a fork run
 | `build.txt` | No longer written. |
 | `runParams.txt` | Same format; carries `model` instead of `tacticalPlanner`, and no `car.`/`truck.` keys unless a run sets some. |
 | `removed_vehicles.csv`, `removed_vehicles_traces.txt` | New. One row per vehicle OTS removed after an exception, and the distinct stack traces. Header only when none was removed. |
+
+### Trajectory sampling: a fixed 0.2 s interval
+
+The road sampler records every vehicle on the sampled lanes every **0.2 s**, independent of the driver model
+(`FreiburgNord.SAMPLING_INTERVAL`, set through `RoadSampler.Factory.setFrequency`). Before, it had no interval and
+wrote a row whenever a vehicle executed a plan step, which made the sampling step the driver model's time step:
+0.2 s in MiRoVA, 0.5 s in the LMRS. The LMRS time step itself is unchanged.
+
+**A sample is evaluated on the operational plan, not interpolated between plan steps.** Checked in the code of
+`RoadSampler` at `78f2601dd`: with an interval, the sampler schedules an event at every multiple of the interval
+(`scheduleSamplingInterval`) and in it (`notifySample`) reads `gtu.getPosition(lane, REFERENCE_POSITION)`,
+`gtu.getSpeed()` and `gtu.getAcceleration()` at the current simulation time. `LaneBasedGtu.getPosition(lane, rel,
+time)` takes the location from `getOperationalPlan(time).getLocation(time, …)` and projects it on the lane;
+`Gtu.getSpeed(time)` and `getAcceleration(time)` are likewise evaluated on the plan that is valid at that time. The
+extended columns are read at the same instant. An LMRS plan consists of segments of constant acceleration, so the
+values are those of the plan at the sample time, exactly.
+
+Besides the samples on the 0.2 s grid, the sampler records a vehicle when it enters or leaves a sampled lane (on a
+lane change, and when it enters or leaves `L4a`), as before. These rows are off the grid: 3.2 % of the rows.
+
+Seed 42 of 2025-09-22, before and after:
+
+| | 0.5 s (plan steps) | 0.2 s (fixed interval) |
+|---|---|---|
+| File | `sampler_RoadSampler_[samplingInterval=null].csv.zip` | `sampler_RoadSampler_[samplingInterval=0.20000000_s].csv.zip` |
+| Members | `…[samplingInterval=null].csv`, `….csv.header` | `…[samplingInterval=0.20000000_s].csv`, `….csv.header` |
+| Rows | 685 042 | 1 651 672 |
+| Vehicles | 19 095 | 19 095 |
+| Step within a trajectory | 0.5 s in 93 % | 0.2 s in 96.8 % |
+| Zip size | about 13 MB | 24.7 MB |
+| Header member content | — | identical |
+| Detector files, removed vehicles | — | identical: the sampling does not change the simulation |
+
+**The file name changes.** It is `sampler_` plus the sampler's `toString()`, which contains the interval. The
+pipeline finds the file with `*sampler_RoadSampler*`, which still matches; anything that spells out
+`[samplingInterval=null]` has to change to `[samplingInterval=0.20000000_s]`.
 
 ### 6.4 Code
 

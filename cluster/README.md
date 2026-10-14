@@ -25,7 +25,7 @@ Into `<output>/<scenario>/variation_<i>/run_seed_<seed>/`:
 | File | Content |
 |---|---|
 | `run.properties` | Run metadata, see below. Written before the simulation starts and completed when it ends. |
-| `sampler_RoadSampler_[samplingInterval=null].csv.zip` | Trajectories on the merge section `L4a`, with the six extended columns. |
+| `sampler_RoadSampler_[samplingInterval=0.20000000_s].csv.zip` | Trajectories on the merge section `L4a`, every 0.2 s, with the six extended columns. |
 | `detector_periodic.csv.zip`, `detector_positions.csv.zip` | Loop detectors on `L3a`, `L5a`, `L7a`: flow and harmonic mean speed per minute, and their positions. |
 | `diffused_vehicles.csv` | Header only. No driver model on this branch removes vehicles to dissolve a deadlock; the file is kept so that post-processing finds it. |
 | `removed_vehicles.csv`, `removed_vehicles_traces.txt` | One row per vehicle OTS removed after an exception (id, type, time, route destination, link, lane, position, speed, exception, trace hash), and the distinct stack traces by hash. Header only when none was removed. |
@@ -131,7 +131,7 @@ from the factory.
 ```bash
 cluster/run_local_parallel.sh --study=dates --output=out/preset --slots=2 -- \
     --dates=2025-09-22 --demand=cluster/demand --strict=true --replications=2 --preset=moving-ego-headway
-MIROVA_PRESET=moving-ego-headway sbatch --chdir="$(ws_find mirova)" cluster/run_mirova.sbatch
+MIROVA_PRESET=moving-ego-headway sbatch --chdir="$(ws_find mirova-ots)" cluster/run_mirova.sbatch
 ```
 
 ## On bwUniCluster 3.0
@@ -141,21 +141,21 @@ tarballs into `<workspace>/tools`, builds, writes the classpath to `<workspace>/
 built in `<workspace>/cp_build.env`, and copies the demand CSVs into `<workspace>/demand`.
 
 ```bash
-ws_allocate mirova <days>
-export MIROVA_WORKSPACE=mirova
-cd "$(ws_find mirova)" && git clone -b ots-upstream-benchmark <repository url> opentrafficsim && cd opentrafficsim
+ws_allocate mirova-ots <days>
+export MIROVA_WORKSPACE=mirova-ots
+cd "$(ws_find mirova-ots)" && git clone -b ots-upstream-benchmark <repository url> opentrafficsim && cd opentrafficsim
 
 cluster/build_for_cluster.sh
 
 # number of runs N of the study; the array is 0..ceil(N/2)-1 because each task runs two
-java -cp "$(cat "$(ws_find mirova)/cp.txt")" \
+java -cp "$(cat "$(ws_find mirova-ots)/cp.txt")" \
     org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunMirovaClusterStudy \
-    --study=dates --output="$(ws_find mirova)/output/dates" \
-    --dates=cluster/dates.txt --demand="$(ws_find mirova)/demand" --replications=20 --count
+    --study=dates --output="$(ws_find mirova-ots)/output/dates" \
+    --dates=cluster/dates.txt --demand="$(ws_find mirova-ots)/demand" --replications=20 --count
 
 export MIROVA_CLUSTER_DIR="$PWD/cluster"     # required, see below
 MIROVA_DRY_RUN=1 SLURM_ARRAY_TASK_ID=0 bash cluster/run_mirova.sbatch      # prints the commands of task 0
-sbatch --chdir="$(ws_find mirova)" cluster/run_mirova.sbatch
+sbatch --chdir="$(ws_find mirova-ots)" cluster/run_mirova.sbatch
 ```
 
 Three things about the batch script that are deliberate:

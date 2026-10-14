@@ -129,6 +129,17 @@ public class FreiburgNord extends ScenarioGenerator
     private static final Duration DETECTOR_AGGREGATION = Duration.ofSI(60.0);
 
     /**
+     * Interval at which the trajectory sampler records every vehicle on the sampled lanes.
+     * <p>
+     * Fixed, so that the trajectories do not depend on the driver model: without an interval the sampler writes a row per
+     * plan step, which is 0.2 s in MiRoVA and 0.5 s in the LMRS. A sample is evaluated on the vehicle's operational plan at
+     * the sample time (position, speed and acceleration of the plan at that instant), not interpolated between plan steps.
+     * 0.2 s is the step of the trajectories written so far.
+     * </p>
+     */
+    public static final Duration SAMPLING_INTERVAL = Duration.ofSI(0.2);
+
+    /**
      * Constructor for FreiburgNord.
      */
     public FreiburgNord()
@@ -636,7 +647,9 @@ public class FreiburgNord extends ScenarioGenerator
         RoadSampler sampler = null;
         if (enableSamplers)
         {
-            sampler = RoadSampler.build(this.network).registerExtendedDataType(new ExtendedDataActionState())
+            sampler = RoadSampler.build(this.network)
+                    .setFrequency(new Frequency(1.0 / SAMPLING_INTERVAL.si, FrequencyUnit.PER_SECOND))
+                    .registerExtendedDataType(new ExtendedDataActionState())
                     .registerExtendedDataType(new ExtendedDataLaneChangeDesireLeft())
                     .registerExtendedDataType(new ExtendedDataLaneChangeDesireRight())
                     .registerExtendedDataType(new ExtendedDataAccelerationDamping())
