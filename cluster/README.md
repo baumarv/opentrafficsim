@@ -270,6 +270,7 @@ branch is moved onto a newer upstream; every run copies it into its metadata.
 | `run_gui.sh` | Starts `RunFreiburgNordGui` from a shell. |
 | `guard.sh`, `test_guard.sh` | Preconditions that end a script instead of printing a value, and their test. |
 | `UPSTREAM_COMMIT` | The upstream commit the branch is based on. |
+| `verify_clean_builds.sh` | Builds twice with `build_for_cluster.sh` and fails unless the tree is clean before and after each build. Needs `MIROVA_CP_FILE`. |
 | `dates_benchmark.txt` | The three days of the benchmark campaign, the sbatch default, with the reasons they were chosen. |
 | `dates.txt`, `dates_calibration.txt`, `dates_extension.txt` | Date lists of the MiRoVA campaigns: all sixteen days, and subsets. |
 | `demand/`, `generate_demand_csvs.py`, `generate_demand_csvs.ps1` | Demand per date, and how it was generated. |

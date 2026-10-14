@@ -18,6 +18,7 @@ was checked before a cluster run is in `CLUSTER_READINESS.md`; why vehicles are 
 | `feat(demo): the LMRS can be composed per run …` and three follow-ups | LMRS settings, `LmrsSettings`, `RunFreiburgNordGui`, `cluster/run_gui.sh`. See 2.1 and 2.2. |
 | `feat(demo): one row per removed vehicle …` | `removed_vehicles.csv` and its traces. See 6.3. |
 | `feat(demo): presets replace the scenario parameter set …` | Presets; the scenario parameter set is removed. See 3. |
+| `build(xml): generate the JAXB sources in a fixed schema order` | `ots-xml/pom.xml`: the one approved change to the core build. See 6.1, "Schema order". |
 
 No class of the MiRoVA driver model is on the branch. No LMRS logic and no LMRS default parameter is changed.
 
@@ -231,6 +232,24 @@ not a measurement.
   `git diff --ignore-cr-at-eol` is empty. It touches files outside `ots-demo`. If you would rather not carry it,
   revert it together with the two generated-source lines in `.gitattributes`; the price is that a build on Linux
   leaves the tree modified and a cluster run records its commit as dirty.
+- **Schema order: the one approved change to the core build** (`ots-xml/pom.xml`, approved 2026-10-14 after
+  bwUniCluster builds came out dirty). `ots-xml` regenerates its tracked sources in `org.opentrafficsim.xml.generated` on every build. With
+  `<include>*.xsd</include>` the JAXB plugin takes the schemas in the order the file system lists them: its
+  `IOUtils.scanDirectoryForFiles` scans the directory and `reorderFiles` then orders the files by include pattern,
+  keeping the scan order within a pattern - so with one pattern, the whole order is the file system's. NTFS lists
+  names sorted, the Linux file systems of the cluster do not, and `ObjectFactory.java` came out in another method
+  order on every build there, which marked the next build `-dirty`. The include list now names the ten schemas one
+  by one, sorted (the fork's E4). Each pattern matches one file, so the order is the list's on every file system.
+  Upstream's pom is otherwise unchanged, and the change is marked in it with a comment.
+
+  Checked here (Windows): two consecutive generations with the sorted list leave no content change, and the result
+  is the committed `ObjectFactory.java`; the same list **reversed** changes `ObjectFactory.java`, so the order of
+  the list alone decides it. On Linux: `cluster/verify_clean_builds.sh` builds twice with `build_for_cluster.sh`
+  and fails unless `git status --porcelain` is empty before and after each build.
+
+  The price: a schema added to `src/main/resources/xsd` (by an upstream update, say) is not generated until it is
+  added to the list; it shows as missing generated classes at compile time. On Windows `git status` may list the generated files after a build although `git diff` is
+  empty: XJC writes CRLF there and the `.gitattributes` rule normalises it to the committed LF.
 - **The build needs the locale pinned too**, not only the runs. `ots-xml` regenerates its sources on every build and
   XJC writes Javadoc through a localised bundle. Since `pom.xml` and `.mvn/jvm.config` stay untouched as you asked,
   `build_for_cluster.sh` sets `MAVEN_OPTS` and the README says so for manual builds.
@@ -346,7 +365,7 @@ fork's; with a non-default value the round trip through `Speed` can differ in th
 | `TacticalPlannerFactoryHook` | It existed for a TaMA recording harness; a provider can do the same. |
 | Runners `RunFreiburgNord`, `RunFreiburgParallel`, `RunFreiburgMergeWatch`, `RunFreiburgNordNoDemand` | They set MiRoVA parameters or hard-coded local paths. `run_local_parallel.sh` covers their use. |
 | Tests `RunIdentityIT`, `TrajectoryColumnsIT`, `PlannerOverrideRefusalTest`, `ClusterTamaSupportTest`, `ScenarioParameterKeysResolveTest`, the three TaMA study tests | They test MiRoVA or TaMA behaviour, or mechanisms that changed shape. `DriverModelSelectionTest` covers the new selection. |
-| Changes to `CircularRoadModel`, `CircularRoadSwing`, `shortMerge.xml`, `AbstractSimulationScript`, `TJunctionModel`, `AnimationGtuData`, `ots-xml/pom.xml`, root `pom.xml`, `.mvn/jvm.config` | Not needed, or not approved. |
+| Changes to `CircularRoadModel`, `CircularRoadSwing`, `shortMerge.xml`, `AbstractSimulationScript`, `TJunctionModel`, `AnimationGtuData`, root `pom.xml`, `.mvn/jvm.config`, and the redundant `ots-road` dependency the fork added to `ots-xml/pom.xml` | Not needed, or not approved. The sorted schema list of `ots-xml/pom.xml` was ported later, approved (6.1). |
 
 Hard-coded local paths remain in `ScenarioGenerator.prepareSimulationDemand` and
 `ScenarioManager.runAll` (Python interpreter and scripts of the demand preparation and the plotting step). They are
