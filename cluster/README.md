@@ -135,31 +135,51 @@ from the factory.
 ```bash
 cluster/run_local_parallel.sh --study=dates --output=out/preset --slots=2 -- \
     --dates=2025-09-22 --demand=cluster/demand --strict=true --replications=2 --preset=moving-ego-headway
-MIROVA_PRESET=moving-ego-headway sbatch --chdir="$(ws_find mirova-ots)" cluster/run_mirova.sbatch
+# on the cluster: with the exports of "Sharing the workspace" below, and another MIROVA_OUTPUT_ROOT
+MIROVA_PRESET=moving-ego-headway sbatch --chdir="$WS" cluster/run_mirova.sbatch
 ```
 
 ## On bwUniCluster 3.0
 
 The cluster has no Java or Maven modules. `build_for_cluster.sh` provisions JDK 17 (Adoptium) and Maven 3.9.9 as
-tarballs into `<workspace>/tools`, builds, writes the classpath to `<workspace>/cp.txt`, records the commit it
-built in `<workspace>/cp_build.env`, and copies the demand CSVs into `<workspace>/demand`.
+tarballs into `<workspace>/tools`, builds, writes the classpath to `$MIROVA_CP_FILE` (default `<workspace>/cp.txt`),
+records the commit it built beside it (`cp_benchmark_build.env` for `cp_benchmark.txt`), and copies the demand CSVs
+into `<workspace>/demand`.
+
+### Sharing the workspace with the MiRoVA checkout
+
+The benchmark shares the workspace `mirova-ots` (`$WS` below) with the old MiRoVA checkout in `$WS/opentrafficsim`.
+The benchmark checkout lives in **`$WS/ots-benchmark`**. Both checkouts have the same defaults for the classpath
+file and the output, so **every benchmark build and every benchmark submission must export**:
+
+| Variable | Value | Why |
+|---|---|---|
+| `MIROVA_CP_FILE` | `$WS/cp_benchmark.txt` | The default `$WS/cp.txt` is the MiRoVA checkout's classpath. A benchmark build without the export overwrites it, and the next MiRoVA job runs the benchmark build. The build record follows the name (`cp_benchmark_build.env`), so it stays separate as well. |
+| `MIROVA_OUTPUT_ROOT` | e.g. `$WS/output/benchmark/dates` | The default `$WS/output/<study>` is the same in both checkouts, with the same folder names (`FreiburgNord_…/variation_0/run_seed_42`), so the runs of one would overwrite the other's. |
+
+Shared without harm: `$WS/tools` (same JDK and Maven), the SLURM logs in `$WS/logs` (named by job id), and
+`$WS/demand`. The demand CSVs are identical in both checkouts; a build copies its own over the existing ones, so a
+demand set regenerated on one side reaches the other side's runs as well.
 
 ```bash
-ws_allocate mirova-ots <days>
+ws_allocate mirova-ots <days>                       # once; skip if it exists
 export MIROVA_WORKSPACE=mirova-ots
-cd "$(ws_find mirova-ots)" && git clone -b ots-upstream-benchmark <repository url> opentrafficsim && cd opentrafficsim
+WS="$(ws_find mirova-ots)"
+export MIROVA_CP_FILE="$WS/cp_benchmark.txt"        # required, see above
+export MIROVA_OUTPUT_ROOT="$WS/output/benchmark/dates"
+cd "$WS" && git clone -b ots-upstream-benchmark <repository url> ots-benchmark && cd ots-benchmark
 
 cluster/build_for_cluster.sh
 
 # number of runs N of the study; the array is 0..ceil(N/2)-1 because each task runs two
-java -cp "$(cat "$(ws_find mirova-ots)/cp.txt")" \
+java -cp "$(cat "$MIROVA_CP_FILE")" \
     org.opentrafficsim.demo.mirova.scenariomanagement.scenarios.RunMirovaClusterStudy \
-    --study=dates --output="$(ws_find mirova-ots)/output/dates" \
-    --dates=cluster/dates.txt --demand="$(ws_find mirova-ots)/demand" --replications=20 --count
+    --study=dates --output="$MIROVA_OUTPUT_ROOT" \
+    --dates=cluster/dates.txt --demand="$WS/demand" --replications=20 --count
 
 export MIROVA_CLUSTER_DIR="$PWD/cluster"     # required, see below
 MIROVA_DRY_RUN=1 SLURM_ARRAY_TASK_ID=0 bash cluster/run_mirova.sbatch      # prints the commands of task 0
-sbatch --chdir="$(ws_find mirova-ots)" cluster/run_mirova.sbatch
+sbatch --chdir="$WS" cluster/run_mirova.sbatch
 ```
 
 Three things about the batch script that are deliberate:
