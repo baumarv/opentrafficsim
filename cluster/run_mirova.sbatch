@@ -185,7 +185,8 @@ JAVA_OPTS="${JAVA_OPTS} -XX:-OmitStackTraceInFastThrow"
 # the study options below, so that the same study body, days and seeds run on another model or composition with one
 # variable changed.
 #   MIROVA_MODEL   key of a driver model; default lmrs. MIROVA_TACTICAL_PLANNER is accepted as its old name.
-#   MIROVA_PRESET  name of a file in cluster/presets (without .preset), or a path; unset = the model as it is.
+#   MIROVA_PRESET  name of a file in cluster/presets (without .preset), or a path; unset = the model with its defaults
+#                  (for the LMRS: final-v2; MIROVA_PRESET=upstream for upstream's factory as it is).
 #                  Single options (--lmrs.<setting>=..., --car.<parameter>=...) go into MIROVA_STUDY_OPTS.
 MODEL="${MIROVA_MODEL:-${MIROVA_TACTICAL_PLANNER:-lmrs}}"
 MODEL_OPT=("--model=${MODEL}")

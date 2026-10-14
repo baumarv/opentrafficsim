@@ -1,0 +1,7 @@
+# The LMRS exactly as upstream's factory builds it: no setting and no driver parameter changed.
+#
+# The benchmark default is the configuration final-v2 (LmrsDefaults.FINAL_V2): the composition of upstream's
+# ShortMerge demo with the driver parameters of the MiRoVA campaign final_v2. This preset goes back to upstream.
+# The car desired-speed distribution is a property of the scenario and stays as the facility sets it.
+# Select with --preset=upstream (MIROVA_PRESET=upstream on the cluster).
+lmrs.defaults=upstream

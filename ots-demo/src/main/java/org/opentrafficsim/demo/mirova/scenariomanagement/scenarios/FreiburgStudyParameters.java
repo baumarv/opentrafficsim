@@ -4,10 +4,17 @@ import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioGenerator;
 import org.opentrafficsim.demo.mirova.scenariomanagement.ScenarioParameters;
 
 /**
- * The parameters shared by every study of the Freiburg-Nord facility: the simulated period and the demand wiring.
+ * The parameters shared by every study of the Freiburg-Nord facility: the simulated period, the demand wiring and the car
+ * desired-speed distribution.
  * <p>
- * It sets no driver parameter. Every driver model runs on its own parameter values unless a run changes them explicitly, with
- * {@code car.<parameter>} or {@code truck.<parameter>} options or with a preset.
+ * It sets no driver parameter; each driver model starts from its own defaults (for the LMRS see {@code LmrsDefaults}), and a
+ * run changes them with {@code car.<parameter>} or {@code truck.<parameter>} options or with a preset.
+ * </p>
+ * <p>
+ * The car desired-speed distribution is that of the MiRoVA campaign final_v2: the measured distribution compressed towards
+ * {@value #DESIRED_SPEED_PIVOT_CAR_KMH} km/h by a factor of {@value #DESIRED_SPEED_COMPRESSION_CAR}, v -&gt; pivot + factor
+ * (v - pivot), which moves 80..200 km/h to 101..185 km/h. It is a property of the population of drivers, not of a driver
+ * model, so every model runs with it.
  * </p>
  * <p>
  * Copyright (c) 2026 Marvin Baumann / KIT. All rights reserved. <br>
@@ -25,6 +32,12 @@ public final class FreiburgStudyParameters
 
     /** End of the simulated period, as time of day. */
     public static final String END_TIME_OF_DAY = "22:00:00";
+
+    /** Speed the car desired-speed distribution is compressed towards [km/h], as in final_v2. */
+    public static final double DESIRED_SPEED_PIVOT_CAR_KMH = 150.0;
+
+    /** Compression factor of the car desired-speed distribution, as in final_v2. */
+    public static final double DESIRED_SPEED_COMPRESSION_CAR = 0.7;
 
     /**
      * Utility class.
@@ -78,11 +91,15 @@ public final class FreiburgStudyParameters
     }
 
     /**
-     * Returns the behavioural baseline of the facility, which is empty: every driver model runs on its own defaults.
-     * @return ScenarioParameters; a fresh, empty instance
+     * Returns the behavioural baseline of the facility: the car desired-speed distribution. Driver parameters are left to the
+     * driver model.
+     * @return ScenarioParameters; a fresh instance with the baseline
      */
     public static ScenarioParameters baseBehaviorParams()
     {
-        return new ScenarioParameters();
+        ScenarioParameters params = new ScenarioParameters();
+        params.set(ScenarioParameters.KEY_DESIRED_SPEED_PIVOT_CAR, DESIRED_SPEED_PIVOT_CAR_KMH);
+        params.set(ScenarioParameters.KEY_DESIRED_SPEED_COMPRESSION_CAR, DESIRED_SPEED_COMPRESSION_CAR);
+        return params;
     }
 }

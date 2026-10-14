@@ -390,7 +390,8 @@ public final class RunMirovaClusterStudy
         System.err.println("  --preset     a named combination of the driver model options below: a file, or the name of "
                 + "one in " + PRESET_DIRECTORY + "; options given explicitly win over it");
         System.err.println("  --simulationTime  simulated duration with unit, e.g. 900s; for smoke tests only");
-        System.err.println("  --lmrs.<setting>=<value>  compose the LMRS differently from upstream: "
+        System.err.println("  --lmrs.<setting>=<value>  compose the LMRS differently from its defaults (final-v2; --preset=upstream for "
+                + "upstream's factory as it is): "
                 + LmrsDriverModelProvider.SETTINGS_HELP);
         System.err.println("  --car.<parameter>=<value>, --truck.<parameter>=<value>  a driver parameter with its unit, "
                 + "e.g. --car.T=1.1s");

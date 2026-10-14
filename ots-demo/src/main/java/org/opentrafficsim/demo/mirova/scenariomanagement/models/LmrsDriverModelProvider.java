@@ -24,14 +24,17 @@ import org.opentrafficsim.road.gtu.tactical.util.lmrs.LmrsParameters;
 /**
  * The LMRS of upstream OpenTrafficSim, as a selectable driver model.
  * <p>
- * The factory is upstream's {@link LmrsFactory}. Without model settings and without parameter overrides in the request it is
- * exactly what {@code new LmrsFactory<>(Lmrs::new)} gives: no setting and no parameter is touched, which is the benchmark
- * configuration.
+ * The factory is upstream's {@link LmrsFactory}, started from a named configuration, {@link LmrsDefaults}: by default
+ * {@link LmrsDefaults#FINAL_V2}, the composition of upstream's ShortMerge demo with the driver parameters of the MiRoVA campaign
+ * final_v2. {@code lmrs.defaults=upstream} starts from upstream's factory as it is, exactly what
+ * {@code new LmrsFactory<>(Lmrs::new)} gives.
  * </p>
  * <p>
  * A run may compose the LMRS differently, in two ways. A program hands over an {@link LmrsSettings} object under
  * {@link #KEY_SETTINGS}, which states settings and values with the LMRS's own types. A command line addresses single settings
- * as text, {@code lmrs.<name>=<value>}, see {@link #SETTINGS_HELP}. Either way the settings are applied through
+ * as text, {@code lmrs.<name>=<value>}, see {@link #SETTINGS_HELP}. Either may be addressed to one vehicle class,
+ * {@code lmrs.car.<name>} or {@code lmrs.car.settings}, and then applies to that class only. The order is: the defaults, the
+ * settings for all classes, the settings for this class. Either way the settings are applied through
  * {@link LmrsFactory#set(Setting, Object)}, the same way a program using upstream would set them, and only what is named is
  * set. The command-line options of {@link LmrsFactory} itself are deliberately not used: their defaults differ from the
  * defaults of a factory built in code (the perception model, for one), so parsing through them would change the model even
@@ -54,6 +57,12 @@ public class LmrsDriverModelProvider implements DriverModelProvider
 
     /** Name of the setting under which a program hands over an {@link LmrsSettings} object. */
     public static final String KEY_SETTINGS = "settings";
+
+    /** Name of the setting that selects the configuration the factory starts from, see {@link LmrsDefaults}. */
+    public static final String KEY_DEFAULTS = "defaults";
+
+    /** The vehicle classes a setting may be addressed to, as {@code <vehicle class>.<name>}. */
+    public static final List<String> VEHICLE_CLASSES = List.of("car", "truck");
 
     /** Name of the setting that selects the synchronization strategy. */
     public static final String SYNCHRONIZATION = "synchronization";
@@ -88,11 +97,12 @@ public class LmrsDriverModelProvider implements DriverModelProvider
     }
 
     /** The settings this provider understands, with their values and the defaults of upstream's factory. */
-    public static final String SETTINGS_HELP = SYNCHRONIZATION + "=PASSIVE|PASSIVE_MOVING|ALIGN_GAP|ALIGN_GAP_MOVING (upstream: "
-            + "PASSIVE), " + COOPERATION + "=NONE|PASSIVE|PASSIVE_MOVING (upstream: PASSIVE), " + GAP_ACCEPTANCE
+    public static final String SETTINGS_HELP = KEY_DEFAULTS + "=final-v2|upstream (default: final-v2), " + SYNCHRONIZATION
+            + "=PASSIVE|PASSIVE_MOVING|ALIGN_GAP|ALIGN_GAP_MOVING (upstream: PASSIVE), " + COOPERATION + "=NONE|PASSIVE|PASSIVE_MOVING (upstream: PASSIVE), " + GAP_ACCEPTANCE
             + "=INFORMED|EGO_HEADWAY (upstream: INFORMED), " + FULLER_IMPLEMENTATION + "=" + fullerNames()
             + " (upstream: NONE), and true|false for " + String.join(", ", BOOLEAN_SETTINGS.keySet())
-            + " (upstream: true for incentiveRoute, incentiveSpeedWithCourtesy and incentiveKeep, false for the others)";
+            + " (upstream: true for incentiveRoute, incentiveSpeedWithCourtesy and incentiveKeep, false for the others); "
+            + "each also as car.<name> or truck.<name> for one vehicle class";
 
     /** The parameter types an override may address: the standard OTS ones and those of the LMRS. */
     private static final Map<String, ParameterType<?>> PARAMETER_TYPES =
@@ -109,6 +119,9 @@ public class LmrsDriverModelProvider implements DriverModelProvider
 
     /** Vehicle class of the request this provider served. */
     private String vehicleClass = null;
+
+    /** The configuration the factory was started from. */
+    private LmrsDefaults defaults = LmrsDefaults.DEFAULT;
 
     /**
      * Constructor.
@@ -130,7 +143,81 @@ public class LmrsDriverModelProvider implements DriverModelProvider
     {
         this.vehicleClass = request.vehicleClass();
         LmrsFactory<Lmrs> factory = new LmrsFactory<>(List.of(request.gtuType()), Lmrs::new).setStream(request.stream());
+        Map<String, Object> forAll = new LinkedHashMap<>();
+        Map<String, Object> forThisClass = new LinkedHashMap<>();
         for (Map.Entry<String, Object> setting : request.modelSettings().entrySet())
+        {
+            String name = setting.getKey();
+            int dot = name.indexOf('.');
+            if (KEY_DEFAULTS.equals(name))
+            {
+                this.defaults = LmrsDefaults.of(String.valueOf(setting.getValue()));
+            }
+            else if (dot < 0)
+            {
+                forAll.put(name, setting.getValue());
+            }
+            else if (!VEHICLE_CLASSES.contains(name.substring(0, dot)))
+            {
+                throw new IllegalArgumentException("'" + KEY + "." + name + "' addresses no vehicle class; a setting for one "
+                        + "class is " + KEY + ".<" + String.join("|", VEHICLE_CLASSES) + ">.<name>.");
+            }
+            else if (name.substring(0, dot).equals(request.vehicleClass()))
+            {
+                forThisClass.put(name.substring(dot + 1), setting.getValue());
+            }
+            // a setting for another vehicle class is that class's provider's to apply and check
+        }
+        this.defaults.settings(request.vehicleClass()).applyTo(factory);
+        applySettings(factory, forAll);
+        applySettings(factory, forThisClass);
+        // What is reported is read back from the factory, and compared with one built the way upstream builds it. The
+        // record then states what ran, and stays right when upstream changes a default.
+        this.effectiveSettings = LmrsSettings.read(factory);
+        Map<String, String> upstream = LmrsSettings.read(new LmrsFactory<>(List.of(request.gtuType()), Lmrs::new));
+        for (Map.Entry<String, String> effective : this.effectiveSettings.entrySet())
+        {
+            if (!effective.getValue().equals(upstream.get(effective.getKey())))
+            {
+                this.changedSettings.add(effective.getKey());
+            }
+        }
+        // The parameters of the defaults first, the run's own overrides replace them; each parameter is added once.
+        Map<ParameterType<?>, Object> parameters = new LinkedHashMap<>(this.defaults.parameters(request.vehicleClass()));
+        Map<ParameterType<?>, String> origin = new LinkedHashMap<>();
+        parameters.keySet().forEach((parameterType) -> origin.put(parameterType, "default"));
+        for (Map.Entry<String, Object> override : request.parameterOverrides().entrySet())
+        {
+            ParameterType<?> parameterType = PARAMETER_TYPES.get(override.getKey());
+            if (parameterType == null)
+            {
+                throw new IllegalArgumentException("Parameter override '" + request.vehicleClass() + "." + override.getKey()
+                        + "' names no parameter of OTS or the LMRS. Refusing to run: an override that is silently ignored "
+                        + "leaves a run labelled with a parameter it never used.");
+            }
+            parameters.put(parameterType, ParameterOverrides.convert(parameterType, override.getValue()));
+            origin.put(parameterType, "override");
+        }
+        for (Map.Entry<ParameterType<?>, Object> parameter : parameters.entrySet())
+        {
+            factory.addParameter(request.gtuType(), (ParameterType) parameter.getKey(), parameter.getValue());
+            this.applied.add(origin.get(parameter.getKey()) + "." + request.vehicleClass() + "." + parameter.getKey().getId()
+                    + "=" + parameter.getValue());
+        }
+        // The LMRS factory is its own parameter factory: it is what applies the overrides above to each vehicle.
+        return new LaneBasedStrategicalRoutePlannerFactory(factory, factory);
+    }
+
+    /**
+     * Applies model settings to the factory, in the order given: an {@link LmrsSettings} object under {@link #KEY_SETTINGS},
+     * any other as a single setting given as text.
+     * @param factory LmrsFactory&lt;Lmrs&gt;; the factory being configured
+     * @param settings Map&lt;String, Object&gt;; name of the setting to its value
+     * @throws Exception when a name is no setting of this provider, or a value is not one of its values
+     */
+    private void applySettings(final LmrsFactory<Lmrs> factory, final Map<String, Object> settings) throws Exception
+    {
+        for (Map.Entry<String, Object> setting : settings.entrySet())
         {
             if (KEY_SETTINGS.equals(setting.getKey()))
             {
@@ -147,32 +234,6 @@ public class LmrsDriverModelProvider implements DriverModelProvider
                 applySetting(factory, setting.getKey(), String.valueOf(setting.getValue()).trim());
             }
         }
-        // What is reported is read back from the factory, and compared with one built the way upstream builds it. The
-        // record then states what ran, and stays right when upstream changes a default.
-        this.effectiveSettings = LmrsSettings.read(factory);
-        Map<String, String> upstream = LmrsSettings.read(new LmrsFactory<>(List.of(request.gtuType()), Lmrs::new));
-        for (Map.Entry<String, String> effective : this.effectiveSettings.entrySet())
-        {
-            if (!effective.getValue().equals(upstream.get(effective.getKey())))
-            {
-                this.changedSettings.add(effective.getKey());
-            }
-        }
-        for (Map.Entry<String, Object> override : request.parameterOverrides().entrySet())
-        {
-            ParameterType<?> parameterType = PARAMETER_TYPES.get(override.getKey());
-            if (parameterType == null)
-            {
-                throw new IllegalArgumentException("Parameter override '" + request.vehicleClass() + "." + override.getKey()
-                        + "' names no parameter of OTS or the LMRS. Refusing to run: an override that is silently ignored "
-                        + "leaves a run labelled with a parameter it never used.");
-            }
-            Object value = ParameterOverrides.convert(parameterType, override.getValue());
-            factory.addParameter(request.gtuType(), (ParameterType) parameterType, value);
-            this.applied.add("override." + request.vehicleClass() + "." + parameterType.getId() + "=" + value);
-        }
-        // The LMRS factory is its own parameter factory: it is what applies the overrides above to each vehicle.
-        return new LaneBasedStrategicalRoutePlannerFactory(factory, factory);
     }
 
     /**
@@ -244,10 +305,12 @@ public class LmrsDriverModelProvider implements DriverModelProvider
     {
         StringBuilder text = new StringBuilder();
         text.append(this.vehicleClass).append(".factory=").append(LmrsFactory.class.getName()).append('\n');
+        text.append(this.vehicleClass).append(".defaults=").append(this.defaults.id()).append('\n');
         text.append(this.vehicleClass).append(".settings=").append(this.changedSettings.isEmpty() ? "upstream defaults"
                 : "changed: " + String.join(", ", this.changedSettings)).append('\n');
         text.append(this.vehicleClass).append(".parameterOverrides=")
-                .append(this.applied.isEmpty() ? "none (upstream defaults)" : "applied, see override.*").append('\n');
+                .append(this.applied.isEmpty() ? "none (upstream defaults)" : "applied, see default.* and override.*")
+                .append('\n');
         for (Map.Entry<String, String> setting : this.effectiveSettings.entrySet())
         {
             text.append("setting.").append(this.vehicleClass).append('.').append(setting.getKey()).append('=')
