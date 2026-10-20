@@ -21,20 +21,20 @@ public interface LaneRecordInterface<R extends LaneRecordInterface<R>>
 {
 
     /**
-     * Returns a list of next lanes.
-     * @return list of next lanes
+     * Returns a set of next lanes.
+     * @return set of next lanes
      */
     Set<? extends R> getNext();
 
     /**
-     * Returns a list of previous lanes.
-     * @return list of previous lanes
+     * Returns a set of previous lanes.
+     * @return set of previous lanes
      */
     Set<? extends R> getPrev();
 
     /**
-     * Get lateral lanes.
-     * @return lateral lanes.
+     * Returns a set of laterally connected lanes.
+     * @return set of laterally connected lanes
      */
     default Set<? extends R> lateral()
     {
@@ -45,11 +45,11 @@ public interface LaneRecordInterface<R extends LaneRecordInterface<R>>
      * Returns the distance from a reference to the start of this lane, negative for upstream distance.
      * @return the distance from a reference to the start of this lane, negative for upstream distance
      */
-    Length getStartDistance();
+    double getStartDistance();
 
     /**
      * Returns the length of the lane.
-     * @return length of the lane.
+     * @return length of the lane
      */
     default Length getLength()
     {
@@ -69,7 +69,7 @@ public interface LaneRecordInterface<R extends LaneRecordInterface<R>>
      */
     default Length getDistanceToPosition(final Length position)
     {
-        return Length.ofSI(getStartDistance().si + position.si);
+        return Length.ofSI(getStartDistance() + position.si);
     }
 
     /**
@@ -85,7 +85,7 @@ public interface LaneRecordInterface<R extends LaneRecordInterface<R>>
     /**
      * Returns the merge distance, i.e. the ego-distance after which this road merges with the road of this record. Returns zero
      * if this is not the other road upstream of a merge.
-     * @return merge distance.
+     * @return merge distance
      */
     default Length getMergeDistance()
     {
