@@ -1008,9 +1008,15 @@ public class Lane extends CrossSectionElement implements HierarchicallyTyped<Lan
      */
     public ImmutableSet<Link> prevLinks(final GtuType gtuType)
     {
-        return this.prevLinks.computeIfAbsent(gtuType,
-                (g) -> new ImmutableLinkedHashSet<>(prevLanes(gtuType).stream().map((lane) -> lane.getLink())
-                        .collect(SmallArraySet::new, (s, l) -> s.add(l), (s1, s2) -> s1.addAll(s2)), Immutable.WRAP));
+        // Marvin Baumann (KIT): the collected set is typed as Set<Link>. Left to inference, javac (Maven) finds both
+        // ImmutableLinkedHashSet(Set, Immutable) and ImmutableLinkedHashSet(ImmutableAbstractSet, Immutable) applicable and
+        // rejects the call as ambiguous; the Eclipse compiler accepts it. Same constructor, same result.
+        return this.prevLinks.computeIfAbsent(gtuType, (g) ->
+        {
+            Set<Link> links = prevLanes(gtuType).stream().map((lane) -> lane.getLink()).collect(SmallArraySet::new,
+                    (s, l) -> s.add(l), (s1, s2) -> s1.addAll(s2));
+            return new ImmutableLinkedHashSet<>(links, Immutable.WRAP);
+        });
     }
 
     /**
